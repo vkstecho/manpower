@@ -899,6 +899,40 @@ function getActiveRotationCodes(){
   if(work.length) return work;
   return ['D','N'];
 }
+
+/** Parse shift cell value into work codes. Supports "D+N", "DN", "A+B", "D/N" etc. */
+function parseShiftWorkCodes(sh){
+  if(!sh) return [];
+  const raw = String(sh).trim().toUpperCase().replace(/\s+/g,'');
+  if(!raw) return [];
+  // Status-only codes (not work shifts)
+  const statusOnly = new Set(['O','L','G','GP','HLF','AB','H','OD','C/O','CO','']);
+  if(statusOnly.has(raw) || statusOnly.has(sh)) return [];
+  // Explicit combo separators
+  if(/[+\/&,]/.test(raw)){
+    return raw.split(/[+\/&,]+/).map(x=>x.trim()).filter(x=>['D','N','A','B','C'].includes(x));
+  }
+  // Two-letter combo DN, ND, AB, BA, AC, CA, BC, CB
+  if(raw.length===2 && /^[DNABC]{2}$/.test(raw) && raw[0]!==raw[1]){
+    return [raw[0], raw[1]];
+  }
+  if(['D','N','A','B','C'].includes(raw)) return [raw];
+  return [];
+}
+/** Does this cell count toward a given work shift code (for min-staff rows)? */
+function shiftCountsToward(sh, code){
+  const codes = parseShiftWorkCodes(sh);
+  if(codes.length) return codes.includes(String(code).toUpperCase());
+  return String(sh).toUpperCase() === String(code).toUpperCase();
+}
+/** Headcount for total manpower: one person = 1 even on double shift */
+function isPresentOnRoster(sh){
+  if(!sh) return false;
+  const u = String(sh).toUpperCase();
+  if(['O','L','AB','H','C/O','CO',''].includes(u)) return false;
+  return true;
+}
+
 function getMinStaffForFilter(){
   // Schedule red/⚠️ is linked ONLY to Profile → "Minimum Staff — from your Team Excel" (minByField)
   const cfg = getShiftConfigSync();
@@ -1695,17 +1729,17 @@ function _showLoginScreenSafely(){
 }
 
 // ── 45-DAY HARD EXPIRY ──
-// First login sets a 45-day timer in Firebase (device-independent)
-// After 45 days: app fully locked, admin must give fresh approval
+// First login sets a 1-year (365-day) timer in Firebase (device-independent)
+// After expiry: app locked until Admin extends validity
 
 async function checkUserExpiry(){
   const empId = SESSION.empObjId || SESSION.empId;
-  if(!empId) return { valid:true, daysLeft:45 }; // Guest / admin
+  if(!empId) return { valid:true, daysLeft:365 }; // Guest / admin
 
   try{
     // Check Firebase for expiry (cross-device)
     const approval = await fbGet('deviceApprovals/' + empId);
-    if(!approval) return { valid:true, daysLeft:45 }; // New user
+    if(!approval) return { valid:true, daysLeft:365 }; // New user — 1 year default until record exists
     
     const validTill = new Date(approval.validTill);
     const now = new Date();
@@ -1713,7 +1747,7 @@ async function checkUserExpiry(){
     
     return { valid: daysLeft > 0, daysLeft: Math.max(0, daysLeft), expiry: approval.validTill };
   } catch(e){
-    return { valid:true, daysLeft:45 };
+    return { valid:true, daysLeft:365 };
   }
 }
 
@@ -1734,7 +1768,7 @@ function showHardExpiry(){
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
         ACCESS EXPIRED
       </div>
-      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">45 दिन पूरे हो गए</div>
+      <div style="font-size:16px;font-weight:800;color:#fff;margin-bottom:8px">Access validity समाप्त हो गई</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:20px;line-height:1.7">
         आपकी App access समाप्त हो गई है।<br>
         दोबारा access के लिए Manager VIVEK से<br>
@@ -1768,13 +1802,29 @@ function showHardExpiry(){
   }
 }
 
-function extendUserExpiry(empId, days){
-  const validTill = new Date(Date.now() + (days||45)*86400000).toISOString();
-  fbUpdate('deviceApprovals/' + empId, { 
-    validTill,
-    extendedBy: SESSION.name,
-    extendedAt: new Date().toISOString()
-  });
+async function extendUserExpiry(empId, days){
+  const validTill = new Date(Date.now() + (days||365)*86400000).toISOString();
+  try{
+    if(typeof _ensureWriteAuth === 'function') await _ensureWriteAuth();
+    await fbUpdate('deviceApprovals/' + empId, {
+      validTill,
+      extendedBy: SESSION.name || 'admin',
+      extendedAt: new Date().toISOString(),
+      daysGranted: days||365
+    });
+    // Also mirror on mobileUsers if phone-keyed record exists
+    try{
+      const emp = (_cache.employees||[]).find(e=>e.id===empId);
+      const mob = _normMobileKey(emp && (emp.phone||emp.mobile));
+      if(mob) await fbUpdate('mobileUsers/'+mob, { validTill, accessExtendedAt: new Date().toISOString() });
+    }catch(e2){}
+    toast('✅ Validity extended to '+new Date(validTill).toLocaleDateString('en-IN'));
+    return true;
+  }catch(e){
+    console.error('[extendUserExpiry]', e);
+    toast('❌ Extend failed: '+(e.message||e)+' — Admin re-login (OTP/password) try करें');
+    return false;
+  }
 }
 
 // ── DEVICE CHECK via FIREBASE ──
@@ -2381,7 +2431,8 @@ async function _submitManagerReg(){
     department:dept,
     status:'approved',
     registeredAt:new Date().toISOString(),
-    autoApproved:true
+    autoApproved:true,
+    validTill: new Date(Date.now()+365*86400000).toISOString()
   };
   try{
     await fbSet('mobileUsers/'+mobile, userData);
@@ -2998,7 +3049,7 @@ async function doLoginAfterApproval(emp, existingReg, deviceId){
   try{
     await fbUpdate('deviceApprovals/'+emp.id,{
       approvedDeviceId:deviceId, approvedAt:new Date().toISOString(),
-      validTill:new Date(Date.now()+45*86400000).toISOString(),
+      validTill:new Date(Date.now()+365*86400000).toISOString(),
       empName:emp.name, empId:emp.empId
     });
   }catch(e){ console.warn('[workerLogin] deviceApproval write:', e.message); }
@@ -4131,6 +4182,7 @@ async function buildNav(){
   // ── ALL POSSIBLE TABS (master list) ──
   const ALL_TABS = [
     {id:'home',      ico:'🏠', lbl:'होम',       lblEn:'Home',      roles:['worker','guest','manager','supervisor','member','pending_member']},
+    {id:'myshift',   ico:'🗓️', lbl:'मेरी शिफ्ट', lblEn:'My Shift',  roles:['worker','manager','supervisor','member','pending_member']},
     {id:'schedule',  ico:'📅', lbl:'शेड्यूल',   lblEn:'Schedule',  roles:['worker','manager','supervisor','member']},
     {id:'leave',     ico:'🏖️', lbl:'अवकाश',    lblEn:'Leave',     roles:['worker','manager','member']},
     {id:'reports',   ico:'📋', lbl:'रिपोर्ट',   lblEn:'Reports',   roles:['worker','manager','supervisor','member']},
@@ -4157,9 +4209,8 @@ async function buildNav(){
     : 'worker';
   let tabs;
   if(effectiveRole === 'admin'){
-    // Admin sees management tabs + worker views
-    tabs = ALL_TABS.filter(t => t.roles.includes('admin') || t.roles.includes('manager') || t.roles.includes('worker'));
-    // de-dupe by id
+    // Admin: no Reports tab
+    tabs = ALL_TABS.filter(t => (t.roles.includes('admin') || t.roles.includes('manager') || t.roles.includes('worker')) && t.id!=='reports');
     const seen=new Set();
     tabs = tabs.filter(t => { if(seen.has(t.id)) return false; seen.add(t.id); return true; });
   } else if(effectiveRole === 'manager'){
@@ -4168,6 +4219,12 @@ async function buildNav(){
     tabs = ALL_TABS.filter(t => t.roles.includes('pending_member')); // home + todo only
   } else if(effectiveRole === 'member'){
     tabs = ALL_TABS.filter(t => t.roles.includes('member'));
+    try{
+      if(myTeamPerms().pending || myTeamPerms().leave){
+        if(!tabs.some(t=>t.id==='pending'))
+          tabs.push({id:'pending', ico:'⏳', lbl:'पेंडिंग', lblEn:'Pending', roles:['member']});
+      }
+    }catch(e){}
   } else if(effectiveRole === 'supervisor'){
     tabs = ALL_TABS.filter(t => t.roles.includes('supervisor'));
   } else if(effectiveRole === 'worker'){
@@ -4749,6 +4806,178 @@ async function saveProfileEdits(){
   }
 }
 
+
+
+/** Default yearly leave quotas (Manager can override in Profile) */
+function _defaultLeaveQuotas(){
+  return { CL:12, SL:6, EL:15, CO:0, other:5 };
+}
+async function openLeaveQuotaSettings(){
+  if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
+  const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
+  let q = _defaultLeaveQuotas();
+  try{ const r = await fbGet(key); if(r) q = {...q, ...r}; }catch(e){}
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">📋 Team Leave Quota (Year)</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Members see remaining balance in Profile</div>
+    ${['CL','SL','EL','CO','other'].map(t=>`
+      <div class="field"><label>${t==='CL'?'Casual Leave (CL)':t==='SL'?'Sick Leave (SL)':t==='EL'?'Earned Leave (EL)':t==='CO'?'Comp Off quota note':'Other'}</label>
+        <input class="inp-field" type="number" id="lq_${t}" value="${q[t]!=null?q[t]:0}" min="0" max="365"></div>`).join('')}
+    <button class="submit-btn" onclick="saveLeaveQuotas()">✅ Save</button>
+    <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
+}
+async function saveLeaveQuotas(){
+  const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
+  const q = {};
+  ['CL','SL','EL','CO','other'].forEach(t=>{
+    q[t] = Number(document.getElementById('lq_'+t)?.value)||0;
+  });
+  q.updatedAt = new Date().toISOString();
+  try{
+    await fbSet(key, q);
+    toast('✅ Leave quotas saved');
+    closeModal();
+  }catch(e){ toast('❌ '+e.message); }
+}
+async function openLeaveBalanceModal(){
+  const key = 'leaveQuotas/'+(SESSION.managerId ? ('mgr:'+SESSION.managerId) : (myShiftConfigKey()||'default'));
+  // try manager key from mobile
+  let q = _defaultLeaveQuotas();
+  try{
+    const k2 = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.managerId||SESSION.mobile)||'default');
+    const r = await fbGet(k2);
+    if(r) q = {...q, ...r};
+  }catch(e){}
+  // Count used leaves from schedule for this emp (current year)
+  const emp = myEmp();
+  const year = new Date().getFullYear();
+  let usedL = 0, usedCO = 0;
+  try{
+    if(emp && emp.id){
+      for(let m=0;m<12;m++){
+        const mk = year+'-'+String(m+1).padStart(2,'0');
+        const sched = (_cache.schedules&&_cache.schedules[mk])||{};
+        const row = sched[emp.id]||{};
+        Object.values(row).forEach(sh=>{
+          if(sh==='L') usedL++;
+          if(sh==='C/O'||sh==='CO') usedCO++;
+        });
+      }
+    }
+  }catch(e){}
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🏖️ Leave Balance ${year}</div>
+    <div style="display:grid;gap:10px;margin:12px 0">
+      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
+        <div style="font-weight:800">Casual / Leave (L)</div>
+        <div style="font-size:20px;font-weight:900;color:#22c55e">${Math.max(0,(q.CL||0)+(q.EL||0)-usedL)} <span style="font-size:12px;color:var(--muted2)">left of ${(q.CL||0)+(q.EL||0)}</span></div>
+        <div style="font-size:11px;color:var(--muted2)">Used this year: ${usedL}</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
+        <div style="font-weight:800">Sick Leave (SL)</div>
+        <div style="font-size:20px;font-weight:900;color:#38bdf8">${q.SL||0} <span style="font-size:12px;color:var(--muted2)">quota</span></div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
+        <div style="font-weight:800">Comp Off (C/O)</div>
+        <div style="font-size:20px;font-weight:900;color:#fbbf24">Used: ${usedCO}</div>
+        <div style="font-size:11px;color:var(--muted2)">Earned from double shifts / holidays (Manager approves)</div>
+      </div>
+    </div>
+    <button class="cancel-btn" onclick="closeModal()">Close</button>`);
+}
+async function openHolidayListSettings(){
+  if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
+  const key = 'holidayLists/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
+  let list = [];
+  try{ const r = await fbGet(key); if(Array.isArray(r)) list=r; else if(r&&r.dates) list=r.dates; }catch(e){}
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🎉 Planned Holidays</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">One date per line (YYYY-MM-DD). On save, team gets <b>H</b> and earns C-Off eligibility.</div>
+    <textarea class="inp-field" id="holidayListTa" rows="8" style="width:100%;font-family:monospace">${list.join('\n')}</textarea>
+    <button class="submit-btn" onclick="saveHolidayList()">✅ Save Holidays</button>
+    <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
+}
+async function saveHolidayList(){
+  const key = 'holidayLists/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
+  const raw = (document.getElementById('holidayListTa')?.value||'');
+  const dates = raw.split(/[\n,]+/).map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
+  try{
+    await fbSet(key, { dates, updatedAt: new Date().toISOString(), updatedBy: SESSION.name||'' });
+    toast('⏳ Applying H + C-Off for team…');
+    const n = typeof applyHolidaysToTeam==='function' ? await applyHolidaysToTeam(dates) : 0;
+    toast('✅ '+dates.length+' holidays · '+n+' C-Off requests');
+    closeModal();
+  }catch(e){ toast('❌ '+e.message); }
+}
+
+async function openAdminAnalytics(){
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  toast('⏳ Loading analytics…');
+  let mobileUsers={}, employees={}, managers={}, deviceApprovals={};
+  try{ mobileUsers = await fbGet('mobileUsers') || {}; }catch(e){}
+  try{ employees = await fbGet('employees') || {}; }catch(e){}
+  try{ managers = await fbGet('managers') || {}; }catch(e){}
+  try{ deviceApprovals = await fbGet('deviceApprovals') || {}; }catch(e){}
+
+  const mu = Object.values(mobileUsers);
+  const managersN = mu.filter(u=>u.role==='manager' && u.status==='approved').length;
+  const membersN = mu.filter(u=>u.role==='member' && u.status==='approved').length;
+  const pendingN = mu.filter(u=>u.status==='pending').length;
+  const empN = Object.keys(employees).length;
+  const now = Date.now();
+  const active30 = mu.filter(u=>{
+    const t = u.lastLoginAt || u.loginAt || u.registeredAt || u.approvedAt;
+    if(!t) return false;
+    return (now - new Date(t).getTime()) < 30*86400000;
+  }).length;
+  const validDevices = Object.values(deviceApprovals).filter(a=>{
+    try{ return a.validTill && new Date(a.validTill) > new Date(); }catch(e){ return false; }
+  }).length;
+
+  // Recent admin_login is in GA — show local counts from RTDB
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">📊 App Analytics</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Realtime Database snapshot · Google Analytics events log on Admin login (Firebase Console → Analytics)</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#22c55e">${mu.length}</div>
+        <div style="font-size:11px;color:var(--muted2)">Mobile users (OTP)</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#38bdf8">${empN}</div>
+        <div style="font-size:11px;color:var(--muted2)">Employees records</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#f97316">${managersN}</div>
+        <div style="font-size:11px;color:var(--muted2)">Approved Managers</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#a78bfa">${membersN}</div>
+        <div style="font-size:11px;color:var(--muted2)">Approved Members</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#fbbf24">${pendingN}</div>
+        <div style="font-size:11px;color:var(--muted2)">Pending registrations</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
+        <div style="font-size:22px;font-weight:900;color:#34d399">${active30}</div>
+        <div style="font-size:11px;color:var(--muted2)">Active ~30 days</div>
+      </div>
+      <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2);grid-column:1/-1">
+        <div style="font-size:22px;font-weight:900;color:#60a5fa">${validDevices}</div>
+        <div style="font-size:11px;color:var(--muted2)">Devices with valid access (not expired)</div>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:12px">
+      Live counts from Firebase RTDB. Measurement ID <b>G-DK6JFY33ED</b>.
+    </div>
+    <a href="https://console.firebase.google.com/project/met-power/analytics" target="_blank" rel="noopener"
+      style="display:block;text-align:center;padding:14px;border-radius:12px;background:linear-gradient(135deg,#f97316,#a855f7);color:#fff;font-weight:800;text-decoration:none;margin-bottom:10px">
+      📈 Open Google Analytics (Firebase Console)
+    </a>
+    <button class="cancel-btn" onclick="closeModal()">Close</button>`);
+}
+
 async function showProfile(){
  try{
   const e=myEmp();
@@ -4781,14 +5010,9 @@ async function showProfile(){
         <div><div class="pa-label">Security Status</div><div class="pa-sub">Device & session info</div></div>
         <div class="pa-arrow">›</div>
       </button>
-      <button class="profile-action" onclick="closeModal();openSmsSettings()">
-        <div class="pa-icon" style="background:rgba(56,189,248,.12)">💬</div>
-        <div><div class="pa-label">SMS Settings</div><div class="pa-sub">Fast2SMS notification config</div></div>
-        <div class="pa-arrow">›</div>
-      </button>
-      <button class="profile-action" onclick="closeModal();openShiftSettings()">
-        <div class="pa-icon" style="background:rgba(168,85,247,.12)">⚙️</div>
-        <div><div class="pa-label">Shift & Machine Settings</div><div class="pa-sub">${SESSION.viewCompanyId&&SESSION.viewCompanyId!=='ALL'?'चुनी गई Company के लिए':'पहले header से Company चुनें'}</div></div>
+      <button class="profile-action" onclick="closeModal();openAdminAnalytics()">
+        <div class="pa-icon" style="background:rgba(34,197,94,.12)">📊</div>
+        <div><div class="pa-label">App Analytics</div><div class="pa-sub">Users, active logins, Managers</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
@@ -4867,6 +5091,11 @@ async function showProfile(){
           +rows.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px"><span style="color:var(--muted2)">'+k+'</span><span style="color:var(--text);font-weight:700">'+v+'</span></div>').join('')
           +'</div>';
       })()}
+      ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openLeaveBalanceModal()">
+        <div class="pa-icon" style="background:rgba(34,197,94,.12)">🏖️</div>
+        <div><div class="pa-label">${(_lang==='en')?'Leave Balance':'Leave Balance'}</div><div class="pa-sub">${(_lang==='en')?'All leave types & remaining':'सभी प्रकार की छुट्टियाँ'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openEditProfileModal()">
         <div class="pa-icon" style="background:rgba(96,165,250,.12)">✏️</div>
         <div><div class="pa-label">${(_lang==='en')?'Edit Profile':'Profile Edit करें'}</div><div class="pa-sub">${(_lang==='en')?'Name, DOB, DOJ, Salary, Weekly Off':'नाम, DOB, जॉइनिंग, सैलरी, वीकली ऑफ'}</div></div>
@@ -4891,6 +5120,16 @@ async function showProfile(){
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
         <div class="pa-icon" style="background:rgba(245,158,11,.12)">📅</div>
         <div><div class="pa-label">Holiday List</div><div class="pa-sub">${(_lang==='en')?'Date + Reason · Excel / snapshot':'Date + Reason · Excel / snapshot'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+      ${isMgr()?`<button type="button" class="profile-action" onclick="openLeaveQuotaSettings()">
+        <div class="pa-icon" style="background:rgba(34,197,94,.12)">📋</div>
+        <div><div class="pa-label">Team Leave Quota</div><div class="pa-sub">Yearly leave types for team</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
+      <button type="button" class="profile-action" onclick="openHolidayListSettings()">
+        <div class="pa-icon" style="background:rgba(249,115,22,.12)">🎉</div>
+        <div><div class="pa-label">Planned Holidays</div><div class="pa-sub">Holiday list for team</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${(SESSION.role==='manager'||isMgr())?`<button type="button" class="profile-action" onclick="openChangeCompanyModal()">
@@ -5234,10 +5473,11 @@ function openExtendAccessModal(){
     <select class="inp-field" id="ext_emp">${empOptions}</select></div>
   <div class="field"><label>कितने दिन के लिए?</label>
     <select class="inp-field" id="ext_days">
-      <option value="45">45 दिन (Standard)</option>
-      <option value="90">90 दिन</option>
+      <option value="365" selected>365 दिन (1 साल) — Standard</option>
       <option value="180">180 दिन (6 महीने)</option>
-      <option value="365">365 दिन (1 साल)</option>
+      <option value="90">90 दिन</option>
+      <option value="45">45 दिन</option>
+      <option value="730">730 दिन (2 साल)</option>
     </select></div>
   <button class="submit-btn" onclick="doExtendAccess()">✅ Extend करें</button>
   <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
@@ -5245,13 +5485,11 @@ function openExtendAccessModal(){
 
 async function doExtendAccess(){
   const val = document.getElementById('ext_emp').value;
-  const [empObjId, empId] = val.split('|');
-  const days = parseInt(document.getElementById('ext_days').value);
-  const validTill = new Date(Date.now() + days*86400000).toISOString();
-  await fbUpdate('deviceApprovals/' + empObjId, { validTill, extendedBy: SESSION.name, extendedAt: new Date().toISOString() });
-  // Also reset local expiry key for that user (admin side note)
-  closeModal();
-  toast('✅ Access ' + days + ' दिनों के लिए extend हो गई!');
+  if(!val){ toast('⚠️ कर्मचारी चुनें'); return; }
+  const [empObjId] = val.split('|');
+  const days = parseInt(document.getElementById('ext_days').value)||365;
+  const ok = await extendUserExpiry(empObjId, days);
+  if(ok) closeModal();
 }
 
 // ════════════════════════════════════════
@@ -5544,7 +5782,7 @@ function getShift(emp, dateStr){
 
   return '';
 }
-function cellClass(s){ if(!s) return 'blank'; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||'O'; }
+function cellClass(s){ if(!s) return 'blank'; if(String(s).indexOf('+')>=0 || (parseShiftWorkCodes(s).length>1)) return 'G'; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||'O'; }
 
 /** Show full employee name when schedule column truncates on small screens */
 function showEmpNameFull(name, empId, sec){
@@ -5567,7 +5805,7 @@ function showEmpNameFull(name, empId, sec){
   }catch(e){}
 }
 
-function cellDisp(s){  if(!s) return ''; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'½','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||s||''; }
+function cellDisp(s){  if(!s) return ''; if(String(s).indexOf('+')>=0) return String(s); const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'½','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||s||''; }
 /** Short word for shift code — Home calendar labels (EN/HI) */
 function shiftWord(s){
   if(!s) return '';
@@ -7213,7 +7451,7 @@ function renderSchedule(){
     tbody += `<tr${i===0?' style="border-top:2px solid var(--border2)"':''}>
       <td class="ecol" style="font-size:10px;font-weight:800;color:${colorSet.clr};padding:4px 6px;white-space:nowrap">${colorSet.icon} ${s.label||s.code}</td>
       ${dates.map(d => {
-        const cnt = allEmps.filter(e=>getShift(e,d)===s.code).length;
+        const cnt = allEmps.filter(e=>shiftCountsToward(getShift(e,d), s.code)).length;
         const warn = _thresh > 0 && cnt < _thresh;
         const bg = warn ? 'rgba(244,63,94,.18)' : colorSet.bg;
         const clr = warn ? '#f43f5e' : colorSet.clr;
@@ -8954,15 +9192,20 @@ function renderPendingDevices(){
 }
 
 async function approveDevice(reqKey, empObjId, newDeviceId, empName){
-  const validTill = new Date(Date.now() + 45*86400000).toISOString();
-  await fbUpdate('deviceApprovals/' + empObjId, {
-    approvedDeviceId: newDeviceId,
-    approvedAt: new Date().toISOString(),
-    validTill, empName, approvedBy: SESSION.name
-  });
-  await fbUpdate('deviceChangeRequests/' + reqKey, { status:'approved' });
-  toast('✅ ' + empName + ' ka new device approve ho gaya!');
-  renderPendingDevices();
+  const validTill = new Date(Date.now() + 365*86400000).toISOString();
+  try{
+    if(typeof _ensureWriteAuth==='function') await _ensureWriteAuth();
+    await fbUpdate('deviceApprovals/' + empObjId, {
+      approvedDeviceId: newDeviceId,
+      approvedAt: new Date().toISOString(),
+      validTill, empName, approvedBy: SESSION.name
+    });
+    await fbUpdate('deviceChangeRequests/' + reqKey, { status:'approved' });
+    toast('✅ ' + empName + ' ka new device approve ho gaya! (1 year validity)');
+    renderPendingDevices();
+  }catch(e){
+    toast('❌ Approve failed: '+(e.message||e));
+  }
 }
 async function rejectDevice(reqKey){
   await fbUpdate('deviceChangeRequests/' + reqKey, { status:'rejected' });
@@ -9194,7 +9437,7 @@ async function approveLoginRequest(reqKey, empObjId, deviceId, empName){
     if(empObjId && deviceId){
       await fbUpdate('deviceApprovals/'+empObjId,{
         approvedDeviceId:deviceId, approvedAt:new Date().toISOString(),
-        validTill:new Date(Date.now()+45*86400000).toISOString(),
+        validTill:new Date(Date.now()+365*86400000).toISOString(),
         empName, approvedBy:SESSION.name
       });
     }
@@ -11097,8 +11340,13 @@ function openEditEmpForm(empId){
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
       <input type="checkbox" id="ee_perm_reports" ${(e.perms&&e.perms.reports)?'checked':''} style="width:18px;height:18px;accent-color:#38bdf8">
-      📋 ${isEn?'Fill / act on reports about members':'Members की reports भरें / देखें'}
+      📋 ${isEn?'Manage team reports':'Team reports manage'}
     </label>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
+      <input type="checkbox" id="ee_perm_pending" ${(e.perms&&e.perms.pending)?'checked':''} style="width:18px;height:18px;accent-color:#a78bfa">
+      ⏳ ${isEn?'See Pending approvals (delegate)':'Pending approvals (delegate)'}
+    </label>
+    <div style="font-size:10px;color:var(--muted2);margin-top:6px">${isEn?'Leave tick = can approve team leave & C-Off':'Leave ✓ = team leave / C-Off approve कर सकते हैं'}</div>
   </div>` : ''}
   <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section updates automatically from Machine.':'Section मशीन से अपने आप अपडेट होगी।'}</div>
   <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();saveEmployee('${empId}')">💾 ${isEn?'Save':'सेव करें'}</button>
@@ -11167,7 +11415,8 @@ async function saveEmployee(empId){
       update.perms = {
         schedule: checked('ee_perm_schedule'),
         leave: checked('ee_perm_leave'),
-        reports: checked('ee_perm_reports')
+        reports: checked('ee_perm_reports'),
+        pending: checked('ee_perm_pending')
       };
     }
   }
@@ -12853,7 +13102,7 @@ const _i18n_HI_EN = {
   // ── PHASE 3: Static labels (≤30 chars) ──
   '(31 दिन की सीमा)':                        '(31 day limit)',
   '(आप)':                                    '(You)',
-  '45 दिन पूरे हो गए':                       '45 days completed',
+  'Access validity समाप्त हो गई':                       '45 days completed',
   '6-digit OTP डालें *':                     'Enter 6-digit OTP *',
   'Admin contact करें':                      'Contact Admin',
   'Admin जल्द add करेंगे':                  'Admin will add soon',
@@ -13824,6 +14073,90 @@ async function _retrySaveAfterReauth(){
   }
 }
 
+
+async function _requestCompOff(emp, dateStr, reason){
+  try{
+    if(!emp || !emp.id || !dateStr) return;
+    const mgrKey = emp.managerId || (SESSION.role==='manager' ? _normMobileKey(SESSION.mobile) : '');
+    const payload = {
+      empId: emp.id, empName: emp.name||'', empCode: emp.empId||'',
+      type:'CO', leaveType:'C/O', from:dateStr, to:dateStr, days:1,
+      reason: reason||'Compensatory Off', status:'pending', autoGenerated:true,
+      managerId: mgrKey||'', requestedAt:new Date().toISOString(),
+      requestedBy: SESSION.name||'system'
+    };
+    await fbPush('leaves', payload);
+    if(mgrKey){
+      try{
+        await fbPush('userNotifications/'+mgrKey, {
+          type:'leave_request', title:'C-Off request — '+(emp.name||''),
+          body:(emp.name||'')+' · '+dateStr+' · '+(reason||'C-Off'),
+          read:false, at:new Date().toISOString()
+        });
+      }catch(e){}
+    }
+  }catch(e){ console.warn('[requestCompOff]', e); }
+}
+async function _processAutoCompOffRules(savedEntries){
+  try{
+    const emps = getEmps()||[];
+    const byId = {};
+    emps.forEach(e=>{ byId[e.id]=e; if(e.empId) byId[e.empId]=e; });
+    for(const e of (savedEntries||[])){
+      const emp = byId[e.empId];
+      if(!emp) continue;
+      const sh = String(e.newShift||'');
+      if(typeof parseShiftWorkCodes==='function' && parseShiftWorkCodes(sh).length>=2)
+        await _requestCompOff(emp, e.date, 'Double shift ('+sh+') — C-Off eligibility');
+      if(sh==='H')
+        await _requestCompOff(emp, e.date, 'Holiday marked — C-Off');
+    }
+    const affectedIds = [...new Set((savedEntries||[]).map(x=>x.empId))];
+    for(const eid of affectedIds){
+      const emp = byId[eid];
+      if(emp) await _checkWeeklyOffGapAndRequestCO(emp);
+    }
+  }catch(err){ console.warn('[autoCompOff]', err); }
+}
+async function _checkWeeklyOffGapAndRequestCO(emp){
+  try{
+    const today = new Date();
+    const offs = [];
+    for(let i=0;i<60;i++){
+      const d = new Date(today); d.setDate(d.getDate()-i);
+      const ds = d.toISOString().slice(0,10);
+      const sh = getShift(emp, ds);
+      if(sh==='O'||sh==='C/O'||sh==='CO') offs.push(ds);
+    }
+    offs.sort();
+    for(let i=1;i<offs.length;i++){
+      const gap = Math.round((new Date(offs[i])-new Date(offs[i-1]))/86400000);
+      if(gap > 9){
+        const mid = new Date(new Date(offs[i-1]).getTime() + Math.floor(gap/2)*86400000);
+        await _requestCompOff(emp, mid.toISOString().slice(0,10), 'Weekly off gap '+gap+' days (>9) — C-Off');
+        break;
+      }
+    }
+  }catch(e){ console.warn('[weeklyOffGap]', e); }
+}
+async function applyHolidaysToTeam(dates){
+  const team = (getEmps()||[]).filter(e=>e.status!=='resigned'&&e.status!=='left');
+  let n=0;
+  const ovUpdates = {};
+  for(const dateStr of dates){
+    for(const emp of team){
+      ovUpdates[emp.id+'_'+dateStr] = 'H';
+      await _requestCompOff(emp, dateStr, 'Planned holiday '+dateStr+' — C-Off');
+      n++;
+    }
+  }
+  if(Object.keys(ovUpdates).length){
+    try{ await fbUpdate('overrides', ovUpdates); }catch(e){ console.warn(e); }
+    try{ _cache.overrides = {...(getOverrides()||{}), ...ovUpdates}; }catch(e){}
+  }
+  return n;
+}
+
 async function saveAllShiftChanges(){
   const entries = Object.values(_pendingShiftChanges);
   if(!entries.length){ toast('कोई बदलाव नहीं है'); return; }
@@ -13881,6 +14214,8 @@ async function saveAllShiftChanges(){
     renderSchedule();
 
     toast(`✅ ${savedEntries.length} बदलाव save हुए`);
+
+    try{ await _processAutoCompOffRules(savedEntries); }catch(e){ console.warn(e); }
 
     // ── WhatsApp notifications to affected employees ──
     // Group all changes by employee
@@ -14308,6 +14643,12 @@ function editShiftCell(empId, empName, date, currentShift){
       const time=(s.start&&s.end)?` (${s.start}–${s.end})`:'';
       return {v:code, label:(s.label||code)+time, bg:st.bg, color:st.color};
     }),
+    {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff'},
+    {v:'A+B', label:'Double: A + B',       bg:'#7c3aed', color:'#fff'},
+    {v:'A+C', label:'Double: A + C',       bg:'#7c3aed', color:'#fff'},
+    {v:'B+C', label:'Double: B + C',       bg:'#7c3aed', color:'#fff'},
+    {v:'D+A', label:'Double: D + A',       bg:'#7c3aed', color:'#fff'},
+    {v:'N+B', label:'Double: N + B',       bg:'#7c3aed', color:'#fff'},
     {v:'O',   label:'साप्ताहिक छुट्टी', bg:'#334155', color:'#94a3b8'},
     {v:'L',   label:'Leave',            bg:'#9f1239', color:'#fda4af'},
     {v:'G',   label:'General Shift',    bg:'#0c4a6e', color:'#7dd3fc'},
@@ -20362,12 +20703,21 @@ function openUserNotifications(){
 }
 
 async function markAllNotifsRead(){
-  const empId = SESSION.empObjId;
-  if(!empId) return;
-  const unread = _userNotifCache.filter(n=>!n.read);
+  const unread = (_userNotifCache||[]).filter(n=>!n.read);
   for(const n of unread){
-    try{ await fbUpdate('userNotifications/'+empId+'/'+n._key, {read:true}); }catch(e){}
+    try{
+      const path = n._path || ('userNotifications/'+(SESSION.empObjId||''));
+      if(n._key) await fbUpdate(path+'/'+n._key, {read:true});
+      n.read = true;
+    }catch(e){}
   }
+  // Clear badge immediately
+  try{
+    const badge = document.getElementById('notifCount');
+    if(badge){ badge.textContent='0'; badge.style.display='none'; }
+    const bell = document.getElementById('notifBtn');
+    if(bell) bell.classList.remove('has-unread');
+  }catch(e){}
 }
 
 function _timeAgo(dateStr){
