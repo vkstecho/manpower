@@ -605,7 +605,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.2'; // Bump this to force re-seed
+const APP_VERSION = '2.3'; // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -1056,14 +1056,18 @@ function _isMachineLikeValue(v){
  */
 function getEmpSection(e){
   if(!e) return '';
-  const raw = String(e.sec||e.section||'').trim();
+  // Prefer dedicated Excel "Section" field when present (Metalliser / Slitter / MetProd …)
+  let raw = String(e.section||'').trim();
+  if(!raw) raw = String(e.sec||'').trim();
   if(!raw) return '';
   if(_isMachineLikeValue(raw)) return ''; // machine is not section
-  // Legacy single-letter pool codes still used as sec in old data — map only those, not free-text
   const key = raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
-  if(key==='M1'||key==='M2'||key==='MET') return ''; // old codes; re-upload Excel for real Section
+  // Role codes must not appear under Section filters (use Designation instead)
+  if(key==='MGR'||key==='MANAGER'||key==='SUP'||key==='SUPERVISOR'||key==='STAFF') return '';
+  // Legacy machine-pool codes — not free-text section names
+  if(key==='M1'||key==='M2'||key==='MET') return '';
   if(key==='S1'||key==='S2'||key==='SLIT') return '';
-  return raw; // Metalliser, Slitter, MetProd, or any custom name from that manager's Excel
+  return raw; // Metalliser, Slitter, MetProd, or any custom name from Manager Excel
 }
 function getEmpMachine(e){
   if(!e) return '';
@@ -6256,8 +6260,7 @@ async function renderHome(){
     const chipCls = 'hm-chip' + (isMain?' main':isSup?' sup':'');
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
-    const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
-    const shLabel = sh?`<span class="shc ${cellClass(sh)}" style="width:26px;height:22px;font-size:12px;font-weight:900;margin-left:6px;display:inline-flex;align-items:center;justify-content:center;background:${_st.bg} !important;color:${_st.fg} !important;border-radius:6px">${cellDisp(sh)}</span>`:'';
+    const shLabel = sh?`<span class="shc shc-sm ${cellClass(sh)}">${cellDisp(sh)}</span>`:'';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -6556,7 +6559,7 @@ function renderMyShift(){
     const cls = cellClass(sh);
     cells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:${canSelf?'pointer':'default'}">
       <div class="ms-day-num">${d}</div>
-      <div class="ms-day-sh shc ${cls}" style="background:${st.bg} !important;color:${st.fg} !important;border:none;width:auto;min-width:40px;min-height:28px;padding:6px 8px;font-size:14px;font-weight:900;border-radius:8px;display:inline-flex;align-items:center;justify-content:center">${disp}</div>
+      <div class="ms-day-sh shc ${cls}">${disp}</div>
     </div>`;
   }
 
@@ -7577,27 +7580,21 @@ function renderSchedule(){
     }));
   })();
 
-  // ── Fallback: any employee whose sec isn't one of fixed codes above ──
-  // (this is every employee for any new self-registered company's own machines)
-  const _coveredSecs = new Set(['M1','M2','S1','S2','SUP','MGR']);
-  const _extraSecs = Array.from(new Set(allEmps.map(e=>e.sec).filter(s=>s && !_coveredSecs.has(s))));
-  _extraSecs.forEach(secVal=>{
+  // Fallback: employees not already in a Section group (no real Excel Section)
+  const _inAnySecGroup = new Set();
+  DISPLAY_ORDER.forEach(g=>{
+    allEmps.filter(g.filter).forEach(e=>_inAnySecGroup.add(e.id));
+  });
+  const _orphans = allEmps.filter(e=>!_inAnySecGroup.has(e.id));
+  if(_orphans.length){
     DISPLAY_ORDER.push({
-      key:'dyn_'+secVal,
-      label:'🏭 '+(secName(secVal)||secVal),
-      color:'#94a3b8',
-      filter: e => e.sec===secVal,
+      key:'dyn_none',
+      label:'👤 '+(_lang==='en'?'Unassigned / Other':'अवर्गीकृत / अन्य'),
+      color:'#64748b',
+      filter: e => !_inAnySecGroup.has(e.id),
       sort: (a,b) => (a.name||'').localeCompare(b.name||'')
     });
-  });
-  // Employees with no sec at all (shouldn't normally happen, but keep them visible rather than hiding data)
-  DISPLAY_ORDER.push({
-    key:'dyn_none',
-    label:'👤 '+(_lang==='en'?'Unassigned':'अवर्गीकृत'),
-    color:'#64748b',
-    filter: e => !e.sec,
-    sort: (a,b) => (a.name||'').localeCompare(b.name||'')
-  });
+  }
 
   // Build date cells for BOTH sticky header and table thead
   const dateCellsHtml = dates.map(d=>{
@@ -11140,22 +11137,29 @@ function _normShiftCode(val){
   };
   return map[s] || (s.length<=3 ? s : '');
 }
+/** True if value is a role code (MGR/SUP) wrongly used as Section — not a real plant section. */
+function _isRoleOnlySec(v){
+  const k = String(v||'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  return k==='MGR'||k==='MANAGER'||k==='SUP'||k==='SUPERVISOR'||k==='STAFF';
+}
+
+/**
+ * Map machine code only — NEVER map Designation (Manager/Engineer) to Section.
+ * Section must come from Excel "Section" column (Metalliser, Slitter, MetProd, …).
+ */
 function _mapMachineToSec(machine, designation){
   const raw = String(machine||'').trim();
-  const desig = String(designation||'').trim().toUpperCase();
   const u = raw.toUpperCase().replace(/\s+/g,'');
-  // Supervisor and Engineer are the same category (by designation or machine)
-  if(/SHIFT\s*ENGINEER|\bENGINEER\b|SUPERVISOR|\bSUP\b/.test(desig)) return 'SUP';
-  if(/\bMANAGER\b|\bMGR\b/.test(desig) && !/TEAM\s*MEMBER/.test(desig)) return 'MGR';
-  if(!raw) return 'STAFF';
+  if(!raw) return '';
   if(/^M-?1$/.test(u) || /METALLISER-?1/.test(u)) return 'M1';
   if(/^M-?2$/.test(u) || /METALLISER-?2/.test(u)) return 'M2';
   if(/^S-?1$/.test(u) || /SLITTER-?1/.test(u)) return 'S1';
   if(/^S-?2$/.test(u) || /SLITTER-?2/.test(u)) return 'S2';
-  if(/SUP|SUPERVISOR|ENGINEER|SHIFTENG/.test(u)) return 'SUP';
-  if(/MGR|MANAGER/.test(u)) return 'MGR';
   if(/METALLISER|^MET$/.test(u)) return 'MET';
   if(/SLITTER|^SLIT$/.test(u)) return 'SLIT';
+  // Do NOT map designation Manager→MGR or Engineer→SUP — those are Designation, not Section
+  if(/SUP|SUPERVISOR|ENGINEER|SHIFTENG/.test(u)) return 'SUP';
+  if(/MGR|MANAGER/.test(u)) return 'MGR';
   return raw;
 }
 
@@ -11192,7 +11196,8 @@ function _processBulkImportRows(rows){
     const name=(_findCol(row,['name','naam','नाम'])||'').toString().trim().toUpperCase();
     const code=(_findCol(row,['emp id','empid','e code','ecode','emp code','employee code','employee id','code','id'])||'').toString().trim();
     const designation=(_findCol(row,['designation','position','role','desig'])||'').toString().trim();
-    const machine=(_findCol(row,['machine','mc','section','sec'])||'').toString().trim();
+    const machine=(_findCol(row,['machine','mc','machine name','मशीन'])||'').toString().trim();
+    const sectionCol=(_findCol(row,['section','sec','department section','सेक्शन','area','unit'])||'').toString().trim();
     const resp=(_findCol(row,['responsibility','resp'])||'').toString().trim();
     const salaryRaw=(_findCol(row,['salary','monthly salary','salary (₹/month)','salary (rs/month)','salary(₹/month)'])||'').toString().trim().replace(/[^0-9.]/g,'');
     let mobile=(_findCol(row,['mobile','mobile number','phone','phone number','contact'])||'').toString().trim().replace(/[^0-9]/g,'');
@@ -11227,7 +11232,8 @@ function _processBulkImportRows(rows){
       _bulkImportParsed.push({
         name, code, designation, machine, resp,
         salary: salaryRaw, mobile, joiningDate, dob, woff,
-        sec: _mapMachineToSec(machine, designation),
+        sec: (sectionCol || (!_isRoleOnlySec(_mapMachineToSec(machine, designation)) ? _mapMachineToSec(machine, designation) : (machine||'General'))),
+        section: sectionCol || '',
         shiftsByDate,
         existingId: existing ? existing.id : null,
         _skipSave: true,
@@ -11243,7 +11249,8 @@ function _processBulkImportRows(rows){
     _bulkImportParsed.push({
       name, code, designation, machine, resp,
       salary: salaryRaw, mobile, joiningDate, dob, woff,
-      sec: _mapMachineToSec(machine, designation),
+      sec: (sectionCol || (!_isRoleOnlySec(_mapMachineToSec(machine, designation)) ? _mapMachineToSec(machine, designation) : (machine||'General'))),
+        section: sectionCol || '',
       shiftsByDate,
       existingId: existing ? existing.id : null
     });
@@ -11321,12 +11328,19 @@ async function confirmBulkImportTeam(){
     if(e._skipSave){ skippedPhone++; continue; }
     try{
       let id = e.existingId;
-      const sec = e.sec || _mapMachineToSec(e.machine, e.designation);
+      // Section from Excel Section column only (already resolved in parse); never designation→MGR
+      let sec = e.sec || '';
+      if(!sec || (typeof _isRoleOnlySec==='function' && _isRoleOnlySec(sec))){
+        const m = (typeof _mapMachineToSec==='function') ? _mapMachineToSec(e.machine, '') : '';
+        sec = (m && !(typeof _isRoleOnlySec==='function' && _isRoleOnlySec(m))) ? m : (e.machine || 'General');
+      }
       const rec = {
         name: e.name,
         empId: e.code,
         sec: sec,
-        mc: e.machine || sec || '—',
+        section: sec, // keep Section text for filters (Metalliser / Slitter / MetProd)
+        mc: e.machine || '',
+        machine: e.machine || '',
         designation: e.designation || '',
         resp: e.resp || '',
         monthlySalary: e.salary ? Number(e.salary)||0 : 0,
@@ -12379,9 +12393,14 @@ async function handleTeamExcelFile(file){
       const salaryRaw=colMap.salary>=0?(r[colMap.salary]||'').toString().trim().replace(/[^0-9.]/g,''):'';
       const salary=salaryRaw?parseFloat(salaryRaw):null;
 
-      // Section: prefer dedicated Section column (any category text); else machine; else keep existing
-      let sec = sectionCol || (matched ? matched.sec : '') || '';
-      if(!sec && machine) sec = machine;
+      // Section: MUST use Excel "Section" column (Metalliser / Slitter / MetProd …).
+      // Never map Designation (Manager→MGR, Engineer→SUP) into Section.
+      let sec = sectionCol || '';
+      if(!sec && matched){
+        // Keep previous real section text if not a role/machine code
+        const prev = String(matched.section || matched.sec || '').trim();
+        if(prev && !_isMachineLikeValue(prev) && !_isRoleOnlySec(prev)) sec = prev;
+      }
       if(!sec) sec = 'General';
 
       let otherTeam = false, conflictWith = '';
@@ -14344,6 +14363,73 @@ async function _importHolidayExcel(input){
 /* _importHolidayImage removed — replaced by Auto-fetch All-India holidays */
 
 
+/** Built-in All-India public holidays (used when network/API fails). Fixed + common festival dates. */
+const _INDIA_HOLIDAYS_BUILTIN = {
+  2025: [
+    {date:'2025-01-01',reason:'New Year\'s Day'},
+    {date:'2025-01-14',reason:'Makar Sankranti'},
+    {date:'2025-01-26',reason:'Republic Day'},
+    {date:'2025-02-26',reason:'Maha Shivaratri'},
+    {date:'2025-03-14',reason:'Holi'},
+    {date:'2025-03-31',reason:'Id-ul-Fitr'},
+    {date:'2025-04-10',reason:'Mahavir Jayanti'},
+    {date:'2025-04-18',reason:'Good Friday'},
+    {date:'2025-05-12',reason:'Buddha Purnima'},
+    {date:'2025-06-07',reason:'Id-ul-Zuha (Bakrid)'},
+    {date:'2025-07-06',reason:'Muharram'},
+    {date:'2025-08-15',reason:'Independence Day'},
+    {date:'2025-08-16',reason:'Janmashtami'},
+    {date:'2025-09-05',reason:'Milad-un-Nabi'},
+    {date:'2025-10-02',reason:'Gandhi Jayanti'},
+    {date:'2025-10-02',reason:'Dussehra'},
+    {date:'2025-10-21',reason:'Diwali'},
+    {date:'2025-11-05',reason:'Guru Nanak Jayanti'},
+    {date:'2025-12-25',reason:'Christmas Day'}
+  ],
+  2026: [
+    {date:'2026-01-01',reason:'New Year\'s Day'},
+    {date:'2026-01-14',reason:'Makar Sankranti'},
+    {date:'2026-01-26',reason:'Republic Day'},
+    {date:'2026-02-15',reason:'Maha Shivaratri'},
+    {date:'2026-03-03',reason:'Holi'},
+    {date:'2026-03-21',reason:'Id-ul-Fitr'},
+    {date:'2026-03-31',reason:'Mahavir Jayanti'},
+    {date:'2026-04-03',reason:'Good Friday'},
+    {date:'2026-05-01',reason:'Buddha Purnima'},
+    {date:'2026-05-27',reason:'Id-ul-Zuha (Bakrid)'},
+    {date:'2026-06-26',reason:'Muharram'},
+    {date:'2026-08-15',reason:'Independence Day'},
+    {date:'2026-09-04',reason:'Janmashtami'},
+    {date:'2026-09-26',reason:'Milad-un-Nabi'},
+    {date:'2026-10-02',reason:'Gandhi Jayanti'},
+    {date:'2026-10-20',reason:'Dussehra'},
+    {date:'2026-11-08',reason:'Diwali'},
+    {date:'2026-11-24',reason:'Guru Nanak Jayanti'},
+    {date:'2026-12-25',reason:'Christmas Day'}
+  ],
+  2027: [
+    {date:'2027-01-01',reason:'New Year\'s Day'},
+    {date:'2027-01-14',reason:'Makar Sankranti'},
+    {date:'2027-01-26',reason:'Republic Day'},
+    {date:'2027-03-06',reason:'Maha Shivaratri'},
+    {date:'2027-03-22',reason:'Holi'},
+    {date:'2027-03-11',reason:'Id-ul-Fitr'},
+    {date:'2027-04-09',reason:'Good Friday'},
+    {date:'2027-04-19',reason:'Mahavir Jayanti'},
+    {date:'2027-05-20',reason:'Buddha Purnima'},
+    {date:'2027-05-17',reason:'Id-ul-Zuha (Bakrid)'},
+    {date:'2027-06-15',reason:'Muharram'},
+    {date:'2027-08-15',reason:'Independence Day'},
+    {date:'2027-08-24',reason:'Janmashtami'},
+    {date:'2027-09-15',reason:'Milad-un-Nabi'},
+    {date:'2027-10-02',reason:'Gandhi Jayanti'},
+    {date:'2027-10-09',reason:'Dussehra'},
+    {date:'2027-10-29',reason:'Diwali'},
+    {date:'2027-11-14',reason:'Guru Nanak Jayanti'},
+    {date:'2027-12-25',reason:'Christmas Day'}
+  ]
+};
+
 async function _autoFetchIndiaHolidays(){
   const isEn = (_lang==='en');
   const yearEl = document.getElementById('hl_year');
@@ -14353,46 +14439,76 @@ async function _autoFetchIndiaHolidays(){
   function mergeItems(items){
     const map = {};
     (_holidayDraft.items||[]).forEach(it=>{ if(it && it.date) map[it.date]=it; });
-    items.forEach(it=>{ if(it && it.date) map[it.date]=it; });
+    items.forEach(it=>{ if(it && it.date) map[it.date]={ id: it.id||('h_'+it.date), date: String(it.date).slice(0,10), reason: String(it.reason||'Holiday').trim() }; });
     _holidayDraft.items = Object.values(map).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
   }
 
-  // Try network first
-  try{
-    toast(isEn ? ('⏳ Fetching All-India holidays for '+year+'…') : ('⏳ '+year+' की All-India holidays ला रहे हैं…'));
-    const res = await fetch('https://date.nager.at/api/v3/PublicHolidays/'+year+'/IN', { cache: 'default' });
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-    if(!Array.isArray(data) || !data.length) throw new Error('Empty response');
-    const items = data.map(h=>({
-      id: 'h_nager_'+String(h.date||''),
-      date: String(h.date||'').slice(0,10),
-      reason: String(h.localName || h.name || 'Holiday').trim()
-    })).filter(x=>x.date);
-    try{ localStorage.setItem(cacheKey, JSON.stringify(items)); }catch(e){}
-    mergeItems(items);
-    toast('✅ '+items.length+' All-India holidays · total '+_holidayDraft.items.length);
-    _renderHolidayListModal();
-    return;
-  }catch(netErr){
-    console.warn('[Holiday AutoFetch]', netErr);
+  function fromBuiltin(){
+    const list = _INDIA_HOLIDAYS_BUILTIN[year];
+    if(!list || !list.length) return null;
+    return list.map(h=>({ id:'h_builtin_'+h.date, date:h.date, reason:h.reason }));
   }
 
-  // Offline / failed — use local cache
+  toast(isEn ? ('⏳ Fetching All-India holidays for '+year+'…') : ('⏳ '+year+' की All-India holidays ला रहे हैं…'));
+
+  // 1) Network — try Nager.Date (primary)
+  try{
+    const controller = typeof AbortController!=='undefined' ? new AbortController() : null;
+    const timer = controller ? setTimeout(()=>controller.abort(), 10000) : null;
+    const res = await fetch('https://date.nager.at/api/v3/PublicHolidays/'+year+'/IN', {
+      cache: 'no-store',
+      mode: 'cors',
+      signal: controller ? controller.signal : undefined
+    });
+    if(timer) clearTimeout(timer);
+    if(res.ok){
+      const data = await res.json();
+      if(Array.isArray(data) && data.length){
+        const items = data.map(h=>({
+          id: 'h_nager_'+String(h.date||''),
+          date: String(h.date||'').slice(0,10),
+          reason: String(h.localName || h.name || 'Holiday').trim()
+        })).filter(x=>x.date);
+        try{ localStorage.setItem(cacheKey, JSON.stringify(items)); }catch(e){}
+        mergeItems(items);
+        toast('✅ '+items.length+' All-India holidays · total '+_holidayDraft.items.length);
+        _renderHolidayListModal();
+        return;
+      }
+    }
+  }catch(netErr){
+    console.warn('[Holiday AutoFetch] network', netErr);
+  }
+
+  // 2) localStorage cache from a previous successful fetch
   try{
     const raw = localStorage.getItem(cacheKey);
     if(raw){
       const items = JSON.parse(raw);
       if(Array.isArray(items) && items.length){
         mergeItems(items);
-        toast(isEn ? ('📴 Offline: '+items.length+' cached holidays for '+year) : ('📴 Offline: '+year+' के '+items.length+' cached holidays'));
+        toast(isEn ? ('📴 Cached: '+items.length+' holidays for '+year) : ('📴 Cached: '+year+' के '+items.length+' holidays'));
         _renderHolidayListModal();
         return;
       }
     }
   }catch(e){}
 
-  toast(isEn ? '❌ Could not fetch holidays (no network & no cache)' : '❌ Holidays fetch नहीं हुई (network/cache नहीं)');
+  // 3) Built-in offline list (always available for 2025–2027)
+  const builtin = fromBuiltin();
+  if(builtin && builtin.length){
+    try{ localStorage.setItem(cacheKey, JSON.stringify(builtin)); }catch(e){}
+    mergeItems(builtin);
+    toast(isEn
+      ? ('✅ '+builtin.length+' holidays loaded (built-in list for '+year+')')
+      : ('✅ '+builtin.length+' holidays (built-in '+year+')'));
+    _renderHolidayListModal();
+    return;
+  }
+
+  toast(isEn
+    ? ('❌ No holiday data for '+year+' — try 2025–2027 or add manually')
+    : ('❌ '+year+' के holidays नहीं मिले — 2025–2027 चुनें या manual जोड़ें'));
 }
 try{ window._autoFetchIndiaHolidays = _autoFetchIndiaHolidays; }catch(e){}
 
