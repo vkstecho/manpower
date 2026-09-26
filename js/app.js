@@ -900,49 +900,60 @@ function getActiveRotationCodes(){
   return ['D','N'];
 }
 function getMinStaffForFilter(){
+  // Schedule red/⚠️ is linked ONLY to Profile → "Minimum Staff — from your Team Excel" (minByField)
   const cfg = getShiftConfigSync();
   const n = (v, fallback) => {
     const x = Number(v);
     return (isFinite(x) && x >= 0) ? x : fallback;
   };
-  const minAll  = n(cfg.minAll, 4);
-  const minMet  = n(cfg.minMet, 5);
-  const minSlit = n(cfg.minSlit, 3);
-  const minSup  = n(cfg.minSup, 2);
-  const bySec   = (cfg.minBySec && typeof cfg.minBySec === 'object') ? cfg.minBySec : {};
   const byField = (cfg.minByField && typeof cfg.minByField === 'object') ? cfg.minByField : {};
   const s = String(schedSec || 'ALL');
-  const key = (typeof _normSecKey === 'function') ? _normSecKey(s) : String(s).toUpperCase().replace(/[^A-Z0-9]/g,'');
 
-  // Dynamic mins from Excel categories (Profile → minByField)
   const pickFieldMin = (kind, val) => {
     const map = byField[kind] || {};
-    if(map[val] != null && isFinite(Number(map[val]))) return Math.max(0, Number(map[val]));
+    if(val != null && map[val] != null && isFinite(Number(map[val]))) return Math.max(0, Number(map[val]));
+    // case-insensitive key match
+    const want = String(val||'').toLowerCase();
+    for(const k of Object.keys(map)){
+      if(String(k).toLowerCase()===want && isFinite(Number(map[k]))) return Math.max(0, Number(map[k]));
+    }
     return null;
   };
-  if(s.startsWith('SEC:')){ const m=pickFieldMin('section', s.slice(4)); if(m!=null) return m; }
-  if(s.startsWith('MC:')){ const m=pickFieldMin('machine', s.slice(3)); if(m!=null) return m; }
-  if(s.startsWith('RESP:')){ const m=pickFieldMin('responsibility', s.slice(5)); if(m!=null) return m; }
-  if(s.startsWith('CAT:')) return minAll;
 
-  // Per-machine / per-section override from Profile
-  if(bySec[s] != null && isFinite(Number(bySec[s]))) return Math.max(0, Number(bySec[s]));
-  if(key && bySec[key] != null && isFinite(Number(bySec[key]))) return Math.max(0, Number(bySec[key]));
+  if(s.startsWith('SEC:')){
+    const m = pickFieldMin('section', s.slice(4));
+    if(m != null) return m;
+  }
+  if(s.startsWith('MC:')){
+    const m = pickFieldMin('machine', s.slice(3));
+    if(m != null) return m;
+  }
+  if(s.startsWith('RESP:')){
+    const m = pickFieldMin('responsibility', s.slice(5));
+    if(m != null) return m;
+  }
+  if(s.startsWith('DESIG:')){
+    // designation has no min table — use lowest section default or 0
+    return 0;
+  }
 
-  if(s === 'ALL') return minAll;
-  if(s === 'M12' || s === 'GRP:metalliser' || key === 'MET') return minMet;
-  if(s === 'S12' || s === 'GRP:slitter' || key === 'SLIT') return minSlit;
-  if(s === 'SUP' || s === 'GRP:supervisor' || key === 'SUP') return minSup;
-  if(s === 'MGR' || s === 'GRP:manager' || key === 'MGR' || key === 'MANAGER') return 0;
+  // "All" / category overview: max of section mins, or default 4
+  if(s === 'ALL' || s.startsWith('CAT:')){
+    const secMap = byField.section || {};
+    const vals = Object.values(secMap).map(Number).filter(x => isFinite(x) && x >= 0);
+    if(vals.length) return Math.max(...vals);
+    return n(cfg.minAll, 4);
+  }
 
-  try{
-    const metKeys = new Set((cfg.metallisers||[]).map(x => typeof _normSecKey==='function' ? _normSecKey(x) : String(x).toUpperCase()));
-    const slitKeys = new Set((cfg.slitters||[]).map(x => typeof _normSecKey==='function' ? _normSecKey(x) : String(x).toUpperCase()));
-    if(metKeys.has(key) || key==='M1' || key==='M2') return minMet;
-    if(slitKeys.has(key) || key==='S1' || key==='S2') return minSlit;
-  }catch(e){}
+  // Legacy exact sec code (e.g. M1) — try section then machine maps
+  let m = pickFieldMin('section', s);
+  if(m != null) return m;
+  m = pickFieldMin('machine', s);
+  if(m != null) return m;
+  m = pickFieldMin('section', String(s).replace(/-/g,''));
+  if(m != null) return m;
 
-  return minAll;
+  return n(cfg.minAll, 4);
 }
 
 function getShiftConfigSync(){
@@ -4357,32 +4368,6 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   </div>
   <div id="ss_shiftTimings">${_renderShiftTimingRows()}</div>
 
-  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:16px 0 6px">📉 Minimum Staff (all sections)</div>
-  <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
-    If the day count is <b>below</b> this number, the summary shows red / ⚠️.<br>
-    Set a value for <b>every section</b> you use — All, groups, and each machine.
-  </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
-    <div>
-      <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">All sections</div>
-      <input type="number" min="0" max="50" value="${d.minAll!=null?d.minAll:4}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minAll=Number(this.value)||0">
-    </div>
-    <div>
-      <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Met (All Metalliser)</div>
-      <input type="number" min="0" max="50" value="${d.minMet}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minMet=Number(this.value)||0">
-    </div>
-    <div>
-      <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Slit (All Slitter)</div>
-      <input type="number" min="0" max="50" value="${d.minSlit}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minSlit=Number(this.value)||0">
-    </div>
-    <div>
-      <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Supervisor</div>
-      <input type="number" min="0" max="50" value="${d.minSup}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minSup=Number(this.value)||0">
-    </div>
-  </div>
-  <div style="font-size:11px;font-weight:800;color:#94a3b8;margin:4px 0 6px">Per machine / section</div>
-  <div id="ss_minBySec" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderMinBySecRows()}</div>
-
   <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:16px 0 6px">👁 Hide shifts from Schedule</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.45">Hidden codes disappear from <b>bottom legend</b>, daily count rows, and shift picker. Untick a shift above (A/B/C) to disable it completely.</div>
   <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
@@ -4398,8 +4383,12 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 
   <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:16px 0 6px">📉 Minimum Staff — from your Team Excel</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
-    Values come from <b>Section / Machine / Responsibility</b> columns on your uploaded team.<br>
-    Set minimum headcount for each. Empty team → upload Excel in Team tab first.
+    Schedule red / ⚠️ uses <b>only these values</b> (not the old Met/Slit table).<br>
+    Values come from <b>Section / Machine / Responsibility</b> on your uploaded team. Empty → upload Excel in Team tab first.
+  </div>
+  <div style="margin-bottom:12px;max-width:160px">
+    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter)</div>
+    <input type="number" min="0" max="50" value="${d.minAll!=null?d.minAll:4}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minAll=Number(this.value)||0">
   </div>
   <div style="font-size:11px;font-weight:800;color:#f97316;margin:8px 0 6px">Sections</div>
   <div id="ss_minSections" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('section')}</div>
@@ -4408,8 +4397,10 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
   <div id="ss_minResps" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
 
-  <button class="submit-btn" style="margin-top:16px" onclick="_saveShiftSettings()">✅ Save करें</button>
-  <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">रद्द करें</button>`);
+  <div class="modal-sticky-actions">
+    <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
+  </div>`);
 }
 
 function _renderShiftTimingRows(){
