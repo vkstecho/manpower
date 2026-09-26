@@ -4009,6 +4009,8 @@ async function _reauthVerifyOtp(){
     if(err) err.textContent = '⏳ Verify…';
     await _fbVerifyPhoneOtp(_reauthConfirm, code);
     _reauthConfirm = null;
+    try{ sessionStorage.setItem('mp_write_auth','1'); localStorage.setItem('mp_write_auth_at', String(Date.now())); }catch(e){}
+    try{ await _syncAuthRoleNodes(); }catch(e){}
     await _syncAuthRoleNodes();
     toast('✅ Phone verified — अब Save कर सकते हैं');
     const ov = document.getElementById('quickReauthOverlay');
@@ -4870,49 +4872,97 @@ async function saveLeaveQuotas(){
   }catch(e){ toast('❌ '+e.message); }
 }
 async function openLeaveBalanceModal(){
-  const key = 'leaveQuotas/'+(SESSION.managerId ? ('mgr:'+SESSION.managerId) : (myShiftConfigKey()||'default'));
-  // try manager key from mobile
   let q = _defaultLeaveQuotas();
   try{
     const k2 = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.managerId||SESSION.mobile)||'default');
     const r = await fbGet(k2);
     if(r) q = {...q, ...r};
   }catch(e){}
-  // Count used leaves from schedule for this emp (current year)
   const emp = myEmp();
   const year = new Date().getFullYear();
-  let usedL = 0, usedCO = 0;
+  const used = { CL:0, SL:0, EL:0, CO:0, L:0, other:0 };
+  const yStart = year+'-01-01', yEnd = year+'-12-31';
+
+  // 1) From leave applications (authoritative by type)
+  try{
+    (getLeaves()||[]).filter(l=>{
+      if(!emp || !l) return false;
+      if(l.empId!==emp.id && l.empId!==emp.empId) return false;
+      if(l.status==='rejected') return false;
+      // count approved + pending for remaining estimate; used = approved only for "used"
+      return l.status==='approved' || l.status==='pending';
+    }).forEach(l=>{
+      const days = Number(l.days)||1;
+      const t = String(l.leaveType||l.type||'L').toLowerCase();
+      const isApproved = l.status==='approved';
+      if(!isApproved) return; // used counts only approved
+      if(/sick|sl/.test(t)) used.SL += days;
+      else if(/earned|el|privilege|pl/.test(t)) used.EL += days;
+      else if(/c-?off|comp|\/o|co\b/.test(t)) used.CO += days;
+      else if(/casual|cl/.test(t)) used.CL += days;
+      else { used.L += days; used.other += days; }
+    });
+  }catch(e){}
+
+  // 2) From schedule / overrides (L and C/O codes on calendar)
   try{
     if(emp && emp.id){
       for(let m=0;m<12;m++){
-        const mk = year+'-'+String(m+1).padStart(2,'0');
-        const sched = (_cache.schedules&&_cache.schedules[mk])||{};
-        const row = sched[emp.id]||{};
-        Object.values(row).forEach(sh=>{
-          if(sh==='L') usedL++;
-          if(sh==='C/O'||sh==='CO') usedCO++;
+        const mk = year+'_'+String(m+1).padStart(2,'0'); // schedules key format
+        const sched = (typeof getSchedules==='function' ? getSchedules()[mk] : null)
+          || (_cache.schedules && (_cache.schedules[mk]||_cache.schedules[year+'-'+String(m+1).padStart(2,'0')]))
+          || {};
+        const row = sched[emp.id] || sched[emp.empId] || {};
+        const vals = Array.isArray(row) ? row : Object.values(row||{});
+        vals.forEach(sh=>{
+          if(sh==='L') used.L++;
+          if(sh==='C/O'||sh==='CO') used.CO++;
         });
       }
+      // overrides for the year
+      const ov = (typeof getOverrides==='function' ? getOverrides() : null) || _cache.overrides || {};
+      Object.keys(ov).forEach(k=>{
+        if(!k.startsWith(emp.id+'_')) return;
+        const d = k.slice(emp.id.length+1);
+        if(d < yStart || d > yEnd) return;
+        const sh = ov[k];
+        if(sh==='L') used.L++;
+        if(sh==='C/O'||sh==='CO') used.CO++;
+      });
     }
   }catch(e){}
+
+  // Prefer leave-app counts for CL/SL/EL; calendar L supplements CL if apps empty
+  const usedCL = used.CL || used.L;
+  const usedSL = used.SL;
+  const usedEL = used.EL;
+  const usedCO = used.CO;
+
+  // Dynamic types from quota object
+  const quotaKeys = Object.keys(q).filter(k=>!['updatedAt','updatedBy'].includes(k) && typeof q[k]!=='object');
+  const cards = quotaKeys.map(k=>{
+    const quota = Number(q[k])||0;
+    let u = 0;
+    if(k==='CL') u = usedCL;
+    else if(k==='SL') u = usedSL;
+    else if(k==='EL') u = usedEL;
+    else if(k==='CO' || k==='C/O') u = usedCO;
+    else if(k==='other') u = used.other;
+    else u = 0;
+    const left = Math.max(0, quota - u);
+    const label = k==='CL'?'Casual Leave (CL)':k==='SL'?'Sick Leave (SL)':k==='EL'?'Earned Leave (EL)':k==='CO'?'Comp Off (C/O)':k;
+    const color = k==='SL'?'#38bdf8':k==='CO'?'#fbbf24':k==='EL'?'#a78bfa':'#22c55e';
+    return `<div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
+      <div style="font-weight:800;color:var(--text)">${label}</div>
+      <div style="font-size:22px;font-weight:900;color:${color}">${left} <span style="font-size:12px;color:var(--muted2)">left of ${quota}</span></div>
+      <div style="font-size:11px;color:var(--muted2)">Used (approved): ${u}</div>
+    </div>`;
+  }).join('');
+
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">🏖️ Leave Balance ${year}</div>
-    <div style="display:grid;gap:10px;margin:12px 0">
-      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
-        <div style="font-weight:800">Casual / Leave (L)</div>
-        <div style="font-size:20px;font-weight:900;color:#22c55e">${Math.max(0,(q.CL||0)+(q.EL||0)-usedL)} <span style="font-size:12px;color:var(--muted2)">left of ${(q.CL||0)+(q.EL||0)}</span></div>
-        <div style="font-size:11px;color:var(--muted2)">Used this year: ${usedL}</div>
-      </div>
-      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
-        <div style="font-weight:800">Sick Leave (SL)</div>
-        <div style="font-size:20px;font-weight:900;color:#38bdf8">${q.SL||0} <span style="font-size:12px;color:var(--muted2)">quota</span></div>
-      </div>
-      <div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
-        <div style="font-weight:800">Comp Off (C/O)</div>
-        <div style="font-size:20px;font-weight:900;color:#fbbf24">Used: ${usedCO}</div>
-        <div style="font-size:11px;color:var(--muted2)">Earned from double shifts / holidays (Manager approves)</div>
-      </div>
-    </div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Quota from Manager · Used from approved leave apps + schedule L / C-Off</div>
+    <div style="display:grid;gap:10px;margin:12px 0">${cards||'<div style="color:var(--muted2)">No quotas set — Manager → Team Leave Quota</div>'}</div>
     <button class="cancel-btn" onclick="closeModal()">Close</button>`);
 }
 async function openHolidayListSettings(){
@@ -5915,7 +5965,8 @@ async function renderHome(){
   const adminEl = document.getElementById('homeAdminView');
   const workerEl = document.getElementById('homeWorkerView');
   if(adminEl) adminEl.style.display='block';
-  if(workerEl) workerEl.style.display='block';
+  // Personal 3/14 calendar removed — My Shift tab only
+  if(workerEl) workerEl.style.display='none';
 
   document.getElementById('homeDateLbl').textContent =
     TODAY_DATE.toLocaleDateString(en?'en-IN':'hi-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -8083,21 +8134,54 @@ async function submitLeave(){
 
 async function actLeave(key, status){
   if(!canApproveLeave()){ toast('❌ Leave approve permission नहीं है'); return; }
-  if(!isAdmin() && !isMgr() && !myTeamPerms().leave){ toast('❌ Leave approve permission नहीं है'); return; }
-  const leaves=getLeaves();
-  const leave=leaves.find(l=>l._key===key);
-  if(!leave) return;
-  if(status==='approved'){
-    // Check shift coverage
-    const suggestion = checkShiftCoverage(leave);
-    if(suggestion){
-      showWarnModal(leave, suggestion, key);
-      return;
+  key = String(key||'').trim();
+  if(!key || key==='undefined' || key==='null'){
+    toast('❌ Leave key missing — refresh करके फिर try करें');
+    return;
+  }
+  // Phone auth required by Firebase rules
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Phone OTP verify करें — फिर Approve दबाएँ'); return; }
     }
-    await approveLeave(key, leave, []);
-  } else {
-    await fbUpdate(`leaves/${key}`,{status:'rejected'});
-    toast('❌ छुट्टी अस्वीकार की गई');
+  }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
+
+  let leave = (getLeaves()||[]).find(l=>l && (l._key===key || l.id===key));
+  if(!leave){
+    try{
+      const remote = await fbGet('leaves/'+key);
+      if(remote) leave = {...remote, _key:key};
+    }catch(e){}
+  }
+  if(!leave){
+    toast('❌ Leave record नहीं मिला: '+key);
+    return;
+  }
+  try{
+    if(status==='approved'){
+      let suggestion = null;
+      try{ suggestion = checkShiftCoverage(leave); }catch(e){ suggestion=null; }
+      if(suggestion && suggestion.length){
+        showWarnModal(leave, suggestion, key);
+        return;
+      }
+      await approveLeave(key, leave, []);
+    } else {
+      await fbUpdate('leaves/'+key, { status:'rejected', rejectedAt:new Date().toISOString(), rejectedBy:SESSION.name||'' });
+      try{
+        if(_cache.leaves){
+          const ix=_cache.leaves.findIndex(l=>l._key===key||l.id===key);
+          if(ix>=0) _cache.leaves[ix].status='rejected';
+        }
+      }catch(e){}
+      toast('❌ Leave rejected');
+      try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+      try{ if(typeof renderLeaves==='function') renderLeaves(); }catch(e){}
+    }
+  }catch(err){
+    console.error('[actLeave]', err);
+    toast('❌ Approve failed: '+(err.message||err.code||err)+' — Phone OTP + rules check करें');
   }
 }
 
@@ -8220,29 +8304,65 @@ async function confirmApproveLeave(leaveKey){
 }
 
 async function approveLeave(leaveKey, leave, suggestions){
+  suggestions = suggestions || [];
+  leaveKey = String(leaveKey||leave._key||'').trim();
+  if(!leaveKey){ toast('❌ Leave key missing'); return; }
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Phone verify required'); return; }
+    }
+  }catch(e){}
+
   const reallocations=[];
   const ovUpdates={};
 
   // Mark leave in overrides
-  dateRange(leave.from,leave.to).forEach(d=>{
-    ovUpdates[`${leave.empId}_${d}`]='L';
+  (typeof dateRange==='function' ? dateRange(leave.from,leave.to) : [leave.from]).forEach(d=>{
+    if(d) ovUpdates[leave.empId+'_'+d]='L';
   });
 
   // Apply supervisor suggestions
   suggestions.forEach(s=>{
-    if(s.supervisor){
-      ovUpdates[`${s.supervisor.id}_${s.date}`]=s.shift;
+    if(s && s.supervisor){
+      ovUpdates[s.supervisor.id+'_'+s.date]=s.shift;
       reallocations.push({date:s.date,coveredBy:s.supervisor.name,coveredById:s.supervisor.id,fromShift:getShift(s.supervisor,s.date)||'O',toShift:s.shift});
     }
   });
 
-  // Save overrides
-  const existing=getOverrides();
-  await fbSet('overrides',{...existing,...ovUpdates});
+  try{
+    // Prefer update of override keys only
+    if(Object.keys(ovUpdates).length){
+      try{ await fbUpdate('overrides', ovUpdates); }
+      catch(e1){
+        const existing=getOverrides()||{};
+        await fbSet('overrides',{...existing,...ovUpdates});
+      }
+      try{ _cache.overrides = {...(getOverrides()||{}), ...ovUpdates}; }catch(e){}
+    }
 
-  // Update leave
-  await fbUpdate(`leaves/${leaveKey}`,{status:'approved',reallocations,approvedAt:new Date().toISOString()});
-  toast('✅ छुट्टी मंजूर! शेड्यूल अपडेट हो गया');
+    await fbUpdate('leaves/'+leaveKey,{
+      status:'approved',
+      reallocations,
+      approvedAt:new Date().toISOString(),
+      approvedBy: SESSION.name||''
+    });
+    try{
+      if(_cache.leaves){
+        const ix=_cache.leaves.findIndex(l=>l._key===leaveKey||l.id===leaveKey);
+        if(ix>=0){ _cache.leaves[ix].status='approved'; }
+      }
+    }catch(e){}
+    toast('✅ Leave approved — schedule updated');
+    try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+    try{ if(typeof renderLeaves==='function') renderLeaves(); }catch(e){}
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+  }catch(err){
+    console.error('[approveLeave]', err);
+    toast('❌ Save failed: '+(err.message||err.code||err));
+    return;
+  }
+  // continue existing WhatsApp block below — we only replaced up to toast
 
   // ── WhatsApp notification to employee ──
   try{

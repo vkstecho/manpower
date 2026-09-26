@@ -2890,3 +2890,39 @@ body.light .role-pick-sub{
 .ms-mate-chip b{display:block;color:var(--text);font-weight:800;}
 .ms-mate-chip span{color:var(--muted2);font-size:10px;}
 .act-btn{pointer-events:auto !important;z-index:2;position:relative;}
+
+
+/* ══ Permanent: Home light-mode readability ══ */
+body.light #tab-home .stat-val,
+body.light #tab-home .stat-lbl,
+body.light #tab-home .stitle,
+body.light #homeDateLbl {
+  color: #1a1a2e !important;
+  -webkit-text-fill-color: #1a1a2e !important;
+}
+body.light #tab-home .stat-lbl { color: #5a6579 !important; -webkit-text-fill-color:#5a6579 !important; }
+body.light .sec-card,
+body.light .hm-group {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+body.light .sec-name,
+body.light .hm-group-title,
+body.light .hm-chip-name {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  font-weight: 800 !important;
+}
+body.light .sec-count,
+body.light .hm-group-count {
+  color: #16a34a !important;
+  font-weight: 900 !important;
+}
+body.light .hm-chip-meta { color: #64748b !important; }
+
+/* Shift picker buttons — match schedule .shc colors exactly */
+.shift-opt-D, button[data-shift="D"] { background:#f59e0b !important; color:#000 !important; }
+.shift-opt-N, button[data-shift="N"] { background:#4f46e5 !important; color:#fff !important; }
+.shift-opt-A, button[data-shift="A"] { background:#16a34a !important; color:#fff !important; }
+.shift-opt-B, button[data-shift="B"] { background:#db2777 !important; color:#fff !important; }
+.shift-opt-C, button[data-shift="C"] { background:#0891b2 !important; color:#fff !important; }
