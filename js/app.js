@@ -1036,28 +1036,34 @@ function getSchedFilteredEmps(){
 
 /** Unique sorted values from team for a field */
 
-/** Excel Section column value preferred; map legacy M1/S1/MGR codes to real section names */
+/** True if value looks like a Machine code (must NOT appear under Section filters) */
+function _isMachineLikeValue(v){
+  const s = String(v||'').trim();
+  if(!s) return false;
+  // M-1, M1, M-1&2, M1&2, S-1, S-1&2, All (machine assignment)
+  if(/^(M|S)\s*[-]?\s*[12]\s*([&+/and]+\s*[12])?$/i.test(s)) return true;
+  if(/^(M|S)\s*1\s*&\s*2$/i.test(s)) return true;
+  if(/^all$/i.test(s)) return true;
+  const k = s.toUpperCase().replace(/[^A-Z0-9&]/g,'');
+  if(['M1','M2','M12','M1M2','M1AND2','M1&2','S1','S2','S12','S1S2','S1AND2','S1&2'].includes(k)) return true;
+  return false;
+}
+
+/**
+ * Section = Excel "Section" column only (any text the Manager uploaded).
+ * Never invent Metalliser/Slitter from machine codes — different managers use different names.
+ * If sec was wrongly saved as machine code, return '' so it does not pollute Section filters.
+ */
 function getEmpSection(e){
   if(!e) return '';
-  const raw = String(e.sec||'').trim();
+  const raw = String(e.sec||e.section||'').trim();
   if(!raw) return '';
-  // Already free-text category from Excel
-  if(/metalliser|slitter|met\s*prod|metprod|production/i.test(raw) && !/^M[12]$/i.test(raw) && !/^S[12]$/i.test(raw))
-    return raw;
-  const key = raw.toUpperCase().replace(/[^A-Z0-9&]/g,'');
-  // Legacy machine-as-section codes
-  if(key==='M1'||key==='M2'||key==='M12'||key==='MET'||key==='M1M2'||key==='M1AND2') return 'Metalliser';
-  if(key==='S1'||key==='S2'||key==='S12'||key==='SLIT'||key==='S1S2'||key==='S1AND2') return 'Slitter';
-  // Met Prod / managers / engineers often stored as MGR, ALL, SUP
-  const des = String(e.designation||'').toLowerCase();
-  const mc = String(e.mc||e.machine||'').toLowerCase();
-  if(key==='MGR'||key==='MANAGER'||key==='ALL'||key==='SUP'||key==='SUPERVISOR'){
-    if(/met\s*prod|metprod|prod/.test(raw+des+mc) || mc==='all') return 'MetProd';
-    if(/slit/.test(des+mc)) return 'Slitter';
-    if(/met|metal/.test(des+mc)) return 'Metalliser';
-    return raw; // keep as-is for filter visibility
-  }
-  return raw;
+  if(_isMachineLikeValue(raw)) return ''; // machine is not section
+  // Legacy single-letter pool codes still used as sec in old data — map only those, not free-text
+  const key = raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if(key==='M1'||key==='M2'||key==='MET') return ''; // old codes; re-upload Excel for real Section
+  if(key==='S1'||key==='S2'||key==='SLIT') return '';
+  return raw; // Metalliser, Slitter, MetProd, or any custom name from that manager's Excel
 }
 function getEmpMachine(e){
   if(!e) return '';
@@ -1072,8 +1078,10 @@ function _teamFieldValues(field){
   const set=new Set();
   (getEmps()||[]).forEach(e=>{
     let v='';
-    if(field==='section') v=getEmpSection(e);
-    else if(field==='machine') v=getEmpMachine(e);
+    if(field==='section'){
+      v=getEmpSection(e);
+      if(v && _isMachineLikeValue(v)) v=''; // never list machines as sections
+    } else if(field==='machine') v=getEmpMachine(e);
     else if(field==='responsibility') v=getEmpResp(e);
     else if(field==='designation') v=String(e.designation||'').trim();
     if(v) set.add(v);
@@ -6207,7 +6215,12 @@ async function renderHome(){
   const metWarn  = metMin>0 && metDuty<metMin;
   const slitWarn = slitMin>0 && slitDuty<slitMin;
 
-  const secNames = _teamFieldValues('section');
+  let secNames = _teamFieldValues('section');
+  // Members whose Section was never set (machine code only) — show under Unassigned until Excel re-upload
+  const unassigned = emps.filter(e=>!getEmpSection(e));
+  if(unassigned.length && !secNames.includes('Unassigned')){
+    /* do not add fake section name to filters — only list real Excel sections */
+  }
   document.getElementById('homeSectionTitle').textContent = en
     ? ("Today's Shift — " + (secNames.join(' · ') || 'All sections'))
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
@@ -6243,7 +6256,8 @@ async function renderHome(){
     const chipCls = 'hm-chip' + (isMain?' main':isSup?' sup':'');
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
-    const shLabel = sh?`<span class="shc ${cellClass(sh)}" style="width:22px;height:18px;font-size:10px;margin-left:4px;display:inline-flex;align-items:center;justify-content:center">${cellDisp(sh)}</span>`:'';
+    const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
+    const shLabel = sh?`<span class="shc ${cellClass(sh)}" style="width:26px;height:22px;font-size:12px;font-weight:900;margin-left:6px;display:inline-flex;align-items:center;justify-content:center;background:${_st.bg} !important;color:${_st.fg} !important;border-radius:6px">${cellDisp(sh)}</span>`:'';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -6542,7 +6556,7 @@ function renderMyShift(){
     const cls = cellClass(sh);
     cells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:${canSelf?'pointer':'default'}">
       <div class="ms-day-num">${d}</div>
-      <div class="ms-day-sh shc ${cls}" style="background:${st.bg} !important;color:${st.fg} !important;border:none;width:auto;min-width:36px;height:auto;padding:4px 6px">${disp}</div>
+      <div class="ms-day-sh shc ${cls}" style="background:${st.bg} !important;color:${st.fg} !important;border:none;width:auto;min-width:40px;min-height:28px;padding:6px 8px;font-size:14px;font-weight:900;border-radius:8px;display:inline-flex;align-items:center;justify-content:center">${disp}</div>
     </div>`;
   }
 
@@ -7545,48 +7559,23 @@ function renderSchedule(){
   // ── Build ordered display groups ──
   // Primary filter: emp.sec (always correct from Firebase)
   // Secondary: getEmpRole for sub-group ordering within section
-  const DISPLAY_ORDER = [
-    { key:'met_main',  label:'⭐ Metalliser — Main Operators', color:'#f97316',
-      filter: e => ['M1','M2'].includes(e.sec) && getEmpRole(e).role==='main',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'met_rel',   label:'🔄 Metalliser — Relievers', color:'#fb923c',
-      filter: e => ['M1','M2'].includes(e.sec) && getEmpRole(e).role==='reliever',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'met_asst',  label:'🏭 Metalliser — Team', color:'#fdba74',
-      filter: e => ['M1','M2'].includes(e.sec) && !['main','reliever'].includes(getEmpRole(e).role),
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'slit_main', label:'⭐ Slitter — Main Operators', color:'#38bdf8',
-      filter: e => ['S1','S2'].includes(e.sec) && getEmpRole(e).role==='main',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'slit_rel',  label:'🔄 Slitter — Relievers', color:'#7dd3fc',
-      filter: e => ['S1','S2'].includes(e.sec) && getEmpRole(e).role==='slit_rel',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'slit_asst', label:'✂️ Slitter — Team', color:'#bae6fd',
-      filter: e => ['S1','S2'].includes(e.sec) && !['main','slit_rel'].includes(getEmpRole(e).role),
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'sup_slit',  label:'👷 Supervisor — Slitter', color:'#a78bfa',
-      filter: e => e.sec==='SUP' && getEmpRole(e).role==='sup_slit',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'sup_met',   label:'👷 Supervisor — Metalliser', color:'#c4b5fd',
-      filter: e => e.sec==='SUP' && getEmpRole(e).role==='sup_met',
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'sup_all',   label:'👷 Supervisor', color:'#a78bfa',
-      filter: e => e.sec==='SUP' && !['sup_slit','sup_met'].includes(getEmpRole(e).role),
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-    { key:'mgr',       label:'🎯 Manager', color:'var(--mgr)',
-      filter: e => { const k=_normSecKey(e.sec); return k==='MGR'||k==='MANAGER'; },
-      sort: (a,b) => getEmpDisplayOrder(a) - getEmpDisplayOrder(b)
-    },
-  ];
+  const DISPLAY_ORDER = (()=>{
+    // Dynamic groups from each employee's Excel Section — no hardcoded Metalliser/Slitter
+    const secVals = _teamFieldValues('section');
+    const colors = ['#f97316','#38bdf8','#a855f7','#16a34a','#db2777','#0891b2','#eab308'];
+    if(!secVals.length){
+      // Fallback: one group with everyone (still no hard-coded section names)
+      return [{ key:'all', label:'TEAM', color:'#94a3b8',
+        filter: e => true, sort: (a,b) => (a.name||'').localeCompare(b.name||'') }];
+    }
+    return secVals.map((secName,i)=>({
+      key: 'sec_'+i,
+      label: '🏭 ' + secName.toUpperCase() + ' — TEAM',
+      color: colors[i % colors.length],
+      filter: e => getEmpSection(e) === secName,
+      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+    }));
+  })();
 
   // ── Fallback: any employee whose sec isn't one of fixed codes above ──
   // (this is every employee for any new self-registered company's own machines)

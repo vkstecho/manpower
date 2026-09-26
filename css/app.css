@@ -2977,3 +2977,16 @@ body.dark .field label {
 }
 body.light .ms-hint { color: #475569 !important; }
 body.light .ms-day-num { color: #475569 !important; font-weight: 800 !important; }
+
+/* Home + My Shift — match Schedule badge size/contrast */
+.hm-chip .shc.N, .hm-chip-meta .shc.N { background:#4f46e5 !important; color:#fff !important; }
+.hm-chip .shc.G, .hm-chip-meta .shc.G { background:#0284c7 !important; color:#fff !important; }
+.hm-chip .shc.D, .hm-chip-meta .shc.D { background:#f59e0b !important; color:#000 !important; }
+.hm-chip .shc.O, .hm-chip-meta .shc.O { background:#475569 !important; color:#fff !important; }
+.hm-chip .shc.L, .hm-chip-meta .shc.L { background:#be123c !important; color:#fff !important; }
+.ms-day-sh { font-size:14px !important; font-weight:900 !important; min-width:40px !important; min-height:28px !important; }
+.ms-day-sh.shc.G { background:#0284c7 !important; color:#fff !important; }
+.ms-day-sh.shc.O { background:#475569 !important; color:#fff !important; }
+.ms-day-sh.shc.L { background:#be123c !important; color:#fff !important; }
+.ms-day-sh.shc.N { background:#4f46e5 !important; color:#fff !important; }
+.ms-day-sh.shc.D { background:#f59e0b !important; color:#000 !important; }
