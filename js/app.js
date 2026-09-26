@@ -4820,17 +4820,47 @@ async function openLeaveQuotaSettings(){
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">📋 Team Leave Quota (Year)</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Members see remaining balance in Profile</div>
-    ${['CL','SL','EL','CO','other'].map(t=>`
-      <div class="field"><label>${t==='CL'?'Casual Leave (CL)':t==='SL'?'Sick Leave (SL)':t==='EL'?'Earned Leave (EL)':t==='CO'?'Comp Off quota note':'Other'}</label>
-        <input class="inp-field" type="number" id="lq_${t}" value="${q[t]!=null?q[t]:0}" min="0" max="365"></div>`).join('')}
+    <div id="lq_fields">${['CL','SL','EL','CO','other'].map(t=>`
+      <div class="field"><label>${t==='CL'?'Casual Leave (CL)':t==='SL'?'Sick Leave (SL)':t==='EL'?'Earned Leave (EL)':t==='CO'?'Comp Off':'Other'}</label>
+        <input class="inp-field" type="number" id="lq_${t}" data-lq-key="${t}" value="${q[t]!=null?q[t]:0}" min="0" max="365"></div>`).join('')}
+    </div>
+    <div class="field"><label>Add custom leave type</label>
+      <div style="display:flex;gap:8px">
+        <input class="inp-field" id="lq_new_name" placeholder="e.g. Maternity / RH" style="flex:1">
+        <input class="inp-field" id="lq_new_days" type="number" min="0" max="365" placeholder="Days" style="width:90px">
+      </div>
+    </div>
+    <button type="button" class="cancel-btn" style="margin-bottom:8px" onclick="_addCustomLeaveQuotaRow()">＋ Add leave type</button>
     <button class="submit-btn" onclick="saveLeaveQuotas()">✅ Save</button>
     <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
+}
+
+function _addCustomLeaveQuotaRow(){
+  const name = (document.getElementById('lq_new_name')?.value||'').trim();
+  const days = Number(document.getElementById('lq_new_days')?.value)||0;
+  if(!name){ toast('⚠️ Leave type name लिखें'); return; }
+  const key = name.replace(/[^a-zA-Z0-9_\u0900-\u097F]+/g,'_').slice(0,24);
+  const host = document.getElementById('lq_fields');
+  if(!host) return;
+  if(document.getElementById('lq_'+key)){ toast('⚠️ Already added'); return; }
+  const div = document.createElement('div');
+  div.className = 'field';
+  div.innerHTML = '<label>'+name.replace(/</g,'')+'</label><input class="inp-field" type="number" id="lq_'+key+'" data-lq-key="'+key+'" value="'+days+'" min="0" max="365">';
+  host.appendChild(div);
+  const n=document.getElementById('lq_new_name'); if(n) n.value='';
+  const d=document.getElementById('lq_new_days'); if(d) d.value='';
+  toast('✅ Added '+name);
 }
 async function saveLeaveQuotas(){
   const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
   const q = {};
+  document.querySelectorAll('[data-lq-key]').forEach(el=>{
+    const k = el.getAttribute('data-lq-key');
+    if(k) q[k] = Number(el.value)||0;
+  });
+  // fallback fixed keys
   ['CL','SL','EL','CO','other'].forEach(t=>{
-    q[t] = Number(document.getElementById('lq_'+t)?.value)||0;
+    if(q[t]==null) q[t] = Number(document.getElementById('lq_'+t)?.value)||0;
   });
   q.updatedAt = new Date().toISOString();
   try{
@@ -5214,10 +5244,15 @@ async function saveChangeCompanyName(){
   const name = (document.getElementById('chgCompanyName')?.value||'').trim();
   if(!name || name.length < 2){ toast(isEn?'⚠️ Enter a valid company name':'⚠️ सही Company नाम डालें'); return; }
   try{
-    const mob = _normMobileKey(SESSION.mobile||'');
-    if(mob){
-      await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast(isEn?'❌ Phone verify on this device first':'❌ पहले इस device पर Phone verify करें'); return; }
     }
+    const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    if(!mob){ toast('❌ Mobile not found in session'); return; }
+    await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
+    // Also update managers path if present
+    try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
     SESSION.company = name;
     try{ SESSION.companyId = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name; }catch(e){ SESSION.companyId = name; }
     try{ saveSession(); }catch(e){}
@@ -5225,7 +5260,8 @@ async function saveChangeCompanyName(){
     closeModal();
     try{ showProfile(); }catch(e){}
   }catch(e){
-    toast('❌ '+(e.message||e));
+    console.error('[saveChangeCompanyName]', e);
+    toast('❌ '+(e.message||e)+' — Phone OTP verify करके फिर try करें');
   }
 }
 
@@ -6262,64 +6298,79 @@ async function submitHomeTodo(){
 // MY SHIFT
 // ════════════════════════════════════════
 function renderMyShift(){
-  const e=myEmp();
-  if(!e){ document.getElementById('myShiftContent').innerHTML='<div class="empty"><div class="empty-icon">👤</div><div class="empty-text">प्रोफाइल नहीं मिली</div></div>'; return; }
-  const s=SEC[e.sec]||SEC.M1;
-  const todaySh=getShift(e,TODAY_STR);
-  const tmrwSh=getShift(e,addDays(TODAY_STR,1));
-  const next15=Array.from({length:15},(_,i)=>addDays(TODAY_STR,i));
-  const myLeaves=getLeaves().filter(l=>l.empId===e.id).sort((a,b)=>new Date(b.from)-new Date(a.from));
+  const el = document.getElementById('myShiftContent');
+  if(!el) return;
+  const e = myEmp();
+  if(!e){ el.innerHTML='<div class="empty"><div class="empty-icon">👤</div><div class="empty-text">Profile not found</div></div>'; return; }
+  if(!_myShiftMonth) _myShiftMonth = new Date(TODAY_STR+'T12:00:00');
+  const y = _myShiftMonth.getFullYear();
+  const m = _myShiftMonth.getMonth();
+  const first = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const startDow = first.getDay(); // 0 Sun
+  const monthName = first.toLocaleDateString((_lang==='en')?'en-IN':'hi-IN',{month:'long',year:'numeric'});
+  const canSelf = !isPendingMember(); // members can request change
 
-  document.getElementById('myShiftContent').innerHTML=`
-  <div class="my-shift-hero">
-    <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:52px;height:52px;border-radius:12px;background:${s.bg};display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;color:${s.color}">${e.name.split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
-      <div>
-        <div style="font-size:28px;font-weight:900;color:#fff">${e.name}</div>
-        <div style="font-size:17px;color:var(--muted2)">${e.empId} · <span style="color:${s.color}">${s.hi}</span> · ${e.mc}</div>
-      </div>
+  const shStyle = {
+    D:{bg:'#f59e0b',fg:'#000'}, N:{bg:'#4f46e5',fg:'#fff'},
+    A:{bg:'#16a34a',fg:'#fff'}, B:{bg:'#db2777',fg:'#fff'}, C:{bg:'#0891b2',fg:'#fff'},
+    O:{bg:'#334155',fg:'#e2e8f0'}, L:{bg:'#9f1239',fg:'#fecdd3'}, G:{bg:'#0c4a6e',fg:'#7dd3fc'},
+    'C/O':{bg:'#713f12',fg:'#fde68a'}, CO:{bg:'#713f12',fg:'#fde68a'}, H:{bg:'#ea580c',fg:'#fff'},
+    OD:{bg:'#0d9488',fg:'#ccfbf1'}, GP:{bg:'#6d28d9',fg:'#e9d5ff'}, HLF:{bg:'#f97316',fg:'#fff'},
+    Ab:{bg:'#450a0a',fg:'#fca5a5'}
+  };
+
+  let cells = '';
+  for(let i=0;i<startDow;i++) cells += '<div class="ms-day empty"></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const sh = getShift(e, ds) || '';
+    const st = shStyle[sh] || (String(sh).indexOf('+')>=0 ? {bg:'#7c3aed',fg:'#fff'} : {bg:'#1e293b',fg:'#94a3b8'});
+    const isToday = ds===TODAY_STR;
+    const disp = cellDisp(sh) || '·';
+    const click = canSelf
+      ? `onclick="editShiftCell('${e.id}','${String(e.name||'').replace(/'/g,"\\'")}','${ds}','${String(sh).replace(/'/g,"\\'")}')"`
+      : '';
+    cells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:${canSelf?'pointer':'default'}">
+      <div class="ms-day-num">${d}</div>
+      <div class="ms-day-sh" style="background:${st.bg};color:${st.fg}">${disp}</div>
+    </div>`;
+  }
+
+  // Shift mates today
+  const todaySh = getShift(e, TODAY_STR);
+  const allEmps = (typeof getEmps==='function'?getEmps():[]).filter(x=>x.status!=='resigned'&&x.status!=='left');
+  const mates = allEmps.filter(emp=>{
+    if(emp.id===e.id) return false;
+    const s = getShift(emp, TODAY_STR);
+    if(!todaySh||!s) return false;
+    if(todaySh===s) return true;
+    if(typeof parseShiftWorkCodes==='function'){
+      const a=parseShiftWorkCodes(todaySh), b=parseShiftWorkCodes(s);
+      return a.some(c=>b.includes(c));
+    }
+    return false;
+  });
+
+  el.innerHTML = `
+  <div class="ms-cal-wrap">
+    <div class="ms-cal-nav">
+      <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}-1,1);renderMyShift()">‹</button>
+      <div class="ms-cal-title">${monthName}</div>
+      <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}+1,1);renderMyShift()">›</button>
     </div>
-    <div class="my-shift-grid">
-      <div class="shift-day-card">
-        <div class="shift-day-lbl">आज</div>
-        <div class="shift-icon shc ${cellClass(todaySh)}" style="width:54px;height:46px;font-size:20px;margin:0 auto 6px">${cellDisp(todaySh)}</div>
-        <div style="font-size:17px;font-weight:700;color:var(--text)">${CFG.shiftLabels[todaySh]||todaySh}</div>
-      </div>
-      <div class="shift-day-card">
-        <div class="shift-day-lbl">कल</div>
-        <div class="shift-icon shc ${cellClass(tmrwSh)}" style="width:54px;height:46px;font-size:20px;margin:0 auto 6px">${cellDisp(tmrwSh)}</div>
-        <div style="font-size:17px;font-weight:700;color:var(--text)">${CFG.shiftLabels[tmrwSh]||tmrwSh}</div>
-      </div>
-    </div>
-    <div style="margin-top:10px;font-size:17px;color:var(--muted2)">साप्ताहिक छुट्टी: <b style="color:#fff">${e.woff||'—'}</b> · मशीन: <b style="color:#fff">${e.mc||'—'}</b></div>
+    <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
+    <div class="ms-grid">${cells}</div>
+    <div class="ms-hint">${(_lang==='en')?'Tap a day to change shift (needs schedule permission / Manager)':'दिन पर टैप करें — shift बदलें (Manager / permission)'}</div>
   </div>
-
-  <div class="stitle">अगले 15 दिन</div>
-  <div class="mini-cal">
-    ${next15.map(d=>{
-      const dO=new Date(d); const sh=getShift(e,d); const isT=d===TODAY_STR;
-      return `<div class="mini-day${isT?' today':''}">
-        <div style="font-size:14px;color:${isT?'#fb923c':'#94a3b8'};font-weight:800;letter-spacing:.3px">${DAYS[dO.getDay()]}</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${isT?'#fb923c':'#e2e8f0'}">${dO.getDate()}</div>
-        <div style="margin-top:4px"><span class="shc ${cellClass(sh)}" style="width:34px;height:28px;font-size:14px">${cellDisp(sh)}</span></div>
-      </div>`;
-    }).join('')}
-  </div>
-
-  <div class="stitle">मेरी छुट्टियाँ</div>
-  ${myLeaves.length ? myLeaves.map(l=>`
-    <div class="card">
-      <div class="card-row">
-        <div class="card-ico" style="background:var(--daybg)">📅</div>
-        <div class="card-body">
-          <div class="card-name">${l.leaveType||'छुट्टी'}</div>
-          <div class="card-sub">${fmtDate(l.from)}${l.from!==l.to?' → '+fmtDate(l.to):''} · ${l.days} दिन</div>
-          <div class="card-meta">${l.reason||''}</div>
-        </div>
-        <span class="badge ${l.status}">${{pending:'⏳ प्रतीक्षा',approved:'✅ मंजूर',rejected:'❌ अस्वीकार'}[l.status]||l.status}</span>
-      </div>
-    </div>`).join('') : '<div class="empty"><div class="empty-icon">📅</div><div class="empty-text">कोई छुट्टी नहीं</div></div>'}`;
+  <div class="stitle" style="margin-top:18px">👥 ${(_lang==='en')?'Shift Mates Today':'आज के Shift Mates'}</div>
+  <div class="ms-mates">
+    ${mates.length?mates.slice(0,30).map(emp=>`<div class="ms-mate-chip"><b>${emp.name||''}</b><span>${emp.mc||emp.sec||''}</span></div>`).join('')
+      :`<div style="font-size:13px;color:var(--muted2);padding:8px">${(_lang==='en')?'No shift mates for your shift today':'आज आपकी shift पर कोई mate नहीं'}</div>`}
+  </div>`;
 }
+let _myShiftMonth = null;
+
 
 // ════════════════════════════════════════
 // SCHEDULE
@@ -7887,8 +7938,8 @@ function renderLeaves(){
         </div>
       </div>${ra}
       ${canApproveLeave()&&l.status==='pending'?`<div class="action-row">
-        <button class="act-btn approve" onclick="actLeave('${l._key}','approved')">✅ मंजूर करें</button>
-        <button class="act-btn reject"  onclick="actLeave('${l._key}','rejected')">❌ अस्वीकार</button>
+        <button type="button" class="act-btn approve" onclick="event.stopPropagation();actLeave('${l._key||l.id}','approved')">✅ Approve</button>
+        <button type="button" class="act-btn reject"  onclick="event.stopPropagation();actLeave('${l._key||l.id}','rejected')">❌ Reject</button>
       </div>`:''}
     </div>`;
   }).join('') : '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी आवेदन नहीं</div></div>';
@@ -9533,8 +9584,8 @@ function renderPending(){
         </div>
       </div>
       <div class="action-row">
-        <button class="act-btn approve" onclick="actLeave('${l._key}','approved')">✅ मंजूर</button>
-        <button class="act-btn reject"  onclick="actLeave('${l._key}','rejected')">❌ अस्वीकार</button>
+        <button type="button" class="act-btn approve" onclick="event.stopPropagation();actLeave('${l._key||l.id}','approved')">✅ Approve</button>
+        <button type="button" class="act-btn reject"  onclick="event.stopPropagation();actLeave('${l._key||l.id}','rejected')">❌ Reject</button>
       </div>
     </div>`).join('') :
     '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी पेंडिंग नहीं</div></div>';
@@ -13046,7 +13097,7 @@ const _i18n_HI_EN = {
   '✅ Verify करके Login Request भेजें':      '✅ Verify & Send Login Request',
   '✅ Verify करें':                          '✅ Verify',
   '✅ जोड़ें':                                '✅ Add',
-  '✅ मंजूर':                                '✅ Approved',
+  '✅ मंजूर':                                '✅ Approve',
   '✅ मंजूर करें':                           '✅ Approve',
   '✅ मैंने Pay कर दिया':                    '✅ I have paid',
   '✅ लागू करें':                             '✅ Apply',
@@ -14614,7 +14665,12 @@ function confirmLeaveWithReason(empId, empName, date, currentShift){
 }
 
 function editShiftCell(empId, empName, date, currentShift){
-  if(!canEditSchedule()){ return; }
+  const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
+  if(!canEditSchedule() && !isOwn){ return; }
+  // Own shift change still queues like schedule edit if they have rights; members can request via pending
+  if(!canEditSchedule() && isOwn){
+    // Allow open picker; save uses same pending path if canEdit OR request-to-manager
+  }
 
   const _cfg = getShiftConfigSync();
   const _fixedShiftStyle = {
@@ -14629,13 +14685,22 @@ function editShiftCell(empId, empName, date, currentShift){
   (_cfg.shifts||[]).forEach(s=>{ if(s&&s.code) _cfgByCode[String(s.code).toUpperCase()]=s; });
   const _stdCodes = ['D','N','A','B','C'].filter(code=>{
     const s = _cfgByCode[code];
-    if(s && s.active === false) return false;
+    // Profile "Hide D&N" / "Hide A/B/C" controls picker visibility
     if(_cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
     if(_cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
-    // Default: if no config entry, show D/N only
-    if(!s) return code==='D' || code==='N';
-    return s.active !== false;
+    // Explicit inactive in shift timing list
+    if(s && s.active === false) return false;
+    // If code exists in config as active, or no entry (show all non-hidden)
+    return true;
   });
+  const _dblAll = [
+    {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff', need:['D','N']},
+    {v:'A+B', label:'Double: A + B', bg:'#7c3aed', color:'#fff', need:['A','B']},
+    {v:'A+C', label:'Double: A + C', bg:'#7c3aed', color:'#fff', need:['A','C']},
+    {v:'B+C', label:'Double: B + C', bg:'#7c3aed', color:'#fff', need:['B','C']},
+    {v:'D+A', label:'Double: D + A', bg:'#7c3aed', color:'#fff', need:['D','A']},
+    {v:'N+B', label:'Double: N + B', bg:'#7c3aed', color:'#fff', need:['N','B']},
+  ].filter(d => d.need.every(c => _stdCodes.includes(c)));
   const SHIFT_OPTIONS = [
     ..._stdCodes.map(code=>{
       const s=_cfgByCode[code]||{code,label:code};
@@ -14643,12 +14708,8 @@ function editShiftCell(empId, empName, date, currentShift){
       const time=(s.start&&s.end)?` (${s.start}–${s.end})`:'';
       return {v:code, label:(s.label||code)+time, bg:st.bg, color:st.color};
     }),
-    {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff'},
-    {v:'A+B', label:'Double: A + B',       bg:'#7c3aed', color:'#fff'},
-    {v:'A+C', label:'Double: A + C',       bg:'#7c3aed', color:'#fff'},
-    {v:'B+C', label:'Double: B + C',       bg:'#7c3aed', color:'#fff'},
-    {v:'D+A', label:'Double: D + A',       bg:'#7c3aed', color:'#fff'},
-    {v:'N+B', label:'Double: N + B',       bg:'#7c3aed', color:'#fff'},
+    ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
+
     {v:'O',   label:'साप्ताहिक छुट्टी', bg:'#334155', color:'#94a3b8'},
     {v:'L',   label:'Leave',            bg:'#9f1239', color:'#fda4af'},
     {v:'G',   label:'General Shift',    bg:'#0c4a6e', color:'#7dd3fc'},
@@ -20704,19 +20765,35 @@ function openUserNotifications(){
 
 async function markAllNotifsRead(){
   const unread = (_userNotifCache||[]).filter(n=>!n.read);
+  const mob = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||SESSION.uid||'') : '';
+  const empId = SESSION.empObjId||'';
   for(const n of unread){
     try{
-      const path = n._path || ('userNotifications/'+(SESSION.empObjId||''));
-      if(n._key) await fbUpdate(path+'/'+n._key, {read:true});
+      const paths = [];
+      if(n._path && n._key) paths.push(n._path+'/'+n._key);
+      if(empId && n._key) paths.push('userNotifications/'+empId+'/'+n._key);
+      if(mob && n._key) paths.push('userNotifications/'+mob+'/'+n._key);
+      // admin notifications
+      if(n._adminKey) paths.push('adminNotifications/'+n._adminKey);
+      for(const p of paths){ try{ await fbUpdate(p, {read:true}); }catch(e){} }
       n.read = true;
     }catch(e){}
   }
-  // Clear badge immediately
   try{
+    if(_userNotifCache) _userNotifCache.forEach(n=>{ n.read=true; });
     const badge = document.getElementById('notifCount');
-    if(badge){ badge.textContent='0'; badge.style.display='none'; }
+    if(badge){ badge.textContent=''; badge.style.display='none'; }
     const bell = document.getElementById('notifBtn');
-    if(bell) bell.classList.remove('has-unread');
+    if(bell){ bell.classList.remove('has-unread'); bell.style.animation=''; }
+  }catch(e){}
+  // Also mark adminNotifications as read for managers
+  try{
+    if(isAdmin()||isMgr()){
+      const an = await fbGet('adminNotifications')||{};
+      for(const [k,v] of Object.entries(an)){
+        if(v && !v.read) try{ await fbUpdate('adminNotifications/'+k,{read:true}); }catch(e){}
+      }
+    }
   }catch(e){}
 }
 
