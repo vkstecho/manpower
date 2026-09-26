@@ -39,12 +39,29 @@
         logEvent(_analytics, 'app_open', { app_name: 'Man Power' });
       }catch(e){ console.warn('[analytics] init', e); }
     }).catch(()=>{});
-    // Persist Phone Auth across tabs/reloads on THIS device (laptop and phone are separate sessions)
-    try{ setPersistence(auth, browserLocalPersistence).catch(()=>{}); }catch(e){}
+    // Persist Phone Auth across browser restarts on THIS device (IndexedDB)
+    try{ await setPersistence(auth, browserLocalPersistence); }catch(e){
+      try{ setPersistence(auth, browserLocalPersistence).catch(()=>{}); }catch(e2){}
+    }
+    // Wait until Firebase restores saved user (Phone or Anon) from disk
+    try{
+      if(typeof auth.authStateReady === 'function') await auth.authStateReady();
+    }catch(e){}
+    window._fbAuthReady = true;
+    try{
+      const u = auth.currentUser;
+      if(u && u.phoneNumber){
+        localStorage.setItem('mp_device_phone', u.phoneNumber);
+        localStorage.setItem('mp_device_uid', u.uid);
+        localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      }
+    }catch(e){}
     const functions = getFunctions(app);
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
     const _fbStore = { db, ref, set, get, onValue, push, update, remove };
     window._fbAccess = async function(op, path, val){
+      // Wait for restored Phone/Anon user from IndexedDB before deciding
+      try{ if(typeof auth.authStateReady === 'function') await auth.authStateReady(); }catch(e){}
       // Auto-reauthenticate only for reads/boot. For writes: if no user, try anon ONLY when
       // there is no saved manager/admin session (otherwise caller must Phone OTP — multi-device OK).
       if(op !== 'get' && op !== 'onValue' && !auth.currentUser){
@@ -61,6 +78,13 @@
         }
         try{ await signInAnonymously(auth); }catch(e){ console.warn('[fbAccess] re-auth failed:', e.message); }
       }
+      // Never overwrite Phone user mid-write
+      try{
+        if(auth.currentUser && auth.currentUser.phoneNumber){
+          /* keep */
+        }
+      }catch(e){}
+
       
       const _sessionCheck = ()=>{
         try{ return !!(localStorage.getItem('mp_session') || sessionStorage.getItem('mp_session_bak') || auth.currentUser); }catch(e){ return false; }
@@ -88,11 +112,31 @@
     window._fbSignInWithToken = (token) => signInWithCustomToken(auth, token);
     window._fbSignInAnon = async () => {
       try{
-        if(auth.currentUser && !auth.currentUser.isAnonymous && auth.currentUser.phoneNumber){
-          return auth.currentUser; // keep Phone session — multi-device: other devices unaffected
+        if(typeof auth.authStateReady === 'function') await auth.authStateReady();
+      }catch(e){}
+      try{
+        const u = auth.currentUser;
+        // NEVER replace Phone-authenticated user with anonymous
+        if(u && u.phoneNumber){
+          return u;
+        }
+        if(u && !u.isAnonymous){
+          return u;
+        }
+      }catch(e){}
+      // If this device was Phone-verified before, do NOT silently drop to anonymous —
+      // return null so callers know they need OTP once more only if session truly gone
+      try{
+        const savedPhone = localStorage.getItem('mp_device_phone');
+        if(savedPhone && auth.currentUser && auth.currentUser.phoneNumber){
+          return auth.currentUser;
         }
       }catch(e){}
       return signInAnonymously(auth);
+    };
+    window._fbAuthStateReady = async () => {
+      try{ if(typeof auth.authStateReady === 'function') await auth.authStateReady(); }catch(e){}
+      return auth.currentUser;
     };
     window._fbSignOut = () => signOut(auth);
     // ── Phone OTP Auth ──

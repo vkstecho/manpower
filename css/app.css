@@ -2926,3 +2926,15 @@ body.light .hm-chip-meta { color: #64748b !important; }
 .shift-opt-A, button[data-shift="A"] { background:#16a34a !important; color:#fff !important; }
 .shift-opt-B, button[data-shift="B"] { background:#db2777 !important; color:#fff !important; }
 .shift-opt-C, button[data-shift="C"] { background:#0891b2 !important; color:#fff !important; }
+
+/* uniform shift colors enforced — Home / Schedule / My Shift / picker */
+.shc.D, .ms-day-sh.D { background:#f59e0b !important; color:#000 !important; }
+.shc.N, .ms-day-sh.N { background:#4f46e5 !important; color:#fff !important; }
+.shc.A { background:#16a34a !important; color:#fff !important; }
+.shc.B { background:#db2777 !important; color:#fff !important; }
+.shc.C { background:#0891b2 !important; color:#fff !important; }
+.shc.O { background:#475569 !important; color:#fff !important; }
+.shc.L { background:#be123c !important; color:#fff !important; }
+.shc.G { background:#0284c7 !important; color:#fff !important; }
+.shc.CO { background:#92400e !important; color:#fde68a !important; }
+.shc.H, .shc.HLF { background:#ea580c !important; color:#fff !important; }

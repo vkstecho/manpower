@@ -1254,6 +1254,22 @@ initTheme();
 // ══════════════════════════════════════════
 let _lang = localStorage.getItem('mp_lang') || 'hi';
 
+
+function shareApp(){
+  const url = location.href.split('#')[0];
+  const title = 'Man Power';
+  const text = 'Man Power — Team Management & Training App\n'+url;
+  if(navigator.share){
+    navigator.share({title, text, url}).catch(()=>{});
+  } else {
+    try{
+      navigator.clipboard.writeText(url);
+      toast('✅ App link copied');
+    }catch(e){
+      prompt('Copy app link:', url);
+    }
+  }
+}
 function toggleLang(){
   _lang = (_lang === 'hi') ? 'en' : 'hi';
   localStorage.setItem('mp_lang', _lang);
@@ -3922,16 +3938,21 @@ function _hasElevatedFirebaseAuth(){
  * @returns {Promise<boolean>}
  */
 async function _ensureWriteAuth(){
+  // Wait for Firebase to restore saved Phone session from this device
+  try{
+    if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
+    else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function') await window._fbAuth.authStateReady();
+  }catch(e){}
+
   if(_hasElevatedFirebaseAuth()){
     await _syncAuthRoleNodes();
     return true;
   }
-  // Manager/member with known mobile → in-place OTP, keep app session
+  // Manager/member with known mobile → OTP only if Phone auth truly missing
   const mob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
   if((isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
     return await _openQuickPhoneReauth(mob);
   }
-  // Admin without phone in session — still try role sync
   if(SESSION.role === 'admin'){
     await _syncAuthRoleNodes();
     return _hasElevatedFirebaseAuth();
@@ -4019,10 +4040,18 @@ async function _reauthVerifyOtp(){
     if(err) err.textContent = '⏳ Verify…';
     await _fbVerifyPhoneOtp(_reauthConfirm, code);
     _reauthConfirm = null;
-    try{ sessionStorage.setItem('mp_write_auth','1'); localStorage.setItem('mp_write_auth_at', String(Date.now())); }catch(e){}
+    try{
+      sessionStorage.setItem('mp_write_auth','1');
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      const u = window._fbAuth && window._fbAuth.currentUser;
+      if(u && u.phoneNumber){
+        localStorage.setItem('mp_device_phone', u.phoneNumber);
+        localStorage.setItem('mp_device_uid', u.uid);
+        localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      }
+    }catch(e){}
     try{ await _syncAuthRoleNodes(); }catch(e){}
-    await _syncAuthRoleNodes();
-    toast('✅ Phone verified — अब Save कर सकते हैं');
+    toast('✅ Phone verified — this device remembered (no OTP until logout)');
     const ov = document.getElementById('quickReauthOverlay');
     if(ov) ov.remove();
     const r = _reauthResolve;
@@ -4045,10 +4074,26 @@ function _reauthCancel(){
 async function launchApp(){
   try{
   warmShiftConfigCache();
-  // ── Restore Firebase Auth if session exists but auth is cold ──
+  // ── Restore Firebase Auth: WAIT for IndexedDB restore before any anon sign-in ──
   try{
-    if(window._fbAuth && !window._fbAuth.currentUser && SESSION.role){
+    if(typeof window._fbAuthStateReady === 'function'){
+      await window._fbAuthStateReady();
+    } else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function'){
+      await window._fbAuth.authStateReady();
+    }
+    const cu = window._fbAuth && window._fbAuth.currentUser;
+    if(cu && cu.phoneNumber){
+      try{
+        localStorage.setItem('mp_device_phone', cu.phoneNumber);
+        localStorage.setItem('mp_device_uid', cu.uid);
+      }catch(e){}
+      console.log('[launchApp] Phone auth restored for', cu.phoneNumber);
+    } else if(window._fbAuth && !cu && SESSION.role){
+      // Only anonymous if truly no restored user
       await window._fbSignInAnon();
+    } else if(cu && cu.isAnonymous && localStorage.getItem('mp_device_phone')){
+      // Had phone before but lost — will prompt OTP on next write only
+      console.warn('[launchApp] Phone session lost; device flag still set');
     }
   }catch(e){ console.warn('[launchApp] Firebase auth restore:', e.message); }
   // Sync managers/{uid} or admins/{uid} so RTDB rules allow schedule writes
@@ -4325,7 +4370,12 @@ function doLogout(){
   try{ localStorage.removeItem('mp_session'); }catch(e){}
   try{ localStorage.removeItem('fp_registered'); }catch(e){}
   try{ localStorage.removeItem('mp_int_ok'); }catch(e){}
+  try{ localStorage.removeItem('mp_device_phone'); }catch(e){}
+  try{ localStorage.removeItem('mp_device_uid'); }catch(e){}
+  try{ localStorage.removeItem('mp_device_verified_at'); }catch(e){}
+  try{ localStorage.removeItem('mp_write_auth_at'); }catch(e){}
   try{ sessionStorage.removeItem('mp_session_bak'); }catch(e){}
+  try{ sessionStorage.removeItem('mp_write_auth'); }catch(e){}
   try{ sessionStorage.removeItem('pwa_banner_shown'); }catch(e){}
   try{ sessionStorage.removeItem('expiry_warned'); }catch(e){}
   document.cookie = 'mp_sess=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
@@ -4336,11 +4386,11 @@ function doLogout(){
   // ── 4. Clear integrity cache ──
   if('caches' in window){ try{ caches.delete(INTEGRITY_CACHE_NAME).catch(()=>{}); }catch(e){} }
 
-  // ── 5. Redirect IMMEDIATELY — don't wait for Firebase or IDB ──
-  window.location.href = window.location.pathname + '?logout=' + Date.now();
-
-  // ── 6. Fire-and-forget: Firebase sign-out + IDB clear (runs before redirect completes) ──
+  // ── 5. Firebase sign-out FIRST so Phone session is cleared only on Logout ──
   try{ if(window._fbSignOut) window._fbSignOut().catch(()=>{}); }catch(e){}
+
+  // ── 6. Redirect ──
+  window.location.href = window.location.pathname + '?logout=' + Date.now();
   try{
     const req = indexedDB.open('mp_db', 1);
     req.onsuccess = e => {
@@ -4842,7 +4892,13 @@ async function openLeaveQuotaSettings(){
   try{ const r = await fbGet(key); if(r) q = {...q, ...r}; }catch(e){}
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">📋 Team Leave Quota (Year)</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Members see remaining balance in Profile</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Members see remaining balance in Profile. Set leave year range below.</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <div class="field"><label>Year start</label>
+        <input class="inp-field" type="date" id="lq_yearStart" value="${q.yearStart||(new Date().getFullYear()+'-01-01')}"></div>
+      <div class="field"><label>Year end</label>
+        <input class="inp-field" type="date" id="lq_yearEnd" value="${q.yearEnd||(new Date().getFullYear()+'-12-31')}"></div>
+    </div>
     <div id="lq_fields">${['CL','SL','EL','CO','other'].map(t=>`
       <div class="field"><label>${t==='CL'?'Casual Leave (CL)':t==='SL'?'Sick Leave (SL)':t==='EL'?'Earned Leave (EL)':t==='CO'?'Comp Off':'Other'}</label>
         <input class="inp-field" type="number" id="lq_${t}" data-lq-key="${t}" value="${q[t]!=null?q[t]:0}" min="0" max="365"></div>`).join('')}
@@ -4885,6 +4941,8 @@ async function saveLeaveQuotas(){
   ['CL','SL','EL','CO','other'].forEach(t=>{
     if(q[t]==null) q[t] = Number(document.getElementById('lq_'+t)?.value)||0;
   });
+  q.yearStart = (document.getElementById('lq_yearStart')?.value||'').trim() || (new Date().getFullYear()+'-01-01');
+  q.yearEnd = (document.getElementById('lq_yearEnd')?.value||'').trim() || (new Date().getFullYear()+'-12-31');
   q.updatedAt = new Date().toISOString();
   try{
     await fbSet(key, q);
@@ -4901,7 +4959,8 @@ async function openLeaveBalanceModal(){
   }catch(e){}
   const emp = myEmp();
   const year = new Date().getFullYear();
-  const yStart = year+'-01-01', yEnd = year+'-12-31';
+  const yStart = q.yearStart || (year+'-01-01');
+  const yEnd = q.yearEnd || (year+'-12-31');
   const used = { CL:0, SL:0, EL:0, CO:0, other:0 };
   const calL = new Set(); // dates marked L on calendar
   const calCO = new Set();
@@ -4914,11 +4973,13 @@ async function openLeaveBalanceModal(){
       const from = l.from||'';
       if(from && (from < yStart || from > yEnd)) return;
       const days = Number(l.days)||1;
+      const typeCode = String(l.type||'').toUpperCase();
       const t = String(l.leaveType||l.type||'').toLowerCase();
-      if(/sick|\bsl\b/.test(t)) used.SL += days;
-      else if(/earned|\bel\b|privilege/.test(t)) used.EL += days;
-      else if(/c-?off|comp|\bc\/o\b|\bco\b/.test(t)) used.CO += days;
-      else if(/casual|\bcl\b/.test(t)) used.CL += days;
+      if(typeCode==='SL' || /sick|\bsl\b/.test(t)) used.SL += days;
+      else if(typeCode==='EL' || /earned|\bel\b|privilege/.test(t)) used.EL += days;
+      else if(typeCode==='CO' || /c-?off|comp|\bc\/o\b|\bco\b/.test(t)) used.CO += days;
+      else if(typeCode==='CL' || /casual|\bcl\b/.test(t)) used.CL += days;
+      else if(typeCode && typeCode!=='L') { used.other += days; }
       else used.other += days;
     });
   }catch(e){}
@@ -4933,8 +4994,20 @@ async function openLeaveBalanceModal(){
         const vals = Array.isArray(row) ? row : [];
         vals.forEach((sh,i)=>{
           const ds = year+'-'+String(m+1).padStart(2,'0')+'-'+String(i+1).padStart(2,'0');
-          if(sh==='L') calL.add(ds);
-          if(sh==='C/O'||sh==='CO') calCO.add(ds);
+          const sv = String(sh||'');
+          if(sv==='L' || /^L[:\-_]/i.test(sv)){
+            calL.add(ds);
+            const tm = sv.match(/^L[:\-_](.+)$/i);
+            if(tm){
+              const tc=tm[1].toUpperCase();
+              if(tc==='SL') used.SL++;
+              else if(tc==='EL') used.EL++;
+              else if(tc==='CO') used.CO++;
+              else if(tc==='CL') used.CL++;
+              else used.other++;
+            }
+          }
+          if(sv==='C/O'||sv==='CO') calCO.add(ds);
         });
       }
       const ov = (typeof getOverrides==='function'?getOverrides():null)||{};
@@ -4942,8 +5015,20 @@ async function openLeaveBalanceModal(){
         if(!k.startsWith(emp.id+'_')) return;
         const d = k.slice(emp.id.length+1);
         if(d<yStart||d>yEnd) return;
-        if(ov[k]==='L') calL.add(d);
-        if(ov[k]==='C/O'||ov[k]==='CO') calCO.add(d);
+        const ovv = String(ov[k]||'');
+        if(ovv==='L' || /^L[:\-_]/i.test(ovv)){
+          calL.add(d);
+          const tm = ovv.match(/^L[:\-_](.+)$/i);
+          if(tm){
+            const tc = tm[1].toUpperCase();
+            if(tc==='SL') used.SL++;
+            else if(tc==='EL') used.EL++;
+            else if(tc==='CO') used.CO++;
+            else if(tc==='CL') used.CL++;
+            else used.other++;
+          }
+        }
+        if(ovv==='C/O'||ovv==='CO') calCO.add(d);
       });
     }
   }catch(e){}
@@ -14705,9 +14790,27 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   }
 }
 
-function openLeaveReasonModal(empId, empName, date, currentShift){
+async function openLeaveReasonModal(empId, empName, date, currentShift){
   const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
-  const QUICK_REASONS = ['Casual Leave (CL)','Sick Leave (SL)','Emergency Leave','Earned Leave (EL)','Personal Work','Family Function','Medical','Bereavement'];
+  // Leave types from Manager quota settings
+  let typeOpts = [
+    {code:'CL', label:'Casual Leave (CL)'},
+    {code:'SL', label:'Sick Leave (SL)'},
+    {code:'EL', label:'Earned Leave (EL)'},
+    {code:'ML', label:'Maternity (ML)'},
+    {code:'CO', label:'Comp Off (CO)'},
+  ];
+  try{
+    const k = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile||SESSION.managerId)||'default');
+    const q = await fbGet(k);
+    if(q && typeof q==='object'){
+      const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd']);
+      const fromQ = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
+      if(fromQ.length) typeOpts = fromQ.map(c=>({code:c, label:c==='CL'?'Casual Leave (CL)':c==='SL'?'Sick Leave (SL)':c==='EL'?'Earned Leave (EL)':c==='CO'?'Comp Off (CO)':c}));
+    }
+  }catch(e){}
+  const QUICK_REASONS = typeOpts; // used below as objects
+
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">🌴 Leave का कारण</div>
     <div style="text-align:center;padding:4px 0 12px">
@@ -14715,14 +14818,19 @@ function openLeaveReasonModal(empId, empName, date, currentShift){
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD} — Leave (L)</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="lrChips">
-      ${QUICK_REASONS.map(r=>`<button type="button"
-        onclick="selectLRChip(this,'${r}')"
+      ${QUICK_REASONS.map(r=>{
+        const code = (r&&r.code)||r;
+        const label = (r&&r.label)||r;
+        return `<button type="button"
+        onclick="selectLRChip(this,'${String(label).replace(/'/g,"\'")}','${String(code).replace(/'/g,"\'")}')"
         style="padding:7px 12px;border-radius:20px;border:1.5px solid var(--border2);
         background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;
-        cursor:pointer;font-family:inherit;white-space:nowrap">${r}</button>`).join('')}
+        cursor:pointer;font-family:inherit;white-space:nowrap">${label}</button>`;
+      }).join('')}
     </div>
+    <input type="hidden" id="lrTypeCode" value="CL">
     <div class="field" style="margin-bottom:4px">
-      <label style="color:var(--lv)">कारण * (अनिवार्य)</label>
+      <label style="color:var(--lv)">Leave Type / कारण * (अनिवार्य)</label>
       <textarea id="lrReasonText" rows="2"
         style="border-color:rgba(244,63,94,.3);width:100%;padding:10px;background:var(--card);
         border:2px solid rgba(244,63,94,.3);border-radius:10px;color:var(--text);font-size:14px;
@@ -14755,13 +14863,15 @@ function openLeaveReasonModal(empId, empName, date, currentShift){
     <button class="cancel-btn" onclick="editShiftCell('${empId}','${empName}','${date}','${currentShift}')">← वापस</button>`);
 }
 
-function selectLRChip(btn, reason){
+function selectLRChip(btn, reason, typeCode){
   document.querySelectorAll('#lrChips button').forEach(b=>{
     b.style.background='var(--card)'; b.style.color='var(--muted2)'; b.style.borderColor='var(--border2)';
   });
   btn.style.background='rgba(244,63,94,.12)'; btn.style.color='var(--lv)'; btn.style.borderColor='var(--lv)';
   const ta=document.getElementById('lrReasonText');
   if(ta){ ta.value=reason; ta.style.borderColor='var(--border2)'; }
+  const tc=document.getElementById('lrTypeCode');
+  if(tc) tc.value = typeCode || 'CL';
 }
 
 let _leaveImgBase64=null;
@@ -14804,22 +14914,35 @@ function confirmLeaveWithReason(empId, empName, date, currentShift){
   if(!reason){
     const ta=document.getElementById('lrReasonText');
     if(ta){ ta.style.borderColor='var(--lv)'; ta.focus(); }
-    toast('⚠️ कारण लिखना अनिवार्य है'); return;
+    toast('⚠️ कारण / Leave Type अनिवार्य है'); return;
+  }
+  // Detect leave type code from reason or selected chip data
+  let typeCode = (document.getElementById('lrTypeCode')?.value||'').trim().toUpperCase();
+  if(!typeCode){
+    const t = reason.toLowerCase();
+    if(/sick|\bsl\b/.test(t)) typeCode='SL';
+    else if(/earned|\bel\b|privilege/.test(t)) typeCode='EL';
+    else if(/matern|\bml\b/.test(t)) typeCode='ML';
+    else if(/comp|c-?off|\bco\b/.test(t)) typeCode='CO';
+    else if(/casual|\bcl\b/.test(t)) typeCode='CL';
+    else typeCode='CL';
   }
   const leaveData={
     empId, empName,
     section: (getEmps().find(e=>e.id===empId)||{}).sec||'',
     from:date, to:date, days:1,
-    leaveType:'Admin Marked', reason,
+    leaveType: reason,
+    type: typeCode,
     status:'approved',
     appliedAt:new Date().toISOString(),
     markedBy: SESSION.name||'Admin',
     reallocations:[]
   };
   if(_leaveImgBase64) leaveData.attachment=_leaveImgBase64;
-  fbPush('leaves',leaveData).catch(()=>{});
+  fbPush('leaves',leaveData).catch(e=>console.warn('leave push',e));
   _leaveImgBase64=null;
-  stageSingleShiftChange(empId, empName, date, currentShift, 'L');
+  // Store as L:CL so balance can reduce the correct quota
+  stageSingleShiftChange(empId, empName, date, currentShift, 'L:'+typeCode, { leaveType: typeCode, reason });
 }
 
 function editShiftCell(empId, empName, date, currentShift){
@@ -14866,15 +14989,15 @@ function editShiftCell(empId, empName, date, currentShift){
     }),
     ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
 
-    {v:'O',   label:'साप्ताहिक छुट्टी', bg:'#334155', color:'#94a3b8'},
-    {v:'L',   label:'Leave',            bg:'#9f1239', color:'#fda4af'},
-    {v:'G',   label:'General Shift',    bg:'#0c4a6e', color:'#7dd3fc'},
-    {v:'C/O', label:'Comp Off',         bg:'#713f12', color:'#fde68a'},
-    {v:'H',   label:'Holiday',          bg:'#ea580c', color:'#fff'},
+    {v:'O',   label:'Weekly Off',       bg:'#475569', color:'#ffffff'},
+    {v:'L',   label:'Leave (pick type)', bg:'#be123c', color:'#ffffff'},
+    {v:'G',   label:'General Shift',    bg:'#0284c7', color:'#ffffff'},
+    {v:'C/O', label:'Comp Off',         bg:'#92400e', color:'#fde68a'},
+    {v:'H',   label:'Holiday',          bg:'#ea580c', color:'#ffffff'},
     {v:'OD',  label:'Other Dept/Door',  bg:'#0d9488', color:'#ccfbf1'},
     {v:'GP',  label:'Gate Pass',        bg:'#6d28d9', color:'#e9d5ff'},
-    {v:'HLF', label:'Half Day',         bg:'#f97316', color:'#fff'},
-    {v:'Ab',  label:'Absent',           bg:'#450a0a', color:'#fca5a5'},
+    {v:'HLF', label:'Half Day',         bg:'#ea580c', color:'#ffffff'},
+    {v:'Ab',  label:'Absent',           bg:'#7f1d1d', color:'#fca5a5'},
   ];
 
   const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
@@ -15305,9 +15428,13 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
       <span class="shc ${cellClass(newShift)}" style="outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(newShift)}</span>
       <div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`;
   }
+  // Refresh My Shift calendar if open
+  try{
+    if(_currentTab==='myshift' && typeof renderMyShift==='function') renderMyShift();
+  }catch(e){}
 
   _updateSaveBar();
-  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending`);
+  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — Schedule पर Save दबाएँ`);
 }
 
 // Legacy single-call — now just a wrapper used by resetShiftOverride
