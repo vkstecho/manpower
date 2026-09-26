@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="hi" translate="no">
+<head>
+
+<!-- Capture install prompt BEFORE any other script (critical for Android/Desktop Chrome) -->
+<script>
+window.__pwaDeferredPrompt = null;
+window.__pwaInstallReady = false;
+window.addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault();
+  window.__pwaDeferredPrompt = e;
+  window.__pwaInstallReady = true;
+  try {
+    if (typeof window._onPwaPromptReady === 'function') window._onPwaPromptReady(e);
+  } catch (err) {}
+});
+window.addEventListener('appinstalled', function () {
+  window.__pwaDeferredPrompt = null;
+  window.__pwaInstallReady = false;
+});
+</script>
+
+<meta charset="UTF-8">
+  <meta name="google" content="notranslate">
+  <meta name="translate" content="no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0f1a">
+<title>Man Power</title>
+
+<!-- PWA -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<link rel="manifest" href="manifest.json">
+<meta name="build-time" content="1773122811">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Man Power">
+<meta name="application-name" content="Man Power">
+<meta name="msapplication-TileColor" content="#0a0f1a">
+<meta name="msapplication-TileImage" content="icon-192.png">
+<meta name="description" content="Man Power — A Team Management and Training Application">
+
+<link rel="icon" type="image/svg+xml" href="MP-logo.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
+
+<script type="module" src="js/firebase-init.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link rel="stylesheet" href="css/app.css?v=15">
+</head>
+<body>
+<!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
+<div id="recaptcha-container"></div>
+
+
+<div id="loadingScreen">
+  <div style="position:relative;margin-bottom:8px">
+    <svg width="110" height="110" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f97316"/>
+          <stop offset="50%" stop-color="#a855f7"/>
+          <stop offset="100%" stop-color="#38bdf8"/>
+        </linearGradient>
+        <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/>
+        </linearGradient>
+        <linearGradient id="lg3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/>
+        </linearGradient>
+        <filter id="glow"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <polygon points="55,4 100,28 100,82 55,106 10,82 10,28" fill="none" stroke="url(#lg1)" stroke-width="2" opacity="0.6"/>
+      <polygon points="55,10 95,32 95,78 55,100 15,78 15,32" fill="#0d1623" stroke="url(#lg1)" stroke-width="1.5"/>
+      <circle cx="55" cy="55" r="34" fill="none" stroke="rgba(249,115,22,0.12)" stroke-width="7" stroke-dasharray="5 4"/>
+      <text x="35" y="73" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="46" fill="url(#lg2)" filter="url(#glow)">M</text>
+      <text x="76" y="73" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="46" fill="url(#lg3)" filter="url(#glow)">P</text>
+      <circle cx="55" cy="57" r="4" fill="#f97316" opacity="0.9"/>
+      <circle cx="27" cy="32" r="2.5" fill="rgba(249,115,22,0.5)"/>
+      <circle cx="83" cy="32" r="2.5" fill="rgba(56,189,248,0.5)"/>
+      <circle cx="27" cy="78" r="2.5" fill="rgba(56,189,248,0.5)"/>
+      <circle cx="83" cy="78" r="2.5" fill="rgba(249,115,22,0.5)"/>
+    </svg>
+  </div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;text-align:center;
+    background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;line-height:1">
+    MAN POWER
+  </div>
+  <div class="load-text" style="margin-top:4px">मेटलाइज़र विभाग</div>
+  <div class="load-bar" style="margin-top:16px"><div class="load-fill"></div></div>
+</div>
+
+<!-- EXPIRY -->
+<div id="expiryScreen">
+  <div style="font-size:60px;margin-bottom:16px">🔒</div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--lv)">LICENSE EXPIRED</div>
+  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">संपर्क करें<br>+91-8929394920</div>
+  <input type="password" id="unlockKey" placeholder="UNLOCK KEY डालें" class="inp-field" style="max-width:280px;text-align:center;letter-spacing:2px;margin-bottom:10px" onkeydown="if(event.key==='Enter')tryUnlock()">
+  <button class="big-btn" style="max-width:280px" onclick="tryUnlock()">🔓 अनलॉक करें</button>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+
+  <!-- STEP 1 - MOBILE NUMBER -->
+  <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
+    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-bottom:14px">
+      &#127891; सीखें &mdash; Learn Now
+      <span style="font-size:11px;opacity:.8;display:block;font-weight:600;margin-top:2px">Audio &amp; Video Courses &middot; &#8377;399/category</span>
+    </button>
+    <div id="loginPwaBtn" onclick="triggerPWAInstall()" title="App Install करें"
+      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
+             padding:12px;margin-bottom:14px;border-radius:12px;cursor:pointer;
+             background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
+             border:1px solid rgba(249,115,22,.4);font-size:14px;font-weight:800;color:#f97316">
+      📲 App Install करें / Download App
+    </div>
+    <div style="display:flex;justify-content:center;margin-bottom:8px">
+      <svg width="80" height="80" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="llg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#a855f7"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
+          <linearGradient id="llg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
+          <linearGradient id="llg3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
+        </defs>
+        <polygon points="55,4 100,28 100,82 55,106 10,82 10,28" fill="none" stroke="url(#llg1)" stroke-width="2" opacity="0.5"/>
+        <polygon points="55,10 95,32 95,78 55,100 15,78 15,32" fill="#111d2e" stroke="url(#llg1)" stroke-width="1.5"/>
+        <text x="36" y="72" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="44" fill="url(#llg2)">M</text>
+        <text x="76" y="72" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="44" fill="url(#llg3)">P</text>
+        <circle cx="55" cy="57" r="4" fill="#f97316" opacity="0.9"/>
+      </svg>
+    </div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:4px">MAN POWER</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:18px">Team Management Platform</div>
+    <div class="login-card" style="width:100%">
+      <div class="err-msg" id="loginErr"></div>
+      <div style="font-size:14px;font-weight:800;color:#e2e8f0;margin-bottom:8px">&#128241; Mobile Number</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px">
+        <div style="background:#1e293b;border:1.5px solid var(--border2);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#94a3b8;white-space:nowrap">+91</div>
+        <input class="inp-field" type="tel" id="loginMobile" placeholder="10 अंकों का Mobile"
+          inputmode="numeric" maxlength="10"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value)"
+          onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
+          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);_onMobileInput(this.value)},10)"
+          onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()"
+          style="flex:1;font-size:18px;letter-spacing:2px">
+      </div>
+      <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
+      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">OTP भेजें &#128172;</button>
+
+    </div>
+  </div>
+
+  <!-- STEP 2 - OTP -->
+  <div id="loginStep2" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;margin-bottom:16px">MAN POWER</div>
+    <div class="login-card" style="width:100%">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:38px;margin-bottom:6px">&#128172;</div>
+        <div style="font-size:16px;font-weight:900;color:#fff">OTP डालें</div>
+        <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP भेजा गया</div>
+      </div>
+      <div class="err-msg" id="loginErr2"></div>
+      <input class="inp-field" type="tel" id="otpInput" name="one-time-code" placeholder="- - - - - -"
+        inputmode="numeric" maxlength="6" autocomplete="one-time-code" enterkeyhint="done" autocapitalize="off" spellcheck="false"
+        oninput="this.value=this.value.replace(/[^0-9]/g,'');_onOtpInput(this.value)"
+        onkeydown="if(event.key==='Enter')_verifyOTP()"
+        style="font-size:28px;letter-spacing:10px;text-align:center;margin-bottom:12px">
+      <button class="big-btn" id="verifyOtpBtn" onclick="_verifyOTP()" disabled style="opacity:.5">Verify &#10003;</button>
+      <div style="text-align:center;margin-top:10px">
+        <span id="otpResendTimer" style="font-size:13px;color:#cbd5e1;font-weight:600"></span>
+        <span id="otpResendBtn" onclick="_sendOTP(true)" style="font-size:12px;color:var(--m1);font-weight:700;cursor:pointer;display:none">OTP फिर भेजें &#8635;</span>
+      </div>
+      <button class="back-btn" onclick="backToStep1()">&larr; वापस</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 - ROLE SELECT -->
+  <div id="loginStep3" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;margin-bottom:16px">MAN POWER</div>
+    <div class="login-card" style="width:100%">
+      <div style="text-align:center;margin-bottom:20px">
+        <div style="font-size:36px;margin-bottom:6px">&#128075;</div>
+        <div class="role-pick-heading">आप कौन हैं?</div>
+        <div style="font-size:12px;color:#64748b;margin-top:3px">अपनी भूमिका चुनें</div>
+      </div>
+      <div class="err-msg" id="loginErr3"></div>
+      <div style="display:grid;gap:12px;margin-bottom:16px">
+        <div id="roleCard_manager" class="role-pick-card" onclick="_selectRole('manager')">
+          <div class="role-pick-ico">🏅</div>
+          <div class="role-pick-title">Manager</div>
+          <div class="role-pick-sub">मैं Manager हूं — अपनी team manage करता हूं</div>
+        </div>
+        <div id="roleCard_member" class="role-pick-card" onclick="_selectRole('member')">
+          <div class="role-pick-ico">👤</div>
+          <div class="role-pick-title">Team Member</div>
+          <div class="role-pick-sub">मैं एक Member हूं — अपने Manager की team में शामिल हूं</div>
+        </div>
+      </div>
+      <button class="back-btn" onclick="backToStep1()">&larr; वापस</button>
+    </div>
+  </div>
+
+  <!-- STEP 4A - MANAGER REGISTRATION -->
+  <div id="loginStepManagerReg" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
+    <div class="login-card" style="width:100%">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:4px">&#128084;</div>
+        <div style="font-size:16px;font-weight:900;color:#fff">Manager Registration</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">Invite Code डालें — तुरंत login (Admin wait नहीं)</div>
+      </div>
+      <div class="err-msg" id="mgrRegErr"></div>
+      <label class="inp-label">&#128100; पूरा नाम *</label>
+      <input class="inp-field" type="text" id="mgrName" placeholder="आपका नाम" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#127970; Company का नाम *</label>
+      <input class="inp-field" type="text" id="mgrCompany" placeholder="जैसे: ABC Industries" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#128273; Invite Code *</label>
+      <input class="inp-field" type="text" id="mgrInviteCode" placeholder="Invite Code (Admin से लें)" autocomplete="off" style="margin-bottom:10px" autocapitalize="characters">
+      <div style="font-size:11px;color:#94a3b8;margin:-4px 0 10px;line-height:1.4">Admin approval नहीं लगता — सिर्फ Invite Code चाहिए (default: METMGR)</div>
+      <label class="inp-label">&#128188; Designation *</label>
+      <select class="inp-field" id="mgrDesignation" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDesignation','mgrDesignationOther')">
+        <option value="">-- चुनें --</option>
+        <option value="Plant Manager">Plant Manager</option>
+        <option value="Production Manager">Production Manager</option>
+        <option value="Maintenance Manager">Maintenance Manager</option>
+        <option value="Quality Manager">Quality Manager</option>
+        <option value="E&amp;I Manager">E&amp;I Manager</option>
+        <option value="Utility Manager">Utility Manager</option>
+        <option value="Store Manager">Store Manager</option>
+        <option value="HR Manager">HR Manager</option>
+        <option value="Shift Incharge">Shift Incharge</option>
+        <option value="Supervisor">Supervisor</option>
+        <option value="Others">Others (लिखें)</option>
+      </select>
+      <input class="inp-field" type="text" id="mgrDesignationOther" placeholder="अपनी Designation लिखें" style="margin-bottom:10px;display:none">
+      <label class="inp-label">&#127981; Department *</label>
+      <select class="inp-field" id="mgrDepartment" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDepartment','mgrDepartmentOther')">
+        <option value="">-- चुनें --</option>
+        <option value="Production - Metalliser">Production - Metalliser</option>
+        <option value="Production - Slitter">Production - Slitter</option>
+        <option value="Production - Metalliser + Slitter">Production - Metalliser + Slitter</option>
+        <option value="E&amp;I">E&amp;I (Electrical &amp; Instrumentation)</option>
+        <option value="Mechanical">Mechanical</option>
+        <option value="Utility">Utility</option>
+        <option value="Quality">Quality</option>
+        <option value="Packing">Packing / Packaging</option>
+        <option value="Store">Store</option>
+        <option value="HR &amp; Admin">HR &amp; Admin</option>
+        <option value="Others">Others (लिखें)</option>
+      </select>
+      <input class="inp-field" type="text" id="mgrDepartmentOther" placeholder="अपना Department लिखें" style="margin-bottom:14px;display:none">
+      <button class="big-btn" onclick="_submitManagerReg()">&#128228; Registration भेजें</button>
+      <button class="back-btn" onclick="showStep(3)">&larr; वापस</button>
+    </div>
+  </div>
+
+  <!-- STEP 4B - MEMBER REGISTRATION -->
+  <div id="loginStepMemberReg" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
+    <div class="login-card" style="width:100%">
+      <div style="text-align:center;margin-bottom:16px">
+        <div style="font-size:32px;margin-bottom:4px">&#128100;</div>
+        <div style="font-size:16px;font-weight:900;color:#fff">Member Registration</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">आपका Manager approve करेगा</div>
+      </div>
+      <div class="err-msg" id="memRegErr"></div>
+      <label class="inp-label">&#128100; पूरा नाम *</label>
+      <input class="inp-field" type="text" id="memName" placeholder="आपका नाम" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#127970; Company का नाम *</label>
+      <input class="inp-field" type="text" id="memCompany" placeholder="अपनी company का नाम" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#128100; अपना Manager चुनें *</label>
+      <select class="inp-field" id="memManagerSelect" style="margin-bottom:10px">
+        <option value="">-- Manager चुनें --</option>
+      </select>
+      <div id="memNoManagerHint" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#f97316;line-height:1.6">
+        &#9888;&#65039; अभी कोई approved Manager नहीं मिला। पहले अपने Manager को register करने को कहें, फिर वापस आएं।
+      </div>
+      <button class="big-btn" onclick="_submitMemberReg()">&#128228; Registration भेजें</button>
+      <button class="back-btn" onclick="showStep(3)">&larr; वापस</button>
+    </div>
+  </div>
+
+  <!-- PENDING SCREEN -->
+  <div id="loginStepPending" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
+    <div class="login-card" style="width:100%;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">&#9203;</div>
+      <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:8px">Approval Pending है</div>
+      <div id="pendingMsg" style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:16px">
+        आपका registration Admin को भेज दिया गया है।
+      </div>
+      <div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8">
+        &#128222; VKS Tech: <b style="color:#f97316">+91-8929394920</b>
+      </div>
+      <button class="back-btn" onclick="backToStep1()">&larr; वापस जाएं</button>
+    </div>
+  </div>
+
+  <!-- ══ FINGERPRINT SCREEN ══ -->
+  <!-- ══ ADMIN LOGIN ══ -->
+  <div id="adminLoginPanel" style="display:none">
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:44px;margin-bottom:6px">🛡️</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;
+        background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
+        ADMIN LOGIN
+      </div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:3px">किसी भी device से login करें</div>
+    </div>
+    <div class="login-card">
+      <div class="err-msg" id="loginErrAdmin"></div>
+      <div class="inp-group">
+        <label class="inp-label">Username</label>
+        <input class="inp-field" type="text" id="aUser" autocomplete="off"
+          onkeydown="if(event.key==='Enter')document.getElementById('aPass').focus()">
+      </div>
+      <div class="inp-group">
+        <label class="inp-label">Password</label>
+        <div style="position:relative">
+          <input class="inp-field" type="password" id="aPass"
+            onkeydown="if(event.key==='Enter')tryAdminLogin()">
+          <button onclick="togglePass('aPass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+            background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">👁</button>
+        </div>
+      </div>
+      <button class="big-btn" onclick="tryAdminLogin()">🔐 Login करें</button>
+      <button class="back-btn" onclick="backToStep1()">← वापस</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══ PENDING APPROVAL BOX — fixed overlay, NOT inside loginScreen ══ -->
+<div id="pendingBox" style="display:none;position:fixed;inset:0;z-index:600;
+  background:linear-gradient(160deg,#070c15 0%,#0d1623 45%,#130a24 100%);
+  flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;">
+  <div style="width:100%;max-width:360px">
+    <div style="font-size:56px;margin-bottom:14px">⏳</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;
+      background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;
+      -webkit-text-fill-color:transparent;margin-bottom:10px">Approval का इंतजार है</div>
+    <div style="background:rgba(17,29,46,0.9);border:1.5px solid rgba(251,191,36,.35);
+      border-radius:16px;padding:20px;margin-bottom:16px">
+      <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.9">
+        आपका registration Admin को भेज दिया गया है।<br>
+        <b style="color:#fff">Approve होने के बाद</b> आप login कर पाएंगे।<br>
+        <span style="color:#22c55e">कुछ समय बाद दोबारा try करें।</span>
+      </div>
+    </div>
+    <div style="padding:12px 16px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);
+      border-radius:12px;font-size:13px;color:#f97316;margin-bottom:20px">
+      📞 जल्दी approval के लिए <b>+91-8929394920</b> पर संपर्क करें
+    </div>
+    <button onclick="hidePendingBox()"
+      style="width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,.15);
+      background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);font-size:15px;font-weight:700;
+      cursor:pointer;font-family:inherit">← वापस जाएं</button>
+  </div>
+</div>
+
+<!-- ══ FINGERPRINT SCREEN — sibling of loginScreen, NOT child ══ -->
+<div id="fingerprintScreen">
+  <!-- Logo area -->
+  <div class="fp-logo-area">
+    <svg class="fp-logo-svg" width="72" height="72" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="fp-lg1" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#a855f7"/><stop offset="100%" stop-color="#38bdf8"/>
+        </linearGradient>
+        <linearGradient id="fp-lg2" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/>
+        </linearGradient>
+        <linearGradient id="fp-lg3" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/>
+        </linearGradient>
+        <filter id="fp-glow"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <polygon points="55,4 100,28 100,82 55,106 10,82 10,28" fill="none" stroke="url(#fp-lg1)" stroke-width="2" opacity="0.4"/>
+      <polygon points="55,10 95,32 95,78 55,100 15,78 15,32" fill="rgba(13,22,35,0.9)" stroke="url(#fp-lg1)" stroke-width="1.5"/>
+      <text x="35" y="73" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="46" fill="url(#fp-lg2)" filter="url(#fp-glow)">M</text>
+      <text x="76" y="73" text-anchor="middle" font-family="'Barlow Condensed',sans-serif" font-weight="900" font-size="46" fill="url(#fp-lg3)" filter="url(#fp-glow)">P</text>
+      <circle cx="55" cy="57" r="4" fill="#f97316" opacity="0.9"/>
+    </svg>
+    <div class="fp-brand">MAN POWER</div>
+    <div class="fp-brand-sub">Man Power</div>
+  </div>
+
+  <div class="fp-ring" onclick="tryFingerprintLogin()" id="fpRing">
+    <div class="fp-icon">👆</div>
+  </div>
+
+  <div class="fp-title" id="fpTitle">Touch to Login</div>
+  <div class="fp-sub" id="fpSub">अपना fingerprint लगाएं</div>
+
+  <!-- User chip (shows logged-in user name) -->
+  <div class="fp-user-chip" id="fpUserChip" style="display:none">
+    <div class="fp-user-chip-av" id="fpUserAv">?</div>
+    <span id="fpUserName"></span>
+  </div>
+
+  <div class="fp-skip" onclick="skipFingerprint()">
+    Password से login करें →
+  </div>
+</div>
+
+<!-- HEADER -->
+<div class="hdr" id="mainHdr" style="display:none">
+  <div class="hdr-top">
+    <div>
+      <div class="hdr-brand"><span>MP</span> Man Power</div>
+    </div>
+    <div class="hdr-right">
+      <div id="langToggleBtn" onclick="toggleLang()" title="हिंदी / English"
+        style="display:flex;align-items:center;justify-content:center;
+               width:38px;height:38px;border-radius:10px;cursor:pointer;
+               background:var(--card2);border:1px solid var(--border2);font-size:13px;
+               font-weight:900;font-family:'Barlow Condensed',sans-serif;color:var(--text)">
+        EN
+      </div>
+      <div id="themeToggleBtn" onclick="toggleTheme()" title="Dark/Light Mode"
+        style="display:flex;align-items:center;justify-content:center;
+               width:38px;height:38px;border-radius:10px;cursor:pointer;
+               background:var(--card2);border:1px solid var(--border2);font-size:18px">
+        🌙
+      </div>
+      <div class="notif-btn" id="notifBtn" onclick="openUserNotifications()" style="display:none">
+        🔔<div class="notif-badge" id="notifCount" style="display:none">0</div>
+      </div>
+      <!-- PWA Install button — always visible if not installed -->
+      <div id="pwaInstallBtn" onclick="triggerPWAInstall()" title="App Install करें"
+        style="display:none;align-items:center;justify-content:center;
+               width:38px;height:38px;border-radius:10px;cursor:pointer;
+               background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
+               border:1px solid rgba(249,115,22,.4);font-size:20px">
+        📲
+      </div>
+      <div class="user-chip" onclick="showProfile()">
+        <div class="user-av" id="userAv" style="background:linear-gradient(135deg,var(--m1),var(--s1))">?</div>
+        <div>
+          <div style="font-size:19px;font-weight:900;line-height:1.2" id="userHdrName">—</div>
+          <div class="role-tag" id="roleTag">user</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Learn — full width bar, always visible -->
+  <div class="learn-hdr-bar">
+    <button class="learn-hdr-btn" onclick="openLearnScreen()">
+      <span style="font-size:20px">🚀</span>
+      <span style="font-weight:900" id="learnBarTitle">सीखें & Grow करें</span>
+      <span style="font-size:11px;opacity:1;font-weight:700;color:rgba(255,255,255,.9)">Met Train · Skills · AI Tools</span>
+      <span style="margin-left:auto;font-size:13px;opacity:1">›</span>
+    </button>
+  </div>
+  <div class="sync-row" id="syncRow">
+    <span class="sync-chip" id="syncChip">
+      <span class="sync-dot" aria-hidden="true"></span>
+      <span id="syncLabel">Live</span>
+      <span class="sync-sep">·</span>
+      <span id="syncTime">—</span>
+    </span>
+  </div>
+  <div id="companySwitchRow" style="display:none;padding:8px 16px;background:rgba(168,85,247,.08);border-bottom:1px solid var(--border2);align-items:center;gap:8px">
+    <span style="font-size:12px;font-weight:800;color:#a855f7">🏢</span>
+    <select id="companySwitchSel" onchange="switchViewCompany(this.value)"
+      style="flex:1;padding:6px 10px;border-radius:8px;border:1px solid rgba(168,85,247,.3);background:var(--card);color:var(--text);font-size:12px;font-weight:700;font-family:inherit">
+    </select>
+  </div>
+  <nav class="nav" id="mainNav"></nav>
+</div>
+
+
+<!-- PC SIDEBAR NAV — hidden on mobile, shown on desktop via CSS media query -->
+<div id="pcSidebar" style="display:none">
+  <!-- nav buttons injected here by buildNav() -->
+  <div id="pcSidebar-divider"></div>
+  <div id="pcSidebar-footer">Man Power</div>
+</div>
+
+
+
+<!-- MAIN CONTENT -->
+<div class="main" id="mainContent" style="display:none">
+
+<!-- ── OVERVIEW ── -->
+<div class="tab on" id="tab-home">
+  <div class="page-title" id="homeDateLbl"></div>
+  <div id="homeNotice"></div>
+  <!-- Same Home for everyone: manpower summary + personal shift calendar -->
+  <div id="homeAdminView">
+    <div class="stats-grid" id="homeStats"></div>
+    <div class="stitle" id="homeSectionTitle">आज की स्थिति — सेक्शन वार</div>
+    <div id="homeSections"></div>
+    <div id="homeRoster"></div>
+  </div>
+  <!-- Personal shift: previous 3 days + upcoming 14 days (all users) -->
+  <div id="homeWorkerView">
+    <div class="stitle" id="homeWorkerCalTitle">📅 My Shift — Past 3 & Next 14 Days</div>
+    <div id="homeShiftCalendar"></div>
+    <div class="stitle" style="margin-top:20px">✅ My Tasks</div>
+    <div id="homeTodoSummary" style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;cursor:pointer" onclick="goTab('todo')">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="width:44px;height:44px;border-radius:11px;background:rgba(249,115,22,.12);display:flex;align-items:center;justify-content:center;font-size:22px">✅</div>
+          <div>
+            <div style="font-size:15px;font-weight:800;color:var(--text)" id="homeTodoTitle">Tasks</div>
+            <div style="font-size:12px;color:var(--muted2)" id="homeTodoMeta">Loading...</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div id="homeTodoPendingBadge" style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--day)">0</div>
+          <div style="font-size:16px;color:var(--muted)">›</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+</div><!-- /main -->
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="closeModal()">
+  <div id="modalBody" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- WARNING MODAL -->
+<div class="overlay" id="warnOverlay">
+  <div class="warn-modal" onclick="event.stopPropagation()" id="warnBody"></div>
+</div>
+
+
+<!-- ══ LEARN SCREEN ══ -->
+<div id="learnScreen" class="learn-screen">
+  <!-- HERO -->
+  <div class="learn-hero" style="padding-bottom:20px">
+    <button class="learn-back" onclick="closeLearnScreen()">←</button>
+    <div class="learn-logo" style="font-size:36px;letter-spacing:4px">सीखें & Grow करें</div>
+    <div class="learn-title" style="font-size:17px">🚀 Man Power Skill Development Platform</div>
+    <div class="learn-sub" style="font-size:11px;margin-top:3px">Real Skills · Real Growth · By Professionals, For Professionals</div>
+    <!-- Admin badge -->
+    <div id="learnAdminBadge" style="display:none;margin:10px 20px 0;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4);border-radius:9px;padding:7px 12px;display:none;align-items:center;gap:8px">
+      <span style="font-size:16px">🔑</span>
+      <span style="font-size:11px;font-weight:800;color:var(--m1)">Admin Mode — Full Access + Edit</span>
+    </div>
+  </div>
+
+  <!-- ════ SKILL HUB ════ -->
+  <div id="learnMainButtons" style="padding:0 16px 16px">
+
+    <!-- ══ MET TRAIN PRO ══ -->
+    <div style="margin-bottom:14px">
+      <button onclick="openLearnSection('metrain')" style="width:100%;background:linear-gradient(135deg,rgba(249,115,22,.28),rgba(251,146,60,.14));border:2px solid rgba(249,115,22,.6);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(249,115,22,.45),rgba(251,146,60,.25));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">⚙️</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:900;color:#fb923c;margin-bottom:3px">Met Train PRO</div>
+          <div class="lc-sub">Metalliser · Slitter · SOPs · Safety · SAP · PM · Quiz</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.55);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif">✓ FREE — सभी के लिए</div>
+        </div>
+        <div class="lc-arrow" style="color:#fb923c">›</div>
+      </button>
+    </div>
+
+    <!-- ══ SUPSKILL ══ -->
+    <div style="margin-bottom:14px">
+      <button onclick="openLearnSection('supskill')" style="width:100%;background:linear-gradient(135deg,rgba(0,180,160,.20),rgba(232,162,0,.12));border:2px solid rgba(0,180,160,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00b4a0,#e8a200,#00b4a0);opacity:.8"></div>
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(0,180,160,.30),rgba(232,162,0,.18));border:1px solid rgba(0,180,160,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+            <circle cx="15" cy="15" r="11" stroke="#00b4a0" stroke-width="1.4" opacity=".5"/>
+            <path d="M15 15 L15 6" stroke="#e8a200" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M15 15 L21.5 18.5" stroke="#00b4a0" stroke-width="1.6" stroke-linecap="round"/>
+            <circle cx="15" cy="15" r="2.5" fill="#e8a200"/>
+            <path d="M6.5 22 Q15 11 23.5 22" stroke="#00b4a0" stroke-width="1.1" fill="none" stroke-dasharray="2 2" opacity=".55"/>
+            <circle cx="6.5" cy="22" r="1.2" fill="#e74c3c"/>
+            <circle cx="23.5" cy="22" r="1.2" fill="#22c55e"/>
+          </svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;margin-bottom:2px;background:linear-gradient(90deg,#00d4bc,#e8a200);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">SupSkill</div>
+          <div class="lc-sub" style="color:rgba(0,212,188,.75)">Shift Report · OD Targets · Boat Calculator · Performance</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px;background:rgba(0,180,160,.16);border:1px solid rgba(0,180,160,.40);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#00b4a0;font-family:'Barlow Condensed',sans-serif">
+            <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;display:inline-block;animation:pulse 2s infinite"></span>
+            LIVE · Supervisor Platform
+          </div>
+        </div>
+        <div class="lc-arrow" style="color:#00b4a0">›</div>
+      </button>
+    </div>
+
+    <!-- ══ MR SKILL HUB (Manager Only) ══ -->
+    <div id="mrSkillBtn" style="margin-bottom:14px;display:none">
+      <button onclick="openLearnSection('mrskill')" style="width:100%;background:linear-gradient(135deg,rgba(220,38,38,.18),rgba(249,115,22,.12));border:2px solid rgba(220,38,38,.50);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(220,38,38,.35),rgba(249,115,22,.20));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🔑</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:900;color:#ef4444;margin-bottom:3px">MR Skill</div>
+          <div class="lc-sub">MetCost Pro · Man/Machine KPIs · Manager Tools</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">Manager Only</span>
+          </div>
+        </div>
+        <div class="lc-arrow" style="color:#ef4444">›</div>
+      </button>
+    </div>
+
+    <!-- ══ MS & AI TOOLS HUB ══ -->
+    <div style="margin-bottom:14px">
+      <button onclick="openLearnSection('msai')" style="width:100%;background:linear-gradient(135deg,rgba(56,189,248,.24),rgba(99,102,241,.12));border:2px solid rgba(56,189,248,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(56,189,248,.40),rgba(99,102,241,.20));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🤖</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:900;color:#38bdf8;margin-bottom:3px">MS & AI — Fast Growth</div>
+          <div class="lc-sub">Excel · Word · PowerPoint · AI Tools · Productivity</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">1 Module LIVE</span>
+          </div>
+        </div>
+        <div class="lc-arrow" style="color:#38bdf8">›</div>
+      </button>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="learnAdminPanel" style="display:none;padding:0;margin-top:4px">
+      <div style="font-size:10px;font-weight:800;color:rgba(249,115,22,.7);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center">🔑 Admin Controls</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button onclick="openContentUpload()" style="background:rgba(249,115,22,.1);border:1.5px solid rgba(249,115,22,.3);border-radius:12px;padding:12px 8px;color:var(--m1);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">➕ Content Add</button>
+        <button onclick="openManageLearnButtons()" style="background:rgba(168,85,247,.1);border:1.5px solid rgba(168,85,247,.3);border-radius:12px;padding:12px 8px;color:#a855f7;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">🔗 Quick Links</button>
+        <button onclick="openEditAbout()" style="background:rgba(251,191,36,.1);border:1.5px solid rgba(251,191,36,.25);border-radius:12px;padding:12px 8px;color:#fbbf24;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">✏️ Edit About</button>
+        <button onclick="openLearnPriceManager()" style="background:rgba(34,197,94,.08);border:1.5px solid rgba(34,197,94,.25);border-radius:12px;padding:12px 8px;color:var(--green);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">💰 Prices</button>
+        <button onclick="openSupSkillVideoAdmin()" style="background:rgba(0,180,160,.10);border:1.5px solid rgba(0,180,160,.35);border-radius:12px;padding:12px 8px;color:#00b4a0;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit;grid-column:span 2">🎬 SupSkill Video Links</button>
+      </div>
+    </div>
+
+    <div id="learnQuickBtns" style="margin-top:10px"></div>
+  </div>
+
+
+
+  <!-- ════ MET TRAIN PRO IFRAME VIEW ════ -->
+  <div id="learnMetTrainView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
+      <button onclick="closeLearnSection()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:20px">⚙️</span>
+        <div>
+          <div style="font-size:14px;font-weight:900;color:#fb923c">Met Train PRO</div>
+          <div style="font-size:10px;color:var(--muted2)">Metalliser Training Platform</div>
+        </div>
+      </div>
+    </div>
+    <div id="metTrainLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px">
+      <div style="font-size:40px">⚙️</div>
+      <div style="font-size:15px;color:#fb923c;font-weight:700">Met Train PRO लोड हो रहा है...</div>
+      <div style="width:48px;height:4px;background:rgba(249,115,22,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#f97316;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <iframe
+      id="learnMetTrainIframe"
+      src=""
+      style="width:100%;flex:1;border:none;display:none;"
+      allow="fullscreen"
+      title="Met Train PRO"
+      onload="document.getElementById('metTrainLoading').style.display='none';this.style.display='block';">
+    </iframe>
+  </div>
+
+  <!-- ════ SUPSKILL IFRAME VIEW ════ -->
+  <div id="learnSupSkillView" style="display:none;position:fixed;inset:0;z-index:999;background:#090c0f;flex-direction:column;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111518;border-bottom:1px solid rgba(0,180,160,.25);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00b4a0,#e8a200)"></div>
+      <button onclick="window.closeSupSkill()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 30 30" fill="none">
+          <circle cx="15" cy="15" r="11" stroke="#00b4a0" stroke-width="1.4" opacity=".5"/>
+          <path d="M15 15 L15 6" stroke="#e8a200" stroke-width="2" stroke-linecap="round"/>
+          <path d="M15 15 L21 18" stroke="#00b4a0" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="15" cy="15" r="2.5" fill="#e8a200"/>
+        </svg>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;color:#00d4bc">SupSkill</div>
+          <div style="font-size:10px;color:rgba(0,180,160,.65)">Supervisor Training Platform · Man Power</div>
+        </div>
+      </div>
+      <!-- Live shift badge -->
+      <div id="supskillShiftBadge" style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:#22c55e;display:flex;align-items:center;gap:5px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:inline-block"></span>
+        <span id="supskillShiftCount">—</span> on shift
+      </div>
+    </div>
+    <!-- Loading -->
+    <div id="supSkillLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#090c0f;">
+      <div style="font-size:42px">⚙️</div>
+      <div style="font-size:15px;font-weight:700;color:#00b4a0">SupSkill लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(0,180,160,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#00b4a0;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <!-- iframe -->
+    <iframe id="supSkillIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="SupSkill"
+      onload="try{document.getElementById('supSkillLoading').style.display='none';}catch(e){}this.style.display='block';setTimeout(function(){try{if(typeof window.sendShiftDataToSupSkill==='function')window.sendShiftDataToSupSkill();}catch(e){}},800);">
+    </iframe>
+  </div>
+
+  <!-- ════ MS & AI HUB VIEW ════ -->
+  <div id="learnMSAIView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(56,189,248,.2);flex-shrink:0;">
+      <button onclick="closeMSAI()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#38bdf8">🤖 MS & AI — Fast Growth</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.45)">Excel · Word · PowerPoint · AI Tools</div>
+      </div>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- Excel Expert (LIVE) -->
+      <button onclick="closeMSAI();openLearnSection('excelexpert')" style="width:100%;background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(16,185,129,.10));border:2px solid rgba(34,197,94,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(34,197,94,.40),rgba(16,185,129,.22));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📊</div>
+        <div style="flex:1">
+          <div style="font-size:18px;font-weight:800;color:#22c55e;margin-bottom:3px">Excel Expert</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55)">Excel Formulas · Industry Examples · Practice · Quiz</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">LIVE</span>
+          </div>
+        </div>
+        <div style="color:#22c55e;font-size:20px">›</div>
+      </button>
+
+      <!-- Word (Coming Soon) -->
+      <div style="width:100%;background:linear-gradient(135deg,rgba(96,165,250,.12),rgba(59,130,246,.06));border:2px solid rgba(96,165,250,.25);border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px;opacity:.7">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(96,165,250,.25),rgba(59,130,246,.10));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📝</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:800;color:#60a5fa;margin-bottom:3px">Word Expert</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.40)">Document Formatting · Templates · Mail Merge</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(96,165,250,.18);border:1px solid rgba(96,165,250,.35);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#60a5fa;font-family:'Barlow Condensed',sans-serif">⏳ जल्द आ रहा है</div>
+        </div>
+      </div>
+
+      <!-- PowerPoint (Coming Soon) -->
+      <div style="width:100%;background:linear-gradient(135deg,rgba(251,146,60,.12),rgba(249,115,22,.06));border:2px solid rgba(251,146,60,.25);border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px;opacity:.7">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(251,146,60,.25),rgba(249,115,22,.10));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📽️</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:800;color:#fb923c;margin-bottom:3px">PowerPoint Expert</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.40)">Presentations · Charts · Animation · MRM Reports</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(251,146,60,.18);border:1px solid rgba(251,146,60,.35);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#fb923c;font-family:'Barlow Condensed',sans-serif">⏳ जल्द आ रहा है</div>
+        </div>
+      </div>
+
+      <!-- AI Tools (Coming Soon) -->
+      <div style="width:100%;background:linear-gradient(135deg,rgba(168,85,247,.12),rgba(139,92,246,.06));border:2px solid rgba(168,85,247,.25);border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px;opacity:.7">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(168,85,247,.25),rgba(139,92,246,.10));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🤖</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:800;color:#a855f7;margin-bottom:3px">AI Tools & Productivity</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.40)">ChatGPT · Gemini · Copilot · Automation Hacks</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(168,85,247,.18);border:1px solid rgba(168,85,247,.35);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#a855f7;font-family:'Barlow Condensed',sans-serif">⏳ जल्द आ रहा है</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════ EXCEL EXPERT IFRAME VIEW ════ -->
+  <div id="learnExcelExpertView" style="display:none;position:fixed;inset:0;z-index:999;background:#f0fdf4;flex-direction:column;">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#065f46;border-bottom:1px solid rgba(34,197,94,.4);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981,#059669)"></div>
+      <button onclick="closeExcelExpert()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:22px">📊</span>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;color:#4ade80">Excel Expert</div>
+          <div style="font-size:10px;color:rgba(74,222,128,.65)">Industry Excel Training · Man Power</div>
+        </div>
+      </div>
+    </div>
+    <!-- Loading -->
+    <div id="excelExpertLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#f0fdf4;">
+      <div style="font-size:42px">📊</div>
+      <div style="font-size:15px;font-weight:700;color:#16a34a">Excel Expert लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(34,197,94,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#22c55e;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <!-- iframe -->
+    <iframe id="excelExpertIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="Excel Expert"
+      onload="try{document.getElementById('excelExpertLoading').style.display='none';}catch(e){}this.style.display='block';">
+    </iframe>
+  </div>
+
+  <!-- ════ COMING SOON VIEW ════ -->
+  <div id="learnComingSoonView" style="display:none;padding:14px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <button onclick="closeLearnSection()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+    </div>
+    <div style="text-align:center;padding:40px 20px">
+      <div id="learnCSIcon" style="font-size:64px;margin-bottom:16px"></div>
+      <div id="learnCSTitle" style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;margin-bottom:8px"></div>
+      <div id="learnCSSub" style="font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6"></div>
+      <div style="background:var(--panel);border:1px solid var(--border2);border-radius:16px;padding:24px;max-width:320px;margin:0 auto">
+        <div style="font-size:40px;margin-bottom:12px">🚧</div>
+        <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:8px">जल्द आ रहा है!</div>
+        <div style="font-size:13px;color:var(--muted2);line-height:1.7">यह module अभी तैयार हो रहा है।<br>जल्द ही आपके लिए उपलब्ध होगा।</div>
+        <div style="margin-top:16px;background:linear-gradient(135deg,rgba(249,115,22,.15),rgba(168,85,247,.1));border:1px solid rgba(249,115,22,.3);border-radius:10px;padding:10px;font-size:12px;color:var(--m1);font-weight:700">
+          📢 Admin को notify करें कि यह module चाहिए
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ MR SKILL HUB VIEW ════ -->
+  <div id="learnMRSkillView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
+    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(220,38,38,.2);flex-shrink:0;">
+      <button onclick="closeMRSkill()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div>
+        <div style="font-size:16px;font-weight:900;color:#ef4444">🔑 MR Skill Hub</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.45)">Manager-only tools & analytics</div>
+      </div>
+    </div>
+    <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
+
+      <!-- MetCost Pro -->
+      <button onclick="closeMRSkill();openLearnSection('metcost')" style="width:100%;background:linear-gradient(135deg,rgba(168,85,247,.24),rgba(14,165,233,.12));border:2px solid rgba(168,85,247,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(168,85,247,.40),rgba(14,165,233,.20));display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="28" height="28" viewBox="0 0 30 30" fill="none"><rect x="4" y="8" width="22" height="16" rx="3" stroke="#c084fc" stroke-width="1.4" opacity=".6"/><path d="M8 18L12 14L16 16L22 11" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="11" r="2" fill="#22c55e"/></svg>
+        </div>
+        <div style="flex:1">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;margin-bottom:2px;background:linear-gradient(90deg,#c084fc,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">MetCost Pro</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55)">Wire · Boat · Power · Wastage · Manpower · Conversion Cost</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">LIVE</span>
+          </div>
+        </div>
+        <div style="color:#c084fc;font-size:20px">›</div>
+      </button>
+
+      <!-- MRM Presentation -->
+      <button onclick="closeMRSkill();openLearnSection('mrmpres')" style="width:100%;background:linear-gradient(135deg,rgba(239,68,68,.15),rgba(245,158,11,.08));border:2px solid rgba(239,68,68,.40);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(239,68,68,.30),rgba(245,158,11,.12));display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h6M7 16h8"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:800;color:#ef4444;margin-bottom:3px">MRM Presentation</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55)">Monthly Review · Cost Analysis · Auto-generated PPT</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:800;color:#22c55e;letter-spacing:.5px">LIVE</span>
+          </div>
+        </div>
+        <div style="color:rgba(239,68,68,.6);font-size:20px;flex-shrink:0">›</div>
+      </button>
+
+      <!-- Time Study — LIVE -->
+      <button onclick="closeMRSkill();openLearnSection('timeStudy')" style="width:100%;background:linear-gradient(135deg,rgba(13,148,136,.15),rgba(6,182,212,.08));border:2px solid rgba(13,148,136,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(13,148,136,.30),rgba(6,182,212,.12));display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:18px;font-weight:800;color:#0d9488;margin-bottom:3px">Time Study</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55)">1440 min Analysis · Setup · Running · Vent · Idle</div>
+          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
+            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
+            <span style="font-size:10px;font-weight:800;color:#22c55e;letter-spacing:.5px">LIVE</span>
+          </div>
+        </div>
+        <div style="color:rgba(13,148,136,.6);font-size:20px;flex-shrink:0">›</div>
+      </button>
+
+      <!-- Man/Machine KPIs — LIVE -->
+      <button onclick="closeMRSkill();openLearnSection('kpiDashboard')" style="width:100%;background:linear-gradient(135deg,rgba(34,197,94,.22),rgba(16,185,129,.10));border:2px solid rgba(34,197,94,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;position:relative;overflow:hidden;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(34,197,94,.15);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📊</div>
+        <div style="flex:1">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;margin-bottom:2px;background:linear-gradient(90deg,#22c55e,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Man/Machine KPIs</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55)">Individual Performance · Rolls · Output · Downtime · Downgrades</div>
+          <div style="margin-top:6px;display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,.18);border:1px solid rgba(34,197,94,.4);border-radius:6px;padding:2px 8px;font-size:9px;font-weight:900;color:#22c55e"><span style="width:5px;height:5px;border-radius:50%;background:#22c55e"></span>LIVE</div>
+        </div>
+        <div style="color:rgba(34,197,94,.7);font-size:22px">›</div>
+      </button>
+
+      <!-- Planning & Scheduling (Coming Soon) -->
+      <div style="width:100%;background:linear-gradient(135deg,rgba(245,158,11,.12),rgba(234,179,8,.08));border:2px solid rgba(245,158,11,.30);border-radius:18px;padding:18px 16px;display:flex;align-items:center;gap:14px;opacity:.6">
+        <div style="width:56px;height:56px;border-radius:14px;background:rgba(245,158,11,.15);display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">📋</div>
+        <div style="flex:1">
+          <div style="font-size:16px;font-weight:900;color:#f59e0b;margin-bottom:3px">Planning & Scheduling</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.45)">Production Plan · Material Requirement · Dispatch</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(245,158,11,.18);border:1px solid rgba(245,158,11,.4);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#f59e0b;font-family:'Barlow Condensed',sans-serif">⏳ जल्द आ रहा है</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════ METCOST PRO IFRAME VIEW ════ -->
+  <div id="learnMetCostView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(168,85,247,.25);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#a855f7,#0ea5e9)"></div>
+      <button onclick="closeMetCostPro()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 30 30" fill="none"><rect x="4" y="8" width="22" height="16" rx="3" stroke="#c084fc" stroke-width="1.4" opacity=".6"/><path d="M8 18L12 14L16 16L22 11" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="11" r="2" fill="#22c55e"/></svg>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;background:linear-gradient(90deg,#c084fc,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">MetCost Pro</div>
+          <div style="font-size:10px;color:rgba(168,85,247,.65)">Production Cost Tracker · Man Power</div>
+        </div>
+      </div>
+      <div style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:#22c55e;display:flex;align-items:center;gap:5px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:inline-block"></span>
+        Manager Access
+      </div>
+    </div>
+    <div id="metCostLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#0a0f1a;">
+      <svg width="48" height="48" viewBox="0 0 30 30" fill="none"><rect x="4" y="8" width="22" height="16" rx="3" stroke="#c084fc" stroke-width="1.2" opacity=".4"/><path d="M8 18L12 14L16 16L22 11" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round"/><circle cx="22" cy="11" r="2" fill="#22c55e"/></svg>
+      <div style="font-size:15px;font-weight:700;color:#c084fc">MetCost Pro लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(168,85,247,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#a855f7;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <iframe id="metCostIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="MetCost Pro"
+      onload="try{document.getElementById('metCostLoading').style.display='none';}catch(e){}this.style.display='block';setTimeout(function(){try{window.sendManpowerToMetCost();}catch(e){}},800);setTimeout(function(){try{window._loadMetCostFromFirebase();}catch(e){console.log('MetCost Firebase auto-load skipped:',e)}},1200);">
+    </iframe>
+  </div>
+
+  <!-- ════ MRM PRESENTATION IFRAME VIEW ════ -->
+  <div id="learnMRMPresView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(239,68,68,.25);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b)"></div>
+      <button onclick="closeMRMPres()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="font-size:22px">📊</div>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;background:linear-gradient(90deg,#ef4444,#f59e0b);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">MRM Presentation</div>
+          <div style="font-size:10px;color:rgba(239,68,68,.65)">Monthly Review Meeting · Man Power</div>
+        </div>
+      </div>
+    </div>
+    <div id="mrmPresLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#0a0f1a;">
+      <div style="font-size:48px">📊</div>
+      <div style="font-size:15px;font-weight:700;color:#ef4444">MRM Presentation लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(239,68,68,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#ef4444;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <iframe id="mrmPresIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="MRM Presentation"
+      onload="try{document.getElementById('mrmPresLoading').style.display='none';}catch(e){}this.style.display='block';setTimeout(function(){try{window._sendMetDataToMRM();}catch(e){console.log('MRM send 1s:',e)}},1000);setTimeout(function(){try{window._sendMetDataToMRM();}catch(e){}},3000);setTimeout(function(){try{window._sendMetDataToMRM();}catch(e){}},6000);">
+    </iframe>
+  </div>
+
+  <!-- ════ KPI DASHBOARD (Man/Machine KPIs) IFRAME VIEW ════ -->
+  <div id="learnKPIDashboardView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(34,197,94,.25);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981)"></div>
+      <button onclick="closeKPIDashboard()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:22px">📊</span>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;background:linear-gradient(90deg,#22c55e,#10b981);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Man/Machine KPIs</div>
+          <div style="font-size:10px;color:rgba(34,197,94,.65)">Individual Performance · MET Metallisers</div>
+        </div>
+      </div>
+      <div style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:#22c55e;display:flex;align-items:center;gap:5px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:inline-block"></span>
+        Manager Access
+      </div>
+    </div>
+    <div id="kpiDashboardLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#060c15;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><rect x="4" y="10" width="3" height="10" rx="1" fill="#22c55e" opacity=".7"/><rect x="10.5" y="5" width="3" height="15" rx="1" fill="#10b981"/><rect x="17" y="13" width="3" height="7" rx="1" fill="#22c55e" opacity=".5"/></svg>
+      <div style="font-size:15px;font-weight:700;color:#22c55e">KPI Dashboard लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(34,197,94,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#22c55e;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <iframe id="kpiDashboardIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="KPI Dashboard"
+      onload="try{document.getElementById('kpiDashboardLoading').style.display='none';}catch(e){}this.style.display='block';setTimeout(function(){try{window.sendManpowerToKPIDashboard();}catch(e){}},800);setTimeout(function(){try{window.sendManpowerToKPIDashboard();}catch(e){}},2500);">
+    </iframe>
+  </div>
+
+  <!-- ════ TIME STUDY IFRAME VIEW ════ -->
+  <div id="learnTimeStudyView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(13,148,136,.25);flex-shrink:0;position:relative;">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0d9488,#06b6d4)"></div>
+      <button onclick="closeTimeStudy()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+        <div>
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;letter-spacing:1px;background:linear-gradient(90deg,#0d9488,#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">Time Study</div>
+          <div style="font-size:10px;color:rgba(13,148,136,.65)">Machine Utilisation · MET Metallisers</div>
+        </div>
+      </div>
+      <div style="margin-left:auto;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.35);border-radius:20px;padding:4px 10px;font-size:10px;font-weight:700;color:#22c55e;display:flex;align-items:center;gap:5px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;display:inline-block"></span>
+        Manager Access
+      </div>
+    </div>
+    <div id="timeStudyLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px;background:#060c15;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3" stroke-linecap="round"/></svg>
+      <div style="font-size:15px;font-weight:700;color:#0d9488">Time Study लोड हो रहा है...</div>
+      <div style="width:48px;height:3px;background:rgba(13,148,136,.2);border-radius:2px;overflow:hidden">
+        <div style="width:40%;height:100%;background:#0d9488;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
+      </div>
+    </div>
+    <iframe id="timeStudyIframe" src="" style="width:100%;flex:1;border:none;display:none;" allow="fullscreen" title="Time Study"
+      onload="try{document.getElementById('timeStudyLoading').style.display='none';}catch(e){}this.style.display='block';">
+    </iframe>
+  </div>
+
+  <!-- ════ MODULE VIEW (shown when a module is opened) ════ -->
+  <div id="learnModuleView" style="display:none">
+
+    <!-- Module Header -->
+    <div style="padding:14px 14px 0;display:flex;align-items:center;gap:10px">
+      <button onclick="closeLearnModule()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <div>
+        <div id="moduleTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
+        <div id="moduleSubtitle" style="font-size:11px;color:var(--muted2)"></div>
+      </div>
+    </div>
+
+    <!-- Content Type Tabs -->
+    <div style="padding:10px 14px 0;display:flex;gap:8px">
+      <button class="mtype-btn on" onclick="setModuleType('audio',this)" id="mtype_audio"
+        style="flex:1;padding:9px 6px;border-radius:10px;border:1.5px solid rgba(56,189,248,.35);background:rgba(56,189,248,.1);color:#38bdf8;font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">
+        🎵 Audio
+      </button>
+      <button class="mtype-btn" onclick="setModuleType('video',this)" id="mtype_video"
+        style="flex:1;padding:9px 6px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">
+        🎬 Audio+Video
+      </button>
+      <button class="mtype-btn" onclick="setModuleType('live',this)" id="mtype_live"
+        style="flex:1;padding:9px 6px;border-radius:10px;border:1.5px solid var(--border);background:transparent;color:var(--muted2);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">
+        🔴 Live Demo
+      </button>
+    </div>
+
+    <!-- Content List -->
+    <div id="moduleContentList" style="padding:10px 14px 20px"></div>
+
+    <!-- Admin upload in module -->
+    <div id="moduleAdminUpload" style="display:none;padding:0 14px 20px">
+      <button onclick="openContentUploadForModule()" style="width:100%;padding:13px;background:rgba(249,115,22,.1);border:2px dashed rgba(249,115,22,.3);border-radius:12px;color:var(--m1);font-size:13px;font-weight:800;cursor:pointer;font-family:inherit">
+        ➕ इस Module में Content Add करें
+      </button>
+    </div>
+  </div>
+
+  <!-- ════ CAREER BOOST VIEW ════ -->
+  <div id="careerBoostView" style="display:none;padding:14px 14px 30px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button onclick="closeCareerBoost()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <div>
+        <div id="careerBoostTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
+        <div id="careerBoostSub" style="font-size:11px;color:var(--muted2)"></div>
+      </div>
+    </div>
+    <!-- Progress bar -->
+    <div id="careerBoostProgress" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:12px">
+      <div style="flex:1">
+        <div style="font-size:11px;color:var(--muted2);margin-bottom:5px;font-weight:700">आपकी Progress</div>
+        <div style="height:6px;background:var(--card2);border-radius:3px;overflow:hidden">
+          <div id="careerProgressBar" style="height:100%;border-radius:3px;background:linear-gradient(90deg,#22c55e,#38bdf8);width:0%;transition:width .5s ease"></div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div id="careerProgressText" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#22c55e">0%</div>
+        <div style="font-size:9px;color:var(--muted);font-weight:700">SCORE</div>
+      </div>
+    </div>
+    <!-- Q&A List -->
+    <div id="careerBoostList"></div>
+    <!-- Reset button -->
+    <button onclick="resetCareerBoost()" style="width:100%;margin-top:10px;padding:12px;background:none;border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+      🔄 दोबारा Practice करें
+    </button>
+  </div>
+
+  <!-- ════ ABOUT / DEDICATION VIEW ════ -->
+  <div id="learnAboutView" style="display:none;padding:14px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button onclick="closeLearnModule()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <div style="font-size:16px;font-weight:900;color:#fbbf24">🙏 About & Dedication</div>
+    </div>
+    <div id="aboutContent"></div>
+  </div>
+
+  <!-- Plans / Payment (hidden, accessed via module unlock) -->
+  <div id="learnPlansSection" style="display:none">
+    <div style="padding:16px">
+      <div id="myActiveSubs"></div>
+      <div id="planCombo" onclick="selectPlan('combo')"
+        style="background:linear-gradient(135deg,rgba(249,115,22,.15),rgba(168,85,247,.15));border:2px solid rgba(249,115,22,.4);border-radius:16px;padding:16px;margin-bottom:10px;cursor:pointer;position:relative">
+        <div style="position:absolute;top:10px;right:10px;background:linear-gradient(135deg,#f97316,#a855f7);color:#fff;font-size:9px;font-weight:900;padding:3px 8px;border-radius:5px">🔥 BEST VALUE</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:32px">🎯</div>
+          <div style="flex:1">
+            <div style="font-size:16px;font-weight:900;color:#fff">All Access Combo</div>
+            <div style="font-size:11px;color:var(--muted2)">सभी Modules · Audio + Video + Live</div>
+          </div>
+          <div style="text-align:right">
+            <div id="priceDisp_combo" style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">₹999</div>
+            <div id="comboSaveDisp" style="font-size:9px;color:var(--green)">Save ₹597!</div>
+          </div>
+        </div>
+        <button class="price-edit-btn" onclick="event.stopPropagation();editPlanPrice('combo')" style="display:none;margin-top:10px;width:100%;padding:7px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4);border-radius:8px;color:var(--m1);font-size:12px;font-weight:700;cursor:pointer">✏️ Combo Price Edit</button>
+      </div>
+      <div id="proceedBtn" style="display:none"></div>
+    </div>
+    <div class="payment-form" id="paymentForm" style="display:none;padding:0 16px 16px">
+      <div style="background:var(--panel);border:1px solid rgba(168,85,247,.3);border-radius:14px;padding:16px;margin-bottom:14px">
+        <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px">💳 Payment Details</div>
+        <input class="payment-input" type="text" id="payName" placeholder="पूरा नाम (Full Name)">
+        <input class="payment-input" type="tel" id="payPhone" placeholder="मोबाइल नंबर (10 digits)">
+        <input class="payment-input" type="email" id="payEmail" placeholder="Email (optional)">
+        <div id="selectedPlanInfo" style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);border-radius:10px;padding:12px;margin-bottom:4px"></div>
+      </div>
+      <button class="learn-pay-btn" id="payNowBtn" onclick="initiatePayment()">💳 अभी Pay करें</button>
+      <div class="rzp-note">🔒 Razorpay · UPI · Cards · NetBanking सभी accepted<br>Payment होने पर तुरंत access मिलेगा</div>
+      <button onclick="cancelPayment()" style="width:100%;padding:12px;background:none;border:1px solid var(--border2);border-radius:10px;color:var(--muted);font-size:13px;cursor:pointer;margin-top:8px">रद्द करें</button>
+    </div>
+  </div>
+
+  <!-- Hidden elements for price display (kept for JS compatibility) -->
+  <div style="display:none">
+    <div id="learnSubStatus"></div>
+    <div id="learnContentSection"><div id="contentList"></div><div id="adminUploadSection"></div><div id="learnPlanBadge"></div>
+      <div id="contentCatFilter"></div><div id="contentFilter"></div><div id="metOpSubButtons"></div>
+    </div>
+    <div id="planMetOp"></div><div id="planMetMaint"></div><div id="planMsOffice"></div><div id="planManagerial"></div>
+    <div id="priceDisp_met_operation"></div><div id="priceDisp_met_maintenance"></div>
+    <div id="priceDisp_ms_office"></div><div id="priceDisp_managerial"></div>
+  </div>
+</div>
+
+<!-- Content Player Modal -->
+<div class="overlay" id="playerOverlay" onclick="closePlayer()">
+  <div class="player-modal" id="playerBody" onclick="event.stopPropagation()"></div>
+</div>
+
+<!-- ══ EXCEL UPLOAD MODAL ══ -->
+<div class="overlay" id="excelUploadOverlay" onclick="closeExcelUpload()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📤 Excel से Shift Schedule अपलोड करें</div>
+    <p style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.6">
+      दोनों formats support हैं:<br>
+      <span style="color:var(--green)">✅ Man Power Monthly Format</span> — S.No | E.Code | Name | M/C | W-OFF | 1 | 2 | 3...<br>
+      <span style="color:var(--green)✅ Simple Format</span> — Date | EmpID1 | EmpID2...<br>
+      <span style="color:var(--day)">केवल पिछले 10 महीने का डेटा ही save होगा।</span>
+    </p>
+    <div id="excelUploadDropZone" onclick="document.getElementById('excelFileInput').click()"
+      style="border:2px dashed var(--border2);border-radius:14px;padding:30px;text-align:center;cursor:pointer;background:var(--card);margin-bottom:14px;transition:border-color .2s"
+      ondragover="event.preventDefault();this.style.borderColor='var(--m1)'"
+      ondragleave="this.style.borderColor='var(--border2)'"
+      ondrop="handleExcelDrop(event)">
+      <div style="font-size:36px;margin-bottom:8px">📊</div>
+      <div style="font-size:14px;font-weight:700;color:#fff">यहाँ Excel फ़ाइल छोड़ें</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px">या टैप करके फ़ाइल चुनें (.xlsx, .xls)</div>
+    </div>
+    <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this.files[0])">
+    <div id="excelUploadStatus" style="display:none;background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--text)"></div>
+    <button class="cancel-btn" onclick="closeExcelUpload()">बंद करें</button>
+  </div>
+</div>
+
+<!-- ══ CUSTOM DATE RANGE MODAL ══ -->
+<div class="overlay" id="customRangeOverlay" onclick="closeCustomRange()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🗓️ कस्टम तारीख सीमा</div>
+    <!-- Quick select buttons -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <button id="qr_30"  onclick="_quickRange(30)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">30 दिन</button>
+      <button id="qr_90"  onclick="_quickRange(90)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">3 महीने</button>
+      <button id="qr_180" onclick="_quickRange(180)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">6 महीने</button>
+      <button id="qr_365" onclick="_quickRange(365)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">1 साल</button>
+    </div>
+    <div class="field">
+      <label>शुरू की तारीख (Date A)</label>
+      <input type="date" id="customDateFrom" class="inp-field" style="background:var(--card);border:2px solid var(--border2);border-radius:12px;padding:14px 16px;width:100%;font-size:16px;outline:none;color:var(--text)">
+    </div>
+    <div class="field">
+      <label>अंत की तारीख (Date B)</label>
+      <input type="date" id="customDateTo" class="inp-field" style="background:var(--card);border:2px solid var(--border2);border-radius:12px;padding:14px 16px;width:100%;font-size:16px;outline:none;color:var(--text)">
+    </div>
+    <button class="submit-btn" onclick="applyCustomRange()">✅ लागू करें</button>
+    <button class="cancel-btn" onclick="closeCustomRange()">रद्द करें</button>
+  </div>
+</div>
+
+<!-- ══ SMS SETTINGS MODAL ══ -->
+<div class="overlay" id="smsSettingsOverlay" onclick="closeSmsSettings()">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⚙️ SMS Notification Settings</div>
+    <div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:14px;margin-bottom:16px;font-size:12px;color:var(--muted2);line-height:1.7">
+      📌 <b style="color:var(--s1)">Fast2SMS</b> का उपयोग करें (India का सबसे सस्ता SMS service)<br>
+      1. <a href="https://www.fast2sms.com" target="_blank" style="color:var(--s1)">fast2sms.com</a> पर register करें<br>
+      2. Dashboard → Dev API → API Key copy करें<br>
+      3. नीचे paste करें और Save करें ✅
+    </div>
+    <div class="field">
+      <label>Fast2SMS API Key</label>
+      <input class="inp-field" id="smsApiKey" placeholder="अपना Fast2SMS API Key यहाँ डालें" type="password" style="font-family:monospace;letter-spacing:1px">
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button onclick="document.getElementById('smsApiKey').type=document.getElementById('smsApiKey').type==='password'?'text':'password'" style="padding:6px 12px;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);font-size:11px;cursor:pointer">👁 दिखाएं</button>
+        <button onclick="testSmsApi()" style="padding:6px 12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:8px;color:var(--green);font-size:11px;cursor:pointer;font-weight:700">🧪 Test SMS भेजें</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Test के लिए मोबाइल नंबर</label>
+      <input class="inp-field" id="smsTestPhone" placeholder="10 अंक का नंबर" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')">
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:14px">
+      <input type="checkbox" id="smsEnabled" style="width:20px;height:20px;accent-color:var(--green);cursor:pointer">
+      <label for="smsEnabled" style="font-size:14px;font-weight:700;color:#fff;cursor:pointer;text-transform:none;letter-spacing:0">SMS Notifications चालू रखें</label>
+    </div>
+    <div id="smsTestStatus" style="display:none;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px"></div>
+    <button class="submit-btn" onclick="saveSmsSettings()">💾 Settings Save करें</button>
+    <button class="cancel-btn" onclick="closeSmsSettings()">बंद करें</button>
+  </div>
+</div>
+
+<!-- TODO IMAGE VIEWER -->
+<div id="todoImgViewer" onclick="closeTodoImgViewer()">
+  <button onclick="closeTodoImgViewer()" style="z-index:1">✕</button>
+  <img id="todoImgViewerImg" src="" alt="Task Image">
+</div>
+
+<!-- ══ TEAM EXCEL UPLOAD MODAL ══ -->
+<div class="overlay" id="teamExcelOverlay" onclick="closeTeamExcelUpload()">
+  <div class="modal" onclick="event.stopPropagation()" style="max-height:95vh">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📤 Excel से Team Data Update करें</div>
+    <div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--muted2);line-height:1.55">
+      <div style="font-weight:900;color:#fff;margin-bottom:8px">📌 Team Excel format (snapshot guide)</div>
+      <div style="font-size:11px;margin-bottom:8px">Row 1 = headers. Example — same style as your sheet:</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;border:1px solid rgba(255,255,255,.12);margin-bottom:10px">
+        <table style="border-collapse:collapse;font-size:10px;min-width:640px;width:100%;font-family:system-ui,sans-serif">
+          <thead>
+            <tr style="background:#1e293b;color:#e2e8f0">
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Name</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Emp ID</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Designation</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Weekly Off</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Mobile</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Joining Date</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Date of Birth</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Machine</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap">Responsibility</th>
+              <th style="padding:6px 5px;border:1px solid #334155;white-space:nowrap;color:#fbbf24">Salary</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="background:#0f172a;color:#cbd5e1">
+              <td style="padding:5px;border:1px solid #334155">DINESH</td>
+              <td style="padding:5px;border:1px solid #334155">50000555</td>
+              <td style="padding:5px;border:1px solid #334155">Team Member</td>
+              <td style="padding:5px;border:1px solid #334155">TUE</td>
+              <td style="padding:5px;border:1px solid #334155">9695887766</td>
+              <td style="padding:5px;border:1px solid #334155">23-09-2024</td>
+              <td style="padding:5px;border:1px solid #334155">01-01-1994</td>
+              <td style="padding:5px;border:1px solid #334155">M-1</td>
+              <td style="padding:5px;border:1px solid #334155">Operation</td>
+              <td style="padding:5px;border:1px solid #334155;color:#fbbf24">25000</td>
+            </tr>
+            <tr style="background:#0f172a;color:#cbd5e1">
+              <td style="padding:5px;border:1px solid #334155">SURAJ</td>
+              <td style="padding:5px;border:1px solid #334155">50000556</td>
+              <td style="padding:5px;border:1px solid #334155">Team Member</td>
+              <td style="padding:5px;border:1px solid #334155">WED</td>
+              <td style="padding:5px;border:1px solid #334155">7408920675</td>
+              <td style="padding:5px;border:1px solid #334155">01-09-2025</td>
+              <td style="padding:5px;border:1px solid #334155">01-01-1994</td>
+              <td style="padding:5px;border:1px solid #334155">M-1</td>
+              <td style="padding:5px;border:1px solid #334155">Operation</td>
+              <td style="padding:5px;border:1px solid #334155;color:#fbbf24">48000</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:11px;line-height:1.7">
+        <b style="color:#f97316">Required:</b> <span style="color:#fff">Name</span>, <span style="color:#fff">Emp ID</span><br>
+        <b style="color:#22c55e">Recommended:</b> Designation, Weekly Off (MON–SUN), Mobile (10 digit), <b>Section</b>, Machine, Responsibility<br>
+        <b style="color:#fbbf24">Optional:</b> Joining Date, Date of Birth, Salary (numbers only)<br>
+        <span style="color:var(--day)">Emp ID से match → existing update · खाली cell = पुराना data रहेगा</span><br>
+        <span style="color:#94a3b8">Shift date columns (01-Jul-25 …) इस Team upload में ignore होते हैं — shifts के लिए Schedule Excel upload use करें।</span>
+      </div>
+      <button type="button" onclick="downloadTeamExcelTemplate()" style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px dashed rgba(56,189,248,.45);background:rgba(56,189,248,.08);color:#7dd3fc;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
+        ⬇️ Download sample Excel template
+      </button>
+    </div>
+    <div id="teamExcelDropZone" onclick="document.getElementById('teamExcelFileInput').click()"
+      style="border:2px dashed var(--border2);border-radius:14px;padding:28px;text-align:center;cursor:pointer;background:var(--card);margin-bottom:14px;transition:border-color .2s"
+      ondragover="event.preventDefault();this.style.borderColor='var(--m1)'"
+      ondragleave="this.style.borderColor='var(--border2)'"
+      ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleTeamExcelFile(event.dataTransfer.files[0])">
+      <div style="font-size:36px;margin-bottom:8px">📊</div>
+      <div style="font-size:14px;font-weight:700;color:#fff">यहाँ Excel फ़ाइल छोड़ें</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px">या टैप करके फ़ाइल चुनें (.xlsx, .xls)</div>
+    </div>
+    <input type="file" id="teamExcelFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleTeamExcelFile(this.files[0])">
+    <div id="teamExcelPreview" style="display:none"></div>
+    <button class="cancel-btn" onclick="closeTeamExcelUpload()">बंद करें</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/polyfill.js"></script>
+
+<script>
+window.__sectionsReady = (async function loadSections(){
+  const sections = ['myshift','schedule','leave','reports','pending','team','instructions','todo'];
+  const main = document.getElementById('mainContent');
+  if(!main) return true;
+  for (const name of sections) {
+    try {
+      const r = await fetch(name + '.html', {cache:'no-store'});
+      if(!r.ok) throw new Error(String(r.status));
+      const html = await r.text();
+      main.insertAdjacentHTML('beforeend', html);
+    } catch(e) {
+      console.warn('[sections] failed to load', name, e);
+    }
+  }
+  return true;
+})();
+</script>
+
+<script src="js/app.js?v=15"></script>
+
+<!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
+
+</body>
+</html>

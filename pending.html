@@ -1,0 +1,29 @@
+<!-- ── PENDING (ADMIN) ── -->
+<div class="tab" id="tab-pending">
+  <div class="page-title" id="pageTitlePending">अनुमोदन पेंडिंग</div>
+  <div id="adminOnlyPendingBlock" style="display:none">
+    <button id="smsSettingsBtn" onclick="openSmsSettings()" style="display:none;width:100%;padding:14px;border-radius:12px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);color:var(--green);font-family:'Noto Sans Devanagari',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:14px">
+      ⚙️ SMS Notification Settings
+    </button>
+    <div class="stitle">📱 Login Requests (Admin Approval)</div>
+    <div id="pendingLoginRequests"></div>
+    <div class="stitle">📱 नए Device Requests</div>
+    <div id="pendingDevices"></div>
+        <div style="font-size:12px;font-weight:800;color:#a855f7;letter-spacing:.5px;margin:16px 0 8px">
+          &#128273; NEW MANAGER REGISTRATIONS
+        </div>
+        <div id="mgrApprovalsSection"><div class="empty-text" style="padding:12px;font-size:12px">Loading...</div></div>
+    <div class="stitle">👤 नए रजिस्ट्रेशन</div>
+    <div id="pendingRegs"></div>
+  </div>
+  <div id="myTeamApprovalsBlock" style="display:none">
+    <div style="font-size:12px;font-weight:800;color:#60a5fa;letter-spacing:.5px;margin:16px 0 8px">
+      &#128101; मेरी TEAM &mdash; PENDING MEMBERS
+    </div>
+    <div id="myTeamApprovalsSection"><div class="empty-text" style="padding:12px;font-size:12px">Loading...</div></div>
+  </div>
+  <div class="stitle">🌴 छुट्टी आवेदन</div>
+  <div id="pendingLeaves"></div>
+  <div class="stitle">📋 रिपोर्ट</div>
+  <div id="pendingReports"></div>
+</div>

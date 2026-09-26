@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI Dashboard — GLS Metallisers</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#060c15;--bg1:#0b1520;--bg2:#101c2b;--bg3:#152232;--bg4:#1a2b3e;
+  --ln:rgba(255,255,255,0.08);--ln2:rgba(255,255,255,0.14);--ln3:rgba(255,255,255,0.24);
+  --m1:#f97316;--m1bg:rgba(249,115,22,.18);
+  --green:#22d65e;--gd:rgba(34,214,94,.14);
+  --red:#f04438;--rd:rgba(240,68,56,.16);
+  --yellow:#fbbf24;--yd:rgba(251,191,36,.14);
+  --blue:#38bdf8;--bd:rgba(56,189,248,.14);
+  --teal:#00cdb5;--td:rgba(0,205,181,.14);
+  --gold:#f0aa00;--gld:rgba(240,170,0,.16);
+  --purple:#a78bfa;
+  --t1:#e8f2fb;--t2:#90aec8;--t3:#5e7d97;
+  --r:8px;--rl:14px;
+}
+.light{
+  --bg0:#eaecf2;--bg1:#f2f4f8;--bg2:#ffffff;--bg3:#f5f7fa;--bg4:#edf0f5;
+  --ln:rgba(0,0,0,0.08);--ln2:rgba(0,0,0,0.14);--ln3:rgba(0,0,0,0.24);
+  --t1:#0f1923;--t2:#374a5e;--t3:#64748b;
+  --green:#16a34a;--gd:rgba(22,163,74,.11);
+  --red:#dc2626;--rd:rgba(220,38,38,.11);
+  --yellow:#d97706;--yd:rgba(217,119,6,.11);
+  --blue:#0369a1;--bd:rgba(3,105,161,.10);
+  --teal:#0d7d70;--td:rgba(13,125,112,.10);
+  --gold:#b45309;--gld:rgba(180,83,9,.11);
+  --m1:#e55a00;--m1bg:rgba(229,90,0,.10);
+}
+html,body{font-family:'Barlow',sans-serif;background:var(--bg0);color:var(--t1);min-height:100vh;transition:background .3s,color .3s;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");opacity:.4;}
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ═══ HEADER ═══ */
+.hdr{background:var(--bg1);border-bottom:1.5px solid var(--ln2);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:200;}
+.hdr-ic{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--m1),#fb923c);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:#fff;box-shadow:0 3px 12px rgba(249,115,22,.35);flex-shrink:0;}
+.hdr-brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.5px;line-height:1;}
+.hdr-brand em{font-style:normal;background:linear-gradient(90deg,var(--m1),#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-sub{font-size:9px;color:var(--t3);letter-spacing:2px;margin-top:1px;}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.chip-live{display:flex;align-items:center;gap:6px;background:var(--gd);border:1px solid #22d65e30;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:var(--green);}
+.chip-off{display:flex;align-items:center;gap:6px;background:var(--rd);border:1px solid #f0443830;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:var(--red);}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+.dot-off{width:7px;height:7px;border-radius:50%;background:var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.theme-btn{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:'Barlow',sans-serif;transition:all .2s;}
+.sw-tr{width:32px;height:18px;background:var(--bg4);border-radius:9px;position:relative;border:1.5px solid var(--ln3);flex-shrink:0;transition:all .25s;}
+.sw-th{width:11px;height:11px;border-radius:50%;background:var(--t3);position:absolute;top:2px;left:2px;transition:all .25s;}
+body:not(.light) .sw-th{transform:translateX(14px);background:#f97316;}
+
+/* ═══ MAIN TABS ═══ */
+.mtabs{display:flex;background:var(--bg1);border-bottom:2px solid var(--ln2);padding:0 20px;}
+.mtab{display:flex;align-items:center;gap:8px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);background:none;border:none;cursor:pointer;position:relative;transition:color .2s;}
+.mtab::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:transparent;transition:background .2s;}
+.mtab.act{color:var(--m1);} .mtab.act::after{background:var(--m1);} .mtab:hover:not(.act){color:var(--t2);}
+.tabpanel{display:none;flex:1;} .tabpanel.act{display:block;}
+
+.sub-wrap{background:var(--bg1);border-top:2px solid var(--ln2);min-height:calc(100vh - 120px);padding:20px;}
+
+/* ═══ UPLOAD ═══ */
+.upload-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;}
+@media (max-width:720px){.upload-row{grid-template-columns:1fr;}}
+.upzone{border:2px dashed var(--ln3);border-radius:var(--rl);padding:26px 20px;text-align:center;background:var(--bg2);transition:all .25s;cursor:pointer;position:relative;}
+.upzone:hover,.upzone.drag{border-color:var(--m1);background:var(--m1bg);}
+.upzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upzone.loaded{border-style:solid;border-color:var(--green);background:var(--gd);}
+.up-ic{font-size:32px;margin-bottom:6px;} .up-t{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:var(--t1);margin-bottom:3px;letter-spacing:.4px;} .up-s{font-size:11px;color:var(--t3);}
+.up-b{display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--t2);}
+.up-meta{margin-top:8px;font-size:11px;color:var(--green);font-weight:700;font-family:'JetBrains Mono',monospace;}
+
+/* ═══ MONTH SELECTOR ═══ */
+.month-bar{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.month-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;}
+.month-sel{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:7px 12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t1);cursor:pointer;outline:none;min-width:140px;}
+.month-sel:focus{border-color:var(--m1);}
+
+/* ═══ SCOPE FILTERS ═══ */
+.scope-bar{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;}
+.scope-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.scope-row:last-child{margin-bottom:0;}
+.scope-label{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin-right:4px;min-width:62px;}
+.pill{padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t2);cursor:pointer;transition:all .15s;letter-spacing:.4px;text-transform:uppercase;}
+.pill.act{background:var(--m1bg);color:var(--m1);border-color:var(--m1);}
+.pill:hover:not(.act){color:var(--t1);border-color:var(--ln3);}
+.date-pick{padding:6px 10px;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t1);font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;cursor:pointer;outline:none;}
+.date-pick:focus{border-color:var(--m1);}
+
+/* ═══ METRIC BUTTONS ═══ */
+.metric-bar{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;}
+.metric-btns{display:flex;flex-wrap:wrap;gap:8px;}
+.metric-btn{padding:8px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t2);cursor:pointer;transition:all .15s;letter-spacing:.3px;}
+.metric-btn.act{background:var(--m1bg);color:var(--m1);border-color:var(--m1);}
+.metric-btn:hover:not(.act){color:var(--t1);border-color:var(--ln3);}
+
+/* ═══ CHARTS GRID ═══ */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media (max-width:960px){.chart-grid{grid-template-columns:1fr;}}
+.chart-card{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:16px;}
+.chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
+.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.4px;display:flex;align-items:center;gap:7px;}
+.dl-btn{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:5px 11px;font-size:11px;font-weight:700;color:var(--t2);cursor:pointer;font-family:'Barlow',sans-serif;transition:all .15s;}
+.dl-btn:hover{color:var(--t1);border-color:var(--ln3);background:var(--bg4);}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;}
+.empty-state .big{font-size:32px;margin-bottom:10px;opacity:.5;}
+.empty-state .msg{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t2);margin-bottom:5px;letter-spacing:.5px;}
+
+/* ═══ FORMULA NOTE ═══ */
+.formula-note{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--t3);padding:8px 12px;background:var(--bg3);border:1px solid var(--ln);border-radius:6px;margin-bottom:12px;line-height:1.6;}
+
+/* ═══ FILTER PILL BAR (under charts) ═══ */
+.exclude-bar{margin-top:14px;padding:10px 12px;background:var(--bg3);border:1px solid var(--ln2);border-radius:8px;font-size:11px;color:var(--t2);}
+.ex-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;}
+.ex-head .ex-title{text-transform:uppercase;letter-spacing:1.2px;font-weight:800;font-size:10px;color:var(--m1);}
+.ex-head .ex-hint{font-size:10px;color:var(--t3);font-style:italic;}
+.ex-pills{display:flex;flex-wrap:wrap;gap:5px;}
+.ex-pill{border-radius:13px;padding:3px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;border-width:1.5px;border-style:solid;}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:10px 18px;font-size:13px;font-weight:600;color:var(--t1);z-index:300;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;}
+.toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(-8px);}
+.toast.red{border-color:var(--red);color:var(--red);}
+.toast.green{border-color:var(--green);color:var(--green);}
+
+/* ═══ STATS STRIP ═══ */
+.stats-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media (max-width:720px){.stats-strip{grid-template-columns:repeat(2,1fr);}}
+.stat-card{background:var(--bg2);border:1.5px solid var(--ln2);border-left:3px solid var(--m1);border-radius:var(--r);padding:10px 14px;}
+.stat-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;color:var(--t3);letter-spacing:1.2px;text-transform:uppercase;}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--t1);margin-top:3px;}
+.stat-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+.stat-card.teal{border-left-color:var(--teal);}
+.stat-card.blue{border-left-color:var(--blue);}
+.stat-card.yellow{border-left-color:var(--yellow);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-ic">KPI</div>
+    <div>
+      <div class="hdr-brand"><em>MAN/MACHINE</em> KPIs</div>
+      <div class="hdr-sub">GLS METALLISERS · DEPARTMENTAL PERFORMANCE</div>
+    </div>
+    <div class="hdr-r">
+      <div id="mp-chip" class="chip-off"><span class="dot-off"></span><span>No MET Power data</span></div>
+      <button class="theme-btn" onclick="toggleTheme()"><div class="sw-tr"><div class="sw-th"></div></div><span id="tlbl">☀️ Light</span></button>
+    </div>
+  </div>
+
+  <div class="mtabs">
+    <button class="mtab act" id="tb-met" onclick="switchMainTab('met')">🟠 Metalliser Team</button>
+    <button class="mtab" id="tb-slit" onclick="switchMainTab('slit')">🟢 Slitter Team</button>
+  </div>
+
+  <div class="sub-wrap">
+    <!-- UPLOAD TAB -->
+    <!-- METALLISER TAB -->
+    <div class="tabpanel act" id="tab-met">
+      <div class="month-bar">
+        <span class="month-label">Month</span>
+        <select class="month-sel" id="month-sel-met" onchange="selMonth=this.value;renderMet()"></select>
+        <span id="met-data-status" style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-left:auto;"></span>
+      </div>
+      <div id="met-content"></div>
+    </div>
+
+    <!-- SLITTER TAB -->
+    <div class="tabpanel" id="tab-slit">
+      <div class="month-bar">
+        <span class="month-label">Month</span>
+        <select class="month-sel" id="month-sel-slit" onchange="selMonth=this.value;renderSlit()"></select>
+        <span id="slit-data-status" style="font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-left:auto;"></span>
+      </div>
+      <div id="slit-content"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// KPI DASHBOARD — individual performance from SAP Excel + MET Power shift schedule
+// ═══════════════════════════════════════════════════════════════
+
+const g=id=>document.getElementById(id);
+const APP_VER='1.0';
+
+// ═══ STATE ═══
+let rawData={zjumbo:null, zslit:null};
+let manpowerData={}; // {monthKey: {perEmployee:[{id,name,section,role,shifts:{}}]}}
+let mainTab='met';
+let selMonth=null;
+
+// Scope filters (metalliser tab)
+let metMachine='all';  // 'all' | 'M1' | 'M2'
+let metShift='all';    // 'all' | 'D' | 'N'
+let metView='monthly'; // 'monthly' | 'daily'
+let metDate=null;
+let metMetric='rolls';
+
+// Scope filters (slitter tab)
+let slitMachine='all'; // 'all' | 'S1' | 'S2'
+let slitShift='all';
+let slitView='monthly';
+let slitDate=null;
+let slitMetric='rolls';
+
+// Per-chart excluded names (for PNG export filter)
+const EXCLUDED_NAMES={};
+
+// ═══ THEME ═══
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const L=document.body.classList.contains('light');
+  g('tlbl').textContent=L?'🌙 Dark':'☀️ Light';
+  try{localStorage.setItem('kpi_theme',L?'light':'dark');}catch(e){}
+}
+try{if(localStorage.getItem('kpi_theme')==='light'){document.body.classList.add('light');g('tlbl').textContent='🌙 Dark';}}catch(e){}
+
+// ═══ TOAST ═══
+function showToast(m,t='',d=2600){
+  const el=g('toast');el.textContent=m;el.className='toast show'+(t?' '+t:'');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),d);
+}
+
+// ═══ TAB SWITCH ═══
+function switchMainTab(id){
+  mainTab=id;
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('act'));
+  document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('act'));
+  g('tb-'+id).classList.add('act');
+  g('tab-'+id).classList.add('act');
+  if(id==='met') renderMet();
+  else if(id==='slit') renderSlit();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INDEXEDDB — persist raw uploads so user doesn't re-upload on every visit
+// ═══════════════════════════════════════════════════════════════
+// NOTE: We deliberately open MetCost Pro's database ('MetCostRaw') so that any ZJUMBO/ZSLIT
+// uploaded through MetCost Pro is immediately visible here. Same origin = same storage.
+// KPI Dashboard is read-only; it never writes to this DB.
+const IDB_NAME='MetCostRaw',IDB_VER=1;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,IDB_VER);
+    req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('raw'))db.createObjectStore('raw')};
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+// Read-only access to MetCost Pro's IndexedDB. No writes from this app.
+async function idbLoad(key){
+  try{const db=await idbOpen();const tx=db.transaction('raw','readonly');const req=tx.objectStore('raw').get(key);return new Promise((r,j)=>{req.onsuccess=()=>r(req.result||null);req.onerror=()=>j(req.error)})}
+  catch(e){console.warn('[KPI] IDB load error:',e);return null}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FILE UPLOAD — REMOVED
+// KPI Dashboard is read-only. All uploads flow through MetCost Pro
+// which writes to the shared 'MetCostRaw' IndexedDB. This app just reads.
+// ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// DATE & SHIFT HELPERS
+// ═══════════════════════════════════════════════════════════════
+function parseDate(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date) return isNaN(v)?null:v;
+  if(typeof v==='number'){
+    // Excel serial date (days since 1900-01-01 with Lotus bug)
+    const d=new Date((v-25569)*86400000);
+    return isNaN(d)?null:d;
+  }
+  if(typeof v==='string'){
+    const s=v.trim();
+    if(!s) return null;
+    // Indian SAP format DD-MM-YYYY (4-digit year, dash separator) — parse as DMY explicitly
+    let m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+    // DD.MM.YYYY (some locales)
+    m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+    // Native Date — handles M/D/YY, M/D/YYYY, YYYY-MM-DD, ISO, "1-Mar-26", "3/1/26 12:00" etc.
+    const d=new Date(s);
+    return isNaN(d)?null:d;
+  }
+  return null;
+}
+function getMonthKey(d){const dt=parseDate(d);if(!dt)return null;return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
+function getDateStr(d){const dt=parseDate(d);if(!dt)return null;return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+
+// Parse time value from Chamber Open Time — returns hour 0-23 or null
+// Parse time value → hour 0-23 or null
+// Ported from MetCost Pro's parseT to handle all XLSX.js output formats
+function parseHour(t){
+  if(t==null||t===''||t===false) return null;
+  if(t instanceof Date){if(isNaN(t.getTime())) return null; return t.getHours();}
+  if(typeof t==='object'&&typeof t.getHours==='function') return t.getHours();
+  if(typeof t==='object'){try{const s=t.toString();if(s==='[object Object]') return null;const p=s.match(/(\d{1,2}):(\d{2})/);if(p){let h=+p[1];if(/pm/i.test(s)&&h<12)h+=12;if(/am/i.test(s)&&h===12)h=0;return h}}catch(e){}return null}
+  if(typeof t==='number'){if(isNaN(t)) return null;const f=t>=1?t-Math.floor(t):Math.abs(t);return Math.floor(f*24)%24;}
+  if(typeof t==='boolean') return null;
+  const s=String(t).trim();
+  if(!s||s==='NaN'||s==='null'||s==='undefined') return null;
+  const p=s.match(/(\d{1,2})\s*[:.\-]\s*(\d{2})(?:\s*[:.\-]\s*\d{2})?\s*(AM|PM|am|pm)?/i);
+  if(p){let h=+p[1];if(p[3]){const pm=p[3].toUpperCase()==='PM';if(pm&&h<12)h+=12;if(!pm&&h===12)h=0}return h;}
+  const nv=parseFloat(s);if(!isNaN(nv)&&nv>=0&&nv<1) return Math.floor(nv*24)%24;
+  try{const d=new Date(s);if(!isNaN(d.getTime())) return d.getHours();}catch(e){}
+  return null;
+}
+function inferShift(hour){
+  if(hour==null) return null;
+  return (hour>=7 && hour<19) ? 'D' : 'N';
+}
+// Map ZJUMBO machine string "3-M1_W" → "M1"
+function zjumboMachine(s){
+  const m=String(s||'').toUpperCase();
+  if(m.includes('M1')) return 'M1';
+  if(m.includes('M2')) return 'M2';
+  return null;
+}
+// Map ZSLIT machine string "3-M1_S" → "S1"
+function zslitMachine(s){
+  const m=String(s||'').toUpperCase();
+  if(m.includes('M1_S')||m.includes('M1-S')) return 'S1';
+  if(m.includes('M2_S')||m.includes('M2-S')) return 'S2';
+  return null;
+}
+function zslitShift(s){
+  const v=String(s||'').toUpperCase().trim();
+  if(v==='DAY'||v==='D') return 'D';
+  if(v==='NIGHT'||v==='N') return 'N';
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONTH SELECTION
+// ═══════════════════════════════════════════════════════════════
+function findAllMonths(){
+  const months=new Set();
+  if(rawData.zjumbo){
+    rawData.zjumbo.forEach(r=>{
+      const mk=getMonthKey(r['Date of Production']||r['Date of production']);
+      if(mk) months.add(mk);
+    });
+  }
+  if(rawData.zslit){
+    rawData.zslit.forEach(r=>{
+      const mk=getMonthKey(r['Date']||r['date']);
+      if(mk) months.add(mk);
+    });
+  }
+  return Array.from(months).sort();
+}
+function monthLabel(mk){
+  const [y,m]=mk.split('-').map(Number);
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return MN[m-1]+' '+y;
+}
+function initMonths(){
+  const months=findAllMonths().reverse();  // newest first
+  if(!months.length){
+    ['month-sel-met','month-sel-slit'].forEach(id=>g(id).innerHTML='<option value="">— no data —</option>');
+    selMonth=null;return;
+  }
+  const html=months.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join('');
+  ['month-sel-met','month-sel-slit'].forEach(id=>{g(id).innerHTML=html;});
+  if(!selMonth||!months.includes(selMonth)) selMonth=months[0];
+  ['month-sel-met','month-sel-slit'].forEach(id=>{g(id).value=selMonth});
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EMPLOYEE LOOKUP — find who was on duty for (date, machine, shift)
+// ═══════════════════════════════════════════════════════════════
+function getEmpsForBucket(monthKey,dateStr,machine,shift){
+  const mp=manpowerData[monthKey];
+  if(!mp||!mp.perEmployee) return [];
+  return mp.perEmployee.filter(e=>{
+    if(e.section!==machine) return false;
+    if(!e.shifts) return false;
+    return e.shifts[dateStr]===shift;
+  });
+}
+function hasManpowerForMonth(monthKey){
+  const mp=manpowerData[monthKey];
+  return !!(mp&&mp.perEmployee&&mp.perEmployee.length&&mp.perEmployee.some(e=>e.shifts&&Object.keys(e.shifts).length));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// METALLISER: extract rolls + bucket + attribute to employees
+// ═══════════════════════════════════════════════════════════════
+// Strip commas from formatted numbers like "3,216.080" → 3216.08
+function parseNum(v){return parseFloat(String(v||'0').replace(/,/g,''))||0;}
+
+function buildMetRolls(monthKey){
+  if(!rawData.zjumbo) return [];
+  const out=[];
+  rawData.zjumbo.forEach(r=>{
+    const mvt=String(r['Movment Type']||r['Mvt type']||r['Movement type']||r['Movement Type']||'').trim();
+    if(mvt!=='101') return;
+    const mk=getMonthKey(r['Date of Production']||r['Date of production']);
+    if(mk!==monthKey) return;
+    const dateStr=getDateStr(r['Date of Production']||r['Date of production']);
+    const machine=zjumboMachine(r['Machine']||r['machine']);
+    if(!machine) return;
+    const hour=parseHour(r['Chamber Open Time']||r['Chamber open Time']);
+    const shift=inferShift(hour);
+    if(!shift) return;
+    const qty=parseNum(r['Quantity']);  // col H — output Kg per roll
+    const length=parseNum(r['Length']); // col G
+    const speed=parseNum(r['Machine Speed']); // col V
+    const rco=parseNum(r['Roll Change over tim']||r['Roll Change over time']); // col P
+    const dt=parseNum(r['Down Time']); // col AA
+    const remarks=String(r['Remarks']||'').toUpperCase();
+    const isBoat=remarks.includes('BOAT');
+    out.push({
+      dateStr,machine,shift,
+      quantity:qty, length, speed, rco, dt, boatMins:isBoat?Math.abs(dt):0,
+    });
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SLITTER: extract rolls + bucket + attribute to employees
+// ═══════════════════════════════════════════════════════════════
+function buildSlitRolls(monthKey){
+  if(!rawData.zslit) return [];
+  const out=[];
+  rawData.zslit.forEach(r=>{
+    const mvt=String(r['Move Type']||r['Movement Type']||'').trim();
+    if(mvt!=='101') return;
+    const mk=getMonthKey(r['Date']||r['date']);
+    if(mk!==monthKey) return;
+    const dateStr=getDateStr(r['Date']||r['date']);
+    const machine=zslitMachine(r['Machine']||r['machine']);
+    if(!machine) return;
+    const shift=zslitShift(r['Shift']||r['shift']);
+    if(!shift) return;
+    const nw=parseNum(r['Net Weight']);
+    const grade=String(r['Grade']||'').trim();
+    const downGrade=String(r['Down Grade']||'').trim();
+    out.push({
+      dateStr,machine,shift,
+      netWeight:nw, grade, downGrade,
+    });
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AGGREGATE PER-PERSON — two-stage bucketing (Supskill-style)
+//
+// Stage 1: group rolls by (person, machine, shift)
+//   - for each bucket, compute metric from the rolls IN that bucket
+//   - each person's SHARE of the bucket is (bucket_metric / employees_in_shift_for_that_date)
+//   - the person's per-bucket value = avg of their per-day shares (or sum, depending on metric)
+// Stage 2: average the person's bucket values with equal weight
+//
+// For v1 we keep it simple: share each roll's metric equally across employees on shift,
+// then sum per person. This matches MetCost Pro's current Team tab logic exactly.
+// ═══════════════════════════════════════════════════════════════
+function aggregatePerson(rolls,monthKey,metricDef){
+  const perPerson={};  // canon → {name, role, section, val, daysSet}
+  const bucketCache={};  // "date|machine|shift" → employees array
+
+  rolls.forEach(roll=>{
+    if(metMachine!=='all'&&roll.machine!==metMachine) return;  // these filters are used in both tabs but shared state is OK here
+    // actual machine/shift filter handled by caller — keep aggregate agnostic
+    const bkey=roll.dateStr+'|'+roll.machine+'|'+roll.shift;
+    let emps=bucketCache[bkey];
+    if(emps===undefined){
+      emps=getEmpsForBucket(monthKey,roll.dateStr,roll.machine,roll.shift);
+      bucketCache[bkey]=emps;
+    }
+    if(!emps.length) return;  // no one on duty → skip (can't attribute)
+    const share=1/emps.length;
+    const rollMetric=metricDef.extract(roll);
+    emps.forEach(e=>{
+      const k=e.id;
+      if(!perPerson[k]) perPerson[k]={id:e.id,name:e.name,role:e.role||'assist',section:e.section,sum:0,count:0,daysSet:new Set(),wsum:0,wn:0};
+      const p=perPerson[k];
+      p.daysSet.add(roll.dateStr);
+      if(metricDef.kind==='weightedAvg'){
+        // Weighted avg: keep numerator Σ(val × weight) and denominator Σ(weight)
+        const w=metricDef.weight(roll)*share;
+        p.wsum += rollMetric * w;
+        p.wn += w;
+      } else if(metricDef.kind==='ratio'){
+        // Ratio: sum of numerators / sum of denominators across person's share
+        p.sum += metricDef.num(roll)*share;
+        p.count += metricDef.den(roll)*share;
+      } else {
+        // Default 'sum': share the roll's metric equally
+        p.sum += rollMetric*share;
+        p.count += share;
+      }
+    });
+  });
+
+  // Finalize per-person values
+  const result=[];
+  Object.values(perPerson).forEach(p=>{
+    let val=0;
+    if(metricDef.kind==='weightedAvg') val = p.wn>0 ? p.wsum/p.wn : 0;
+    else if(metricDef.kind==='ratio') val = p.count>0 ? p.sum/p.count : 0;
+    else val = p.sum;
+    if(val>0||metricDef.id==='dt'){
+      result.push({id:p.id, name:p.name, role:p.role, section:p.section, val, days:p.daysSet.size});
+    }
+  });
+  return result;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// METRIC DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+const MET_METRICS=[
+  {id:'rolls',        label:'Rolls',          unit:'',        fmt:v=>v.toFixed(1),        kind:'sum',          extract:r=>1,                     color:'#38bdf8',  target:null,  lowerBetter:false,
+   formula:'Count of Mvt-101 rolls shared equally across employees on shift'},
+  {id:'outputMT',     label:'Output MT',      unit:' MT',     fmt:v=>v.toFixed(2),        kind:'sum',          extract:r=>r.quantity/1000,       color:'#22d65e',  target:null,  lowerBetter:false,
+   formula:'Σ Quantity (col H) ÷ 1000, shared across employees on shift'},
+  {id:'dt',           label:'Downtime',       unit:' min',    fmt:v=>v.toFixed(0),        kind:'sum',          extract:r=>Math.abs(r.dt),        color:'#f04438',  target:null,  lowerBetter:true,
+   formula:'Σ |Down Time| (col AA), shared across employees on shift'},
+  {id:'rcoPerRoll',   label:'RCO / Roll',     unit:' min',    fmt:v=>v.toFixed(1),        kind:'ratio',        extract:r=>0,
+                      num:r=>Math.abs(r.rco), den:r=>1,                                                        color:'#f0aa00',  target:15,    lowerBetter:true,
+   formula:'Σ Roll Changeover (col P) ÷ Σ rolls · Target: ≤15 min/roll'},
+  {id:'boatChange',   label:'Boat Change',    unit:' min',    fmt:v=>v.toFixed(0),        kind:'sum',          extract:r=>r.boatMins,            color:'#fbbf24',  target:null,  lowerBetter:true,
+   formula:'Σ |Down Time| where Remark contains "BOAT", shared across employees on shift'},
+  {id:'avgSpeed',     label:'Avg Speed',      unit:' m/min',  fmt:v=>v.toFixed(0),        kind:'weightedAvg',  extract:r=>r.speed,
+                      weight:r=>r.length,                                                                      color:'#00cdb5',  target:null,  lowerBetter:false,
+   formula:'Σ(Speed × Length) ÷ Σ Length — weighted avg so longer rolls count more'},
+];
+const SLIT_METRICS=[
+  {id:'rolls',        label:'Rolls',          unit:'',        fmt:v=>v.toFixed(1),        kind:'sum',          extract:r=>1,                     color:'#38bdf8',  target:null,  lowerBetter:false,
+   formula:'Count of Mvt-101 rolls shared equally across slitter employees on shift'},
+  {id:'outputMT',     label:'Output MT',      unit:' MT',     fmt:v=>v.toFixed(2),        kind:'sum',          extract:r=>(r.grade==='5'||r.grade==='6')?0:r.netWeight/1000,
+                                                                                                               color:'#22d65e',  target:null,  lowerBetter:false,
+   formula:'Σ Net Weight ÷ 1000 (Grade ∈ {2,3,7,8} only — excludes Grade 5/6)'},
+  {id:'bGrade',       label:'B-Grade Kg',     unit:' Kg',     fmt:v=>v.toFixed(0),        kind:'sum',          extract:r=>r.grade==='3'?r.netWeight:0,
+                                                                                                               color:'#fbbf24',  target:null,  lowerBetter:true,
+   formula:'Σ Net Weight where Grade = 3, shared across employees on shift'},
+  {id:'downgradeReason',label:'Downgrade by Reason',unit:' Kg',fmt:v=>v.toFixed(0),       kind:'reasonPareto', extract:r=>r.netWeight,
+                                                                                                               color:'#a78bfa',  target:null,  lowerBetter:true,
+   formula:'Σ Net Weight where Grade ∈ {5,6}, grouped by Down Grade reason text (col AO) — Pareto of top causes, not per-person'},
+];
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER: METALLISER TAB
+// ═══════════════════════════════════════════════════════════════
+function renderMet(){
+  const container=g('met-content');
+  if(!selMonth){
+    container.innerHTML=`<div class="empty-state"><div class="big">📁</div><div class="msg">No data yet</div>Upload ZJUMBO through <b style="color:var(--m1)">MetCost Pro</b> on laptop — it auto-syncs to cloud so this app will show data on any device.</div>`;
+    g('met-data-status').textContent='';
+    return;
+  }
+  if(!rawData.zjumbo){
+    container.innerHTML=`<div class="empty-state"><div class="big">📁</div><div class="msg">ZJUMBO not found</div>No ZJUMBO data in local storage or cloud. Upload it through <b style="color:var(--m1)">MetCost Pro</b> first — it auto-syncs so any device sees it.</div>`;
+    g('met-data-status').textContent='';
+    return;
+  }
+  const allRolls=buildMetRolls(selMonth);
+  if(!allRolls.length){
+    container.innerHTML=`<div class="empty-state"><div class="big">📅</div><div class="msg">No Mvt-101 rolls for ${monthLabel(selMonth)}</div>Pick another month or upload newer data.</div>`;
+    g('met-data-status').textContent='';
+    return;
+  }
+
+  // Apply scope filters
+  const rolls=allRolls.filter(r=>{
+    if(metMachine!=='all'&&r.machine!==metMachine) return false;
+    if(metShift!=='all'&&r.shift!==metShift) return false;
+    if(metView==='daily'&&metDate&&r.dateStr!==metDate) return false;
+    return true;
+  });
+
+  // Build daily date list
+  const dates=[...new Set(allRolls.map(r=>r.dateStr))].sort();
+  if(metView==='daily'&&!metDate&&dates.length) metDate=dates[dates.length-1];
+
+  const mpOK=hasManpowerForMonth(selMonth);
+  g('met-data-status').textContent=`${allRolls.length} rolls · ${dates.length} days · MET Power: ${mpOK?'✓':'✗'}`;
+
+  // Stats strip
+  const totalRolls=rolls.length;
+  const totalOutputKg=rolls.reduce((s,r)=>s+r.quantity,0);
+  const totalDT=rolls.reduce((s,r)=>s+Math.abs(r.dt),0);
+  const machineSet=new Set(rolls.map(r=>r.machine));
+  const statsHtml=`
+    <div class="stats-strip">
+      <div class="stat-card"><div class="stat-lbl">Rolls</div><div class="stat-val">${totalRolls.toLocaleString()}</div><div class="stat-sub">Mvt-101 in scope</div></div>
+      <div class="stat-card teal"><div class="stat-lbl">Output</div><div class="stat-val">${(totalOutputKg/1000).toFixed(1)} MT</div><div class="stat-sub">Σ Quantity</div></div>
+      <div class="stat-card yellow"><div class="stat-lbl">Downtime</div><div class="stat-val">${totalDT.toFixed(0)} min</div><div class="stat-sub">${(totalDT/60).toFixed(1)} hrs</div></div>
+      <div class="stat-card blue"><div class="stat-lbl">Machines</div><div class="stat-val">${[...machineSet].join(' + ')||'—'}</div><div class="stat-sub">${metShift==='all'?'D+N':metShift}</div></div>
+    </div>`;
+
+  // Scope bar
+  const scopeHtml=`
+    <div class="scope-bar">
+      <div class="scope-row">
+        <span class="scope-label">Machine</span>
+        <button class="pill${metMachine==='all'?' act':''}" onclick="metMachine='all';renderMet()">All</button>
+        <button class="pill${metMachine==='M1'?' act':''}" onclick="metMachine='M1';renderMet()">Met-1</button>
+        <button class="pill${metMachine==='M2'?' act':''}" onclick="metMachine='M2';renderMet()">Met-2</button>
+      </div>
+      <div class="scope-row">
+        <span class="scope-label">Shift</span>
+        <button class="pill${metShift==='all'?' act':''}" onclick="metShift='all';renderMet()">Day + Night</button>
+        <button class="pill${metShift==='D'?' act':''}" onclick="metShift='D';renderMet()">Day</button>
+        <button class="pill${metShift==='N'?' act':''}" onclick="metShift='N';renderMet()">Night</button>
+      </div>
+      <div class="scope-row">
+        <span class="scope-label">View</span>
+        <button class="pill${metView==='monthly'?' act':''}" onclick="metView='monthly';renderMet()">Monthly Aggregate</button>
+        <button class="pill${metView==='daily'?' act':''}" onclick="metView='daily';renderMet()">Daily</button>
+        ${metView==='daily'?`<select class="date-pick" onchange="metDate=this.value;renderMet()">${dates.map(d=>`<option value="${d}"${d===metDate?' selected':''}>${fmtDateShort(d)}</option>`).join('')}</select>`:''}
+      </div>
+    </div>`;
+
+  // Metric bar
+  const metricsHtml=`
+    <div class="metric-bar">
+      <div class="scope-label" style="margin-bottom:8px;display:block">Select Metric</div>
+      <div class="metric-btns" id="met-metric-btns">
+        ${MET_METRICS.map(m=>`<button class="metric-btn${m.id===metMetric?' act':''}" onclick="metMetric='${m.id}';renderMet()">${m.label}</button>`).join('')}
+      </div>
+    </div>`;
+
+  // Chart area
+  const metricDef=MET_METRICS.find(m=>m.id===metMetric);
+  let chartsHtml='';
+  if(!mpOK){
+    chartsHtml=`<div class="chart-card"><div class="empty-state"><div class="big">👥</div><div class="msg">No MET Power shift data for ${monthLabel(selMonth)}</div>Without the shift schedule, rolls cannot be attributed to individuals.<br><br><button class="dl-btn" onclick="requestManpower()" style="padding:8px 16px;font-size:12px;">🔄 Request from MET Power</button></div></div>`;
+  } else {
+    const persons=aggregatePerson(rolls,selMonth,metricDef);
+    const sups=persons.filter(p=>p.role==='main').sort((a,b)=>metricDef.lowerBetter?a.val-b.val:b.val-a.val);
+    const ops=persons.filter(p=>p.role!=='main').sort((a,b)=>metricDef.lowerBetter?a.val-b.val:b.val-a.val);
+    const fmtVal=v=>metricDef.fmt(v)+metricDef.unit;
+    const chartOpts={target:metricDef.target,lowerBetter:metricDef.lowerBetter};
+    chartsHtml=`
+      <div class="formula-note">${metricDef.formula}</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title" style="color:var(--m1)">🟠 Supervisors</div>
+            <button class="dl-btn" onclick="downloadChartPNG('met-chart-sup','metalliser-supervisors')">⬇ PNG</button>
+          </div>
+          <div id="met-chart-sup">${svgBarChart(sups,'#f97316',fmtVal,{...chartOpts,containerId:'met-chart-sup'})}</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title" style="color:var(--teal)">🟢 Operators</div>
+            <button class="dl-btn" onclick="downloadChartPNG('met-chart-op','metalliser-operators')">⬇ PNG</button>
+          </div>
+          <div id="met-chart-op">${svgBarChart(ops,'#00cdb5',fmtVal,{...chartOpts,containerId:'met-chart-op'})}</div>
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML=statsHtml+scopeHtml+metricsHtml+chartsHtml;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER: SLITTER TAB
+// ═══════════════════════════════════════════════════════════════
+function renderSlit(){
+  const container=g('slit-content');
+  if(!selMonth){
+    container.innerHTML=`<div class="empty-state"><div class="big">📁</div><div class="msg">No data yet</div>Upload ZSLIT through <b style="color:var(--m1)">MetCost Pro</b> on laptop — it auto-syncs to cloud so this app will show data on any device.</div>`;
+    g('slit-data-status').textContent='';
+    return;
+  }
+  if(!rawData.zslit){
+    container.innerHTML=`<div class="empty-state"><div class="big">📁</div><div class="msg">ZSLIT not found</div>No ZSLIT data in local storage or cloud. Upload it through <b style="color:var(--m1)">MetCost Pro</b> first — it auto-syncs so any device sees it.</div>`;
+    g('slit-data-status').textContent='';
+    return;
+  }
+  const allRolls=buildSlitRolls(selMonth);
+  if(!allRolls.length){
+    container.innerHTML=`<div class="empty-state"><div class="big">📅</div><div class="msg">No Mvt-101 rolls for ${monthLabel(selMonth)}</div>Pick another month or upload newer data.</div>`;
+    g('slit-data-status').textContent='';
+    return;
+  }
+  const rolls=allRolls.filter(r=>{
+    if(slitMachine!=='all'&&r.machine!==slitMachine) return false;
+    if(slitShift!=='all'&&r.shift!==slitShift) return false;
+    if(slitView==='daily'&&slitDate&&r.dateStr!==slitDate) return false;
+    return true;
+  });
+  const dates=[...new Set(allRolls.map(r=>r.dateStr))].sort();
+  if(slitView==='daily'&&!slitDate&&dates.length) slitDate=dates[dates.length-1];
+
+  const mpOK=hasManpowerForMonth(selMonth);
+  g('slit-data-status').textContent=`${allRolls.length} rolls · ${dates.length} days · MET Power: ${mpOK?'✓':'✗'}`;
+
+  // Stats strip
+  const totalRolls=rolls.length;
+  const goodKg=rolls.filter(r=>r.grade!=='5'&&r.grade!=='6').reduce((s,r)=>s+r.netWeight,0);
+  const bKg=rolls.filter(r=>r.grade==='3').reduce((s,r)=>s+r.netWeight,0);
+  const downgradedKg=rolls.filter(r=>r.grade==='5'||r.grade==='6').reduce((s,r)=>s+r.netWeight,0);
+  const machineSet=new Set(rolls.map(r=>r.machine));
+  const statsHtml=`
+    <div class="stats-strip">
+      <div class="stat-card"><div class="stat-lbl">Rolls</div><div class="stat-val">${totalRolls.toLocaleString()}</div><div class="stat-sub">Mvt-101 in scope</div></div>
+      <div class="stat-card teal"><div class="stat-lbl">Output</div><div class="stat-val">${(goodKg/1000).toFixed(1)} MT</div><div class="stat-sub">Grade 2/3/7/8</div></div>
+      <div class="stat-card yellow"><div class="stat-lbl">B-Grade</div><div class="stat-val">${bKg.toFixed(0)} Kg</div><div class="stat-sub">${goodKg>0?(bKg/goodKg*100).toFixed(2):'0.00'}% of output</div></div>
+      <div class="stat-card" style="border-left-color:#a78bfa"><div class="stat-lbl">Downgraded</div><div class="stat-val">${downgradedKg.toFixed(0)} Kg</div><div class="stat-sub">Grade 5 + 6</div></div>
+    </div>`;
+
+  // Scope bar
+  const scopeHtml=`
+    <div class="scope-bar">
+      <div class="scope-row">
+        <span class="scope-label">Machine</span>
+        <button class="pill${slitMachine==='all'?' act':''}" onclick="slitMachine='all';renderSlit()">All</button>
+        <button class="pill${slitMachine==='S1'?' act':''}" onclick="slitMachine='S1';renderSlit()">Slit-1</button>
+        <button class="pill${slitMachine==='S2'?' act':''}" onclick="slitMachine='S2';renderSlit()">Slit-2</button>
+      </div>
+      <div class="scope-row">
+        <span class="scope-label">Shift</span>
+        <button class="pill${slitShift==='all'?' act':''}" onclick="slitShift='all';renderSlit()">Day + Night</button>
+        <button class="pill${slitShift==='D'?' act':''}" onclick="slitShift='D';renderSlit()">Day</button>
+        <button class="pill${slitShift==='N'?' act':''}" onclick="slitShift='N';renderSlit()">Night</button>
+      </div>
+      <div class="scope-row">
+        <span class="scope-label">View</span>
+        <button class="pill${slitView==='monthly'?' act':''}" onclick="slitView='monthly';renderSlit()">Monthly Aggregate</button>
+        <button class="pill${slitView==='daily'?' act':''}" onclick="slitView='daily';renderSlit()">Daily</button>
+        ${slitView==='daily'?`<select class="date-pick" onchange="slitDate=this.value;renderSlit()">${dates.map(d=>`<option value="${d}"${d===slitDate?' selected':''}>${fmtDateShort(d)}</option>`).join('')}</select>`:''}
+      </div>
+    </div>`;
+
+  // Metric bar
+  const metricsHtml=`
+    <div class="metric-bar">
+      <div class="scope-label" style="margin-bottom:8px;display:block">Select Metric</div>
+      <div class="metric-btns" id="slit-metric-btns">
+        ${SLIT_METRICS.map(m=>`<button class="metric-btn${m.id===slitMetric?' act':''}" onclick="slitMetric='${m.id}';renderSlit()">${m.label}</button>`).join('')}
+      </div>
+    </div>`;
+
+  const metricDef=SLIT_METRICS.find(m=>m.id===slitMetric);
+  let chartsHtml='';
+
+  if(metricDef.kind==='reasonPareto'){
+    // Downgrade by Reason — Pareto chart, not per-person
+    const reasonMap={};
+    rolls.filter(r=>r.grade==='5'||r.grade==='6').forEach(r=>{
+      let reason=(r.downGrade||'').toUpperCase().trim();
+      if(!reason) reason='(BLANK)';
+      else {
+        // Fold common variants together
+        if(/LO+W+\s*OD/.test(reason)) reason='LOW OD';
+        else if(/CREASE/.test(reason)) reason='CREASE';
+        else if(/PIN\s*HOLE/.test(reason)) reason='PIN HOLE';
+        else if(/SCRATCH/.test(reason)) reason='SCRATCH';
+        else if(/TEAR/.test(reason)) reason='TEAR';
+        else if(/OFF\s*CUT/.test(reason)) reason='OFF CUT';
+        else if(/BUNCH\s*MARK/.test(reason)) reason='BUNCH MARKS';
+        else if(/COATING/.test(reason)) reason='COATING DEFECT';
+      }
+      if(!reasonMap[reason]) reasonMap[reason]={name:reason,val:0,days:0};
+      reasonMap[reason].val += r.netWeight;
+      reasonMap[reason].days++;
+    });
+    const reasons=Object.values(reasonMap).filter(r=>r.val>0).sort((a,b)=>b.val-a.val).slice(0,20);
+    const fmtVal=v=>metricDef.fmt(v)+metricDef.unit;
+    chartsHtml=`
+      <div class="formula-note">${metricDef.formula}</div>
+      <div class="chart-card" style="grid-column:1/-1">
+        <div class="chart-head">
+          <div class="chart-title" style="color:var(--purple)">🟣 Downgrade Reasons (top 20)</div>
+          <button class="dl-btn" onclick="downloadChartPNG('slit-chart-reason','slitter-downgrade-reasons')">⬇ PNG</button>
+        </div>
+        <div id="slit-chart-reason">${svgBarChart(reasons,'#a78bfa',fmtVal,{containerId:'slit-chart-reason'})}</div>
+      </div>`;
+  } else if(!mpOK){
+    chartsHtml=`<div class="chart-card"><div class="empty-state"><div class="big">👥</div><div class="msg">No MET Power shift data for ${monthLabel(selMonth)}</div>Without the shift schedule, rolls cannot be attributed to individuals.<br><br><button class="dl-btn" onclick="requestManpower()" style="padding:8px 16px;font-size:12px;">🔄 Request from MET Power</button></div></div>`;
+  } else {
+    const persons=aggregatePerson(rolls,selMonth,metricDef);
+    const sups=persons.filter(p=>p.role==='main').sort((a,b)=>metricDef.lowerBetter?a.val-b.val:b.val-a.val);
+    const ops=persons.filter(p=>p.role!=='main').sort((a,b)=>metricDef.lowerBetter?a.val-b.val:b.val-a.val);
+    const fmtVal=v=>metricDef.fmt(v)+metricDef.unit;
+    const chartOpts={target:metricDef.target,lowerBetter:metricDef.lowerBetter};
+    chartsHtml=`
+      <div class="formula-note">${metricDef.formula}</div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title" style="color:var(--m1)">🟠 Supervisors</div>
+            <button class="dl-btn" onclick="downloadChartPNG('slit-chart-sup','slitter-supervisors')">⬇ PNG</button>
+          </div>
+          <div id="slit-chart-sup">${svgBarChart(sups,'#f97316',fmtVal,{...chartOpts,containerId:'slit-chart-sup'})}</div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-head">
+            <div class="chart-title" style="color:var(--teal)">🟢 Operators</div>
+            <button class="dl-btn" onclick="downloadChartPNG('slit-chart-op','slitter-operators')">⬇ PNG</button>
+          </div>
+          <div id="slit-chart-op">${svgBarChart(ops,'#00cdb5',fmtVal,{...chartOpts,containerId:'slit-chart-op'})}</div>
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML=statsHtml+scopeHtml+metricsHtml+chartsHtml;
+}
+
+function fmtDateShort(ds){
+  // ds = 'YYYY-MM-DD' → 'dd Mon'
+  const [y,m,d]=ds.split('-').map(Number);
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d).padStart(2,'0')+' '+MN[m-1];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SVG BAR CHART — Supskill-style horizontal bars
+// ═══════════════════════════════════════════════════════════════
+function svgBarChart(data,color,fmtFn,opts){
+  opts=opts||{};
+  const containerId=opts.containerId;
+  const excludedSet=containerId?(EXCLUDED_NAMES[containerId]=EXCLUDED_NAMES[containerId]||new Set()):null;
+  const allData=data;
+  const visible=excludedSet?data.filter(d=>!excludedSet.has(d.name)):data;
+
+  if(!visible.length){
+    const restoreBtn=excludedSet&&excludedSet.size
+      ? `<div style="margin-top:10px;"><button onclick="clearExcluded('${containerId}')" style="background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:6px 12px;font-size:11px;font-weight:700;color:var(--m1);cursor:pointer;">↺ Restore ${excludedSet.size} hidden</button></div>`
+      : '';
+    return '<div style="font-size:12px;color:var(--t3);padding:20px;text-align:center;">'+
+      (allData.length?'All members hidden':'No data')+restoreBtn+'</div>';
+  }
+
+  const target=opts.target;
+  const lowerBetter=!!opts.lowerBetter;
+  const dataMax=Math.max(...visible.map(d=>d.val),1);
+  const max=target?Math.max(dataMax,target*1.08):dataMax;
+  const barH=24,gap=5,padL=120,padR=105,padT=14,padB=12;
+  const H=visible.length*(barH+gap)-gap+padT+padB;
+  const chartW=340,W=padL+chartW+padR;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:'Barlow',sans-serif;" preserveAspectRatio="xMinYMin meet">`;
+
+  visible.forEach((d,i)=>{
+    const y=padT+i*(barH+gap);
+    const w=(d.val/max)*chartW;
+    const displayName=d.name.length>16?d.name.slice(0,15)+'…':d.name;
+    let labelColor=color;
+    if(target!=null){
+      const meets=lowerBetter?(d.val<=target):(d.val>=target);
+      labelColor=meets?'#16a34a':'#dc2626';
+    }
+    svg+=`<text x="${padL-6}" y="${y+barH/2+4}" font-size="11" font-weight="600" fill="currentColor" text-anchor="end">${escapeXml(displayName)}</text>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${chartW}" height="${barH}" fill="currentColor" opacity="0.06" rx="3"/>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${w}" height="${barH}" fill="${color}" rx="3"><title>${escapeXml(d.name)}: ${fmtFn(d.val)}${target!=null?' (target '+fmtFn(target)+')':''}</title></rect>`;
+    svg+=`<text x="${padL+w+5}" y="${y+barH/2+4}" font-size="10" font-weight="700" fill="${labelColor}">${fmtFn(d.val)}</text>`;
+  });
+
+  if(target!=null&&target>0){
+    const tx=padL+(target/max)*chartW;
+    svg+=`<line x1="${tx}" y1="${padT-4}" x2="${tx}" y2="${H-padB+4}" stroke="#dc2626" stroke-width="2" stroke-dasharray="5,4"/>`;
+    const labelText=`TARGET ${fmtFn(target)}`;
+    const lblW=labelText.length*5.2+10;
+    let lblX=tx-lblW/2;
+    if(lblX<padL) lblX=padL;
+    if(lblX+lblW>W-2) lblX=W-2-lblW;
+    svg+=`<rect x="${lblX}" y="0" width="${lblW}" height="12" rx="2" fill="#dc2626"/>`;
+    svg+=`<text x="${lblX+lblW/2}" y="9" font-size="8" font-weight="800" fill="#ffffff" text-anchor="middle">${labelText}</text>`;
+  }
+  svg+='</svg>';
+
+  // Exclude toggle list below the SVG
+  if(containerId&&allData.length>1){
+    const hiddenCount=excludedSet.size;
+    let toggleHtml=`<div class="exclude-bar">
+      <div class="ex-head">
+        <span class="ex-title">⚙ Filter members for PNG export</span>
+        ${hiddenCount?`<button onclick="clearExcluded('${containerId}')" style="background:var(--m1);border:none;border-radius:5px;padding:4px 10px;font-size:10px;color:#fff;cursor:pointer;font-weight:800;letter-spacing:.3px;">↺ Show all (${hiddenCount} hidden)</button>`:`<span class="ex-hint">click a name to hide it from the chart &amp; downloaded PNG</span>`}
+      </div>
+      <div class="ex-pills">`;
+    allData.forEach(d=>{
+      const isHidden=excludedSet.has(d.name);
+      const safeName=d.name.replace(/'/g,"\\'");
+      toggleHtml+=`<button class="ex-pill" onclick="toggleExcluded('${containerId}','${safeName}')" style="
+        background:${isHidden?'transparent':color+'22'};
+        border-color:${isHidden?'var(--ln2)':color};
+        color:${isHidden?'var(--t3)':'var(--t1)'};
+        text-decoration:${isHidden?'line-through':'none'};
+        opacity:${isHidden?'0.55':'1'};
+      " title="${isHidden?'Click to include in chart':'Click to hide from chart and PNG'}">${isHidden?'+ ':'✓ '}${escapeHtml(d.name.length>18?d.name.slice(0,17)+'…':d.name)}</button>`;
+    });
+    toggleHtml+='</div></div>';
+    return svg+toggleHtml;
+  }
+  return svg;
+}
+function escapeXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function escapeHtml(s){return escapeXml(s);}
+function toggleExcluded(containerId,name){
+  if(!EXCLUDED_NAMES[containerId]) EXCLUDED_NAMES[containerId]=new Set();
+  const s=EXCLUDED_NAMES[containerId];
+  if(s.has(name)) s.delete(name); else s.add(name);
+  // Rerender whichever tab owns this chart
+  if(containerId.startsWith('met-')) renderMet(); else renderSlit();
+}
+function clearExcluded(containerId){
+  EXCLUDED_NAMES[containerId]=new Set();
+  if(containerId.startsWith('met-')) renderMet(); else renderSlit();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PNG DOWNLOAD — with VKS Tech branding (header + footer)
+// ═══════════════════════════════════════════════════════════════
+const VKS_LOGO_URL='https://raw.githubusercontent.com/vkstecho/glsmp/main/vkslogo512.png';
+let VKS_LOGO_IMG=null, VKS_LOGO_LOADING=null;
+function loadVKSLogo(){
+  if(VKS_LOGO_IMG) return Promise.resolve(VKS_LOGO_IMG);
+  if(VKS_LOGO_LOADING) return VKS_LOGO_LOADING;
+  VKS_LOGO_LOADING=new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{VKS_LOGO_IMG=img;resolve(img);};
+    img.onerror=()=>{VKS_LOGO_IMG=null;resolve(null);};
+    img.src=VKS_LOGO_URL;
+  });
+  return VKS_LOGO_LOADING;
+}
+loadVKSLogo();
+
+function downloadChartPNG(containerId,baseName){
+  const wrap=g(containerId);
+  if(!wrap){showToast('Chart not found','red');return;}
+  const svgEl=wrap.querySelector('svg');
+  if(!svgEl){showToast('No chart to download','red');return;}
+
+  // Build title + filename from app state
+  let chartTitle='',filename=baseName;
+  const teamName=containerId.startsWith('met-')?'Metalliser':'Slitter';
+  const roleName=containerId.includes('-sup')?'Supervisors':containerId.includes('-op')?'Operators':containerId.includes('-reason')?'Downgrade Reasons':'Chart';
+  const metrics=containerId.startsWith('met-')?MET_METRICS:SLIT_METRICS;
+  const curMetric=containerId.startsWith('met-')?metMetric:slitMetric;
+  const mdef=metrics.find(x=>x.id===curMetric);
+  const view=containerId.startsWith('met-')?metView:slitView;
+  const dateStr=view==='daily'?(containerId.startsWith('met-')?metDate:slitDate):null;
+  const machine=containerId.startsWith('met-')?metMachine:slitMachine;
+  const shift=containerId.startsWith('met-')?metShift:slitShift;
+  chartTitle=`${teamName} · ${mdef?.label||''} · ${roleName} · ${monthLabel(selMonth||'')} · ${machine==='all'?'All Machines':machine} · ${shift==='all'?'D+N':shift==='D'?'Day':'Night'}${view==='daily'?' · '+fmtDateShort(dateStr):''}`;
+  filename=`${baseName}-${(mdef?.label||'').replace(/[^a-z0-9]/gi,'_')}-${selMonth||'nomonth'}${dateStr?'-'+dateStr:''}.png`.replace(/_+/g,'_').replace(/-+/g,'-');
+
+  // Clone SVG and render to canvas
+  const clone=svgEl.cloneNode(true);
+  const vb=svgEl.viewBox?.baseVal;
+  const chartW=(vb&&vb.width)||svgEl.clientWidth||600;
+  const chartH=(vb&&vb.height)||svgEl.clientHeight||300;
+  clone.setAttribute('width',chartW);
+  clone.setAttribute('height',chartH);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  let svgStr=new XMLSerializer().serializeToString(clone);
+  svgStr=svgStr.replace(/currentColor/g,'#0f1923');
+  const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+  const svgUrl=URL.createObjectURL(svgBlob);
+
+  Promise.all([loadVKSLogo(),new Promise((res,rej)=>{
+    const img=new Image();img.onload=()=>res(img);img.onerror=()=>rej(new Error('SVG load failed'));img.src=svgUrl;
+  })]).then(([logoImg,chartImg])=>{
+    URL.revokeObjectURL(svgUrl);
+    const headerH=64,footerH=36,padX=20;
+    const totalW=Math.max(chartW+padX*2,640);
+    const totalH=headerH+chartH+footerH;
+    const scale=2;
+    const canvas=document.createElement('canvas');
+    canvas.width=totalW*scale;canvas.height=totalH*scale;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(scale,scale);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,totalW,totalH);
+    // header
+    ctx.fillStyle='#0f1923';
+    if(logoImg){
+      const logoSize=42;
+      ctx.drawImage(logoImg,padX,(headerH-logoSize)/2,logoSize,logoSize);
+      ctx.font='800 18px Barlow Condensed, sans-serif';
+      ctx.fillStyle='#0f1923';
+      ctx.textBaseline='middle';
+      ctx.fillText(chartTitle,padX+logoSize+14,headerH/2);
+    } else {
+      ctx.font='800 18px Barlow Condensed, sans-serif';
+      ctx.textBaseline='middle';
+      ctx.fillText(chartTitle,padX,headerH/2);
+    }
+    // Header divider
+    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(padX,headerH-2);ctx.lineTo(totalW-padX,headerH-2);ctx.stroke();
+    // Chart
+    ctx.drawImage(chartImg,(totalW-chartW)/2,headerH,chartW,chartH);
+    // Footer divider
+    ctx.beginPath();ctx.moveTo(padX,headerH+chartH+2);ctx.lineTo(totalW-padX,headerH+chartH+2);ctx.stroke();
+    // Footer
+    ctx.font='600 11px Barlow, sans-serif';
+    ctx.fillStyle='#5e7d97';
+    ctx.textBaseline='middle';
+    ctx.fillText('Created by VKS Tech · https://vkstech.com',padX,headerH+chartH+footerH/2);
+    ctx.textAlign='right';
+    ctx.fillText('KPI Dashboard v'+APP_VER+' · '+new Date().toLocaleDateString('en-GB'),totalW-padX,headerH+chartH+footerH/2);
+    // Download
+    canvas.toBlob(blob=>{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=filename;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      showToast('Downloaded '+filename,'green');
+    },'image/png');
+  }).catch(err=>{
+    showToast('Download failed: '+err.message,'red',4000);
+    console.error('[KPI] PNG download error:',err);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POST-MESSAGE HANDSHAKE with MET Power
+// ═══════════════════════════════════════════════════════════════
+function requestManpower(){
+  try{
+    window.parent.postMessage({type:'REQUEST_MANPOWER'},'*');
+    showToast('Requesting shift data from MET Power...');
+  }catch(e){console.warn('[KPI] postMessage failed:',e);}
+}
+
+window.addEventListener('message',e=>{
+  if(!e.data||!e.data.type) return;
+  if(e.data.type==='MANPOWER_DATA'){
+    manpowerData=e.data.data||{};
+    const months=Object.keys(manpowerData);
+    console.log('[KPI] ✅ Received MANPOWER_DATA:',months.length,'months —',months.join(', '));
+    // Diagnostic: dump the role of every employee in the latest month so
+    // we can see exactly what the parent is sending. If someone appears in
+    // the wrong panel, look here first — the role value seen here is what
+    // the filter uses.
+    if(months.length){
+      const latest=manpowerData[months[0]];
+      if(latest&&latest.perEmployee){
+        console.log('[KPI] Role summary for '+months[0]+':');
+        const byRole={};
+        latest.perEmployee.forEach(e=>{
+          const k=e.role+' / '+e.section;
+          if(!byRole[k]) byRole[k]=[];
+          byRole[k].push(e.name);
+        });
+        Object.keys(byRole).sort().forEach(k=>{
+          console.log('  ['+k+'] '+byRole[k].join(', '));
+        });
+      }
+    }
+    updateManpowerChip();
+    if(mainTab==='met') renderMet();
+    else if(mainTab==='slit') renderSlit();
+  }
+  if(e.data.type==='switchTab'){
+    const t=e.data.tab||'met';
+    if(t==='met'||t==='slit'||t==='upload') switchMainTab(t);
+  }
+});
+
+function updateManpowerChip(){
+  const chip=g('mp-chip');
+  const months=Object.keys(manpowerData);
+  if(months.length){
+    chip.className='chip-live';
+    chip.innerHTML='<span class="dot-live"></span><span>MET Power · '+months.length+' month'+(months.length>1?'s':'')+'</span>';
+  } else {
+    chip.className='chip-off';
+    chip.innerHTML='<span class="dot-off"></span><span>No MET Power data</span>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOTSTRAP — read from MetCost Pro's shared IndexedDB,
+// fall back to Firebase for cross-device access (mobile viewing laptop uploads)
+// ═══════════════════════════════════════════════════════════════
+const FB_BASE='https://man-power-mp-default-rtdb.firebaseio.com';
+
+async function loadFromSharedIDB(){
+  try{
+    const [zjumbo,zslit,meta]=await Promise.all([
+      idbLoad('raw_zjumbo'),
+      idbLoad('raw_zslit'),
+      idbLoad('raw_meta'),  // MetCost Pro stores metadata here
+    ]);
+    let changed=false;
+    if(zjumbo&&zjumbo.length&&(!rawData.zjumbo||rawData.zjumbo.length!==zjumbo.length)){
+      rawData.zjumbo=zjumbo;
+      changed=true;
+      console.log('[KPI] Loaded ZJUMBO from shared IDB:',zjumbo.length,'rows');
+    }
+    if(zslit&&zslit.length&&(!rawData.zslit||rawData.zslit.length!==zslit.length)){
+      rawData.zslit=zslit;
+      changed=true;
+      console.log('[KPI] Loaded ZSLIT from shared IDB:',zslit.length,'rows');
+    }
+    if(meta&&meta.savedAt) console.log('[KPI] MetCost Pro last saved at:',meta.savedAt);
+    return changed;
+  }catch(e){
+    console.warn('[KPI] IDB load failed:',e);
+    return false;
+  }
+}
+
+// Firebase fallback: when local IDB is empty (typical on mobile), fetch the
+// last-12-months ZJUMBO/ZSLIT rows that MetCost Pro auto-synced from the laptop.
+async function loadFromFirebase(){
+  try{
+    console.log('[KPI] Local IDB empty → fetching raw rolls from Firebase...');
+    showCloudLoading(true);
+    const resp=await fetch(FB_BASE+'/metcostRawRolls.json');
+    if(!resp.ok){
+      console.warn('[KPI] Firebase fetch HTTP '+resp.status);
+      showCloudLoading(false);
+      return false;
+    }
+    const data=await resp.json();
+    if(!data||(!data.zjumbo&&!data.zslit)){
+      console.log('[KPI] Firebase has no raw rolls yet');
+      showCloudLoading(false);
+      return false;
+    }
+    let changed=false;
+    if(data.zjumbo&&data.zjumbo.length){
+      rawData.zjumbo=data.zjumbo;
+      changed=true;
+      console.log('[KPI] Loaded ZJUMBO from Firebase:',data.zjumbo.length,'rows');
+    }
+    if(data.zslit&&data.zslit.length){
+      rawData.zslit=data.zslit;
+      changed=true;
+      console.log('[KPI] Loaded ZSLIT from Firebase:',data.zslit.length,'rows');
+    }
+    if(data.syncedAt) console.log('[KPI] Cloud data synced at:',data.syncedAt);
+    showCloudLoading(false);
+    if(changed) showToast('✓ Loaded '+(data.zjumbo?.length||0)+' ZJUMBO + '+(data.zslit?.length||0)+' ZSLIT rolls from cloud (last 12mo)','green',3500);
+    return changed;
+  }catch(e){
+    console.warn('[KPI] Firebase fallback failed:',e.message);
+    showCloudLoading(false);
+    return false;
+  }
+}
+
+// Visual feedback during the Firebase fetch
+function showCloudLoading(on){
+  let el=document.getElementById('kpi-cloud-load');
+  if(on){
+    if(!el){
+      el=document.createElement('div');
+      el.id='kpi-cloud-load';
+      el.style.cssText='position:fixed;top:70px;right:16px;background:var(--bg3);border:1.5px solid var(--m1);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--m1);z-index:300;display:flex;align-items:center;gap:8px;font-family:Barlow,sans-serif;';
+      el.innerHTML='<div style="width:12px;height:12px;border:2px solid var(--m1);border-top-color:transparent;border-radius:50%;animation:spin .8s linear infinite"></div>Loading from cloud...';
+      document.body.appendChild(el);
+      // Also inject the @keyframes if not already there
+      if(!document.getElementById('kpi-spin-style')){
+        const s=document.createElement('style');s.id='kpi-spin-style';
+        s.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(s);
+      }
+    }
+  }else if(el) el.remove();
+}
+
+(async function boot(){
+  // Try local IDB first (fastest, works offline, has full history)
+  await loadFromSharedIDB();
+  // If local storage had nothing (mobile, new device, cleared cache), fetch from Firebase
+  const localEmpty=(!rawData.zjumbo||!rawData.zjumbo.length)&&(!rawData.zslit||!rawData.zslit.length);
+  if(localEmpty){
+    await loadFromFirebase();
+  }
+  initMonths();
+  updateManpowerChip();
+  renderMet();  // default tab
+
+  // Request manpower data from parent (after 500ms — same delay pattern MetCost Pro uses)
+  setTimeout(requestManpower,500);
+})();
+
+// When iframe regains focus (user came back from MetCost Pro and new files were uploaded there),
+// refresh from shared IDB so KPI Dashboard sees the newest data without requiring reload.
+window.addEventListener('focus',async function(){
+  const changed=await loadFromSharedIDB();
+  if(changed){
+    initMonths();
+    if(mainTab==='met') renderMet();
+    else if(mainTab==='slit') renderSlit();
+    showToast('✓ Refreshed from MetCost Pro','green');
+  }
+});
+</script>
+</body>
+</html>

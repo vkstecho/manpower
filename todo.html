@@ -1,0 +1,40 @@
+<!-- ── TO-DO ── -->
+<div class="tab" id="tab-todo">
+  <div class="todo-header-row">
+    <div>
+      <div class="page-title" style="margin-bottom:2px">To-Do</div>
+      <div class="page-sub" style="margin-bottom:0">कार्य सूची — Task List</div>
+    </div>
+    <button class="todo-add-btn" id="todoAddBtn" onclick="openTodoForm()" style="display:none">
+      <span style="font-size:18px">+</span> नया काम
+    </button>
+  </div>
+
+  <!-- Stats row -->
+  <div class="todo-stats-row" id="todoStatsRow">
+    <div class="todo-stat">
+      <div class="todo-stat-val" style="color:var(--m1)" id="todoStatTotal">0</div>
+      <div class="todo-stat-lbl">कुल काम</div>
+    </div>
+    <div class="todo-stat">
+      <div class="todo-stat-val" style="color:var(--day)" id="todoStatPending">0</div>
+      <div class="todo-stat-lbl">बाकी है</div>
+    </div>
+    <div class="todo-stat">
+      <div class="todo-stat-val" style="color:var(--green)" id="todoStatDone">0</div>
+      <div class="todo-stat-lbl">हो गया</div>
+    </div>
+  </div>
+
+  <!-- Filter chips -->
+  <div class="chips" id="todoFilter">
+    <div class="chip on"  onclick="setTodoFilter('all',this)" data-i18n-all>सभी</div>
+    <div class="chip" onclick="setTodoFilter('pending',this)">⏳ बाकी</div>
+    <div class="chip" onclick="setTodoFilter('done',this)">✅ पूरा</div>
+    <div class="chip" onclick="setTodoFilter('high',this)">🔴 Urgent</div>
+    <div class="chip" onclick="setTodoFilter('medium',this)">🟡 Normal</div>
+    <div class="chip" onclick="setTodoFilter('low',this)">🟢 Low</div>
+  </div>
+
+  <div id="todoList"></div>
+</div>

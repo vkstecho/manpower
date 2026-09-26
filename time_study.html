@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Time Study — GLS Metallisers</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#060c15;--bg1:#0b1520;--bg2:#101c2b;--bg3:#152232;--bg4:#1a2b3e;
+  --ln:rgba(255,255,255,0.08);--ln2:rgba(255,255,255,0.14);--ln3:rgba(255,255,255,0.24);
+  --teal:#0d9488;--tealbg:rgba(13,148,136,.18);
+  --m1c:#f97316;--m1bg:rgba(249,115,22,.18);
+  --green:#22d65e;--gd:rgba(34,214,94,.14);
+  --red:#f04438;--rd:rgba(240,68,56,.16);
+  --yellow:#fbbf24;--yd:rgba(251,191,36,.14);
+  --blue:#38bdf8;--bd:rgba(56,189,248,.14);
+  --purple:#a78bfa;--pd:rgba(167,139,250,.14);
+  --gold:#f0aa00;--gld:rgba(240,170,0,.16);
+  --t1:#e8f2fb;--t2:#90aec8;--t3:#5e7d97;
+  --r:8px;--rl:14px;
+  /* Time component colors — used consistently across charts */
+  --c-setup:#f0aa00;
+  --c-vacuum:#38bdf8;
+  --c-heating:#f97316;
+  --c-running:#22d65e;
+  --c-vent:#a78bfa;
+  --c-downtime:#f04438;
+  --c-idle:#64748b;
+}
+.light{
+  --bg0:#eaecf2;--bg1:#f2f4f8;--bg2:#ffffff;--bg3:#f5f7fa;--bg4:#edf0f5;
+  --ln:rgba(0,0,0,0.08);--ln2:rgba(0,0,0,0.14);--ln3:rgba(0,0,0,0.24);
+  --t1:#0f1923;--t2:#374a5e;--t3:#64748b;
+  --teal:#0d7d70;--tealbg:rgba(13,125,112,.10);
+  --m1c:#e55a00;--m1bg:rgba(229,90,0,.10);
+  --green:#16a34a;--gd:rgba(22,163,74,.11);
+  --red:#dc2626;--rd:rgba(220,38,38,.11);
+}
+html,body{font-family:'Barlow',sans-serif;background:var(--bg0);color:var(--t1);min-height:100vh;transition:background .3s,color .3s;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");opacity:.4;}
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+
+/* ═══ HEADER ═══ */
+.hdr{background:var(--bg1);border-bottom:1.5px solid var(--ln2);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:200;}
+.hdr-ic{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--teal),#06b6d4);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 12px rgba(13,148,136,.35);}
+.hdr-brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.5px;line-height:1;}
+.hdr-brand em{font-style:normal;background:linear-gradient(90deg,var(--teal),#06b6d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-sub{font-size:9px;color:var(--t3);letter-spacing:2px;margin-top:1px;}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.chip-live{display:flex;align-items:center;gap:6px;background:var(--gd);border:1px solid #22d65e30;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:var(--green);}
+.chip-off{display:flex;align-items:center;gap:6px;background:var(--rd);border:1px solid #f0443830;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:var(--red);}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+.dot-off{width:7px;height:7px;border-radius:50%;background:var(--red);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.theme-btn{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit;transition:all .2s;}
+.sw-tr{width:32px;height:18px;background:var(--bg4);border-radius:9px;position:relative;border:1.5px solid var(--ln3);flex-shrink:0;transition:all .25s;}
+.sw-th{width:11px;height:11px;border-radius:50%;background:var(--t3);position:absolute;top:2px;left:2px;transition:all .25s;}
+body:not(.light) .sw-th{transform:translateX(14px);background:var(--teal);}
+
+/* ═══ SCOPE TABS ═══ */
+.mtabs{display:flex;background:var(--bg1);border-bottom:2px solid var(--ln2);padding:0 20px;flex-wrap:wrap;}
+.mtab{display:flex;align-items:center;gap:8px;padding:14px 22px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);background:none;border:none;cursor:pointer;position:relative;transition:color .2s;}
+.mtab::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:transparent;transition:background .2s;}
+.mtab.act{color:var(--teal);} .mtab.act::after{background:var(--teal);} .mtab:hover:not(.act){color:var(--t2);}
+
+.sub-wrap{background:var(--bg1);border-top:2px solid var(--ln2);min-height:calc(100vh - 120px);padding:20px;}
+
+/* ═══ MONTH/VIEW SELECTORS ═══ */
+.scope-bar{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.scope-label{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;}
+.month-sel,.date-pick{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:7px 12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t1);cursor:pointer;outline:none;min-width:140px;}
+.month-sel:focus,.date-pick:focus{border-color:var(--teal);}
+.pill{padding:6px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t2);cursor:pointer;transition:all .15s;letter-spacing:.4px;text-transform:uppercase;}
+.pill.act{background:var(--tealbg);color:var(--teal);border-color:var(--teal);}
+.pill:hover:not(.act){color:var(--t1);border-color:var(--ln3);}
+.data-status{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace;margin-left:auto;}
+
+/* ═══ KPI STRIP ═══ */
+.kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+@media (max-width:720px){.kpi-strip{grid-template-columns:repeat(2,1fr);}}
+.kpi-card{background:var(--bg2);border:1.5px solid var(--ln2);border-left:3px solid var(--teal);border-radius:var(--r);padding:10px 14px;}
+.kpi-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;color:var(--t3);letter-spacing:1.2px;text-transform:uppercase;}
+.kpi-val{font-family:'JetBrains Mono',monospace;font-size:18px;font-weight:700;color:var(--t1);margin-top:3px;}
+.kpi-sub{font-size:10px;color:var(--t3);margin-top:2px;}
+.kpi-card.green{border-left-color:var(--green);}
+.kpi-card.blue{border-left-color:var(--blue);}
+.kpi-card.yellow{border-left-color:var(--yellow);}
+.kpi-card.purple{border-left-color:var(--purple);}
+
+/* ═══ SUMMARY TABLE (all 8 metrics at once) ═══ */
+.summary-card{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;}
+.summary-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;}
+.summary-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--teal);letter-spacing:.4px;text-transform:uppercase;}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+@media (max-width:720px){.summary-grid{grid-template-columns:repeat(2,1fr);}}
+.summary-cell{padding:8px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--ln);display:flex;flex-direction:column;gap:2px;border-left:3px solid;}
+.summary-cell .sc-lbl{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;color:var(--t3);letter-spacing:.8px;text-transform:uppercase;}
+.summary-cell .sc-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;color:var(--t1);}
+.summary-cell .sc-sub{font-size:9px;color:var(--t3);}
+
+/* ═══ METRIC BUTTONS ═══ */
+.metric-bar{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px 16px;margin-bottom:14px;}
+.metric-btns{display:flex;flex-wrap:wrap;gap:6px;}
+.metric-btn{padding:7px 13px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t2);cursor:pointer;transition:all .15s;letter-spacing:.3px;display:flex;align-items:center;gap:6px;}
+.metric-btn.act{background:var(--tealbg);color:var(--teal);border-color:var(--teal);}
+.metric-btn:hover:not(.act){color:var(--t1);border-color:var(--ln3);}
+.metric-dot{width:8px;height:8px;border-radius:50%;}
+
+/* ═══ CHART CARD ═══ */
+.chart-card{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:16px;margin-bottom:14px;}
+.chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;gap:8px;}
+.chart-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;letter-spacing:.4px;display:flex;align-items:center;gap:7px;}
+.dl-btn{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:5px 11px;font-size:11px;font-weight:700;color:var(--t2);cursor:pointer;font-family:'Barlow',sans-serif;transition:all .15s;}
+.dl-btn:hover{color:var(--t1);border-color:var(--ln3);background:var(--bg4);}
+
+.formula-note{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--t3);padding:8px 12px;background:var(--bg3);border:1px solid var(--ln);border-radius:6px;margin-bottom:12px;line-height:1.6;}
+
+.empty-state{text-align:center;padding:40px 20px;color:var(--t3);font-size:13px;}
+.empty-state .big{font-size:32px;margin-bottom:10px;opacity:.5;}
+.empty-state .msg{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--t2);margin-bottom:5px;letter-spacing:.5px;}
+
+/* ═══ TOAST ═══ */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:10px 18px;font-size:13px;font-weight:600;color:var(--t1);z-index:300;opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;}
+.toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(-8px);}
+.toast.red{border-color:var(--red);color:var(--red);}
+.toast.green{border-color:var(--green);color:var(--green);}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-ic">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div>
+      <div class="hdr-brand"><em>TIME</em> STUDY</div>
+      <div class="hdr-sub">GLS METALLISERS · MACHINE UTILISATION · 1440 MIN ANALYSIS</div>
+    </div>
+    <div class="hdr-r">
+      <div id="data-chip" class="chip-off"><span class="dot-off"></span><span>No ZJUMBO data</span></div>
+      <button class="theme-btn" onclick="toggleTheme()"><div class="sw-tr"><div class="sw-th"></div></div><span id="tlbl">☀️ Light</span></button>
+    </div>
+  </div>
+
+  <div class="mtabs">
+    <button class="mtab act" id="tb-dept" onclick="setScope('dept')">🏭 Metalliser Department</button>
+    <button class="mtab" id="tb-m1" onclick="setScope('M1')">⚙️ Met-1</button>
+    <button class="mtab" id="tb-m2" onclick="setScope('M2')">⚙️ Met-2</button>
+  </div>
+
+  <div class="sub-wrap">
+    <div class="scope-bar">
+      <span class="scope-label">Month</span>
+      <select class="month-sel" id="month-sel" onchange="selMonth=this.value;render()"></select>
+      <span class="scope-label" style="margin-left:10px">View</span>
+      <button class="pill act" id="view-monthly" onclick="setView('monthly')">Monthly</button>
+      <button class="pill" id="view-daily" onclick="setView('daily')">Daily</button>
+      <select class="date-pick" id="date-sel" style="display:none" onchange="selDate=this.value;render()"></select>
+      <span class="data-status" id="data-status"></span>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// TIME STUDY — ZJUMBO time breakdown by shift/machine/department
+// Reads from MetCost Pro's shared IndexedDB (key: raw_zjumbo)
+// Falls back to Firebase 'metcostRawRolls' for cross-device access.
+// ═══════════════════════════════════════════════════════════════
+
+const g=id=>document.getElementById(id);
+const APP_VER='1.0';
+const FB_BASE='https://man-power-mp-default-rtdb.firebaseio.com';
+
+// ═══ STATE ═══
+let rawZjumbo=null;
+let scope='dept';       // 'dept' | 'M1' | 'M2'
+let selMonth=null;
+let view='monthly';     // 'monthly' | 'daily'
+let selDate=null;
+let selMetric='total';  // 'setup'|'vacuum'|'heating'|'running'|'vent'|'downtime'|'idle'|'total'
+const EXCLUDED_BUCKETS={};  // per-chart filter
+
+// ═══ THEME ═══
+function toggleTheme(){
+  document.body.classList.toggle('light');
+  const L=document.body.classList.contains('light');
+  g('tlbl').textContent=L?'🌙 Dark':'☀️ Light';
+  try{localStorage.setItem('ts_theme',L?'light':'dark');}catch(e){}
+}
+try{if(localStorage.getItem('ts_theme')==='light'){document.body.classList.add('light');g('tlbl').textContent='🌙 Dark';}}catch(e){}
+
+// ═══ TOAST ═══
+function showToast(m,t='',d=2600){
+  const el=g('toast');el.textContent=m;el.className='toast show'+(t?' '+t:'');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),d);
+}
+
+function setScope(s){
+  scope=s;
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('act'));
+  g('tb-'+(s==='dept'?'dept':s.toLowerCase())).classList.add('act');
+  render();
+}
+function setView(v){
+  view=v;
+  g('view-monthly').classList.toggle('act',v==='monthly');
+  g('view-daily').classList.toggle('act',v==='daily');
+  g('date-sel').style.display=v==='daily'?'':'none';
+  render();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INDEXEDDB — reads the 'raw_zjumbo' key from shared MetCost Pro DB
+// ═══════════════════════════════════════════════════════════════
+const IDB_NAME='MetCostRaw',IDB_VER=1;
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(IDB_NAME,IDB_VER);
+    req.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('raw'))db.createObjectStore('raw')};
+    req.onsuccess=e=>res(e.target.result);
+    req.onerror=e=>rej(e.target.error);
+  });
+}
+async function idbLoad(key){
+  try{const db=await idbOpen();const tx=db.transaction('raw','readonly');const req=tx.objectStore('raw').get(key);return new Promise((r,j)=>{req.onsuccess=()=>r(req.result||null);req.onerror=()=>j(req.error)})}
+  catch(e){console.warn('[TimeStudy] IDB load error:',e);return null}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATE & TIME PARSERS (tolerant of XLSX.js string/Date/serial variants)
+// ═══════════════════════════════════════════════════════════════
+function parseDate(v){
+  if(v==null||v==='') return null;
+  if(v instanceof Date) return isNaN(v)?null:v;
+  if(typeof v==='number'){const d=new Date((v-25569)*86400000);return isNaN(d)?null:d}
+  if(typeof v==='string'){
+    const s=v.trim();if(!s)return null;
+    let m=s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+    m=s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+    const d=new Date(s);return isNaN(d)?null:d;
+  }
+  return null;
+}
+function getMonthKey(d){const dt=parseDate(d);if(!dt)return null;return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');}
+function getDateStr(d){const dt=parseDate(d);if(!dt)return null;return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');}
+
+// Parse time values → minutes-from-midnight (0-1439), or null
+// DIRECT PORT of MetCost Pro's parseT (line 1880) — proven to work with real ZJUMBO data.
+// MetCost Pro returns {h,m}; we just convert to minutes.
+function parseTimeToMins(t){
+  if(t==null||t===''||t===false) return null;
+  // JS Date object (SheetJS cellDates:true)
+  if(t instanceof Date){if(isNaN(t.getTime())) return null; return t.getHours()*60+t.getMinutes()}
+  if(typeof t==='object'&&typeof t.getHours==='function'){return t.getHours()*60+t.getMinutes()}
+  // Generic object — try toString
+  if(typeof t==='object'){try{const s=t.toString();if(s==='[object Object]') return null;const p=s.match(/(\d{1,2}):(\d{2})/);if(p){let h=+p[1];if(/pm/i.test(s)&&h<12)h+=12;if(/am/i.test(s)&&h===12)h=0;return h*60+(+p[2])}}catch(e){}return null}
+  // Number — Excel serial time fraction (0.4722 = 11:20)
+  if(typeof t==='number'){if(isNaN(t)) return null;const f=t>=1?t-Math.floor(t):Math.abs(t);const h=Math.floor(f*24);const m=Math.round((f*24-h)*60)%60;return(h%24)*60+m}
+  // Boolean
+  if(typeof t==='boolean') return null;
+  // String
+  const s=String(t).trim();
+  if(!s||s==='NaN'||s==='null'||s==='undefined') return null;
+  // Try HH:MM with optional AM/PM (handles "11:20:00 AM", "2:10:00 PM", "14:20", etc.)
+  // NOTE: MetCost Pro uses flexible separators [:.\\-] not just colon
+  const p=s.match(/(\d{1,2})\s*[:.\-]\s*(\d{2})(?:\s*[:.\-]\s*\d{2})?\s*(AM|PM|am|pm)?/i);
+  if(p){let h=+p[1],m=+p[2];if(p[3]){const pm=p[3].toUpperCase()==='PM';if(pm&&h<12)h+=12;if(!pm&&h===12)h=0}return h*60+m}
+  // Try as numeric string (SheetJS raw mode can return "0.4722")
+  const nv=parseFloat(s);if(!isNaN(nv)&&nv>=0&&nv<1){const h=Math.floor(nv*24);return(h%24)*60+Math.round((nv*24-h)*60)%60}
+  // Try as Date string ("1899-12-30T03:15:00.000Z" or any parseable date string)
+  try{const d=new Date(s);if(!isNaN(d.getTime()))return d.getHours()*60+d.getMinutes()}catch(e){}
+  return null;
+}
+
+// Minutes between two time-of-day values (handles midnight wrap by checking if end<start)
+function minsBetween(t1,t2){
+  if(t1==null||t2==null) return 0;
+  let d=t2-t1;
+  if(d<0) d+=1440;  // wraps past midnight
+  return (d>=0&&d<=1440)?d:0;
+}
+
+// Machine code → 'M1' | 'M2' | null
+function zjumboMachine(s){
+  const m=String(s||'').toUpperCase();
+  if(m.includes('M1')) return 'M1';
+  if(m.includes('M2')) return 'M2';
+  return null;
+}
+// Shift from hour: <7 or >=19 => Night, else Day
+function shiftFromMins(mins){
+  if(mins==null) return null;
+  const h=Math.floor(mins/60);
+  return (h<7||h>=19)?'N':'D';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLEXIBLE COLUMN LOOKUP — tries multiple name variants
+// MetCost Pro's Web Worker stores the exact Excel header text as keys.
+// SAP exports have inconsistent casing across versions.
+// ═══════════════════════════════════════════════════════════════
+function findCol(row,variants){
+  for(let i=0;i<variants.length;i++){
+    const v=row[variants[i]];
+    if(v!==undefined&&v!==null) return v;
+  }
+  // Last resort: case-insensitive search through all keys
+  const target=variants[0].toLowerCase();
+  for(const k of Object.keys(row)){
+    if(k.toLowerCase()===target) return row[k];
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ROLL PARSING — extract per-roll time components
+// ═══════════════════════════════════════════════════════════════
+// Strip commas from formatted numbers like "3,216.080" → 3216.08
+function parseNum(v){return parseFloat(String(v||'0').replace(/,/g,''))||0;}
+
+function extractRollTimes(r){
+  // Chamber Open Time — defines the shift bucket
+  const coMins = parseTimeToMins(findCol(r,['Chamber Open Time','Chamber open Time','Chamber open time']));
+  if(coMins==null) return null;
+
+  const ccMins   = parseTimeToMins(findCol(r,['Chamber Close Time','Chamber close Time','Chamber close time']));
+  const vacMins  = parseTimeToMins(findCol(r,['Vaccum time','Vacuum time','Vacuum Time','Vaccum Time']));
+  const heatMins = parseTimeToMins(findCol(r,['Heating Time','Heating time']));
+  const wsMins   = parseTimeToMins(findCol(r,['Web Start Time','Web start Time','Web Start time']));
+  const weMins   = parseTimeToMins(findCol(r,['Web End Time','Web end Time','Web End time']));
+  const ventMins = parseTimeToMins(findCol(r,['Vent time','Vent Time','Vent time ']));
+
+  // Col P is a direct minute value (confirmed 25 matches 03:15→03:40)
+  let rco = Math.abs(parseNum(findCol(r,['Roll Change over tim','Roll Change over time','Roll Changeover Time','Roll change over tim'])));
+  if(isNaN(rco)) rco=0;
+  // Fallback: if RCO missing, calculate from Chamber Open→Close
+  if(rco===0 && ccMins!=null) rco = minsBetween(coMins,ccMins);
+
+  const downtime = Math.abs(parseNum(findCol(r,['Down Time','Down time','Downtime','DownTime'])));
+  const remarks  = String(findCol(r,['Remarks','remarks','REMARKS'])||'').trim();
+  const length   = parseNum(findCol(r,['Length','length']));
+  const qty      = parseNum(findCol(r,['Quantity','quantity']));
+
+  // Time components between the cycle phase markers
+  const vacuum  = (vacMins!=null&&heatMins!=null) ? minsBetween(vacMins,heatMins)  : 0;
+  const heating = (heatMins!=null&&wsMins!=null)  ? minsBetween(heatMins,wsMins)   : 0;
+  const running = (wsMins!=null&&weMins!=null)    ? minsBetween(wsMins,weMins)     : 0;
+  const vent    = (weMins!=null&&ventMins!=null)  ? minsBetween(weMins,ventMins)   : 0;
+
+  return {
+    coMins, shift:shiftFromMins(coMins),
+    setup:rco, vacuum, heating, running, vent, downtime:isNaN(downtime)?0:downtime,
+    remarks, length, qty,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AGGREGATION
+// ═══════════════════════════════════════════════════════════════
+// Returns: { 'M1-D':{…}, 'M1-N':{…}, 'M2-D':{…}, 'M2-N':{…} }
+// Each bucket has: {rolls, setup, vacuum, heating, running, vent, downtime, length, qty, daysSet}
+function buildBuckets(monthKey,dateFilter){
+  const out={};
+  if(!rawZjumbo) return out;
+  rawZjumbo.forEach(r=>{
+    const mvt=String(findCol(r,['Movment Type','Movement Type','Movement type','Mvt type','Mvt Type'])||'').trim();
+    if(mvt!=='101') return;
+    const mk=getMonthKey(findCol(r,['Date of Production','Date of production','date of production']));
+    if(mk!==monthKey) return;
+    const dateStr=getDateStr(findCol(r,['Date of Production','Date of production','date of production']));
+    if(dateFilter&&dateStr!==dateFilter) return;
+    const machine=zjumboMachine(findCol(r,['Machine','machine']));
+    if(!machine) return;
+    const t=extractRollTimes(r);
+    if(!t||!t.shift) return;
+    const key=machine+'-'+t.shift;
+    if(!out[key]) out[key]={
+      rolls:0,setup:0,vacuum:0,heating:0,running:0,vent:0,downtime:0,
+      length:0,qty:0,daysSet:new Set(),machine,shift:t.shift,
+      downtimeByReason:{},
+    };
+    const b=out[key];
+    b.rolls++;
+    b.setup   += t.setup;
+    b.vacuum  += t.vacuum;
+    b.heating += t.heating;
+    b.running += t.running;
+    b.vent    += t.vent;
+    b.downtime+= t.downtime;
+    b.length  += t.length;
+    b.qty     += t.qty;
+    b.daysSet.add(dateStr);
+    // downtime reasons
+    if(t.downtime>0 && t.remarks){
+      const reason=normalizeRemark(t.remarks);
+      if(!b.downtimeByReason[reason]) b.downtimeByReason[reason]={reason,mins:0,count:0};
+      b.downtimeByReason[reason].mins+=t.downtime;
+      b.downtimeByReason[reason].count++;
+    }
+  });
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DOWNTIME REMARK NORMALIZER — fold typos & variants into clean categories
+// ═══════════════════════════════════════════════════════════════
+function normalizeRemark(rem){
+  let s=String(rem||'').toUpperCase().trim();
+  // Strip department prefix: "P,BOAT CHANGE" → "BOAT CHANGE", "M," "E," etc.
+  s=s.replace(/^[MEPUF],\s*/, '');
+  // Typo fixes → canonical form (longer pattern first to avoid collisions)
+  if(/WEB\s*B?R?E?A?C?K|WEBBRE?A?K/.test(s)) return 'WEB BREAK';
+  if(/BOAT\s*CHANGE|BOATCHANGE/.test(s))      return 'BOAT CHANGE';
+  if(/NO\s*FEED|NOFEED/.test(s))               return 'NO FEED';
+  if(/NO\s*ORDER/.test(s))                     return 'NO ORDER';
+  if(/OD\s*SEN(C|S)OR|OD\s*SEN[CS]ER/.test(s)) return 'OD SENSOR';
+  if(/SETT?ING?\s*CHANG/.test(s))              return 'SETTING CHANGE';
+  if(/SITT?ING\s*CHANG/.test(s))               return 'SETTING CHANGE';  // typo: "SITTING" for "SETTING"
+  if(/CORE\s*CHANGE/.test(s))                  return 'CORE CHANGE';
+  if(/CORE\s*NOT\s*AVIL|CORE\s*NOT\s*AVAIL/.test(s)) return 'CORE NOT AVAILABLE';
+  if(/WIRE/.test(s))                           return 'WIRE PROBLEM';
+  if(/POWER\s*DIP|POWER\s*FAIL|POWER\s*CUT/.test(s)) return 'POWER INTERRUPTION';
+  if(/SCRATCH/.test(s))                        return 'SCRATCH LINE';
+  if(/UNWENDER|UNWINDER|UNWIN.R/.test(s))      return 'UNWINDER SLIP';
+  if(/VACUUM|VACCUM/.test(s))                  return 'VACUUM ISSUE';
+  if(/SHIELD/.test(s))                         return 'SHIELD PROBLEM';
+  if(/TAP\s*CHANG|TAP\s*CUT/.test(s))          return 'TAPE CHANGE';
+  if(/QC|QUALITY/.test(s))                     return 'QC MEETING';
+  if(/SAFETY|TRAN?ING|CELEBRATION|MEATING|MEETING/.test(s)) return 'TRAINING / MEETING';
+  if(/SHORT|SHIRT/.test(s))                    return 'WIDTH / SHORTING';
+  if(/STOP?AGE|STOPPAGE|ONE\s*STOPAGE/.test(s))return 'MISC STOPPAGE';
+  if(/CYCLE\s*LOSS|WATTER?\s*SPOT|WATER\s*SPOT/.test(s)) return 'CYCLE LOSS / WATER';
+  if(/CILING|CEILING/.test(s))                 return 'CEILING ISSUE';
+  // Fallback: first 3 words cleaned up
+  return (s.split(/\s+/).slice(0,3).join(' ')||'OTHER').slice(0,30);
+}
+
+// Combine buckets based on scope filter
+// scope='dept' → all 4 buckets | scope='M1' → M1-D, M1-N | scope='M2' → M2-D, M2-N
+function getScopedBuckets(allBuckets){
+  const keys=Object.keys(allBuckets).filter(k=>{
+    const mc=k.split('-')[0];
+    if(scope==='dept') return true;
+    return mc===scope;
+  });
+  const result={};
+  keys.forEach(k=>result[k]=allBuckets[k]);
+  return result;
+}
+
+// Compute derived metrics for a bucket
+function enrichBucket(b,viewMode,numDays){
+  const recorded=b.setup+b.vacuum+b.heating+b.running+b.vent+b.downtime;
+  const days=b.daysSet.size||1;
+  // Available time per bucket:
+  // In monthly view — 1 shift (12 hr = 720 min) per day × days worked
+  // But our buckets are shift-specific (D or N), so available = days × 720
+  // Actually: in our shift def <7 OR >=19 = Night = 12 hr; 7-19 = Day = 12 hr. So each bucket caps at 720 min/day.
+  const shiftDays = (viewMode==='daily') ? 1 : days;
+  const shiftCapacity = shiftDays * 720;
+  const idle=Math.max(0, shiftCapacity-recorded);
+  const total=recorded+idle; // equals shiftCapacity
+  const avgSpeed = b.running>0 ? (b.length/b.running) : 0;
+  return {...b, recorded, idle, total, avgSpeed, shiftDays, shiftCapacity};
+}
+
+// ═══════════════════════════════════════════════════════════════
+// METRIC DEFINITIONS
+// ═══════════════════════════════════════════════════════════════
+const METRICS=[
+  {id:'setup',    label:'Setup',    color:'var(--c-setup)',    raw:'#f0aa00', fmt:v=>v.toFixed(0),
+   formula:'Σ Roll Change Over time (col P) — time from Chamber Open → Chamber Close'},
+  {id:'vacuum',   label:'Vacuum',   color:'var(--c-vacuum)',   raw:'#38bdf8', fmt:v=>v.toFixed(0),
+   formula:'Σ (Heating Time − Vaccum time) per roll'},
+  {id:'heating',  label:'Heating',  color:'var(--c-heating)',  raw:'#f97316', fmt:v=>v.toFixed(0),
+   formula:'Σ (Web Start Time − Heating Time) per roll'},
+  {id:'running',  label:'Running',  color:'var(--c-running)',  raw:'#22d65e', fmt:v=>v.toFixed(0),
+   formula:'Σ (Web End Time − Web Start Time) per roll — active metallisation'},
+  {id:'vent',     label:'Vent',     color:'var(--c-vent)',     raw:'#a78bfa', fmt:v=>v.toFixed(0),
+   formula:'Σ (Vent time − Web End Time) per roll'},
+  {id:'downtime', label:'Downtime', color:'var(--c-downtime)', raw:'#f04438', fmt:v=>v.toFixed(0),
+   formula:'Σ Down Time (col AA) per roll'},
+  {id:'idle',     label:'Idle',     color:'var(--c-idle)',     raw:'#64748b', fmt:v=>v.toFixed(0),
+   formula:'Shift capacity (720 min × days) − recorded time. Machine-on but no roll loaded.'},
+  {id:'total',    label:'Total',    color:'var(--teal)',       raw:'#0d9488', fmt:v=>v.toFixed(0),
+   formula:'All 7 components summed = shift capacity (720 min × days worked in shift)'},
+];
+const M = id => METRICS.find(m=>m.id===id);
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+function render(){
+  const container=g('content');
+  if(!selMonth||!rawZjumbo||!rawZjumbo.length){
+    container.innerHTML=`<div class="empty-state"><div class="big">📁</div><div class="msg">No ZJUMBO data</div>Upload ZJUMBO through <b style="color:var(--teal)">MetCost Pro</b> on laptop — it auto-syncs to cloud so this app will show data on any device.</div>`;
+    g('data-status').textContent='';
+    return;
+  }
+
+  // ── DIAGNOSTIC: dump first row's keys + sample values to console ──
+  if(!window._tsDiagDone){
+    window._tsDiagDone=true;
+    const sample=rawZjumbo[0];
+    console.log('[TimeStudy] Total rows loaded:',rawZjumbo.length);
+    console.log('[TimeStudy] First row keys:',Object.keys(sample));
+    console.log('[TimeStudy] First row sample values:');
+    Object.entries(sample).forEach(([k,v])=>{
+      console.log('  ',JSON.stringify(k),'=',JSON.stringify(v),'  (type:'+typeof v+')');
+    });
+    // Count rows that pass the mvt-101 filter + date parse test
+    let mvt101=0, dateOk=0, machOk=0, timeOk=0;
+    rawZjumbo.forEach(r=>{
+      const mvtVal=findCol(r,['Movment Type','Movement Type','Movement type','Mvt type','Mvt Type']);
+      if(String(mvtVal).trim()==='101') mvt101++;
+      const dateVal=findCol(r,['Date of Production','Date of production','date of production']);
+      if(getMonthKey(dateVal)) dateOk++;
+      const mcVal=findCol(r,['Machine','machine']);
+      if(zjumboMachine(mcVal)) machOk++;
+      const coVal=findCol(r,['Chamber Open Time','Chamber open Time','Chamber open time']);
+      if(parseTimeToMins(coVal)!=null) timeOk++;
+    });
+    console.log(`[TimeStudy] Mvt-101: ${mvt101}/${rawZjumbo.length}, Date parseable: ${dateOk}, Machine parseable: ${machOk}, Time parseable: ${timeOk}`);
+  }
+
+  // Populate date dropdown with available dates in selected month
+  const allDates=new Set();
+  rawZjumbo.forEach(r=>{
+    const mvt=String(findCol(r,['Movment Type','Movement Type','Movement type','Mvt type','Mvt Type'])||'').trim();
+    if(mvt!=='101') return;
+    const mk=getMonthKey(findCol(r,['Date of Production','Date of production','date of production']));
+    if(mk===selMonth){
+      const ds=getDateStr(findCol(r,['Date of Production','Date of production','date of production']));
+      if(ds) allDates.add(ds);
+    }
+  });
+  const sortedDates=Array.from(allDates).sort();
+  if(view==='daily'){
+    if(!selDate||!sortedDates.includes(selDate)) selDate=sortedDates[sortedDates.length-1]||null;
+    g('date-sel').innerHTML=sortedDates.map(d=>`<option value="${d}"${d===selDate?' selected':''}>${fmtDateShort(d)}</option>`).join('');
+  }
+
+  // Build buckets
+  const dateFilter = view==='daily' ? selDate : null;
+  const allBuckets = buildBuckets(selMonth, dateFilter);
+  const scoped = getScopedBuckets(allBuckets);
+  const bucketKeys = Object.keys(scoped).sort();
+
+  if(!bucketKeys.length){
+    container.innerHTML=`<div class="empty-state"><div class="big">📅</div><div class="msg">No data for ${monthLabel(selMonth)}${view==='daily'?' · '+fmtDateShort(selDate):''}</div>Try a different month or date, or switch scope.</div>`;
+    g('data-status').textContent=`0 rolls · ${sortedDates.length} days available`;
+    return;
+  }
+
+  // Enrich each bucket with derived fields
+  const enriched={};
+  bucketKeys.forEach(k=>{ enriched[k]=enrichBucket(scoped[k],view,sortedDates.length); });
+
+  // Scope totals (for KPI strip + summary table)
+  const scopeTotals={rolls:0,setup:0,vacuum:0,heating:0,running:0,vent:0,downtime:0,length:0,qty:0,idle:0,daysSet:new Set()};
+  Object.values(enriched).forEach(b=>{
+    scopeTotals.rolls+=b.rolls; scopeTotals.setup+=b.setup; scopeTotals.vacuum+=b.vacuum;
+    scopeTotals.heating+=b.heating; scopeTotals.running+=b.running; scopeTotals.vent+=b.vent;
+    scopeTotals.downtime+=b.downtime; scopeTotals.length+=b.length; scopeTotals.qty+=b.qty;
+    scopeTotals.idle+=b.idle;
+    b.daysSet.forEach(d=>scopeTotals.daysSet.add(d));
+  });
+  scopeTotals.recorded=scopeTotals.setup+scopeTotals.vacuum+scopeTotals.heating+scopeTotals.running+scopeTotals.vent+scopeTotals.downtime;
+  scopeTotals.total=scopeTotals.recorded+scopeTotals.idle;
+  scopeTotals.avgSpeed=scopeTotals.running>0?(scopeTotals.length/scopeTotals.running):0;
+
+  g('data-status').textContent=`${scopeTotals.rolls} rolls · ${scopeTotals.daysSet.size} days · ${bucketKeys.length} shift bucket${bucketKeys.length>1?'s':''}`;
+
+  // ═══ HTML BUILD ═══
+  const scopeLabel = scope==='dept'?'All Metallisers (M1+M2)':('Met-'+scope.slice(-1));
+
+  // KPI strip
+  const kpiHtml=`
+    <div class="kpi-strip">
+      <div class="kpi-card"><div class="kpi-lbl">Rolls</div><div class="kpi-val">${scopeTotals.rolls.toLocaleString()}</div><div class="kpi-sub">Mvt-101 in ${scopeLabel}</div></div>
+      <div class="kpi-card green"><div class="kpi-lbl">Output</div><div class="kpi-val">${(scopeTotals.qty/1000).toFixed(1)} MT</div><div class="kpi-sub">Σ Quantity</div></div>
+      <div class="kpi-card blue"><div class="kpi-lbl">Length</div><div class="kpi-val">${(scopeTotals.length/1000).toFixed(0)} Km</div><div class="kpi-sub">Σ Length metallised</div></div>
+      <div class="kpi-card yellow"><div class="kpi-lbl">Avg Speed</div><div class="kpi-val">${scopeTotals.avgSpeed.toFixed(0)} <span style="font-size:11px">m/min</span></div><div class="kpi-sub">Length ÷ Running Time</div></div>
+    </div>`;
+
+  // Summary table
+  const sumHtml=`
+    <div class="summary-card">
+      <div class="summary-head">
+        <div class="summary-title">📊 ${scopeLabel} · ${view==='daily'?fmtDateShort(selDate):monthLabel(selMonth)}</div>
+        <div style="font-size:10px;color:var(--t3);font-family:'JetBrains Mono',monospace">${scopeTotals.daysSet.size} day${scopeTotals.daysSet.size>1?'s':''} × ${bucketKeys.length} shift${bucketKeys.length>1?'s':''} = ${scopeTotals.total.toFixed(0)} min capacity</div>
+      </div>
+      <div class="summary-grid">
+        ${METRICS.map(m=>{
+          const v=scopeTotals[m.id]||0;
+          const pct=scopeTotals.total>0?(v/scopeTotals.total*100):0;
+          return `<div class="summary-cell" style="border-left-color:${m.raw}">
+            <div class="sc-lbl">${m.label}</div>
+            <div class="sc-val">${m.fmt(v)} <span style="font-size:10px;color:var(--t3)">min</span></div>
+            <div class="sc-sub">${(v/60).toFixed(1)} hr · ${pct.toFixed(1)}%</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  // Metric selector
+  const mbHtml=`
+    <div class="metric-bar">
+      <div class="scope-label" style="margin-bottom:8px;display:block">Select Metric</div>
+      <div class="metric-btns">
+        ${METRICS.map(m=>`<button class="metric-btn${m.id===selMetric?' act':''}" onclick="selMetric='${m.id}';render()"><span class="metric-dot" style="background:${m.raw}"></span>${m.label}</button>`).join('')}
+      </div>
+    </div>`;
+
+  // Chart data: one bar per bucket, showing selected metric
+  const mdef=M(selMetric);
+  const chartData=bucketKeys.map(k=>({
+    name:prettyBucketName(k),
+    key:k,
+    val:enriched[k][selMetric]||0,
+  })).sort((a,b)=>b.val-a.val);
+  const fmtVal=v=>mdef.fmt(v)+' min';
+
+  const chartHtml=`
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title" style="color:${mdef.raw}"><span class="metric-dot" style="background:${mdef.raw}"></span>${mdef.label} Time · ${scopeLabel}</div>
+        <button class="dl-btn" onclick="downloadChartPNG('ts-chart','time-study-${selMetric}')">⬇ PNG</button>
+      </div>
+      <div class="formula-note">${mdef.formula}</div>
+      <div id="ts-chart">${svgBarChart(chartData,mdef.raw,fmtVal,{containerId:'ts-chart',showHr:true})}</div>
+    </div>`;
+
+  // Stacked breakdown chart — shows ALL components per bucket (gantt-like visualisation of 1440 min budget)
+  const stackedHtml=buildStackedChart(enriched,bucketKeys,scopeLabel);
+
+  // Downtime reasons Pareto
+  const reasonHtml=buildDowntimeReasonChart(enriched,scopeLabel);
+
+  container.innerHTML=kpiHtml+sumHtml+mbHtml+chartHtml+stackedHtml+reasonHtml;
+}
+
+function prettyBucketName(k){
+  // 'M1-D' → 'Met-1 Day', 'M2-N' → 'Met-2 Night'
+  const [mc,sh]=k.split('-');
+  return 'Met-'+mc.slice(1)+' '+(sh==='D'?'Day':'Night');
+}
+function monthLabel(mk){
+  const [y,m]=mk.split('-').map(Number);
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return MN[m-1]+' '+y;
+}
+function fmtDateShort(ds){
+  if(!ds) return '';
+  const [y,m,d]=ds.split('-').map(Number);
+  const MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return String(d).padStart(2,'0')+' '+MN[m-1];
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SVG BAR CHART (single-metric, horizontal, per-bucket)
+// ═══════════════════════════════════════════════════════════════
+function svgBarChart(data,color,fmtFn,opts){
+  opts=opts||{};
+  if(!data.length) return '<div style="font-size:12px;color:var(--t3);padding:20px;text-align:center;">No data</div>';
+  const max=Math.max(...data.map(d=>d.val),1);
+  const barH=30,gap=6,padL=140,padR=130,padT=10,padB=10;
+  const H=data.length*(barH+gap)-gap+padT+padB;
+  const chartW=380,W=padL+chartW+padR;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:'Barlow',sans-serif;" preserveAspectRatio="xMinYMin meet">`;
+  data.forEach((d,i)=>{
+    const y=padT+i*(barH+gap);
+    const w=(d.val/max)*chartW;
+    svg+=`<text x="${padL-6}" y="${y+barH/2+4}" font-size="12" font-weight="700" fill="currentColor" text-anchor="end">${escapeXml(d.name)}</text>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${chartW}" height="${barH}" fill="currentColor" opacity="0.06" rx="3"/>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${w}" height="${barH}" fill="${color}" rx="3"><title>${escapeXml(d.name)}: ${fmtFn(d.val)}</title></rect>`;
+    const hrTxt = opts.showHr ? ` (${(d.val/60).toFixed(1)} hr)` : '';
+    svg+=`<text x="${padL+w+5}" y="${y+barH/2+4}" font-size="11" font-weight="700" fill="${color}">${fmtFn(d.val)}${hrTxt}</text>`;
+  });
+  svg+='</svg>';
+  return svg;
+}
+function escapeXml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+
+// ═══════════════════════════════════════════════════════════════
+// STACKED BAR CHART — shows 8-component breakdown per bucket
+// Each bar = total shift capacity (720 min × days), colored segments for each component
+// ═══════════════════════════════════════════════════════════════
+function buildStackedChart(enriched,bucketKeys,scopeLabel){
+  if(!bucketKeys.length) return '';
+  const barH=38,gap=10,padL=140,padR=30,padT=30,padB=10;
+  const H=bucketKeys.length*(barH+gap)-gap+padT+padB;
+  const chartW=460,W=padL+chartW+padR;
+  // Use max total across buckets as scale
+  const maxTotal=Math.max(...bucketKeys.map(k=>enriched[k].total),1);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:'Barlow',sans-serif;" preserveAspectRatio="xMinYMin meet">`;
+  // Legend row at top
+  let lx=padL;
+  METRICS.slice(0,-1).forEach(m=>{  // exclude 'total'
+    svg+=`<rect x="${lx}" y="6" width="10" height="10" fill="${m.raw}" rx="2"/>`;
+    svg+=`<text x="${lx+14}" y="15" font-size="10" font-weight="600" fill="currentColor">${m.label}</text>`;
+    lx += 14 + m.label.length*5.5 + 10;
+  });
+  bucketKeys.forEach((k,i)=>{
+    const b=enriched[k];
+    const y=padT+i*(barH+gap);
+    const totalW=(b.total/maxTotal)*chartW;
+    // Label (bucket name + total)
+    svg+=`<text x="${padL-6}" y="${y+barH/2-3}" font-size="12" font-weight="700" fill="currentColor" text-anchor="end">${escapeXml(prettyBucketName(k))}</text>`;
+    svg+=`<text x="${padL-6}" y="${y+barH/2+11}" font-size="9" font-weight="500" fill="var(--t3)" text-anchor="end">${b.rolls} rolls · ${b.daysSet.size}d · ${(b.total/60).toFixed(0)} hr</text>`;
+    // Stacked segments
+    let cx=padL;
+    const parts=['setup','vacuum','heating','running','vent','downtime','idle'];
+    parts.forEach(p=>{
+      const v=b[p]||0;
+      if(v<=0) return;
+      const w=(v/b.total)*totalW;
+      const m=M(p);
+      svg+=`<rect x="${cx}" y="${y}" width="${w}" height="${barH}" fill="${m.raw}" rx="0"><title>${m.label}: ${v.toFixed(0)} min (${(v/b.total*100).toFixed(1)}%)</title></rect>`;
+      // In-segment label if wide enough
+      if(w>35){
+        const pct=(v/b.total*100).toFixed(0);
+        svg+=`<text x="${cx+w/2}" y="${y+barH/2+4}" font-size="10" font-weight="800" fill="#0f1923" text-anchor="middle">${pct}%</text>`;
+      }
+      cx += w;
+    });
+    // Total label after bar
+    svg+=`<text x="${cx+6}" y="${y+barH/2+4}" font-size="10" font-weight="800" fill="currentColor">${b.total.toFixed(0)} min</text>`;
+  });
+  svg+='</svg>';
+  return `
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title" style="color:var(--teal)">📊 Time Breakdown · ${scopeLabel} (stacked, % of shift capacity)</div>
+        <button class="dl-btn" onclick="downloadChartPNG('ts-stacked','time-study-breakdown')">⬇ PNG</button>
+      </div>
+      <div class="formula-note">Each bar = shift capacity (720 min × days worked). Segments show how time was spent. Hover for details.</div>
+      <div id="ts-stacked">${svg}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DOWNTIME REASONS PARETO
+// ═══════════════════════════════════════════════════════════════
+function buildDowntimeReasonChart(enriched,scopeLabel){
+  // Aggregate all reasons across scope
+  const reasonMap={};
+  Object.values(enriched).forEach(b=>{
+    Object.values(b.downtimeByReason||{}).forEach(rr=>{
+      if(!reasonMap[rr.reason]) reasonMap[rr.reason]={name:rr.reason,val:0,count:0};
+      reasonMap[rr.reason].val+=rr.mins;
+      reasonMap[rr.reason].count+=rr.count;
+    });
+  });
+  const data=Object.values(reasonMap).filter(r=>r.val>0).sort((a,b)=>b.val-a.val).slice(0,15);
+  if(!data.length) return '';
+  // Enhance name: add count
+  const display=data.map(d=>({name:`${d.name}  (×${d.count})`,val:d.val}));
+  const fmtVal=v=>v.toFixed(0)+' min';
+  return `
+    <div class="chart-card">
+      <div class="chart-head">
+        <div class="chart-title" style="color:var(--red)">🚨 Downtime Reasons · ${scopeLabel} (Pareto, top 15)</div>
+        <button class="dl-btn" onclick="downloadChartPNG('ts-reasons','time-study-downtime-reasons')">⬇ PNG</button>
+      </div>
+      <div class="formula-note">Σ Down Time grouped by Remarks column, normalized (typos & variants folded). "(×n)" = times reason was recorded.</div>
+      <div id="ts-reasons">${svgBarChart(display,'#f04438',fmtVal,{containerId:'ts-reasons',showHr:true})}</div>
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PNG DOWNLOAD — with VKS Tech branding
+// ═══════════════════════════════════════════════════════════════
+const VKS_LOGO_URL='https://raw.githubusercontent.com/vkstecho/glsmp/main/vkslogo512.png';
+let VKS_LOGO_IMG=null,VKS_LOGO_LOADING=null;
+function loadVKSLogo(){
+  if(VKS_LOGO_IMG) return Promise.resolve(VKS_LOGO_IMG);
+  if(VKS_LOGO_LOADING) return VKS_LOGO_LOADING;
+  VKS_LOGO_LOADING=new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{VKS_LOGO_IMG=img;resolve(img);};
+    img.onerror=()=>{VKS_LOGO_IMG=null;resolve(null);};
+    img.src=VKS_LOGO_URL;
+  });
+  return VKS_LOGO_LOADING;
+}
+loadVKSLogo();
+
+function downloadChartPNG(containerId,baseName){
+  const wrap=g(containerId);
+  if(!wrap){showToast('Chart not found','red');return;}
+  const svgEl=wrap.querySelector('svg');
+  if(!svgEl){showToast('No chart to download','red');return;}
+  const scopeLabel = scope==='dept'?'All Metallisers':'Met-'+scope.slice(-1);
+  const chartTitle = `Time Study · ${baseName.replace('time-study-','').replace(/-/g,' ')} · ${scopeLabel} · ${view==='daily'?fmtDateShort(selDate):monthLabel(selMonth||'')}`;
+  const filename = `${baseName}-${selMonth||'nomonth'}${view==='daily'?'-'+selDate:''}.png`;
+
+  const clone=svgEl.cloneNode(true);
+  const vb=svgEl.viewBox?.baseVal;
+  const chartW=(vb&&vb.width)||svgEl.clientWidth||600;
+  const chartH=(vb&&vb.height)||svgEl.clientHeight||300;
+  clone.setAttribute('width',chartW);
+  clone.setAttribute('height',chartH);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  let svgStr=new XMLSerializer().serializeToString(clone);
+  svgStr=svgStr.replace(/currentColor/g,'#0f1923').replace(/var\(--t3\)/g,'#5e7d97').replace(/var\(--teal\)/g,'#0d9488');
+  const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+  const svgUrl=URL.createObjectURL(svgBlob);
+
+  Promise.all([loadVKSLogo(),new Promise((res,rej)=>{
+    const img=new Image();img.onload=()=>res(img);img.onerror=()=>rej(new Error('SVG load failed'));img.src=svgUrl;
+  })]).then(([logoImg,chartImg])=>{
+    URL.revokeObjectURL(svgUrl);
+    const headerH=64,footerH=36,padX=20;
+    const totalW=Math.max(chartW+padX*2,640);
+    const totalH=headerH+chartH+footerH;
+    const scale=2;
+    const canvas=document.createElement('canvas');
+    canvas.width=totalW*scale;canvas.height=totalH*scale;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(scale,scale);
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,totalW,totalH);
+    ctx.fillStyle='#0f1923';
+    if(logoImg){
+      const sz=42;
+      ctx.drawImage(logoImg,padX,(headerH-sz)/2,sz,sz);
+      ctx.font='800 18px Barlow Condensed, sans-serif';ctx.textBaseline='middle';
+      ctx.fillText(chartTitle,padX+sz+14,headerH/2);
+    } else {
+      ctx.font='800 18px Barlow Condensed, sans-serif';ctx.textBaseline='middle';
+      ctx.fillText(chartTitle,padX,headerH/2);
+    }
+    ctx.strokeStyle='#e2e8f0';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(padX,headerH-2);ctx.lineTo(totalW-padX,headerH-2);ctx.stroke();
+    ctx.drawImage(chartImg,(totalW-chartW)/2,headerH,chartW,chartH);
+    ctx.beginPath();ctx.moveTo(padX,headerH+chartH+2);ctx.lineTo(totalW-padX,headerH+chartH+2);ctx.stroke();
+    ctx.font='600 11px Barlow, sans-serif';ctx.fillStyle='#5e7d97';ctx.textBaseline='middle';
+    ctx.fillText('Created by VKS Tech · https://vkstech.com',padX,headerH+chartH+footerH/2);
+    ctx.textAlign='right';
+    ctx.fillText('Time Study v'+APP_VER+' · '+new Date().toLocaleDateString('en-GB'),totalW-padX,headerH+chartH+footerH/2);
+    canvas.toBlob(blob=>{
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=filename;
+      a.click();
+      setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+      showToast('Downloaded '+filename,'green');
+    },'image/png');
+  }).catch(err=>{
+    showToast('Download failed: '+err.message,'red',4000);
+    console.error('[TimeStudy] PNG error:',err);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MONTH SELECTOR
+// ═══════════════════════════════════════════════════════════════
+function findAllMonths(){
+  const months=new Set();
+  if(!rawZjumbo) return [];
+  rawZjumbo.forEach(r=>{
+    const mvt=String(findCol(r,['Movment Type','Movement Type','Movement type','Mvt type','Mvt Type'])||'').trim();
+    if(mvt!=='101') return;
+    const mk=getMonthKey(findCol(r,['Date of Production','Date of production','date of production']));
+    if(mk) months.add(mk);
+  });
+  return Array.from(months).sort();
+}
+function initMonths(){
+  const months=findAllMonths().reverse();  // newest first
+  if(!months.length){
+    g('month-sel').innerHTML='<option value="">— no data —</option>';
+    selMonth=null;return;
+  }
+  g('month-sel').innerHTML=months.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join('');
+  if(!selMonth||!months.includes(selMonth)) selMonth=months[0];
+  g('month-sel').value=selMonth;
+}
+
+function updateDataChip(){
+  const chip=g('data-chip');
+  if(rawZjumbo&&rawZjumbo.length){
+    chip.className='chip-live';
+    chip.innerHTML='<span class="dot-live"></span><span>ZJUMBO · '+rawZjumbo.length.toLocaleString()+' rolls</span>';
+  } else {
+    chip.className='chip-off';
+    chip.innerHTML='<span class="dot-off"></span><span>No ZJUMBO data</span>';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CLOUD LOADING INDICATOR
+// ═══════════════════════════════════════════════════════════════
+function showCloudLoading(on){
+  let el=document.getElementById('ts-cloud-load');
+  if(on){
+    if(!el){
+      el=document.createElement('div');
+      el.id='ts-cloud-load';
+      el.style.cssText='position:fixed;top:70px;right:16px;background:var(--bg3);border:1.5px solid var(--teal);border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;color:var(--teal);z-index:300;display:flex;align-items:center;gap:8px;font-family:Barlow,sans-serif;';
+      el.innerHTML='<div style="width:12px;height:12px;border:2px solid var(--teal);border-top-color:transparent;border-radius:50%;animation:tsspin .8s linear infinite"></div>Loading from cloud...';
+      document.body.appendChild(el);
+      if(!document.getElementById('ts-spin-style')){
+        const s=document.createElement('style');s.id='ts-spin-style';
+        s.textContent='@keyframes tsspin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(s);
+      }
+    }
+  } else if(el) el.remove();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA LOADING (IDB first, Firebase fallback)
+// ═══════════════════════════════════════════════════════════════
+async function loadFromSharedIDB(){
+  try{
+    const zjumbo=await idbLoad('raw_zjumbo');
+    if(zjumbo&&zjumbo.length){
+      rawZjumbo=zjumbo;
+      console.log('[TimeStudy] Loaded ZJUMBO from shared IDB:',zjumbo.length,'rows');
+      return true;
+    }
+  }catch(e){console.warn('[TimeStudy] IDB load failed:',e);}
+  return false;
+}
+async function loadFromFirebase(){
+  try{
+    console.log('[TimeStudy] Local IDB empty → fetching from Firebase...');
+    showCloudLoading(true);
+    const resp=await fetch(FB_BASE+'/metcostRawRolls.json');
+    if(!resp.ok){showCloudLoading(false);return false;}
+    const data=await resp.json();
+    if(!data||!data.zjumbo||!data.zjumbo.length){showCloudLoading(false);return false;}
+    rawZjumbo=data.zjumbo;
+    console.log('[TimeStudy] Loaded ZJUMBO from Firebase:',data.zjumbo.length,'rows');
+    showCloudLoading(false);
+    showToast('✓ Loaded '+data.zjumbo.length+' rolls from cloud','green',3500);
+    return true;
+  }catch(e){
+    console.warn('[TimeStudy] Firebase fetch failed:',e.message);
+    showCloudLoading(false);
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOTSTRAP
+// ═══════════════════════════════════════════════════════════════
+(async function boot(){
+  await loadFromSharedIDB();
+  if(!rawZjumbo||!rawZjumbo.length){
+    await loadFromFirebase();
+  }
+  updateDataChip();
+  initMonths();
+  render();
+})();
+
+// Refresh when user returns to tab (MetCost Pro may have uploaded new data)
+window.addEventListener('focus',async function(){
+  const prev=rawZjumbo?rawZjumbo.length:0;
+  await loadFromSharedIDB();
+  if(rawZjumbo&&rawZjumbo.length!==prev){
+    updateDataChip();
+    initMonths();
+    render();
+    showToast('✓ Refreshed from MetCost Pro','green');
+  }
+});
+</script>
+</body>
+</html>

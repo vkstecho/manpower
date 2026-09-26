@@ -1,0 +1,16 @@
+Man Power
+A Team Management and Training Application
+
+Short description:
+Man Power — team management, shifts, leave & training in one app.
+
+Full description:
+Man Power is a Team Management and Training Application for workforce scheduling, attendance, leave, reports and skill development.
+
+• Phone OTP login for Managers and Team Members
+• Excel team upload with Section / Machine / Responsibility
+• Shift schedule with smart filters
+• Leave & reports
+• Training / Learn modules
+
+Domain: manpower.vkstech.com

@@ -1,0 +1,2925 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SupSkill — GLS Metallisers</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg0:#060c15;--bg1:#0b1520;--bg2:#101c2b;--bg3:#152232;--bg4:#1a2b3e;
+  --ln:rgba(255,255,255,0.08);--ln2:rgba(255,255,255,0.14);--ln3:rgba(255,255,255,0.24);
+  --m1:#f97316;--m1bg:rgba(249,115,22,.18);
+  --green:#22d65e;--gd:rgba(34,214,94,.14);
+  --red:#f04438;--rd:rgba(240,68,56,.16);
+  --yellow:#fbbf24;--yd:rgba(251,191,36,.14);
+  --blue:#38bdf8;--bd:rgba(56,189,248,.14);
+  --teal:#00cdb5;--td:rgba(0,205,181,.14);
+  --gold:#f0aa00;--gld:rgba(240,170,0,.16);
+  --purple:#a78bfa;
+  --t1:#e8f2fb;--t2:#90aec8;--t3:#5e7d97;
+  --r:8px;--rl:14px;
+}
+.light{
+  --bg0:#eaecf2;--bg1:#f2f4f8;--bg2:#ffffff;--bg3:#f5f7fa;--bg4:#edf0f5;
+  --ln:rgba(0,0,0,0.08);--ln2:rgba(0,0,0,0.14);--ln3:rgba(0,0,0,0.24);
+  --t1:#0f1923;--t2:#374a5e;--t3:#64748b;
+  --green:#16a34a;--gd:rgba(22,163,74,.11);
+  --red:#dc2626;--rd:rgba(220,38,38,.11);
+  --yellow:#d97706;--yd:rgba(217,119,6,.11);
+  --blue:#0369a1;--bd:rgba(3,105,161,.10);
+  --teal:#0d7d70;--td:rgba(13,125,112,.10);
+  --gold:#b45309;--gld:rgba(180,83,9,.11);
+  --m1:#e55a00;--m1bg:rgba(229,90,0,.10);
+}
+html,body{font-family:'Barlow',sans-serif;background:var(--bg0);color:var(--t1);min-height:100vh;transition:background .3s,color .3s;}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");opacity:.4;}
+#app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;}
+/* HEADER */
+.hdr{background:var(--bg1);border-bottom:1.5px solid var(--ln2);padding:12px 20px;display:flex;align-items:center;gap:14px;position:sticky;top:0;z-index:200;}
+.hdr-ic{width:40px;height:40px;border-radius:10px;background:linear-gradient(135deg,var(--m1),#fb923c);display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:900;color:#fff;box-shadow:0 3px 12px rgba(249,115,22,.35);flex-shrink:0;}
+.hdr-brand{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;letter-spacing:.5px;line-height:1;}
+.hdr-brand em{font-style:normal;background:linear-gradient(90deg,var(--m1),#fb923c);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.hdr-sub{font-size:9px;color:var(--t3);letter-spacing:2px;margin-top:1px;}
+.hdr-r{margin-left:auto;display:flex;align-items:center;gap:10px;}
+.chip-live{display:flex;align-items:center;gap:6px;background:var(--gd);border:1px solid #22d65e30;border-radius:20px;padding:5px 11px;font-size:11px;font-weight:700;color:var(--green);}
+.dot-live{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.theme-btn{display:flex;align-items:center;gap:7px;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--t2);cursor:pointer;font-family:'Barlow',sans-serif;transition:all .2s;}
+.sw-tr{width:32px;height:18px;background:var(--bg4);border-radius:9px;position:relative;border:1.5px solid var(--ln3);flex-shrink:0;transition:all .25s;}
+.sw-th{width:11px;height:11px;border-radius:50%;background:var(--t3);position:absolute;top:2px;left:2px;transition:all .25s;}
+body:not(.light) .sw-th{transform:translateX(14px);background:#f97316;}
+/* MAIN TABS */
+.mtabs{display:flex;background:var(--bg1);border-bottom:2px solid var(--ln2);padding:0 20px;}
+.mtab{display:flex;align-items:center;gap:8px;padding:14px 28px;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--t3);background:none;border:none;cursor:pointer;position:relative;transition:color .2s;}
+.mtab::after{content:'';position:absolute;bottom:-2px;left:0;right:0;height:2px;background:transparent;transition:background .2s;}
+.mtab.act{color:var(--m1);} .mtab.act::after{background:var(--m1);} .mtab:hover:not(.act){color:var(--t2);}
+.tabpanel{display:none;flex:1;} .tabpanel.act{display:block;}
+/* SUB TABS */
+.stab-bar{display:flex;gap:8px;padding:16px 20px 0;background:var(--bg0);flex-wrap:wrap;}
+.stab{display:flex;align-items:center;gap:7px;padding:10px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t3);background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--r) var(--r) 0 0;cursor:pointer;transition:all .2s;border-bottom:none;}
+.stab.act{color:var(--m1);background:var(--bg1);border-color:var(--m1);} .stab:hover:not(.act){color:var(--t2);background:var(--bg3);}
+.sub-wrap{background:var(--bg1);border-top:2px solid var(--ln2);min-height:calc(100vh - 180px);}
+.spanel{display:none;padding:20px;} .spanel.act{display:block;}
+/* UPLOAD */
+.upzone{border:2px dashed var(--ln3);border-radius:var(--rl);padding:32px 24px;text-align:center;background:var(--bg2);transition:all .25s;cursor:pointer;position:relative;margin-bottom:18px;}
+.upzone:hover,.upzone.drag{border-color:var(--m1);background:var(--m1bg);}
+.upzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.up-ic{font-size:36px;margin-bottom:8px;} .up-t{font-family:'Barlow Condensed',sans-serif;font-size:19px;font-weight:800;color:var(--t1);margin-bottom:4px;} .up-s{font-size:11px;color:var(--t3);}
+.up-b{display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--t2);}
+/* SHEET SELECTOR */
+.sheet-sel-wrap{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:16px;margin-bottom:16px;display:none;}
+.sheet-sel-label{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1.5px;margin-bottom:10px;}
+.sheet-btns{display:flex;flex-wrap:wrap;gap:8px;}
+.sheet-btn{padding:8px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);color:var(--t2);cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+.sheet-btn.act{background:var(--m1bg);color:var(--m1);border-color:var(--m1);}
+.sheet-btn:hover:not(.act){color:var(--t1);border-color:var(--ln3);}
+.sheet-btn.day{border-left:3px solid var(--yellow);}
+.sheet-btn.night{border-left:3px solid var(--blue);}
+.sheet-btn.total{border-left:3px solid var(--green);}
+.sheet-btn.summary{border-left:3px solid var(--purple);}
+/* VIEW TOGGLE */
+.view-toggle{display:flex;gap:0;background:var(--bg3);border-radius:var(--r);padding:3px;margin-bottom:16px;width:fit-content;}
+.vt-btn{padding:7px 18px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;color:var(--t3);background:none;border:none;border-radius:6px;cursor:pointer;transition:all .2s;letter-spacing:.3px;}
+.vt-btn.act{background:var(--m1);color:#fff;}
+/* KPI GRID */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:18px;}
+.kcard{background:var(--bg2);border:1px solid var(--ln2);border-radius:var(--r);padding:12px 14px;position:relative;overflow:hidden;}
+.kcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--m1),#fb923c);}
+.kval{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:var(--t1);line-height:1;margin-bottom:3px;}
+.kval.green{color:var(--green);} .kval.red{color:var(--red);} .kval.yellow{color:var(--yellow);}
+.kval.teal{color:var(--teal);} .kval.gold{color:var(--gold);} .kval.blue{color:var(--blue);}
+.klbl{font-size:9px;color:var(--t3);text-transform:uppercase;letter-spacing:1px;}
+/* TABLE */
+.twrap{overflow-x:auto;border-radius:var(--r);border:1px solid var(--ln2);background:var(--bg2);margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;font-size:12px;}
+thead tr{background:var(--bg3);border-bottom:1.5px solid var(--ln2);}
+thead th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--ln);transition:background .15s;}
+tbody tr:last-child{border-bottom:none;} tbody tr:hover{background:var(--bg3);}
+tbody td{padding:8px 12px;color:var(--t2);white-space:nowrap;font-family:'JetBrains Mono',monospace;font-size:11px;}
+.tc{font-family:'Barlow',sans-serif;color:var(--t1);font-size:12px;}
+.tg{color:var(--green);} .tr{color:var(--red);} .ty{color:var(--yellow);}
+/* SECTION HEAD */
+.sech{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.slbl{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:2px;}
+/* BUTTONS */
+.btn-g{background:var(--bg3);border:1.5px solid var(--ln3);border-radius:var(--r);padding:9px 16px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--t2);cursor:pointer;transition:all .2s;}
+.btn-g:hover{color:var(--t1);border-color:var(--t2);}
+.btn-t{background:linear-gradient(135deg,#00cdb5,#007a70);border:2px solid rgba(255,255,255,.12);border-radius:var(--r);padding:9px 18px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:#fff;transition:all .2s;}
+.btn-t:hover{filter:brightness(1.1);}
+.brow{display:flex;gap:8px;flex-wrap:wrap;}
+/* NAME CARDS */
+.person-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:20px;}
+.person-card{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);overflow:hidden;transition:border-color .2s;}
+.person-card:hover{border-color:var(--ln3);}
+.pc-head{padding:12px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--ln);}
+.pc-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:900;color:#fff;flex-shrink:0;}
+.pc-av.sup{background:linear-gradient(135deg,var(--m1),#fb923c);}
+.pc-av.op{background:linear-gradient(135deg,var(--teal),var(--blue));}
+.pc-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;color:var(--t1);line-height:1.1;}
+.pc-role{font-size:10px;color:var(--t3);letter-spacing:1px;margin-top:2px;}
+.pc-variants{font-size:10px;color:var(--yellow);margin-top:3px;font-style:italic;}
+.pc-body{padding:12px 14px;}
+.pc-stat{display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--ln);font-size:11px;}
+.pc-stat:last-child{border-bottom:none;}
+.pc-stat-lbl{color:var(--t3);}
+.pc-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--t1);}
+.pc-stat-val.g{color:var(--green);} .pc-stat-val.r{color:var(--red);} .pc-stat-val.y{color:var(--yellow);}
+/* NAME CORRECTION PANEL */
+.corrections-box{background:var(--yd);border:1.5px solid rgba(251,191,36,.3);border-radius:var(--r);padding:14px;margin-bottom:16px;}
+.cb-title{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--yellow);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+.correction-item{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:11px;border-bottom:1px solid rgba(251,191,36,.15);}
+.correction-item:last-child{border-bottom:none;}
+.ci-wrong{color:var(--red);font-family:'JetBrains Mono',monospace;text-decoration:line-through;}
+.ci-arr{color:var(--t3);}
+.ci-right{color:var(--green);font-family:'JetBrains Mono',monospace;font-weight:700;}
+.ci-count{color:var(--t3);margin-left:auto;font-size:10px;}
+/* DOWNTIME BAR */
+.dt-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.dt-bar-lbl{font-size:11px;color:var(--t2);width:120px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dt-bar-track{flex:1;height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.dt-bar-fill{height:100%;border-radius:4px;transition:width .5s;}
+.dt-bar-val{font-size:10px;color:var(--t3);width:55px;text-align:right;flex-shrink:0;font-family:'JetBrains Mono',monospace;}
+/* DOWNLOAD BUTTON for charts */
+.dl-btn{background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:4px 10px;font-size:10px;font-weight:700;color:var(--t2);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase;transition:all .15s;display:inline-flex;align-items:center;gap:4px;}
+.dl-btn:hover{background:var(--m1bg);color:var(--m1);border-color:var(--m1);}
+.chart-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;}
+/* INFO NOTE */
+.info-note{background:var(--td);border:1px solid rgba(0,205,181,.2);border-radius:var(--r);padding:9px 14px;font-size:12px;color:var(--teal);margin-bottom:14px;font-weight:600;}
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--bg1);border:1px solid var(--ln3);border-radius:10px;padding:11px 22px;font-size:13px;font-weight:600;color:var(--t1);z-index:9999;opacity:0;transition:all .3s;white-space:nowrap;box-shadow:0 8px 28px rgba(0,0,0,.4);}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.green{border-color:#22d65e40;color:var(--green);} .toast.red{border-color:#f0443840;color:var(--red);} .toast.teal{border-color:#00cdb540;color:var(--teal);}
+/* FORMULA ACCORDION */
+.ftab-wrap{padding:20px;}
+.fgrp-head{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:var(--t3);padding-bottom:8px;border-bottom:1px solid var(--ln2);margin-bottom:10px;margin-top:22px;}
+.fgrp-head:first-child{margin-top:0;}
+.acc{background:var(--bg2);border:1.5px solid var(--ln2);border-radius:12px;margin-bottom:7px;overflow:hidden;transition:border-color .2s;}
+.acc.open{border-color:var(--m1);} .acc:not(.open):hover{border-color:var(--ln3);}
+.acc-hdr{display:flex;align-items:center;gap:12px;padding:13px 16px;cursor:pointer;user-select:none;}
+.acc-bar{width:4px;border-radius:3px;flex-shrink:0;align-self:stretch;min-height:36px;opacity:.4;transition:opacity .2s;}
+.acc.open .acc-bar{opacity:1;}
+.bar-o{background:linear-gradient(180deg,var(--m1),#fb923c);} .bar-t{background:linear-gradient(180deg,var(--teal),var(--blue));}
+.bar-g{background:linear-gradient(180deg,var(--gold),var(--yellow));} .bar-gr{background:linear-gradient(180deg,var(--green),var(--teal));}
+.bar-p{background:linear-gradient(180deg,var(--purple),var(--blue));}
+.acc-ic{font-size:19px;flex-shrink:0;width:26px;text-align:center;}
+.acc-text{flex:1;}
+.acc-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--t1);letter-spacing:.3px;line-height:1.2;}
+.acc.open .acc-name{color:var(--m1);}
+.acc-hint{font-size:10px;color:var(--t3);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+.acc-arr{font-size:12px;color:var(--t3);transition:transform .25s,color .2s;flex-shrink:0;}
+.acc.open .acc-arr{transform:rotate(180deg);color:var(--m1);}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .38s cubic-bezier(.4,0,.2,1);}
+.acc.open .acc-body{max-height:750px;}
+.acc-inner{padding:0 16px 18px;}
+.feq{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--teal);background:var(--bg3);border-left:3px solid var(--teal);border-radius:5px;padding:8px 12px;margin-bottom:14px;line-height:1.75;}
+.fnote{font-family:'Barlow',sans-serif;font-size:10px;color:var(--t3);display:block;margin-top:5px;}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.fg.c1{grid-template-columns:1fr;}
+.ff{display:flex;flex-direction:column;gap:5px;}
+.flbl{font-size:10px;font-weight:700;color:var(--t3);letter-spacing:.6px;}
+.finp,.fsel{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:9px 11px;font-size:14px;color:var(--t1);outline:none;transition:border-color .15s;width:100%;}
+.finp{font-family:'JetBrains Mono',monospace;} .finp:focus,.fsel:focus{border-color:var(--gold);}
+.fsel{font-family:'Barlow',sans-serif;font-size:13px;cursor:pointer;} .fsel option{background:var(--bg2);}
+.light .finp,.light .fsel{background:#f5f7fa;border-color:rgba(0,0,0,.18);color:#0f1923;}
+.light .finp:focus,.light .fsel:focus{border-color:var(--m1);}
+.fres{background:var(--bg3);border:1.5px solid var(--ln2);border-radius:var(--r);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;min-height:52px;}
+.fres-val{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:900;color:var(--gold);line-height:1;transition:color .2s;}
+.fres-sub{font-size:10px;color:var(--t3);margin-top:3px;}
+.fres-unit{font-size:14px;font-weight:700;color:var(--t3);}
+/* ADVANCED SECTION */
+.fadv-banner{margin-top:32px;margin-bottom:0;border-radius:14px 14px 0 0;overflow:hidden;border:2px solid rgba(167,139,250,.35);border-bottom:none;background:linear-gradient(135deg,rgba(167,139,250,.10) 0%,rgba(56,189,248,.07) 100%);position:relative;}
+.fadv-banner::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--blue),var(--teal));}
+.fadv-banner-inner{padding:18px 20px 16px;}
+.fadv-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.40);border-radius:20px;padding:3px 12px;margin-bottom:8px;font-size:9px;font-weight:700;color:var(--purple);letter-spacing:1.5px;text-transform:uppercase;}
+.fadv-title{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--t1);letter-spacing:.5px;line-height:1.1;}
+.fadv-title em{font-style:normal;color:var(--purple);}
+.fadv-desc{font-size:11px;color:var(--t3);margin-top:5px;line-height:1.6;}
+.fadv-wrap{border:2px solid rgba(167,139,250,.35);border-top:none;border-radius:0 0 14px 14px;padding:14px 14px 18px;background:rgba(167,139,250,.03);margin-bottom:20px;}
+.fadv-cat{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--purple);padding:12px 2px 7px;margin-top:4px;border-bottom:1px solid rgba(167,139,250,.25);margin-bottom:9px;display:flex;align-items:center;gap:6px;}
+.fadv-cat:first-child{padding-top:4px;}
+@media(max-width:600px){
+  .mtab{padding:12px 14px;font-size:13px;} .stab{padding:8px 12px;font-size:12px;}
+  .kpi-grid{grid-template-columns:repeat(2,1fr);} .fg{grid-template-columns:1fr;} .person-grid{grid-template-columns:1fr;}
+}
+.light table thead{background:#f0f3f8;} .light table tbody td{color:var(--t2);}
+</style>
+</head>
+<body class="light">
+<div id="app">
+
+<!-- HEADER -->
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div class="hdr-ic">SS</div>
+    <div><div class="hdr-brand">Sup<em>Skill</em></div><div class="hdr-sub">BY VKS TECH</div></div>
+  </div>
+  <div class="hdr-r">
+    <div class="chip-live"><div class="dot-live"></div><span>GLS LIVE</span></div>
+    <button class="theme-btn" onclick="toggleTheme()">
+      <div class="sw-tr"><div class="sw-th"></div></div>
+      <span id="tlbl">🌙 Dark</span>
+    </button>
+  </div>
+</header>
+
+<!-- MAIN TABS — FORMULAS FIRST -->
+<div class="mtabs">
+  <button class="mtab act" id="tb-formulas" onclick="switchTab('formulas')">🧮 Formulas</button>
+  <button class="mtab" id="tb-daily" onclick="switchTab('daily')">📊 Daily Report</button>
+</div>
+
+<!-- ══════════ FORMULAS TAB ══════════ -->
+<div id="tab-formulas" class="tabpanel act">
+<div class="ftab-wrap">
+  <div class="fgrp-head">🎞️ Film Roll Calculators — Packaging Industry</div>
+  <!-- 1 Weight -->
+  <div class="acc" id="a1"><div class="acc-hdr" onclick="tog('a1')"><div class="acc-bar bar-o"></div><div class="acc-ic">⚖️</div><div class="acc-text"><div class="acc-name">Weight of Film Roll</div><div class="acc-hint">W = L × Width/1000 × Micron(μm)/10⁶ × Density</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">W (kg) = L(m) × Width(mm) ÷ 1000 × Micron(μm) ÷ 10⁶ × Density(kg/m³)<span class="fnote">PET = 1380 · BOPP = 910 · CPP = 900 kg/m³</span></div>
+  <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="w-type" onchange="cW()"><option value="1380">PET — 1380 kg/m³</option><option value="910">BOPP — 910 kg/m³</option><option value="900">CPP — 900 kg/m³</option></select></div></div>
+  <div class="fg"><div class="ff"><div class="flbl">Length (m)</div><input class="finp" type="number" id="w-len" placeholder="e.g. 10000" oninput="cW()"></div><div class="ff"><div class="flbl">Width (mm)</div><input class="finp" type="number" id="w-wid" placeholder="e.g. 1500" oninput="cW()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="w-mic" placeholder="e.g. 12" oninput="cW()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="w-r">—</div><div class="fres-sub" id="w-r2"></div></div><div class="fres-unit">kg</div></div></div></div></div>
+  <!-- 2 OD -->
+  <div class="acc" id="a2"><div class="acc-hdr" onclick="tog('a2')"><div class="acc-bar bar-t"></div><div class="acc-ic">📏</div><div class="acc-text"><div class="acc-name">Outer Diameter of Roll</div><div class="acc-hint">OD(mm) = √(CoreOD² + 4 × L(m) × Micron(μm) ÷ π)</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">CoreOD(mm) = Core ID + 2 × Wall Thickness<br>OD(mm) = √( CoreOD² + 4 × L(m) × Micron(μm) ÷ π )<span class="fnote">⚠ Micron input = μm · OD result = mm</span></div>
+  <div class="fg"><div class="ff"><div class="flbl">Core ID (mm)</div><input class="finp" type="number" id="od-cid" placeholder="e.g. 76.2" oninput="cOD()"></div><div class="ff"><div class="flbl">Core Wall (mm)</div><input class="finp" type="number" id="od-wall" placeholder="e.g. 3" oninput="cOD()"></div><div class="ff"><div class="flbl">Film Length (m)</div><input class="finp" type="number" id="od-len" placeholder="e.g. 10000" oninput="cOD()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="od-mic" placeholder="e.g. 12" oninput="cOD()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="od-r">—</div><div class="fres-sub" id="od-r2"></div></div><div class="fres-unit">mm</div></div></div></div></div>
+  <!-- 3 Len from Wt -->
+  <div class="acc" id="a3"><div class="acc-hdr" onclick="tog('a3')"><div class="acc-bar bar-g"></div><div class="acc-ic">📐</div><div class="acc-text"><div class="acc-name">Length from Weight</div><div class="acc-hint">L = Weight × 10⁹ ÷ (Width × Micron(μm) × Density)</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">L (m) = Weight(kg) × 10⁹ ÷ ( Width(mm) × Micron(μm) × Density )<span class="fnote">Micron in μm · Result in metres</span></div>
+  <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="lw-type" onchange="cLW()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+  <div class="fg"><div class="ff"><div class="flbl">Weight (kg)</div><input class="finp" type="number" id="lw-wt" placeholder="e.g. 185" oninput="cLW()"></div><div class="ff"><div class="flbl">Width (mm)</div><input class="finp" type="number" id="lw-wid" placeholder="e.g. 1500" oninput="cLW()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="lw-mic" placeholder="e.g. 12" oninput="cLW()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="lw-r">—</div><div class="fres-sub" id="lw-r2"></div></div><div class="fres-unit">metres</div></div></div></div></div>
+  <!-- 4 Len from OD -->
+  <div class="acc" id="a4"><div class="acc-hdr" onclick="tog('a4')"><div class="acc-bar bar-gr"></div><div class="acc-ic">🔄</div><div class="acc-text"><div class="acc-name">Length from Outer Diameter</div><div class="acc-hint">L = π × (OD² − CoreOD²) ÷ (4 × Micron(μm))</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">L (m) = π × ( OD(mm)² − CoreOD(mm)² ) ÷ ( 4 × Micron(μm) )<span class="fnote">OD & CoreOD in mm · Micron in μm · Result in metres</span></div>
+  <div class="fg"><div class="ff"><div class="flbl">OD (mm)</div><input class="finp" type="number" id="lo-od" placeholder="e.g. 400" oninput="cLO()"></div><div class="ff"><div class="flbl">Core ID (mm)</div><input class="finp" type="number" id="lo-cid" placeholder="e.g. 76.2" oninput="cLO()"></div><div class="ff"><div class="flbl">Core Wall (mm)</div><input class="finp" type="number" id="lo-wall" placeholder="e.g. 3" oninput="cLO()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="lo-mic" placeholder="e.g. 12" oninput="cLO()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="lo-r">—</div><div class="fres-sub" id="lo-r2"></div></div><div class="fres-unit">metres</div></div></div></div></div>
+  <!-- 5 Micron -->
+  <div class="acc" id="a5"><div class="acc-hdr" onclick="tog('a5')"><div class="acc-bar bar-p"></div><div class="acc-ic">🔬</div><div class="acc-text"><div class="acc-name">Micron of Film Roll</div><div class="acc-hint">μm = Weight × 10⁹ ÷ (Length × Width × Density)</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Micron (μm) = Weight(kg) × 10⁹ ÷ ( L(m) × Width(mm) × Density )<span class="fnote">Result in μm</span></div>
+  <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="mic-type" onchange="cMic()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+  <div class="fg"><div class="ff"><div class="flbl">Length (m)</div><input class="finp" type="number" id="mic-len" placeholder="e.g. 10000" oninput="cMic()"></div><div class="ff"><div class="flbl">Weight (kg)</div><input class="finp" type="number" id="mic-wt" placeholder="e.g. 185" oninput="cMic()"></div><div class="ff"><div class="flbl">Width (mm)</div><input class="finp" type="number" id="mic-wid" placeholder="e.g. 1500" oninput="cMic()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="mic-r">—</div><div class="fres-sub"></div></div><div class="fres-unit">μm</div></div></div></div></div>
+
+  <div class="fgrp-head">⚙️ Production &amp; Efficiency Metrics</div>
+  <!-- 6 Efficiency -->
+  <div class="acc" id="a6"><div class="acc-hdr" onclick="tog('a6')"><div class="acc-bar bar-o"></div><div class="acc-ic">📈</div><div class="acc-text"><div class="acc-name">Machine Efficiency %</div><div class="acc-hint">Efficiency = (Actual ÷ Target) × 100</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Efficiency (%) = (Actual Output ÷ Target Output) × 100</div>
+  <div class="fg"><div class="ff"><div class="flbl">Actual Output</div><input class="finp" type="number" id="eff-act" placeholder="e.g. 16500" oninput="cEff()"></div><div class="ff"><div class="flbl">Target Output</div><input class="finp" type="number" id="eff-tgt" placeholder="e.g. 17962" oninput="cEff()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="eff-r">—</div><div class="fres-sub" id="eff-r2"></div></div><div class="fres-unit">%</div></div></div></div></div>
+  <!-- 7 Downtime -->
+  <div class="acc" id="a7"><div class="acc-hdr" onclick="tog('a7')"><div class="acc-bar bar-t"></div><div class="acc-ic">⏱️</div><div class="acc-text"><div class="acc-name">Downtime %</div><div class="acc-hint">DT% = (Downtime mins ÷ Shift mins) × 100</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">DT% = (Downtime mins ÷ Shift mins) × 100<span class="fnote">12-hour shift = 720 min</span></div>
+  <div class="fg"><div class="ff"><div class="flbl">Downtime (min)</div><input class="finp" type="number" id="dt-mins" placeholder="e.g. 95" oninput="cDT()"></div><div class="ff"><div class="flbl">Shift Duration (min)</div><input class="finp" type="number" id="dt-shift" value="720" oninput="cDT()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="dt-r">—</div><div class="fres-sub" id="dt-r2"></div></div><div class="fres-unit">%</div></div></div></div></div>
+  <!-- 8 Boat -->
+  <div class="acc" id="a8"><div class="acc-hdr" onclick="tog('a8')"><div class="acc-bar bar-g"></div><div class="acc-ic">⛵</div><div class="acc-text"><div class="acc-name">Boat Consumption Rate</div><div class="acc-hint">Rate = Total Boats Used ÷ Total Rolls Produced</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Rate = Total Boats Used ÷ Rolls · Cost = Boats × Cost per Boat (₹)</div>
+  <div class="fg"><div class="ff"><div class="flbl">Boats Used</div><input class="finp" type="number" id="bc-boats" placeholder="e.g. 24" oninput="cBoat()"></div><div class="ff"><div class="flbl">Rolls Produced</div><input class="finp" type="number" id="bc-rolls" placeholder="e.g. 18" oninput="cBoat()"></div><div class="ff"><div class="flbl">Cost per Boat (₹)</div><input class="finp" type="number" id="bc-cost" placeholder="e.g. 350" oninput="cBoat()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="bc-r">—</div><div class="fres-sub" id="bc-r2"></div></div><div class="fres-unit">boats/roll</div></div></div></div></div>
+  <!-- 9 OD -->
+  <div class="acc" id="a9"><div class="acc-hdr" onclick="tog('a9')"><div class="acc-bar bar-gr"></div><div class="acc-ic">🔭</div><div class="acc-text"><div class="acc-name">Optical Density (OD)</div><div class="acc-hint">OD = log₁₀(I₀ ÷ I)</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">OD = log₁₀( I₀ ÷ I )<span class="fnote">I₀ = incident light · I = transmitted light</span></div>
+  <div class="fg"><div class="ff"><div class="flbl">Incident Light (I₀)</div><input class="finp" type="number" id="od2-i0" placeholder="e.g. 100" oninput="cOD2()"></div><div class="ff"><div class="flbl">Transmitted Light (I)</div><input class="finp" type="number" id="od2-i" placeholder="e.g. 3.5" oninput="cOD2()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="od2-r">—</div><div class="fres-sub" id="od2-r2"></div></div><div class="fres-unit">OD</div></div></div></div></div>
+  <!-- 10-14 condensed -->
+  <div class="acc" id="a10"><div class="acc-hdr" onclick="tog('a10')"><div class="acc-bar bar-p"></div><div class="acc-ic">💥</div><div class="acc-text"><div class="acc-name">Web Break Rate</div><div class="acc-hint">Rate = No. of Breaks ÷ Running Hours</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Rate = Breaks ÷ Running Hours [breaks/hr] · Time Lost = Breaks × Recovery(min)</div>
+  <div class="fg"><div class="ff"><div class="flbl">No. of Breaks</div><input class="finp" type="number" id="wb-breaks" placeholder="e.g. 3" oninput="cWB()"></div><div class="ff"><div class="flbl">Running Hours</div><input class="finp" type="number" id="wb-hrs" placeholder="e.g. 10.5" oninput="cWB()"></div><div class="ff"><div class="flbl">Avg. Recovery (min)</div><input class="finp" type="number" id="wb-rec" placeholder="e.g. 15" oninput="cWB()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="wb-r">—</div><div class="fres-sub" id="wb-r2"></div></div><div class="fres-unit">breaks/hr</div></div></div></div></div>
+  <div class="acc" id="a11"><div class="acc-hdr" onclick="tog('a11')"><div class="acc-bar bar-o"></div><div class="acc-ic">🧵</div><div class="acc-text"><div class="acc-name">Wire Consumption per Roll</div><div class="acc-hint">Wire/Roll = Total Wire (g) ÷ Total Rolls</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Wire per Roll = Total Wire(kg)×1000 ÷ Rolls [g/roll]</div>
+  <div class="fg"><div class="ff"><div class="flbl">Total Wire (kg)</div><input class="finp" type="number" id="wc-wire" placeholder="e.g. 1.8" oninput="cWire()"></div><div class="ff"><div class="flbl">Total Rolls</div><input class="finp" type="number" id="wc-rolls" placeholder="e.g. 12" oninput="cWire()"></div><div class="ff"><div class="flbl">Roll Width (m)</div><input class="finp" type="number" id="wc-wid" placeholder="e.g. 1.5" oninput="cWire()"></div><div class="ff"><div class="flbl">Roll Length (m)</div><input class="finp" type="number" id="wc-len" placeholder="e.g. 10000" oninput="cWire()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="wc-r">—</div><div class="fres-sub" id="wc-r2"></div></div><div class="fres-unit">g/roll</div></div></div></div></div>
+  <div class="acc" id="a12"><div class="acc-hdr" onclick="tog('a12')"><div class="acc-bar bar-t"></div><div class="acc-ic">🌾</div><div class="acc-text"><div class="acc-name">Film Yield &amp; Waste %</div><div class="acc-hint">Yield% = (Output ÷ Input) × 100</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Yield% = (Output ÷ Input) × 100 · Waste% = 100 − Yield%</div>
+  <div class="fg"><div class="ff"><div class="flbl">Input Weight (kg)</div><input class="finp" type="number" id="fy-in" placeholder="e.g. 500" oninput="cYield()"></div><div class="ff"><div class="flbl">Output Weight (kg)</div><input class="finp" type="number" id="fy-out" placeholder="e.g. 472" oninput="cYield()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="fy-r">—</div><div class="fres-sub" id="fy-r2"></div></div><div class="fres-unit">%</div></div></div></div></div>
+  <div class="acc" id="a13"><div class="acc-hdr" onclick="tog('a13')"><div class="acc-bar bar-g"></div><div class="acc-ic">⚗️</div><div class="acc-text"><div class="acc-name">GSM ↔ Micron Conversion</div><div class="acc-hint">GSM = Micron(μm) × Density(g/cm³)</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">GSM = Micron(μm) × Density · Micron = GSM ÷ Density<span class="fnote">PET=1.38 · BOPP=0.91 · CPP=0.90 g/cm³</span></div>
+  <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="gm-type" onchange="cGSM()"><option value="1.38">PET</option><option value="0.91">BOPP</option><option value="0.90">CPP</option></select></div></div>
+  <div class="fg"><div class="ff"><div class="flbl">Micron (μm) → GSM</div><input class="finp" type="number" id="gm-mic" placeholder="e.g. 12" oninput="cGSM()"></div><div class="ff"><div class="flbl">GSM → Micron (μm)</div><input class="finp" type="number" id="gm-gsm" placeholder="e.g. 16.56" oninput="cGSMr()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="gm-r">—</div><div class="fres-sub" id="gm-r2"></div></div><div class="fres-unit" id="gm-u">GSM</div></div></div></div></div>
+  <div class="acc" id="a14"><div class="acc-hdr" onclick="tog('a14')"><div class="acc-bar bar-gr"></div><div class="acc-ic">🏭</div><div class="acc-text"><div class="acc-name">Machine Utilisation %</div><div class="acc-hint">Utilisation = Running Time ÷ Shift × 100</div></div><div class="acc-arr">▼</div></div>
+  <div class="acc-body"><div class="acc-inner"><div class="feq">Utilisation% = Running Time ÷ Shift × 100 · Running = Shift − Setup − Downtime</div>
+  <div class="fg"><div class="ff"><div class="flbl">Shift (min)</div><input class="finp" type="number" id="mu-shift" value="720" oninput="cUtil()"></div><div class="ff"><div class="flbl">Setup (min)</div><input class="finp" type="number" id="mu-setup" placeholder="e.g. 45" oninput="cUtil()"></div><div class="ff"><div class="flbl">Downtime (min)</div><input class="finp" type="number" id="mu-dt" placeholder="e.g. 65" oninput="cUtil()"></div></div>
+  <div class="fres"><div><div class="fres-val" id="mu-r">—</div><div class="fres-sub" id="mu-r2"></div></div><div class="fres-unit">%</div></div></div></div></div>
+
+  <!-- ADVANCED SECTION -->
+  <div class="fadv-banner"><div class="fadv-banner-inner"><div class="fadv-tag">⚗️ Advanced</div><div class="fadv-title">Advanced <em>Formulas</em></div><div class="fadv-desc">Specialised calculations for costing, slitter planning, line efficiency, quality control and material management.</div></div></div>
+  <div class="fadv-wrap">
+    <div class="fadv-cat">💰 Costing &amp; Pricing</div>
+    <div class="acc" id="a15"><div class="acc-hdr" onclick="tog('a15')"><div class="acc-bar bar-g"></div><div class="acc-ic">💰</div><div class="acc-text"><div class="acc-name">Film Cost per Square Metre</div><div class="acc-hint">Cost/m² = Rate(₹/kg) × Density × Micron(μm) ÷ 10⁶</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Cost per m² (₹) = Rate(₹/kg) × Density(kg/m³) × Micron(μm) ÷ 10⁶</div>
+    <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="fc-type" onchange="cFC()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+    <div class="fg"><div class="ff"><div class="flbl">Rate (₹ per kg)</div><input class="finp" type="number" id="fc-rate" placeholder="e.g. 210" oninput="cFC()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="fc-mic" placeholder="e.g. 12" oninput="cFC()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="fc-r">—</div><div class="fres-sub" id="fc-r2"></div></div><div class="fres-unit">₹/m²</div></div></div></div></div>
+    <div class="acc" id="a18"><div class="acc-hdr" onclick="tog('a18')"><div class="acc-bar bar-gr"></div><div class="acc-ic">📏</div><div class="acc-text"><div class="acc-name">Linear Weight (kg per metre)</div><div class="acc-hint">kg/m = Width(mm)/1000 × Micron(μm)/10⁶ × Density</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Linear Weight (kg/m) = Width(mm) ÷ 1000 × Micron(μm) ÷ 10⁶ × Density</div>
+    <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="lw2-type" onchange="cLW2()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+    <div class="fg"><div class="ff"><div class="flbl">Width (mm)</div><input class="finp" type="number" id="lw2-wid" placeholder="e.g. 1500" oninput="cLW2()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="lw2-mic" placeholder="e.g. 12" oninput="cLW2()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="lw2-r">—</div><div class="fres-sub" id="lw2-r2"></div></div><div class="fres-unit">kg/m</div></div></div></div></div>
+    <div class="fadv-cat">✂️ Slitter Planning</div>
+    <div class="acc" id="a16"><div class="acc-hdr" onclick="tog('a16')"><div class="acc-bar bar-o"></div><div class="acc-ic">✂️</div><div class="acc-text"><div class="acc-name">Slit Rolls from Master Roll</div><div class="acc-hint">Rolls = ⌊Master Width ÷ Slit Width⌋ · Trim Waste%</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Rolls = ⌊Master Width ÷ Slit Width⌋ · Trim Waste% = (Master − Rolls×Slit) ÷ Master × 100</div>
+    <div class="fg"><div class="ff"><div class="flbl">Master Width (mm)</div><input class="finp" type="number" id="sr-mw" placeholder="e.g. 3300" oninput="cSR()"></div><div class="ff"><div class="flbl">Slit Width (mm)</div><input class="finp" type="number" id="sr-sw" placeholder="e.g. 500" oninput="cSR()"></div><div class="ff"><div class="flbl">Edge Trim each side (mm)</div><input class="finp" type="number" id="sr-trim" placeholder="e.g. 20" oninput="cSR()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="sr-r">—</div><div class="fres-sub" id="sr-r2"></div></div><div class="fres-unit">rolls</div></div></div></div></div>
+    <div class="fadv-cat">🚀 Line Efficiency</div>
+    <div class="acc" id="a17"><div class="acc-hdr" onclick="tog('a17')"><div class="acc-bar bar-t"></div><div class="acc-ic">🚀</div><div class="acc-text"><div class="acc-name">Production Rate (m²/hr &amp; kg/hr)</div><div class="acc-hint">Rate = Speed(m/min) × 60 × Width(m)</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Rate(m²/hr) = Speed(m/min)×60×Width(m) · Rate(kg/hr) = m²/hr × μm÷10⁶ × Density</div>
+    <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="pr-type" onchange="cPR()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+    <div class="fg"><div class="ff"><div class="flbl">Speed (m/min)</div><input class="finp" type="number" id="pr-spd" placeholder="e.g. 400" oninput="cPR()"></div><div class="ff"><div class="flbl">Web Width (mm)</div><input class="finp" type="number" id="pr-wid" placeholder="e.g. 3300" oninput="cPR()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="pr-mic" placeholder="e.g. 12" oninput="cPR()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="pr-r">—</div><div class="fres-sub" id="pr-r2"></div></div><div class="fres-unit">m²/hr</div></div></div></div></div>
+    <div class="fadv-cat">⏳ Downtime &amp; Losses</div>
+    <div class="acc" id="a22"><div class="acc-hdr" onclick="tog('a22')"><div class="acc-bar bar-t"></div><div class="acc-ic">⏳</div><div class="acc-text"><div class="acc-name">RCO Productivity Loss</div><div class="acc-hint">Loss(m) = RCO Time(min) × Speed(m/min)</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Loss(m) = RCO Time × Speed · Loss(kg) = Loss(m) × Width(m) × μm÷10⁶ × Density</div>
+    <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="rco-type" onchange="cRCO()"><option value="1380">PET</option><option value="910">BOPP</option><option value="900">CPP</option></select></div></div>
+    <div class="fg"><div class="ff"><div class="flbl">RCO Time (min)</div><input class="finp" type="number" id="rco-time" placeholder="e.g. 8" oninput="cRCO()"></div><div class="ff"><div class="flbl">Speed (m/min)</div><input class="finp" type="number" id="rco-spd" placeholder="e.g. 400" oninput="cRCO()"></div><div class="ff"><div class="flbl">Width (mm)</div><input class="finp" type="number" id="rco-wid" placeholder="e.g. 3300" oninput="cRCO()"></div><div class="ff"><div class="flbl">Micron (μm)</div><input class="finp" type="number" id="rco-mic" placeholder="e.g. 12" oninput="cRCO()"></div><div class="ff"><div class="flbl">Rate (₹/kg) optional</div><input class="finp" type="number" id="rco-rate" placeholder="e.g. 210" oninput="cRCO()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="rco-r">—</div><div class="fres-sub" id="rco-r2"></div></div><div class="fres-unit">metres</div></div></div></div></div>
+    <div class="fadv-cat">🔬 Quality Control</div>
+    <div class="acc" id="a19"><div class="acc-hdr" onclick="tog('a19')"><div class="acc-bar bar-p"></div><div class="acc-ic">🔬</div><div class="acc-text"><div class="acc-name">Aluminium Deposition Thickness</div><div class="acc-hint">Al thickness(nm) ≈ OD × Deposition Factor</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Al Thickness(nm) = OD × Factor<span class="fnote">BOPP≈7.5 · PET≈8.0 · CPP≈7.0 nm/OD · Target: 20–35nm</span></div>
+    <div class="fg c1"><div class="ff"><div class="flbl">Film Type</div><select class="fsel" id="al-type" onchange="cAl()"><option value="7.5">BOPP — 7.5 nm/OD</option><option value="8.0">PET — 8.0 nm/OD</option><option value="7.0">CPP — 7.0 nm/OD</option></select></div></div>
+    <div class="fg"><div class="ff"><div class="flbl">OD Value</div><input class="finp" type="number" id="al-od" placeholder="e.g. 2.5" step="0.01" oninput="cAl()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="al-r">—</div><div class="fres-sub" id="al-r2"></div></div><div class="fres-unit">nm</div></div></div></div></div>
+    <div class="acc" id="a21"><div class="acc-hdr" onclick="tog('a21')"><div class="acc-bar bar-o"></div><div class="acc-ic">📐</div><div class="acc-text"><div class="acc-name">Film Elongation %</div><div class="acc-hint">Elongation% = (Final − Original) ÷ Original × 100</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Elongation(%) = (Final − Original) ÷ Original × 100</div>
+    <div class="fg"><div class="ff"><div class="flbl">Original Length</div><input class="finp" type="number" id="el-orig" placeholder="e.g. 100" oninput="cEl()"></div><div class="ff"><div class="flbl">Final Length</div><input class="finp" type="number" id="el-final" placeholder="e.g. 115" oninput="cEl()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="el-r">—</div><div class="fres-sub" id="el-r2"></div></div><div class="fres-unit">%</div></div></div></div></div>
+    <div class="fadv-cat">🧱 Material &amp; Inventory</div>
+    <div class="acc" id="a20"><div class="acc-hdr" onclick="tog('a20')"><div class="acc-bar bar-g"></div><div class="acc-ic">🧱</div><div class="acc-text"><div class="acc-name">Core (Bobbin) Weight</div><div class="acc-hint">Weight = π/4 × (OD²−ID²) × Length × Density ÷ 10⁹</div></div><div class="acc-arr">▼</div></div>
+    <div class="acc-body"><div class="acc-inner"><div class="feq">Core Weight(kg) = π÷4 × (OD²−ID²) × Length(mm) × Paper Density ÷ 10⁹<span class="fnote">Paper core density ≈ 1000–1200 kg/m³</span></div>
+    <div class="fg"><div class="ff"><div class="flbl">Core OD (mm)</div><input class="finp" type="number" id="cw-od" placeholder="e.g. 82.2" oninput="cCW()"></div><div class="ff"><div class="flbl">Core ID (mm)</div><input class="finp" type="number" id="cw-id" placeholder="e.g. 76.2" oninput="cCW()"></div><div class="ff"><div class="flbl">Core Length (mm)</div><input class="finp" type="number" id="cw-len" placeholder="e.g. 3300" oninput="cCW()"></div><div class="ff"><div class="flbl">Density (kg/m³)</div><input class="finp" type="number" id="cw-den" value="1100" oninput="cCW()"></div></div>
+    <div class="fres"><div><div class="fres-val" id="cw-r">—</div><div class="fres-sub" id="cw-r2"></div></div><div class="fres-unit">kg</div></div></div></div></div>
+  </div><!-- /fadv-wrap -->
+</div><!-- /ftab-wrap -->
+</div><!-- /tab-formulas -->
+
+<!-- ══════════ DAILY REPORT TAB ══════════ -->
+<div id="tab-daily" class="tabpanel">
+  <div class="stab-bar">
+    <button class="stab act" id="sb-analysis" onclick="switchSub('analysis')">📊 Analysis</button>
+    <button class="stab" id="sb-people" onclick="switchSub('people')">👤 Individual Performance</button>
+    <button class="stab" id="sb-history" onclick="switchSub('history')">📁 History</button>
+  </div>
+  <div class="sub-wrap">
+
+    <!-- ANALYSIS -->
+    <div class="spanel act" id="sp-analysis">
+      <div class="info-note">📌 Upload the GLS Metalliser or Slitter Excel file — the app recognises all sheets (Day/Night/Total) and column structure automatically.</div>
+      <div class="upzone" id="upz-main" ondragover="hDrag(event)" ondragleave="hLeave()" ondrop="hDrop(event)">
+        <input type="file" accept=".xlsx,.xls" id="fi-main" onchange="hFile(event)">
+        <div class="up-ic">📂</div>
+        <div class="up-t" id="up-title">Upload Metalliser or Slitter Report</div>
+        <div class="up-s">Drag & drop or click · Mar 2026 format supported</div>
+        <div class="up-b">📊 .xlsx &nbsp;·&nbsp; 📄 .xls</div>
+      </div>
+
+      <!-- Sheet Selector -->
+      <div class="sheet-sel-wrap" id="sheet-sel-wrap">
+        <div class="sheet-sel-label">Select Sheet to Analyse</div>
+        <div class="sheet-btns" id="sheet-btns"></div>
+      </div>
+
+      <!-- Results -->
+      <div id="analysis-result" style="display:none;">
+        <div class="sech">
+          <div>
+            <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:var(--t1);" id="ar-title">Analysis</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:2px;" id="ar-sub"></div>
+          </div>
+          <div class="brow">
+            <div class="view-toggle">
+              <button class="vt-btn act" id="vt-daily" onclick="setView('daily')">Daily</button>
+              <button class="vt-btn" id="vt-monthly" onclick="setView('monthly')">Monthly</button>
+            </div>
+            <button class="btn-g" onclick="clearMain()">✕ Clear</button>
+            <button class="btn-t" onclick="saveAnalysis()">💾 Save</button>
+          </div>
+        </div>
+        <!-- KPIs -->
+        <div class="kpi-grid" id="ar-kpi"></div>
+        <!-- METALLISER Person-wise Performance -->
+        <div id="person-charts-wrap">
+          <div class="sech"><div class="slbl">🏭 Metalliser Person-wise Performance</div></div>
+          <div style="background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px;margin-bottom:14px;">
+            <div style="font-size:10px;color:var(--t3);letter-spacing:1.5px;margin-bottom:8px;font-weight:700;">SELECT METRIC</div>
+            <div class="sheet-btns" id="metal-metric-btns"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap;">
+              <div class="view-toggle" style="margin-bottom:0;">
+                <button class="vt-btn act" id="mv-monthly" onclick="setMetalView('monthly')">Monthly Average</button>
+                <button class="vt-btn" id="mv-daily" onclick="setMetalView('daily')">Daily (Pick Date)</button>
+              </div>
+              <select class="fsel" id="metal-date-pick" onchange="renderMetalPerson()" style="display:none;max-width:180px;padding:6px 10px;font-size:12px;"></select>
+              <div style="font-size:10px;color:var(--t3);flex:1;min-width:200px;" id="metal-formula-note"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;" id="person-charts-grid">
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--m1);letter-spacing:.3px;">🟠 Supervisors</div><button class="dl-btn" onclick="downloadChartPNG('chart-sup','metalliser-supervisors')">⬇ PNG</button></div>
+              <div id="chart-sup"></div>
+            </div>
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--teal);letter-spacing:.3px;">🟢 Operators</div><button class="dl-btn" onclick="downloadChartPNG('chart-op','metalliser-operators')">⬇ PNG</button></div>
+              <div id="chart-op"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Daily view -->
+        <div id="view-daily">
+          <div class="sech"><div class="slbl">Daily Production &amp; Performance</div></div>
+          <div class="twrap" id="daily-table"></div>
+          <div class="sech" style="margin-top:16px;"><div class="slbl">Downtime Breakdown (Minutes)</div></div>
+          <div id="dt-bars"></div>
+        </div>
+        <!-- Monthly view -->
+        <div id="view-monthly" style="display:none;">
+          <div class="kpi-grid" id="monthly-kpi"></div>
+          <div class="sech"><div class="slbl">Monthly Production by Micron / OD</div></div>
+          <div class="twrap" id="monthly-prod"></div>
+          <div class="sech" style="margin-top:16px;"><div class="slbl">Downtime Category Summary (Hours)</div></div>
+          <div id="monthly-dt-bars"></div>
+        </div>
+        <!-- ═══ SLITTER INDIVIDUAL PERFORMANCE ═══ -->
+        <div id="slit-person-wrap" style="display:none;margin-top:24px;">
+          <div class="sech"><div class="slbl">✂️ Slitter Individual Performance — All Sheets Combined</div></div>
+          <div style="background:var(--bg2);border:1.5px solid var(--ln2);border-radius:var(--rl);padding:14px;margin-bottom:14px;">
+            <div style="font-size:10px;color:var(--t3);letter-spacing:1.5px;margin-bottom:8px;font-weight:700;">SELECT METRIC</div>
+            <div class="sheet-btns" id="slit-metric-btns"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-top:12px;">
+              <div class="view-toggle" style="margin-bottom:0;">
+                <button class="vt-btn act" id="sv-monthly" onclick="setSlitView('monthly')">Monthly Aggregate</button>
+                <button class="vt-btn" id="sv-daily" onclick="setSlitView('daily')">Daily (Pick Date)</button>
+              </div>
+              <select class="fsel" id="slit-date-pick" onchange="renderSlitterPerson()" style="display:none;max-width:180px;padding:6px 10px;font-size:12px;"></select>
+              <div style="font-size:10px;color:var(--t3);flex:1;" id="slit-formula-note"></div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:10px;">
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--m1);">🟠 Supervisors</div><button class="dl-btn" onclick="downloadChartPNG('slit-chart-sup','slitter-supervisors')">⬇ PNG</button></div>
+              <div id="slit-chart-sup"></div>
+            </div>
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--teal);">🟢 Operators</div><button class="dl-btn" onclick="downloadChartPNG('slit-chart-op','slitter-operators')">⬇ PNG</button></div>
+              <div id="slit-chart-op"></div>
+            </div>
+          </div>
+        </div>
+        <!-- ═══ SLITTER MACHINE-WISE WASTE & DT ═══ -->
+        <div id="slit-machine-wrap" style="display:none;margin-top:24px;">
+          <div class="sech"><div class="slbl">🏭 Slitter Machine-wise Waste & Downtime</div></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--yellow);">Bare Waste (kg) — Daily by Machine</div><button class="dl-btn" onclick="downloadChartPNG('chart-bare-daily','slitter-bare-waste-daily')">⬇ PNG</button></div>
+              <div id="chart-bare-daily"></div>
+            </div>
+            <div class="twrap" style="padding:14px;margin-bottom:0;">
+              <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--red);">Met Waste (kg) — Daily by Machine</div><button class="dl-btn" onclick="downloadChartPNG('chart-met-daily','slitter-met-waste-daily')">⬇ PNG</button></div>
+              <div id="chart-met-daily"></div>
+            </div>
+          </div>
+          <div class="twrap" style="padding:14px;">
+            <div class="chart-head"><div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--t1);">Monthly Waste Totals by Machine (kg)</div><button class="dl-btn" onclick="downloadChartPNG('chart-waste-monthly','slitter-waste-monthly-totals')">⬇ PNG</button></div>
+            <div id="chart-waste-monthly"></div>
+          </div>
+        </div>
+        <!-- Downtime by Machine (Monthly aggregate from summary sheet, or Daily from shift rows) -->
+        <div id="mdt-machine-wrap" style="margin-top:24px;display:none;">
+          <div class="sech">
+            <div class="slbl">📊 Downtime by Machine (Hours)</div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <div class="view-toggle" style="margin-bottom:0;">
+                <button class="vt-btn act" id="dtv-monthly" onclick="setDTView('monthly')">Monthly Total</button>
+                <button class="vt-btn" id="dtv-daily" onclick="setDTView('daily')">Daily (Pick Date)</button>
+              </div>
+              <select class="fsel" id="dt-date-pick" onchange="renderMonthlyDTByMachine()" style="display:none;max-width:160px;padding:6px 10px;font-size:12px;"></select>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--t3);margin-bottom:10px;" id="dt-source-note"></div>
+          <div class="twrap" id="mdt-machine-table"></div>
+          <div id="mdt-machine-bars" style="margin-top:14px;"></div>
+        </div>
+      </div>
+    </div><!-- /sp-analysis -->
+
+    <!-- INDIVIDUAL PERFORMANCE -->
+    <div class="spanel" id="sp-people">
+      <div id="people-empty" class="info-note">📤 Upload a file in the Analysis tab first — individual performance will appear here automatically.</div>
+      <div id="people-content" style="display:none;">
+        <div id="corrections-panel" style="display:none;"></div>
+        <div class="sech">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t1);">Supervisors</div>
+          <div style="font-size:11px;color:var(--t3);" id="sup-meta"></div>
+        </div>
+        <div class="person-grid" id="sup-grid"></div>
+        <div class="sech" style="margin-top:8px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t1);">Operators</div>
+          <div style="font-size:11px;color:var(--t3);" id="op-meta"></div>
+        </div>
+        <div class="person-grid" id="op-grid"></div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="spanel" id="sp-history">
+      <div class="sech">
+        <div class="slbl">Saved Analyses</div>
+        <button class="btn-g" onclick="clrAllH()" style="color:var(--red);font-size:12px;padding:6px 12px;">🗑 Clear All</button>
+      </div>
+      <div id="hlist"></div>
+    </div>
+
+  </div>
+</div><!-- /tab-daily -->
+</div><!-- /#app -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════
+   SUPSKILL · CORE
+══════════════════════════════════════════ */
+const g=id=>document.getElementById(id);
+const v=id=>parseFloat(g(id)?.value)||0;
+// Firebase RTDB converts JS arrays to objects {0:x, 1:y}. This coerces any value back to a real array.
+const toArr=v=>{if(Array.isArray(v))return v;if(v&&typeof v==='object')return Object.values(v);return[];};
+
+// THEME
+function toggleTheme(){document.body.classList.toggle('light');const L=document.body.classList.contains('light');g('tlbl').textContent=L?'🌙 Dark':'☀️ Light';try{localStorage.setItem('ss_theme',L?'light':'dark');}catch(e){}}
+(function(){try{const s=localStorage.getItem('ss_theme');if(s==='dark'){document.body.classList.remove('light');g('tlbl').textContent='☀️ Light';}}catch(e){}})();
+
+// TOAST
+function showToast(m,t='',d=2800){const el=g('toast');el.textContent=m;el.className='toast show'+(t?' '+t:'');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),d);}
+
+// TABS
+function switchTab(id){document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('act'));document.querySelectorAll('.tabpanel').forEach(p=>p.classList.remove('act'));g('tb-'+id).classList.add('act');g('tab-'+id).classList.add('act');}
+function switchSub(id){document.querySelectorAll('.stab').forEach(b=>b.classList.remove('act'));document.querySelectorAll('.spanel').forEach(p=>p.classList.remove('act'));g('sb-'+id).classList.add('act');g('sp-'+id).classList.add('act');if(id==='history')renderHistory();}
+
+// ACCORDION
+function tog(id){const el=g(id);const was=el.classList.contains('open');document.querySelectorAll('.acc').forEach(a=>a.classList.remove('open'));if(!was)el.classList.add('open');}
+
+/* ══════════════════════════════════════════
+   KNOWN COLUMN SCHEMA (GLS Format)
+   Row 0 = section header, Row 1 = field names, Row 2+ = data
+══════════════════════════════════════════ */
+const MET_C = {
+  date:0,sup:1,ops:2,rolls:3,boats:4,wire:5,
+  vacTime:6,ventTime:7,rcoTime:8,boatTime:10,
+  processDT:12,processReason:13,mechDT:14,eiDT:16,powerDT:18,utilDT:20,noOrder:22,noFeed:23,
+  p8_22:24,p8_25:25,p10_22:26,p10_25:27,p10_28:28,p12_22:29,p12_25:30,p12_28:31,alox:32,rc22:33,rc25:34,
+  totalDT:35,totalPlanned:36,totalSetup:37,totalOutput:38,avgWidth:39,targetOutput:40,
+  lossDueProcess:41,lossDueDT:43,actualBoats:45,targetBoats:46,actualWire:47,targetWire:48,
+  type:'metalliser'
+};
+const SLIT_C = {
+  date:0,sup:1,ops:2,slitLen:3,avgSpeed:4,targetSpeed:5,sets24k:6,sets36k:7,
+  setChangeover:8,rcoTime:10,
+  processDT:12,processReason:13,mechDT:14,eiDT:16,powerDT:18,utilDT:20,noOrder:22,noFeed:23,
+  p8_22:24,p8_25:25,p10_22:26,p10_25:27,p10_28:28,p12_22:29,p12_25:30,p12_28:31,alox:32,rc22:33,rc25:34,
+  totalDT:35,totalPlanned:36,totalSetup:37,totalOutput:38,avgWidth:39,targetOutput:40,
+  lossDueProcess:41,lossDueDT:43,bareWaste:45,metWaste:46,
+  type:'slitter'
+};
+
+/* ══ GLOBAL STATE ══ */
+let WORKBOOK = null;
+let CURRENT_SHEET = null;
+let PARSED_DATA = null;
+let SCHEMA = null;
+let FILE_NAME = '';
+let CURRENT_VIEW = 'daily';
+let DT_SUMMARY = null;   // Parsed Downtime Summary sheet (monthly DT by machine)
+let PERSON_METRIC = 'rollsNorm'; // legacy — kept for compat
+let METAL_METRIC = 'rollsNorm';
+let METAL_VIEW = 'monthly';  // 'daily' or 'monthly'
+let METAL_DATE = '';
+// Slitter-specific cross-sheet state
+let ALL_SLIT_ROWS = [];  // All slit sheet rows with {machine, shift} tags
+let ALL_MET_ROWS = [];   // All metalliser sheet rows with {machine, shift} tags
+let DOWNGRAD_ROWS = [];  // Downgradation Record entries filtered to file's month
+let SLIT_METRIC = 'slitLen';
+let SLIT_VIEW = 'monthly';  // 'daily' or 'monthly'
+let SLIT_SELECTED_DATE = '';
+let DT_VIEW = 'monthly';    // 'daily' or 'monthly' — for the DT-by-machine table
+let DT_DATE = '';
+
+/* ══ CLOUD SYNC (via parent GLSMP app) ══
+ * When SupSkill runs inside the GLSMP parent app iframe, we piggyback on its Firebase
+ * connection to save analyses to a shared space. Everyone logged into GLSMP sees the
+ * same History. If the parent isn't reachable (standalone open), we fall back to
+ * localStorage so the app still works offline / as a single-file tool.
+ */
+let CLOUD = {
+  available: false,              // true when parent._fbAccess is reachable
+  ready: false,                  // true when we've received GLSMP_SHIFT_DATA at least once
+  userName: '',                  // from parent SESSION.name
+  userEmpId: '',                 // from parent SESSION.empId
+  userRole: 'operator',          // 'admin' | 'manager' | 'supervisor' | 'operator' | 'guest'
+  cache: [],                     // last known array of saved analyses from cloud (lightweight index)
+  unsubscribe: null,             // handle to Firebase onValue listener (not actually returned by proxy, kept for future)
+};
+
+function isCloudAdmin(){ return CLOUD.userRole==='admin'||CLOUD.userRole==='manager'; }
+function canDeleteCloud(entry){
+  // Creator can delete their own saves; admins/managers can delete anything
+  if(!entry) return false;
+  if(isCloudAdmin()) return true;
+  return entry.createdByEmpId === CLOUD.userEmpId || entry.createdBy === CLOUD.userName;
+}
+// Safe proxy call to parent's Firebase — resolves with value for get, true/false for writes, null on failure
+async function cloudCall(op, path, val){
+  try{
+    if(!window.parent || window.parent===window) return null;
+    if(typeof window.parent._fbAccess !== 'function') return null;
+    return await window.parent._fbAccess(op, path, val);
+  }catch(e){
+    console.warn('[cloud]', op, path, e?.message||e);
+    return null;
+  }
+}
+
+// Listen for the parent's shift-data broadcast — it carries identity + role
+window.addEventListener('message', function(e){
+  if(!e.data || typeof e.data !== 'object') return;
+  if(e.data.type === 'GLSMP_SHIFT_DATA'){
+    const prev = CLOUD.ready;
+    CLOUD.userName = e.data.supervisor?.name || e.data.supervisor?.empId || '';
+    CLOUD.userEmpId = e.data.supervisor?.empId || '';
+    CLOUD.userRole = e.data.role || 'operator';
+    CLOUD.available = !!(window.parent && typeof window.parent._fbAccess === 'function');
+    CLOUD.ready = true;
+    // First time we got identity — start listening to cloud History (if on History tab)
+    if(!prev && CLOUD.available){
+      startCloudListener();
+      if(document.getElementById('sp-history')?.classList.contains('act')) renderHistory();
+    }
+  }
+});
+// Let parent know we're alive so it sends us GLSMP_SHIFT_DATA
+try{ window.parent && window.parent!==window && window.parent.postMessage({type:'SUPSKILL_READY'},'*'); }catch(e){}
+
+// Subscribe to /supskill/analyses in the parent's Firebase — pushes updates to all open clients
+async function startCloudListener(){
+  if(!CLOUD.available) return;
+  await cloudCall('onValue', 'supskill/analyses', snap=>{
+    try{
+      const val = snap.val ? snap.val() : null;
+      CLOUD.cache = val ? Object.entries(val).map(([id, e])=>({...e, id})) : [];
+      CLOUD.cache.sort((a,b)=>(b.savedAtMs||0)-(a.savedAtMs||0));
+      // If History tab is currently visible, re-render
+      if(document.getElementById('sp-history')?.classList.contains('act')) renderHistory();
+    }catch(err){ console.warn('[cloud onValue]', err); }
+  });
+}
+
+/* ══ DRAG / DROP / FILE INPUT ══ */
+function hDrag(e){e.preventDefault();g('upz-main').classList.add('drag');}
+function hLeave(){g('upz-main').classList.remove('drag');}
+function hDrop(e){e.preventDefault();g('upz-main').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)readFile(f);}
+function hFile(e){const f=e.target.files[0];if(f)readFile(f);}
+
+function readFile(file){
+  FILE_NAME=file.name;
+  showToast('⏳ Reading file…','',5000);
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      WORKBOOK=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      parseDTSummary();
+      parseAllMetSheets();
+      parseAllSlitSheets();
+      parseDowngradation();
+      showSheetSelector();
+      showToast('✓ File loaded — select a sheet','teal');
+    }catch(er){showToast('Error: '+er.message,'red',4000);}
+  };
+  r.readAsArrayBuffer(file);
+}
+
+function showSheetSelector(){
+  // Only show sheets that contain daily data — skip pre-aggregated summaries
+  const names=WORKBOOK.SheetNames.filter(n=>{
+    const nl=n.toLowerCase();
+    return !(nl.includes('summary')||nl.includes('downtime sum')||nl.includes('bare waste')||nl.includes('degrad'));
+  });
+  const wrap=g('sheet-sel-wrap');
+  wrap.style.display='block';
+  const btns=g('sheet-btns');
+  let html=names.map(n=>{
+    const nl=n.toLowerCase();
+    let cls='sheet-btn';
+    if(nl.includes('day'))cls+=' day';
+    else if(nl.includes('night'))cls+=' night';
+    else if(nl.includes('total'))cls+=' total';
+    return `<button class="${cls}" onclick="selectSheet('${n}')">${n}</button>`;
+  }).join('');
+  // Add the virtual "All Machines" combined view if multiple machines exist in the workbook
+  const isMet=ALL_MET_ROWS.length>0;
+  const isSlit=ALL_SLIT_ROWS.length>0;
+  const machineCount=isMet
+    ? new Set(ALL_MET_ROWS.map(r=>r.machine)).size
+    : new Set(ALL_SLIT_ROWS.map(r=>r.machine)).size;
+  if(machineCount>1){
+    const lbl=isMet?'🏭 MET ALL':'✂️ SLIT ALL';
+    const tip=isMet?'Combined Met-1 + Met-2':'Combined Slit-1 + Slit-2';
+    html+=`<button class="sheet-btn" style="border:1.5px solid var(--m1);color:var(--m1);font-weight:900;" onclick="selectSheet('__ALL__')" title="${tip}">${lbl}</button>`;
+  }
+  btns.innerHTML=html;
+}
+
+// Parse the pre-aggregated Downtime Summary sheet (rows = category, cols = machine)
+function parseDTSummary(){
+  DT_SUMMARY=null;
+  const sheetName=WORKBOOK.SheetNames.find(n=>n.toLowerCase().includes('downtime summary'));
+  if(!sheetName)return;
+  const raw=XLSX.utils.sheet_to_json(WORKBOOK.Sheets[sheetName],{header:1,defval:'',raw:false});
+  if(raw.length<4)return;
+  // Row 1 = machine header, rows 2+ = categories; values are in hours
+  const header=raw[1]||[];   // ['Machine','Met-1','Met-2','Total']
+  const machines=header.slice(1).filter(x=>x&&String(x).trim());
+  const categories=[];
+  for(let i=2;i<raw.length;i++){
+    const row=raw[i];
+    const label=String(row[0]||'').trim();
+    if(!label)continue;
+    const vals=machines.map((_,j)=>parseFloat(row[1+j])||0);
+    categories.push({label,vals});
+  }
+  DT_SUMMARY={machines,categories};
+}
+
+// Parse every Met * sheet in one pass — needed for cross-machine person comparison
+function parseAllMetSheets(){
+  ALL_MET_ROWS=[];
+  const metSheets=WORKBOOK.SheetNames.filter(n=>{
+    const nl=n.toLowerCase();
+    return nl.startsWith('met ')&&!nl.includes('total')&&!nl.includes('summary');
+  });
+  // Prefer Day+Night (avoids double-counting); fall back to Total sheets
+  const useSheets=metSheets.length?metSheets:WORKBOOK.SheetNames.filter(n=>n.toLowerCase().startsWith('met ')&&n.toLowerCase().includes('total'));
+  useSheets.forEach(name=>{
+    const ws=WORKBOOK.Sheets[name];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    if(raw.length<3)return;
+    const machine=detectMachine(name);
+    const shift=detectShift(name);
+    for(let i=2;i<raw.length;i++){
+      const r=raw[i];
+      const dateRaw=r[0];
+      if(!dateRaw)continue;
+      let dateObj=null,dateStr='';
+      if(dateRaw instanceof Date){dateObj=dateRaw;dateStr=dateRaw.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+      else{const d=new Date(dateRaw);if(!isNaN(d)){dateObj=d;dateStr=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}else continue;}
+      if(String(r[0]).toLowerCase().includes('total'))continue;
+      const n=ci=>parseFloat(r[ci])||0;
+      const rolls=n(3),totalPlanned=n(36),totalOutput=n(38);
+      // Shift base: a single-shift sheet (Day or Night) is 720 min; a Total sheet (Day+Night combined) is 1440 min.
+      // Normalized rolls = rolls × shiftBase ÷ (shiftBase − planned). On a fully planned-down shift (planned≥base) keep raw.
+      const shiftBase=String(name).toLowerCase().includes('total')?1440:720;
+      const denom=shiftBase-totalPlanned;
+      ALL_MET_ROWS.push({
+        sheet:name,machine,shift,dateStr,dateObj,shiftBase,
+        sups:splitNames(r[1]),ops:splitNames(r[2]),
+        rolls,boats:n(4),wire:n(5),
+        rcoTime:n(8),boatChangeTime:n(10),
+        totalDT:n(35),totalPlanned,totalOutput,targetOutput:n(40),
+        rollsNorm:denom>0?rolls*shiftBase/denom:rolls,
+        outputMT:totalOutput/1000,
+        actualBoats:n(45),actualWire:n(47)
+      });
+    }
+  });
+}
+
+// Parse every Slit * sheet in one pass — needed for cross-sheet person & machine analysis
+function parseAllSlitSheets(){
+  ALL_SLIT_ROWS=[];
+  const slitSheets=WORKBOOK.SheetNames.filter(n=>{
+    const nl=n.toLowerCase();
+    return nl.startsWith('slit ')&&!nl.includes('total')&&!nl.includes('summary');
+  });
+  // If no DAY/Night sheets, fall back to Total sheets (avoids double-counting if both exist)
+  const useSheets=slitSheets.length?slitSheets:WORKBOOK.SheetNames.filter(n=>n.toLowerCase().startsWith('slit ')&&n.toLowerCase().includes('total'));
+  useSheets.forEach(name=>{
+    const ws=WORKBOOK.Sheets[name];
+    const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+    if(raw.length<3)return;
+    const machine=detectMachine(name);
+    const shift=detectShift(name);
+    for(let i=2;i<raw.length;i++){
+      const r=raw[i];
+      const dateRaw=r[0];
+      if(!dateRaw)continue;
+      let dateStr='',dateObj=null;
+      if(dateRaw instanceof Date){dateObj=dateRaw;dateStr=dateRaw.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+      else if(typeof dateRaw==='string'&&dateRaw.trim()){
+        const d=new Date(dateRaw);
+        if(!isNaN(d)){dateObj=d;dateStr=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+        else continue;
+      }
+      else continue;
+      if(String(r[0]).toLowerCase().includes('total'))continue;
+      const n=ci=>parseFloat(r[ci])||0;
+      // Production columns Y through AI (indices 24..34): 8μ/10μ/12μ/AlOx/RC with OD variants
+      const totalProd=n(24)+n(25)+n(26)+n(27)+n(28)+n(29)+n(30)+n(31)+n(32)+n(33)+n(34);
+      // Equivalent values: scale raw shift output to a full 720-min shift by removing planned/no-fault loss.
+      // Denominator = 720 − col W (No Orders) − col X (No Feed/RM/Planned SD).
+      // If denominator collapses (entire shift was planned loss), fall back to raw value to avoid div-by-zero.
+      const slitLen=n(3),totalOutput=n(38),noOrder=n(22),noFeed=n(23),sets24k=n(6);
+      const availMin=720-noOrder-noFeed;
+      const eqvSlitLen = availMin>0 ? slitLen*720/availMin : slitLen;
+      const eqvOutput  = availMin>0 ? totalOutput*720/availMin : totalOutput;
+      const eqvRolls   = availMin>0 ? sets24k*720/availMin    : sets24k;
+      ALL_SLIT_ROWS.push({
+        sheet:name,machine,shift,dateStr,dateObj,
+        sups:splitNames(r[1]),ops:splitNames(r[2]),
+        slitLen,avgSpeed:n(4),targetSpeed:n(5),
+        sets24k,sets36k:n(7),setChangeover:n(8),rcoTime:n(10),
+        processDT:n(12),mechDT:n(14),eiDT:n(16),powerDT:n(18),utilDT:n(20),
+        noOrder,noFeed,
+        totalDT:n(35),totalPlanned:n(36),totalSetup:n(37),totalOutput,
+        avgWidth:n(39),targetOutput:n(40),
+        lossDueProcess:n(41),lossDueDT:n(43),
+        bareWaste:n(45),metWaste:n(46),totalProd,
+        eqvSlitLen,eqvOutput,eqvRolls,
+        downgrad:0  // filled in by parseDowngradation
+      });
+    }
+  });
+}
+
+// Parse "Downgradation Record" sheet — aggregate kgs by date, slitter op, met op; filtered to file's month
+function parseDowngradation(){
+  DOWNGRAD_ROWS=[];
+  const sheetName=WORKBOOK.SheetNames.find(n=>n.toLowerCase().includes('downgrad'));
+  if(!sheetName)return;
+  const ws=WORKBOOK.Sheets[sheetName];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  if(raw.length<2)return;
+  // Detect file month: pick most common month from ALL_SLIT_ROWS (keeps us aligned with reporting period)
+  const monthCount={};
+  ALL_SLIT_ROWS.forEach(r=>{if(r.dateObj){const k=r.dateObj.getFullYear()+'-'+r.dateObj.getMonth();monthCount[k]=(monthCount[k]||0)+1;}});
+  const fileMonthKey=Object.entries(monthCount).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  // Row 0 = header: A=SNo B=Date C=Shift D=Roll E=Weight F=Met Roll G=Bare Roll H=Slitter Op I=Met Op J=QC K=Reason
+  for(let i=1;i<raw.length;i++){
+    const r=raw[i];
+    const dateRaw=r[1];
+    const wt=parseFloat(r[4])||0;
+    const slitOp=r[7]||'';
+    const metOp=r[8]||'';
+    const reason=String(r[10]||'').trim();
+    const shift=r[2]||'';
+    if(!dateRaw||wt<=0)continue;
+    let dateObj=null;
+    if(dateRaw instanceof Date)dateObj=dateRaw;
+    else{const d=new Date(dateRaw);if(!isNaN(d))dateObj=d;}
+    if(!dateObj)continue;
+    // Filter to file's month
+    if(fileMonthKey){
+      const thisKey=dateObj.getFullYear()+'-'+dateObj.getMonth();
+      if(thisKey!==fileMonthKey)continue;
+    }
+    // One canonical DOWNGRAD_ROWS entry per source row — stores full name lists (not exploded)
+    // so we can separately aggregate by slit op, met op, and reason without double-counting weight.
+    DOWNGRAD_ROWS.push({
+      dateObj,dateStr:dateObj.toLocaleDateString('en-GB',{day:'2-digit',month:'short'}),
+      shift,wt,
+      slitOps:splitNames(slitOp),
+      metOps:splitNames(metOp),
+      reason
+    });
+  }
+}
+
+function selectSheet(name){
+  document.querySelectorAll('.sheet-btn').forEach(b=>{
+    const isThis=(name==='__ALL__'&&(b.textContent.includes('MET ALL')||b.textContent.includes('SLIT ALL')))
+                 ||(b.textContent===name);
+    b.classList.toggle('act',isThis);
+  });
+  CURRENT_SHEET=name;
+  // Reset per-sheet UI caches so metric bar + date dropdown rebuild for the new dataset
+  g('metal-metric-btns').innerHTML='';
+  g('metal-date-pick').innerHTML='';
+  METAL_DATE='';
+  if(name==='__ALL__'){buildCombinedAllSheet();return;}
+  parseSheet(name);
+}
+
+// Build a synthesized "all machines" daily dataset by combining same-date rows from Met-1+Met-2 (or Slit-1+Slit-2).
+// Per date: SUM count fields (rolls, output, DT, boats, etc.) and AVG rate fields (boats/MT, wire/MT, avgWidth).
+// The result lives in PARSED_DATA and feeds the standard renderAnalysis/buildPeopleReport flow unchanged.
+function buildCombinedAllSheet(){
+  const isMet=ALL_MET_ROWS.length>0;
+  const source=isMet?ALL_MET_ROWS:ALL_SLIT_ROWS;
+  if(!source.length){showToast('No data to combine','red');return;}
+
+  // Group by date string
+  const byDate={};
+  source.forEach(r=>{
+    if(!byDate[r.dateStr])byDate[r.dateStr]={rows:[],dateObj:r.dateObj};
+    byDate[r.dateStr].rows.push(r);
+  });
+  // Sort dates chronologically
+  const dates=Object.keys(byDate).sort((a,b)=>{
+    const da=byDate[a].dateObj?.getTime()||new Date(a+' 2026').getTime();
+    const db=byDate[b].dateObj?.getTime()||new Date(b+' 2026').getTime();
+    return da-db;
+  });
+
+  PARSED_DATA=dates.map(dt=>{
+    const rs=byDate[dt].rows;
+    const sum=k=>rs.reduce((s,r)=>s+(r[k]||0),0);
+    // Average across rows that actually have a non-zero value (rate metrics)
+    const avgNz=k=>{const vs=rs.map(r=>r[k]||0).filter(v=>v>0);return vs.length?vs.reduce((s,x)=>s+x,0)/vs.length:0;};
+    // Combine name lists across machines (deduplicate canonically downstream)
+    const allSups=[];const allOps=[];
+    rs.forEach(r=>{toArr(r.sups).forEach(s=>allSups.push(s));toArr(r.ops).forEach(o=>allOps.push(o));});
+    // Combined planned downtime: SUM across the machine-shift records — matches the summed shiftBase
+    // (each child row's planned DT is independent: Met-1 Day's 180 min planned + Met-2 Day's 0 = 180 total)
+    const totalPlanned=rs.reduce((s,r)=>s+(r.totalPlanned||0),0);
+    return {
+      dateStr:dt,
+      shiftRecords:rs.length,  // how many machine-shift records folded into this day (used for DT% denominator)
+      sup:allSups.join(','),
+      sups:allSups,
+      ops:allOps,
+      // Count fields → SUM
+      rolls:sum('rolls'),boats:sum('boats'),wire:sum('wire'),
+      vacTime:sum('vacTime'),ventTime:sum('ventTime'),boatChangeTime:sum('boatChangeTime'),
+      slitLen:sum('slitLen'),sets24k:sum('sets24k'),sets36k:sum('sets36k'),
+      processDT:sum('processDT'),mechDT:sum('mechDT'),eiDT:sum('eiDT'),powerDT:sum('powerDT'),
+      utilDT:sum('utilDT'),noOrder:sum('noOrder'),noFeed:sum('noFeed'),rcoTime:sum('rcoTime'),
+      p8:sum('p8'),p10:sum('p10'),p12:sum('p12'),alox:sum('alox'),rc:sum('rc'),
+      od22:sum('od22'),od25:sum('od25'),od28:sum('od28'),
+      totalDT:sum('totalDT'),totalPlanned,totalSetup:sum('totalSetup'),
+      totalOutput:sum('totalOutput'),targetOutput:sum('targetOutput'),
+      lossDueProcess:sum('lossDueProcess'),lossDueDT:sum('lossDueDT'),
+      bareWaste:sum('bareWaste'),metWaste:sum('metWaste'),
+      // Rate fields → AVERAGE of non-zero per-machine values
+      avgWidth:avgNz('avgWidth'),avgSpeed:avgNz('avgSpeed'),
+      actualBoats:avgNz('actualBoats'),targetBoats:1.7,
+      actualWire:avgNz('actualWire'),targetWire:8.9,
+      processReason:rs.map(r=>r.processReason).filter(Boolean).join(' | '),
+      isSlit:!isMet
+    };
+  });
+  // Recompute derived fields. The base is sum of underlying shift bases (each child row is 720 or 1440)
+  PARSED_DATA.forEach(r=>{
+    const childBases=byDate[r.dateStr].rows.map(c=>c.shiftBase||720);
+    const shiftBase=childBases.reduce((s,x)=>s+x,0);  // total available minutes for this combined day
+    r.shiftBase=shiftBase;
+    const denom=shiftBase-(r.totalPlanned||0);
+    r.rollsNorm=denom>0?r.rolls*shiftBase/denom:r.rolls;
+    r.outputMT=r.totalOutput/1000;
+  });
+  renderAnalysis();
+  buildPeopleReport();
+}
+
+/* ══ SMART PARSER ══ */
+function parseSheet(name){
+  const ws=WORKBOOK.Sheets[name];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
+  if(raw.length<3){showToast('Sheet has no data','red');return;}
+
+  // Detect schema by col 3 header (row 1 = index 1)
+  const h1=String(raw[1][3]||'').toLowerCase();
+  const isSlit=h1.includes('slit')||h1.includes('speed');
+  SCHEMA=isSlit?SLIT_C:MET_C;
+
+  // Data rows start at index 2
+  const rows=raw.slice(2).filter(r=>{
+    const d=r[0];
+    return d&&String(d).trim()!==''&&!String(d).toLowerCase().includes('total');
+  });
+
+  PARSED_DATA=rows.map(r=>{
+    const dateRaw=r[SCHEMA.date];
+    let dateStr='';
+    if(dateRaw instanceof Date){dateStr=dateRaw.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+    else if(typeof dateRaw==='string'&&dateRaw.trim()){
+      // Parse ISO-ish string
+      const d=new Date(dateRaw);
+      dateStr=isNaN(d)?dateRaw.trim():d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    }
+    const n=ci=>parseFloat(r[ci])||0;
+    return {
+      dateStr,
+      sups:splitNames(r[SCHEMA.sup]),   // array — each supervisor gets equal credit
+      sup:splitNames(r[SCHEMA.sup]).map(s=>canonName(s)).filter(Boolean).join(' / '),  // display
+      ops:splitNames(r[SCHEMA.ops]),
+      // Metalliser specifics
+      rolls:n(SCHEMA.rolls),
+      boats:n(SCHEMA.boats),
+      wire:n(SCHEMA.wire),
+      vacTime:n(SCHEMA.vacTime||6),
+      ventTime:n(SCHEMA.ventTime||7),
+      boatChangeTime:n(SCHEMA.boatTime||10),
+      // Slitter specifics
+      slitLen:n(SCHEMA.slitLen||3),
+      avgSpeed:n(SCHEMA.avgSpeed||4),
+      sets24k:n(SCHEMA.sets24k||6),
+      sets36k:n(SCHEMA.sets36k||7),
+      // Downtime
+      processDT:n(SCHEMA.processDT),
+      processReason:r[SCHEMA.processReason]||'',
+      mechDT:n(SCHEMA.mechDT),
+      eiDT:n(SCHEMA.eiDT),
+      powerDT:n(SCHEMA.powerDT),
+      utilDT:n(SCHEMA.utilDT),
+      noOrder:n(SCHEMA.noOrder),
+      noFeed:n(SCHEMA.noFeed),
+      rcoTime:n(SCHEMA.rcoTime),
+      // Production Kgs by category
+      p8:n(SCHEMA.p8_22)+n(SCHEMA.p8_25),
+      p10:n(SCHEMA.p10_22)+n(SCHEMA.p10_25)+n(SCHEMA.p10_28),
+      p12:n(SCHEMA.p12_22)+n(SCHEMA.p12_25)+n(SCHEMA.p12_28),
+      alox:n(SCHEMA.alox),
+      rc:n(SCHEMA.rc22)+n(SCHEMA.rc25),
+      // By OD
+      od22:n(SCHEMA.p8_22)+n(SCHEMA.p10_22)+n(SCHEMA.p12_22),
+      od25:n(SCHEMA.p8_25)+n(SCHEMA.p10_25)+n(SCHEMA.p12_25),
+      od28:n(SCHEMA.p10_28)+n(SCHEMA.p12_28),
+      // Summary
+      totalDT:n(SCHEMA.totalDT),
+      totalPlanned:n(SCHEMA.totalPlanned),
+      totalSetup:n(SCHEMA.totalSetup),
+      totalOutput:n(SCHEMA.totalOutput),
+      targetOutput:n(SCHEMA.targetOutput),
+      avgWidth:n(SCHEMA.avgWidth),
+      lossDueProcess:n(SCHEMA.lossDueProcess),
+      lossDueDT:n(SCHEMA.lossDueDT),
+      actualBoats:n(SCHEMA.actualBoats),
+      targetBoats:n(SCHEMA.targetBoats),
+      actualWire:n(SCHEMA.actualWire),
+      targetWire:n(SCHEMA.targetWire),
+      bareWaste:n(SCHEMA.bareWaste||45),
+      metWaste:n(SCHEMA.metWaste||46),
+      isSlit
+    };
+  }).filter(r=>r.dateStr!='');
+
+  // Add computed fields: normalized rolls + MT. Base = 720 for single-shift sheet, 1440 for Total
+  const shiftBase=String(CURRENT_SHEET).toLowerCase().includes('total')?1440:720;
+  PARSED_DATA.forEach(r=>{
+    r.shiftBase=shiftBase;
+    const denom=shiftBase-(r.totalPlanned||0);
+    r.rollsNorm=denom>0?r.rolls*shiftBase/denom:r.rolls;
+    r.outputMT=r.totalOutput/1000;
+  });
+
+  renderAnalysis();
+  buildPeopleReport();
+}
+
+/* ══ SHIFT DETECTION FROM SHEET NAME ══ */
+function detectShift(sheetName){
+  const n=sheetName.toLowerCase();
+  if(n.includes('night'))return'Night';
+  if(n.includes('day'))return'Day';
+  if(n.includes('total'))return'Total';
+  return'Unknown';
+}
+function detectMachine(sheetName){
+  const n=sheetName.toLowerCase();
+  if(n.includes('met 1')||n.includes('met-1')||n.includes('met1'))return'Met-1';
+  if(n.includes('met 2')||n.includes('met-2')||n.includes('met2'))return'Met-2';
+  if(n.includes('slit 1')||n.includes('slit-1')||n.includes('slit1'))return'Slit-1';
+  if(n.includes('slit 2')||n.includes('slit-2')||n.includes('slit2'))return'Slit-2';
+  return sheetName;
+}
+
+/* ══ HARDCODED NAME CORRECTION MAP ══
+   Derived from actual GLS data analysis — covers all spelling variants found.
+   Key = normalised uppercase input, Value = canonical correct name (or null = discard)
+══ */
+const NAME_CANON = {
+  // Supervisors
+  'ANUJ':'Anuj','GHANSHYAM':'Ghanshyam','MOHIT':'Mohit',
+  'GURPREET':'Gurpreet','MANJEET':'Manjeet','DISHANT':'Dishant',
+  'ISHWAR':'Ishwar Tiwari','ISWER TIWARI':'Ishwar Tiwari',
+  'TIWARI':'Ishwar Tiwari','ISHWAR TIWARI':'Ishwar Tiwari',
+  'ISWER':'Ishwar Tiwari','TIWRI':'Ishwar Tiwari',
+  // Metalliser Operators
+  'NITISH':'Nitish','NITSH':'Nitish',   // Nitish = one person
+  'NITIN':'Nitin',                       // Nitin = DIFFERENT person from Nitish — do NOT merge
+  'NEERAJ':'Neeraj','NEERAKJ':'Neeraj','NEERJ':'Neeraj',
+  'AVINASH':'Avinash','AVINESH':'Avinash','AVINSH':'Avinash',
+  'AVNISH':'Avinash','AVINA':'Avinash',
+  'SHIVAM':'Shivam','SHIVIM':'Shivam',
+  'SOURAV':'Sourav','SOURAVH':'Sourav',
+  'SOURABH':'Sourav','SHORBH':'Sourav','SORABH':'Sourav',
+  'MEHARCHAND':'Meharchand','MEHARCAND':'Meharchand',
+  'MAHARCHAND':'Meharchand','MEHERCHAND':'Meharchand',
+  'MAHACHAND':'Meharchand','MEHAECHAND':'Meharchand',
+  'ABHISHEK':'Abhishek','ABHISHAK':'Abhishek',
+  'ABHIASHAK':'Abhishek','ABISHAK':'Abhishek',
+  'ANKIT':'Ankit','ROSHAN':'Roshan',
+  'SANDEEP':'Sandeep','SNDEEP':'Sandeep',
+  'SURYA':'Surya','SURIYA':'Surya',  // same person — Suriya is misspelling
+  // Slitter Operators
+  'HARIOM':'Hariom','HARISHARAN':'Harisharan','HARISHARN':'Harisharan','HAISHARAN':'Harisharan','HARISHANAN':'Harisharan',
+  'PARVEZ':'Parvez','PARVEZ ALI':'Parvez','PRAVEZ':'Parvez',
+  'ARIF':'Arif','AAFIF':'Arif',
+  'VINOD':'Vinod','VINNOD':'Vinod','VINOD PAL':'Vinod','VINODPAL':'Vinod',
+  'DHARMVEER':'Dharmveer','DHARAMVEER':'Dharmveer','DHAMVEER':'Dharmveer',
+  'SANJAY':'Sanjay',
+  // Discard
+  'NIL':null,'NA':null,'NAN':null,'5':null,
+  'R0SHAN.NILIN.SANDEEEE':null,'-':null,
+};
+
+/* ══ NAME UTILS ══ */
+function cleanName(s){if(!s)return'';return String(s).trim().replace(/,+$/,'').trim();}
+function splitNames(s){
+  if(!s)return[];
+  let str=String(s);
+  // Hardcoded fix for a recurring data-entry corruption: three operators smushed together with typos
+  // "R0shan.nilin.sandeeee" → Roshan, Nitin, Sandeep
+  str=str.replace(/r0shan[.,]\s*nilin[.,]\s*sandee+/gi,'Roshan,Nitin,Sandeep');
+  return str.split(/[,\/;]+/).map(n=>n.trim()).filter(n=>n.length>1&&n.toLowerCase()!=='na'&&n.toLowerCase()!=='nil');
+}
+function canonName(raw){
+  if(!raw)return null;
+  const key=String(raw).trim().toUpperCase().replace(/\s+/g,' ');
+  if(key in NAME_CANON)return NAME_CANON[key];
+  // Fallback: title-case if not in map (handles new names gracefully)
+  if(key.length<2||key==='NA'||key==='NIL')return null;
+  return String(raw).trim().split(/\s+/).map(w=>w.charAt(0).toUpperCase()+w.slice(1).toLowerCase()).join(' ');
+}
+function getCorrections(rawList){
+  const corrections=[];
+  const seen=new Set();
+  rawList.forEach(raw=>{
+    const trimmed=String(raw).trim();
+    if(!trimmed)return;
+    const key=trimmed.toUpperCase().replace(/\s+/g,' ');
+    if(!(key in NAME_CANON))return;
+    const canon=NAME_CANON[key];
+    if(canon===null)return;  // discard entry — don't show
+    // Only show as correction if it's a REAL spelling difference (not just capitalisation)
+    if(key!==canon.toUpperCase()){  // e.g. NITSH → Nitish: NITSH ≠ NITISH → real correction
+      const pairKey=key+'→'+canon;
+      if(!seen.has(pairKey)){seen.add(pairKey);corrections.push({wrong:trimmed,right:canon});}
+    }
+  });
+  return corrections;
+}
+
+/* ══ RENDER ANALYSIS ══ */
+function renderAnalysis(){
+  if(!PARSED_DATA||PARSED_DATA.length===0){showToast('No data rows found','red');return;}
+  const rows=PARSED_DATA;
+  const isSlit=rows[0]?.isSlit;
+  const isAll=CURRENT_SHEET==='__ALL__';
+  const shift=isAll?'All Shifts':detectShift(CURRENT_SHEET);
+  const machine=isAll?(isSlit?'SLIT ALL':'MET ALL'):detectMachine(CURRENT_SHEET);
+
+  const totalOutput=rows.reduce((s,r)=>s+r.totalOutput,0);
+  const totalTarget=rows.reduce((s,r)=>s+r.targetOutput,0);
+  const totalDT=rows.reduce((s,r)=>s+r.totalDT,0);
+  const eff=totalTarget>0?(totalOutput/totalTarget*100):0;
+  // Shift duration for DT%: one shift = 720 min for one machine.
+  // - Single shift sheet (Day or Night, one machine):     720 × days
+  // - Total sheet (Day+Night combined, one machine):     1440 × days  (720 × 2 shifts)
+  // - ALL view: each combined row already knows how many machine-shift records were folded in (shiftRecords)
+  let totalShiftMin;
+  if(isAll){
+    totalShiftMin=rows.reduce((s,r)=>s+(r.shiftRecords||1)*720,0);
+  } else {
+    const isTotal=String(CURRENT_SHEET).toLowerCase().includes('total');
+    totalShiftMin=rows.length*(isTotal?1440:720);
+  }
+  const dtPct=totalShiftMin>0?(totalDT/totalShiftMin*100):0;
+  const daysAboveTarget=rows.filter(r=>r.targetOutput>0&&r.totalOutput>=r.targetOutput).length;
+  const avgBoats=rows.filter(r=>r.actualBoats>0).reduce((s,r)=>s+r.actualBoats,0)/Math.max(1,rows.filter(r=>r.actualBoats>0).length);
+  const avgWire=rows.filter(r=>r.actualWire>0).reduce((s,r)=>s+r.actualWire,0)/Math.max(1,rows.filter(r=>r.actualWire>0).length);
+
+  g('ar-title').textContent=machine+(shift&&shift!=='Unknown'?' · '+shift:'') +' — Analysis';
+  g('ar-sub').textContent=`📄 ${FILE_NAME} · ${rows.length} days · ${isSlit?'Slitter':'Metalliser'}${isAll?' · All Machines Combined':''} · March 2026`;
+
+  const kpiH=[
+    {v:fmt(totalOutput)+' kg',l:'Total Output',c:eff>=95?'green':eff>=85?'yellow':'red'},
+    {v:eff.toFixed(1)+'%',l:'Overall Efficiency',c:eff>=95?'green':eff>=85?'yellow':'red'},
+    {v:dtPct.toFixed(1)+'%',l:'Avg Downtime %',c:dtPct<10?'green':dtPct<20?'yellow':'red'},
+    {v:daysAboveTarget+'/'+rows.length,l:'Days Met Target',c:daysAboveTarget>=rows.length*0.8?'green':daysAboveTarget>=rows.length*0.6?'yellow':'red'},
+    {v:(totalDT/60).toFixed(1)+' hr',l:'Total Downtime',c:'blue'},
+    {v:fmt(totalTarget)+' kg',l:'Total Target',c:'teal'},
+  ];
+  if(!isSlit){
+    kpiH.push({v:avgBoats.toFixed(2),l:'Avg Boats (Pcs/MT)',c:avgBoats<=1.7?'green':avgBoats<=2.2?'yellow':'red'});
+    kpiH.push({v:avgWire.toFixed(2),l:'Avg Wire (Kg/MT)',c:avgWire<=8.9?'green':'yellow'});
+    const totalBoats=rows.reduce((s,r)=>s+r.boats,0);
+    const totalRolls=rows.reduce((s,r)=>s+r.rolls,0);
+    kpiH.push({v:totalBoats.toString(),l:'Total Boats Used',c:'gold'});
+    kpiH.push({v:totalRolls.toString(),l:'Total Rolls',c:'blue'});
+    // NEW: Avg roll changeover, boat-change time, output MT
+    const totalRCO=rows.reduce((s,r)=>s+r.rcoTime,0);
+    const totalBoatCh=rows.reduce((s,r)=>s+(r.boatChangeTime||0),0);
+    const avgRCO=totalRolls>0?totalRCO/totalRolls:0;
+    kpiH.push({v:avgRCO.toFixed(1)+' min',l:'Avg RCO / Roll',c:avgRCO<=18?'green':avgRCO<=25?'yellow':'red'});
+    kpiH.push({v:(totalBoatCh/60).toFixed(1)+' hr',l:'Boat Change Total',c:'blue'});
+    kpiH.push({v:(totalOutput/1000).toFixed(2)+' MT',l:'Total Output (MT)',c:'teal'});
+  } else {
+    const totalBareWaste=rows.reduce((s,r)=>s+r.bareWaste,0);
+    const totalMetWaste=rows.reduce((s,r)=>s+r.metWaste,0);
+    const avgSpeed=rows.filter(r=>r.avgSpeed>0).reduce((s,r)=>s+r.avgSpeed,0)/Math.max(1,rows.filter(r=>r.avgSpeed>0).length);
+    kpiH.push({v:fmt(totalBareWaste)+' kg',l:'Total Bare Waste',c:'yellow'});
+    kpiH.push({v:fmt(totalMetWaste)+' kg',l:'Total Met Waste',c:'yellow'});
+    kpiH.push({v:avgSpeed.toFixed(0)+' m/min',l:'Avg Speed',c:avgSpeed>=700?'green':avgSpeed>=500?'yellow':'red'});
+  }
+  const totalLossProc=rows.reduce((s,r)=>s+r.lossDueProcess,0);
+  const totalLossDT=rows.reduce((s,r)=>s+r.lossDueDT,0);
+  kpiH.push({v:fmt(totalLossProc)+' kg',l:'Loss — Process',c:totalLossProc>0?'red':'green'});
+  kpiH.push({v:fmt(totalLossDT)+' kg',l:'Loss — Downtime',c:totalLossDT>0?'red':'green'});
+
+  g('ar-kpi').innerHTML=kpiH.map(k=>`<div class="kcard"><div class="kval ${k.c||''}">${k.v}</div><div class="klbl">${k.l}</div></div>`).join('');
+  renderMetalPerson();
+  renderDailyTable(rows,isSlit);
+  renderDTBars(rows,'dt-bars');
+  renderMonthly(rows,isSlit);
+  renderMonthlyDTByMachine();
+  if(isSlit){
+    renderSlitterPerson();
+    renderSlitterMachine();
+  }else{
+    g('slit-person-wrap').style.display='none';
+    g('slit-machine-wrap').style.display='none';
+  }
+  g('analysis-result').style.display='block';
+  g('upz-main').style.display='none';
+}
+
+function renderDailyTable(rows,isSlit){
+  let th='<table><thead><tr>';
+  const cols=isSlit
+    ?['Date','Supervisor','Operators','Slit(m)','Avg Spd','Sets 24k','Sets 36k','Output(kg)','Target(kg)','Eff%','DT(min)','DT%','Proc DT','Mech DT','Loss-Proc(kg)','Loss-DT(kg)','Bare Wst','Met Wst']
+    :['Date','Supervisor','Operators','Rolls','Boats','Wire(Spl)','Output(kg)','Target(kg)','Eff%','DT(min)','DT%','Proc DT','Mech DT','Loss-Proc(kg)','Loss-DT(kg)','Act Boats/MT','Tgt','Act Wire/MT','Tgt'];
+  cols.forEach(c=>th+=`<th>${c}</th>`);
+  th+='</tr></thead><tbody>';
+  rows.forEach(r=>{
+    const eff=r.targetOutput>0?(r.totalOutput/r.targetOutput*100):0;
+    const dtPct=r.totalDT/720*100;
+    const effC=eff>=95?'tg':eff>=85?'ty':'tr';
+    const dtC=dtPct<10?'tg':dtPct<20?'ty':'tr';
+    const opsStr=toArr(r.ops).map(o=>canonName(o)).filter(Boolean).join(', ');
+    const supStr=canonName(r.sup)||'—';
+    th+=`<tr><td class="tc">${r.dateStr}</td><td class="tc">${supStr}</td><td class="tc" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;" title="${opsStr}">${opsStr||'—'}</td>`;
+    if(isSlit){
+      th+=`<td>${fmt(r.slitLen)}</td><td class="${r.avgSpeed>=700?'tg':r.avgSpeed>=500?'ty':'tr'}">${r.avgSpeed?r.avgSpeed.toFixed(0):'—'}</td>`;
+      th+=`<td>${r.sets24k||0}</td><td>${r.sets36k||0}</td>`;
+    }else{
+      th+=`<td>${r.rolls||0}</td><td>${r.boats||0}</td><td>${r.wire||0}</td>`;
+    }
+    th+=`<td>${fmt(r.totalOutput)}</td><td>${fmt(r.targetOutput)}</td>`;
+    th+=`<td class="${effC}">${eff.toFixed(1)}%</td>`;
+    th+=`<td>${r.totalDT}</td><td class="${dtC}">${dtPct.toFixed(1)}%</td>`;
+    th+=`<td class="${r.processDT>60?'tr':r.processDT>30?'ty':''}">${r.processDT||0}</td>`;
+    th+=`<td class="${r.mechDT>30?'tr':''}">${r.mechDT||0}</td>`;
+    th+=`<td class="${r.lossDueProcess>500?'tr':r.lossDueProcess>0?'ty':''}">${fmt(r.lossDueProcess)}</td>`;
+    th+=`<td class="${r.lossDueDT>500?'tr':r.lossDueDT>0?'ty':''}">${fmt(r.lossDueDT)}</td>`;
+    if(isSlit){
+      th+=`<td>${fmt(r.bareWaste)}</td><td>${fmt(r.metWaste)}</td>`;
+    }else{
+      const bC=r.actualBoats>0?(r.actualBoats<=r.targetBoats?'tg':r.actualBoats<=r.targetBoats*1.2?'ty':'tr'):'';
+      const wC=r.actualWire>0?(r.actualWire<=r.targetWire?'tg':r.actualWire<=r.targetWire*1.1?'ty':'tr'):'';
+      th+=`<td class="${bC}">${r.actualBoats?r.actualBoats.toFixed(2):'—'}</td><td style="color:var(--t3)">${r.targetBoats||1.7}</td>`;
+      th+=`<td class="${wC}">${r.actualWire?r.actualWire.toFixed(2):'—'}</td><td style="color:var(--t3)">${r.targetWire||8.9}</td>`;
+    }
+    th+='</tr>';
+  });
+  th+='</tbody></table>';
+  g('daily-table').innerHTML=th;
+}
+
+function renderDTBars(rows,targetId){
+  const totals={
+    'Process DT':rows.reduce((s,r)=>s+r.processDT,0),
+    'Mechanical':rows.reduce((s,r)=>s+r.mechDT,0),
+    'E&I / Electrical':rows.reduce((s,r)=>s+r.eiDT,0),
+    'Power':rows.reduce((s,r)=>s+r.powerDT,0),
+    'Utility':rows.reduce((s,r)=>s+r.utilDT,0),
+    'No Orders':rows.reduce((s,r)=>s+r.noOrder,0),
+    'No Feed / No RM':rows.reduce((s,r)=>s+r.noFeed,0),
+    'RCO / Setup':rows.reduce((s,r)=>s+r.rcoTime,0),
+  };
+  const max=Math.max(...Object.values(totals),1);
+  const colors=['var(--red)','var(--yellow)','var(--blue)','var(--purple)','var(--teal)','var(--gold)','#ea7c22','var(--m1)'];
+  let html='';
+  Object.entries(totals).sort((a,b)=>b[1]-a[1]).forEach(([lbl,val],i)=>{
+    if(val<=0)return;
+    const pct=(val/max*100).toFixed(0);
+    const hrs=(val/60).toFixed(1);
+    html+=`<div class="dt-bar-row"><div class="dt-bar-lbl">${lbl}</div>
+    <div class="dt-bar-track"><div class="dt-bar-fill" style="width:${pct}%;background:${colors[i%colors.length]};"></div></div>
+    <div class="dt-bar-val">${hrs}h · ${val.toFixed(0)}m</div></div>`;
+  });
+  g(targetId).innerHTML=html||'<div style="font-size:12px;color:var(--t3);padding:8px;">No downtime recorded</div>';
+}
+
+function renderMonthly(rows,isSlit){
+  const totalOutput=rows.reduce((s,r)=>s+r.totalOutput,0);
+  const totalTarget=rows.reduce((s,r)=>s+r.targetOutput,0);
+  const totalP8=rows.reduce((s,r)=>s+r.p8,0);
+  const totalP10=rows.reduce((s,r)=>s+r.p10,0);
+  const totalP12=rows.reduce((s,r)=>s+r.p12,0);
+  const totalAlox=rows.reduce((s,r)=>s+r.alox,0);
+  const totalRC=rows.reduce((s,r)=>s+r.rc,0);
+  const totalDT=rows.reduce((s,r)=>s+r.totalDT,0);
+  const totalOD22=rows.reduce((s,r)=>s+r.od22,0);
+  const totalOD25=rows.reduce((s,r)=>s+r.od25,0);
+  const totalOD28=rows.reduce((s,r)=>s+r.od28,0);
+  const validRows=rows.filter(r=>r.targetOutput>0);
+  const bestDay=validRows.sort((a,b)=>(b.totalOutput/b.targetOutput)-(a.totalOutput/a.targetOutput))[0];
+  const worstDay=[...validRows].sort((a,b)=>(a.totalOutput/a.targetOutput)-(b.totalOutput/b.targetOutput))[0];
+  const eff=totalTarget>0?(totalOutput/totalTarget*100):0;
+
+  g('monthly-kpi').innerHTML=[
+    {v:fmt(totalOutput)+' kg',l:'Month Total Output',c:eff>=95?'green':'yellow'},
+    {v:eff.toFixed(1)+'%',l:'Month Efficiency',c:eff>=95?'green':eff>=85?'yellow':'red'},
+    {v:(totalDT/60).toFixed(1)+' hr',l:'Month Total Downtime',c:'blue'},
+    {v:fmt(totalTarget)+' kg',l:'Month Total Target',c:'teal'},
+    {v:fmt(totalOutput-totalTarget)+' kg',l:'Output vs Target',c:totalOutput>=totalTarget?'green':'red'},
+    {v:bestDay?bestDay.dateStr+'  '+((bestDay.totalOutput/bestDay.targetOutput*100).toFixed(0)+'%'):'—',l:'Best Day',c:'green'},
+    {v:worstDay?worstDay.dateStr+'  '+((worstDay.totalOutput/worstDay.targetOutput*100).toFixed(0)+'%'):'—',l:'Worst Day',c:'red'},
+    {v:rows.filter(r=>r.targetOutput>0&&r.totalOutput>=r.targetOutput).length+'/'+validRows.length,l:'Days Met Target',c:'gold'},
+  ].map(k=>`<div class="kcard"><div class="kval ${k.c||''}">${k.v}</div><div class="klbl">${k.l}</div></div>`).join('');
+
+  // Production by micron
+  let pt='<table><thead><tr><th>Category</th><th>Total (kg)</th><th>% Share</th><th>Avg / Day</th></tr></thead><tbody>';
+  const prods=[['8 Micron',totalP8],['10 Micron',totalP10],['12+ Micron',totalP12],['AlOx',totalAlox],['Release Coating',totalRC]];
+  prods.forEach(([lbl,val])=>{
+    if(val<=0)return;
+    const pct=totalOutput>0?(val/totalOutput*100).toFixed(1):0;
+    const avg=rows.length>0?(val/rows.length).toFixed(0):0;
+    pt+=`<tr><td class="tc">${lbl}</td><td>${fmt(val)}</td><td>${pct}%</td><td>${fmt(+avg)}</td></tr>`;
+  });
+  pt+='</tbody></table>';
+  g('monthly-prod').innerHTML=pt;
+
+  // OD breakdown (metalliser only)
+  if(!isSlit&&(totalOD22+totalOD25+totalOD28)>0){
+    const odDiv=document.getElementById('monthly-od');
+    if(!odDiv){
+      const d=document.createElement('div');d.id='monthly-od';
+      g('monthly-prod').after(d);
+    }
+    let od='<div class="sech" style="margin-top:16px;"><div class="slbl">Production by OD Value (kg)</div></div>';
+    od+='<div class="twrap"><table><thead><tr><th>OD</th><th>Total (kg)</th><th>% Share</th></tr></thead><tbody>';
+    [['2.2 OD',totalOD22],['2.5 OD',totalOD25],['2.8 OD',totalOD28]].forEach(([lbl,val])=>{
+      if(val<=0)return;
+      const pct=totalOutput>0?(val/totalOutput*100).toFixed(1):0;
+      od+=`<tr><td class="tc">${lbl}</td><td>${fmt(val)}</td><td>${pct}%</td></tr>`;
+    });
+    od+='</tbody></table></div>';
+    g(document.getElementById('monthly-od')?'monthly-od':'monthly-prod').innerHTML+=od;
+  }
+  renderDTBars(rows,'monthly-dt-bars');
+}
+
+function setView(v){
+  CURRENT_VIEW=v;
+  g('vt-daily').classList.toggle('act',v==='daily');
+  g('vt-monthly').classList.toggle('act',v==='monthly');
+  g('view-daily').style.display=v==='daily'?'block':'none';
+  g('view-monthly').style.display=v==='monthly'?'block':'none';
+}
+
+/* ══ INDIVIDUAL PERFORMANCE — SHIFT-WISE ══ */
+function buildPeopleReport(){
+  if(!PARSED_DATA)return;
+  const rows=PARSED_DATA;
+  const isSlit=rows[0]?.isSlit;
+  const shift=detectShift(CURRENT_SHEET);
+  const machine=detectMachine(CURRENT_SHEET);
+
+  // Collect all raw names for correction display
+  // Split supervisors properly — "Ghanshyam,Mohit" = two separate supervisors
+  const allRawNames=[];
+  rows.forEach(r=>{
+    const supList=toArr(r.sups).length>0 ? toArr(r.sups) : (r.sup?[r.sup]:[]);
+    supList.forEach(s=>{if(s&&s.toLowerCase()!=='na'&&s.toLowerCase()!=='nil')allRawNames.push(s);});
+    toArr(r.ops).forEach(op=>{if(op&&op.toLowerCase()!=='na'&&op.toLowerCase()!=='nil')allRawNames.push(op);});
+  });
+  const corrections=getCorrections(allRawNames);
+
+  // Build performance map per canonical person
+  const perfMap={};
+  function addPerf(rawName,row,role){
+    const canon=canonName(rawName);
+    if(!canon)return;
+    if(!perfMap[canon]){
+      perfMap[canon]={
+        name:canon,role,variants:new Set(),
+        shifts:[],totalOut:0,totalTgt:0,
+        dtMins:0,dtCount:0,
+        boatVals:[],wireVals:[],
+        speedVals:[],slitLens:[],
+        lossProc:0,lossDT:0,
+        bareWaste:0,metWaste:0,
+        dates:[]
+      };
+    }
+    const p=perfMap[canon];
+    // Track original spelling if different
+    if(rawName.trim()!==canon)p.variants.add(rawName.trim());
+    p.shifts.push({date:row.dateStr,eff:row.targetOutput>0?row.totalOutput/row.targetOutput*100:0,dt:row.totalDT,output:row.totalOutput,target:row.targetOutput});
+    p.totalOut+=row.totalOutput;
+    p.totalTgt+=row.targetOutput;
+    p.dtMins+=row.totalDT;p.dtCount++;
+    p.lossProc+=row.lossDueProcess;
+    p.lossDT+=row.lossDueDT;
+    if(!isSlit){if(row.actualBoats>0)p.boatVals.push(row.actualBoats);if(row.actualWire>0)p.wireVals.push(row.actualWire);}
+    else{if(row.avgSpeed>0)p.speedVals.push(row.avgSpeed);if(row.slitLen>0)p.slitLens.push(row.slitLen);p.bareWaste+=row.bareWaste;p.metWaste+=row.metWaste;}
+    p.dates.push(row.dateStr);
+  }
+
+  rows.forEach(r=>{
+    // Each supervisor listed for the shift gets equal full credit
+    // "Ghanshyam,Mohit" → Ghanshyam gets this shift, Mohit gets this shift
+    const supList=toArr(r.sups).length>0 ? toArr(r.sups) : (r.sup?splitNames(r.sup):[]);
+    supList.forEach(s=>{if(s&&s.toLowerCase()!=='na'&&s.toLowerCase()!=='nil')addPerf(s,r,'Supervisor');});
+    toArr(r.ops).forEach(op=>{if(op&&op.toLowerCase()!=='na'&&op.toLowerCase()!=='nil')addPerf(op,r,'Operator');});
+  });
+
+  // Separate supervisors and operators
+  const sups=Object.values(perfMap).filter(p=>p.role==='Supervisor').sort((a,b)=>b.totalOut/Math.max(b.totalTgt,1)-a.totalOut/Math.max(a.totalTgt,1));
+  const ops=Object.values(perfMap).filter(p=>p.role==='Operator').sort((a,b)=>b.totalOut/Math.max(b.totalTgt,1)-a.totalOut/Math.max(a.totalTgt,1));
+
+  // Corrections panel
+  if(corrections.length>0){
+    g('corrections-panel').innerHTML=`<div class="corrections-box">
+      <div class="cb-title">⚠️ Spelling Corrections Applied (${corrections.length})</div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">These names were found with spelling errors in the Excel — corrected automatically for accurate performance tracking</div>
+      ${corrections.map(c=>`<div class="correction-item"><span class="ci-wrong">${c.wrong}</span><span class="ci-arr"> → </span><span class="ci-right">${c.right}</span></div>`).join('')}
+    </div>`;
+    g('corrections-panel').style.display='block';
+  }else{
+    g('corrections-panel').innerHTML='<div class="corrections-box" style="border-color:rgba(34,214,94,.3);background:var(--gd);"><div class="cb-title" style="color:var(--green);">✓ No spelling errors found in this sheet</div></div>';
+    g('corrections-panel').style.display='block';
+  }
+
+  g('sup-meta').textContent=`${sups.length} supervisors · ${machine} · ${shift} shift · sorted by efficiency`;
+  g('op-meta').textContent=`${ops.length} operators · ${machine} · ${shift} shift · sorted by efficiency`;
+  g('sup-grid').innerHTML=sups.map(p=>personCard(p,isSlit,shift,machine)).join('');
+  g('op-grid').innerHTML=ops.map(p=>personCard(p,isSlit,shift,machine)).join('');
+  g('people-empty').style.display='none';
+  g('people-content').style.display='block';
+}
+
+function personCard(p,isSlit,shift,machine){
+  const eff=p.totalTgt>0?(p.totalOut/p.totalTgt*100):0;
+  const avgDT=p.dtCount>0?(p.dtMins/p.dtCount/720*100):0;
+  const effC=eff>=100?'g':eff>=90?'y':'r';
+  const dtC=avgDT<10?'g':avgDT<20?'y':'r';
+  const initials=p.name.split(' ').map(w=>w[0]||'').join('').slice(0,2).toUpperCase();
+  const shiftBadge=shift!=='Unknown'?`<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:${shift==='Day'?'var(--yd)':'var(--bd)'};color:${shift==='Day'?'var(--yellow)':'var(--blue)'};margin-left:6px;">${shift}</span>`:'';
+  const machBadge=`<span style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:var(--m1bg);color:var(--m1);margin-left:4px;">${machine}</span>`;
+  const varHtml=p.variants.size>0?`<div class="pc-variants">Typos corrected: ${[...p.variants].join(', ')}</div>`:'';
+
+  // Shift-by-shift mini table (best 5 + worst)
+  const allShifts=p.shifts.filter(s=>s.target>0);
+  const best=allShifts.length>0?allShifts.reduce((a,b)=>a.eff>b.eff?a:b):null;
+  const worst=allShifts.length>0?allShifts.reduce((a,b)=>a.eff<b.eff?a:b):null;
+
+  let stats=`
+    <div class="pc-stat"><span class="pc-stat-lbl">Shifts worked</span><span class="pc-stat-val">${p.shifts.length}</span></div>
+    <div class="pc-stat"><span class="pc-stat-lbl">Total Output</span><span class="pc-stat-val teal">${fmt(p.totalOut)} kg</span></div>
+    <div class="pc-stat"><span class="pc-stat-lbl">Total Target</span><span class="pc-stat-val">${fmt(p.totalTgt)} kg</span></div>
+    <div class="pc-stat"><span class="pc-stat-lbl">Efficiency</span><span class="pc-stat-val ${effC}">${eff.toFixed(1)}%</span></div>
+    <div class="pc-stat"><span class="pc-stat-lbl">Avg Downtime %</span><span class="pc-stat-val ${dtC}">${avgDT.toFixed(1)}%</span></div>`;
+  if(best)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Best shift</span><span class="pc-stat-val g">${best.date} · ${best.eff.toFixed(0)}%</span></div>`;
+  if(worst&&worst!==best)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Worst shift</span><span class="pc-stat-val r">${worst.date} · ${worst.eff.toFixed(0)}%</span></div>`;
+  if(p.lossProc>0)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Loss (Process)</span><span class="pc-stat-val r">${fmt(p.lossProc)} kg</span></div>`;
+  if(p.lossDT>0)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Loss (Downtime)</span><span class="pc-stat-val r">${fmt(p.lossDT)} kg</span></div>`;
+  if(!isSlit&&p.boatVals.length>0){const avg=p.boatVals.reduce((s,x)=>s+x,0)/p.boatVals.length;stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Avg Boats/MT</span><span class="pc-stat-val ${avg<=1.7?'g':avg<=2.5?'y':'r'}">${avg.toFixed(2)} <small style="color:var(--t3)">tgt 1.7</small></span></div>`;}
+  if(!isSlit&&p.wireVals.length>0){const avg=p.wireVals.reduce((s,x)=>s+x,0)/p.wireVals.length;stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Avg Wire/MT</span><span class="pc-stat-val ${avg<=8.9?'g':'y'}">${avg.toFixed(2)} <small style="color:var(--t3)">tgt 8.9</small></span></div>`;}
+  if(isSlit&&p.speedVals.length>0){const avg=p.speedVals.reduce((s,x)=>s+x,0)/p.speedVals.length;stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Avg Speed</span><span class="pc-stat-val ${avg>=700?'g':avg>=500?'y':'r'}">${avg.toFixed(0)} m/min <small style="color:var(--t3)">tgt 800</small></span></div>`;}
+  if(isSlit&&p.bareWaste>0)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Total Bare Waste</span><span class="pc-stat-val y">${fmt(p.bareWaste)} kg</span></div>`;
+  if(isSlit&&p.metWaste>0)stats+=`<div class="pc-stat"><span class="pc-stat-lbl">Total Met Waste</span><span class="pc-stat-val y">${fmt(p.metWaste)} kg</span></div>`;
+
+  // Efficiency bar
+  const effPct=Math.min(eff,120);
+  const barCol=eff>=100?'var(--green)':eff>=90?'var(--yellow)':'var(--red)';
+
+  return `<div class="person-card">
+    <div class="pc-head">
+      <div class="pc-av ${p.role==='Supervisor'?'sup':'op'}">${initials}</div>
+      <div style="flex:1">
+        <div class="pc-name">${p.name}${shiftBadge}${machBadge}</div>
+        <div class="pc-role">${p.role}</div>
+        ${varHtml}
+      </div>
+      <div style="text-align:right">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:${barCol};line-height:1">${eff.toFixed(1)}%</div>
+        <div style="font-size:9px;color:var(--t3)">Efficiency</div>
+      </div>
+    </div>
+    <div style="padding:6px 14px 4px;"><div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden;"><div style="height:100%;width:${effPct}%;background:${barCol};border-radius:3px;transition:width .5s;"></div></div></div>
+    <div class="pc-body">${stats}</div>
+  </div>`;
+}
+
+/* ══ METALLISER PERSON-WISE PERFORMANCE (metric selector + daily/monthly) ══ */
+const METAL_METRICS = [
+  {id:'rollsNorm',      label:'Rolls (Normalized)', unit:'',      fmt:v=>v.toFixed(1), agg:'avg',   target:5,   formula:'D × shiftBase ÷ (shiftBase − AK), where shiftBase = 720 for single-shift sheets, 1440 for Total/MET ALL · Target: 5 rolls/shift'},
+  {id:'outputMT',       label:'Output (MT)',        unit:' MT',   fmt:v=>v.toFixed(2), agg:'avg',   target:18,  formula:'Col AM ÷ 1000. Monthly = avg MT per shift · Target: 18 MT/shift'},
+  {id:'totalDT',        label:'Total DT',           unit:' min',  fmt:v=>v.toFixed(0), agg:'avg',               formula:'Col AJ. Monthly = avg downtime per shift'},
+  {id:'rcoPerRoll',     label:'Avg RCO / Roll',     unit:' min',  fmt:v=>v.toFixed(1), agg:'ratio', target:15,  numer:'rcoTime', denom:'rolls', formula:'Σ col I ÷ Σ col D across person\'s shifts · Target: 15 min/roll'},
+  {id:'boatChangeTime', label:'Boat Change Time',   unit:' min',  fmt:v=>v.toFixed(0), agg:'avg',   target:25,  formula:'Col K. Monthly = avg per shift (excl. zero-boat-change shifts) · Target: 25 min'},
+  {id:'actualBoats',    label:'Boats/MT',           unit:'',      fmt:v=>v.toFixed(2), agg:'avg',   target:1.8, formula:'Col AT (Pcs/MT). Monthly = avg of per-shift rate · Target: 1.8'},
+  {id:'actualWire',     label:'Wire/MT',            unit:'',      fmt:v=>v.toFixed(2), agg:'avg',   target:9,   formula:'Col AV (Kg/MT). Monthly = avg of per-shift rate · Target: 9'},
+];
+const METAL_LOWER_BETTER = ['totalDT','rcoPerRoll','boatChangeTime','actualBoats','actualWire'];
+
+function setMetalMetric(id){
+  METAL_METRIC=id;
+  document.querySelectorAll('#metal-metric-btns .sheet-btn').forEach(b=>b.classList.toggle('act',b.dataset.id===id));
+  renderMetalPerson();
+}
+function setMetalView(v){
+  METAL_VIEW=v;
+  g('mv-monthly').classList.toggle('act',v==='monthly');
+  g('mv-daily').classList.toggle('act',v==='daily');
+  g('metal-date-pick').style.display=v==='daily'?'block':'none';
+  renderMetalPerson();
+}
+
+function aggMetalPerson(rows,role,metricDef){
+  // ───────────────────────────────────────────────────────────────────────
+  // TWO-STAGE AGGREGATION (user requirement):
+  //
+  // For multi-shift views (Met-1 Total = Day+Night, MET ALL = 4 buckets),
+  // we don't pool all rows and average across them. Instead we:
+  //   1. Group rows by (person, machine, shift) — each unique combo is a "bucket"
+  //   2. Compute the metric WITHIN each bucket (per-shift average or ratio)
+  //   3. Average the bucket values together with EQUAL weight
+  //
+  // This means Nitish on Met-1 Total = (his Day avg + his Night avg) ÷ 2,
+  // even if he worked 20 Day shifts and only 4 Night shifts. Empty buckets
+  // are skipped entirely (rule A: don't penalize a person for not working
+  // a shift they were never scheduled for).
+  //
+  // For single-sheet views (Met-1 Day alone), there's only one bucket per
+  // person, so the two-stage logic collapses to a simple average — identical
+  // to the old behavior.
+  //
+  // NOTE on the old ÷N per-day machine-count rule: we USED to divide an
+  // operator's value by N on dates where they appeared on multiple machines,
+  // to stop cross-machine operators from getting 2× credit. That rule is now
+  // OBSOLETE — bucketing by (person, machine, shift) already isolates credit
+  // per machine, so there's nothing to correct. Applying ÷N on top of buckets
+  // was double-correcting and producing values ~half of truth on MET ALL.
+  // ───────────────────────────────────────────────────────────────────────
+
+  // Stage 1: bucket map keyed by "personCanon||machine||shift"
+  const buckets={};
+  // Per-person totals for the UI (shift count displayed alongside name)
+  const personDays={};
+
+  rows.forEach(r=>{
+    const list = role==='sup'
+      ? (r.sups&&toArr(r.sups).length?toArr(r.sups):splitNames(r.sup))
+      : toArr(r.ops);
+    list.forEach(raw=>{
+      const canon=canonName(raw);
+      if(!canon)return;
+      const machineKey=r.machine||'_';
+      const shiftKey=r.shift||'_';
+      const bk=canon+'||'+machineKey+'||'+shiftKey;
+      if(!buckets[bk])buckets[bk]={person:canon,machine:machineKey,shift:shiftKey,vals:[],num:0,den:0};
+      if(!personDays[canon])personDays[canon]={total:0};
+
+      if(metricDef.agg==='ratio'){
+        buckets[bk].num += r[metricDef.numer]||0;
+        buckets[bk].den += r[metricDef.denom]||0;
+      } else {
+        const v=r[metricDef.id]||0;
+        // Filter rule per metric:
+        //   Total DT     → keep zeros (a zero-DT shift is meaningful)
+        //   Everything else → exclude zeros (planned-down / unused / undefined)
+        const keepZero = (metricDef.id==='totalDT');
+        if(v>0||keepZero){
+          buckets[bk].vals.push(v);
+          personDays[canon].total++;
+        }
+      }
+    });
+  });
+
+  // Stage 2: collapse buckets per person → bucket values → final avg-of-bucket-avgs
+  const personMap={};
+  Object.values(buckets).forEach(b=>{
+    let bucketVal=null;
+    if(metricDef.agg==='ratio'){
+      if(b.den>0)bucketVal=b.num/b.den;
+    } else if(b.vals.length>0){
+      bucketVal=b.vals.reduce((s,x)=>s+x,0)/b.vals.length;
+    }
+    if(bucketVal===null)return;  // empty bucket — skip per rule (A)
+    if(!personMap[b.person])personMap[b.person]={vals:[],bucketCount:0};
+    personMap[b.person].vals.push(bucketVal);
+    personMap[b.person].bucketCount++;
+  });
+
+  return Object.entries(personMap).map(([name,p])=>{
+    const val = p.vals.reduce((s,x)=>s+x,0) / p.vals.length;  // simple avg of bucket values
+    const pd = personDays[name]||{total:0};
+    return {name,val,days:pd.total||p.bucketCount,buckets:p.bucketCount};
+  }).filter(p=>p.val>0||metricDef.id==='totalDT').sort((a,b)=>
+    METAL_LOWER_BETTER.includes(metricDef.id)?a.val-b.val:b.val-a.val
+  );
+}
+
+function renderMetalPerson(){
+  // Source: always start from ALL_MET_ROWS (which has machine+shift tags), fall back to PARSED_DATA
+  if(ALL_MET_ROWS.length===0&&(!PARSED_DATA||PARSED_DATA.length===0)){g('person-charts-wrap').style.display='none';return;}
+  if(PARSED_DATA?.[0]?.isSlit){g('person-charts-wrap').style.display='none';return;}
+  g('person-charts-wrap').style.display='block';
+
+  // Scope the rows to match the currently-selected sheet — so what you see on Met-1 Day
+  // matches what you'd get by filtering Met-1 Day in Excel directly. No cross-sheet leakage.
+  let scopedRows;
+  if(CURRENT_SHEET==='__ALL__'){
+    // MET ALL view → use everything
+    scopedRows=ALL_MET_ROWS;
+  } else if(ALL_MET_ROWS.length>0){
+    const targetMachine=detectMachine(CURRENT_SHEET);
+    const targetShift=detectShift(CURRENT_SHEET);
+    if(String(CURRENT_SHEET).toLowerCase().includes('total')){
+      // Total sheet → both Day & Night for that one machine
+      scopedRows=ALL_MET_ROWS.filter(r=>r.machine===targetMachine);
+    } else {
+      // Single shift sheet → exact machine + shift match
+      scopedRows=ALL_MET_ROWS.filter(r=>r.machine===targetMachine&&r.shift===targetShift);
+    }
+    // If filter produced nothing (sheet name didn't match parser), fall back to PARSED_DATA
+    if(!scopedRows.length)scopedRows=PARSED_DATA||[];
+  } else {
+    scopedRows=PARSED_DATA||[];
+  }
+
+  // Build metric buttons (once per dataset)
+  const btnBar=g('metal-metric-btns');
+  if(!btnBar.children.length){
+    btnBar.innerHTML=METAL_METRICS.map(m=>
+      `<button class="sheet-btn${m.id===METAL_METRIC?' act':''}" data-id="${m.id}" onclick="setMetalMetric('${m.id}')">${m.label}</button>`
+    ).join('');
+  }
+  // Populate date dropdown from scoped rows
+  const dateSel=g('metal-date-pick');
+  if(!dateSel.children.length){
+    const dates=[...new Set(scopedRows.map(r=>r.dateStr))].sort((a,b)=>new Date(a+' 2026')-new Date(b+' 2026'));
+    dateSel.innerHTML=dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+    if(dates.length&&!METAL_DATE)METAL_DATE=dates[dates.length-1];
+    dateSel.value=METAL_DATE;
+  }
+  METAL_DATE=dateSel.value||METAL_DATE;
+
+  const metricDef=METAL_METRICS.find(m=>m.id===METAL_METRIC);
+  const rows = METAL_VIEW==='daily'
+    ? scopedRows.filter(r=>r.dateStr===METAL_DATE)
+    : scopedRows;
+
+  let note=metricDef.formula;
+  // Indicate scope
+  const scopeMachines=new Set(scopedRows.map(r=>r.machine).filter(Boolean));
+  const machineList=[...scopeMachines];
+  const scopeLabel=CURRENT_SHEET==='__ALL__'?'All Machines':CURRENT_SHEET;
+  note += ` · Scope: ${scopeLabel} (${rows.length} shift-rows${machineList.length>1?', '+machineList.join('+'):''})`;
+  g('metal-formula-note').textContent=note;
+
+  const sups=aggMetalPerson(rows,'sup',metricDef);
+  const ops=aggMetalPerson(rows,'op',metricDef);
+  const fmtVal=v=>metricDef.fmt(v)+metricDef.unit;
+  const chartOpts={target:metricDef.target,lowerBetter:METAL_LOWER_BETTER.includes(METAL_METRIC)};
+  g('chart-sup').innerHTML=svgBarChartCustom(sups,'#f97316',fmtVal,{...chartOpts,containerId:'chart-sup'});
+  g('chart-op').innerHTML=svgBarChartCustom(ops,'#00cdb5',fmtVal,{...chartOpts,containerId:'chart-op'});
+}
+
+
+/* ══ DT BY MACHINE — Monthly (from summary sheet) or Daily (from shift rows) ══ */
+function setDTView(v){
+  DT_VIEW=v;
+  g('dtv-monthly').classList.toggle('act',v==='monthly');
+  g('dtv-daily').classList.toggle('act',v==='daily');
+  g('dt-date-pick').style.display=v==='daily'?'block':'none';
+  renderMonthlyDTByMachine();
+}
+
+function renderMonthlyDTByMachine(){
+  const wrap=g('mdt-machine-wrap');
+  const isSlitFile=ALL_SLIT_ROWS.length>0;
+  const source=isSlitFile?ALL_SLIT_ROWS:ALL_MET_ROWS;
+  // Hide section entirely only if there's no data at all
+  if(!source.length&&(!DT_SUMMARY||!DT_SUMMARY.categories.length)){wrap.style.display='none';return;}
+  wrap.style.display='block';
+
+  // Populate the date dropdown (once per dataset)
+  const dateSel=g('dt-date-pick');
+  if(!dateSel.children.length&&source.length){
+    const dates=[...new Set(source.map(r=>r.dateStr))].sort((a,b)=>new Date(a+' 2026')-new Date(b+' 2026'));
+    dateSel.innerHTML=dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+    if(dates.length&&!DT_DATE)DT_DATE=dates[dates.length-1];
+    dateSel.value=DT_DATE;
+  }
+  DT_DATE=dateSel.value||DT_DATE;
+
+  let machines,categories,sourceNote;
+  // DT category field names in the row object → display label
+  const dtFields=[
+    {key:'processDT',label:'Process'},
+    {key:'mechDT',   label:'Mechanical'},
+    {key:'eiDT',     label:'E & I//Electrical'},
+    {key:'powerDT',  label:'Power downtime'},
+    {key:'utilDT',   label:'Utility'},
+    {key:'noFeed',   label:'NO FEED/RM, Planned SD Hours'},
+    {key:'noOrder',  label:'No Order'},
+    {key:'rcoTime',  label:'RCO / Setup'},
+    {key:'boatChangeTime',label:'Boat Change'},
+  ];
+
+  if(DT_VIEW==='daily'&&source.length){
+    // Build machines from source; restrict to selected date only
+    machines=[...new Set(source.map(r=>r.machine))].sort();
+    const totalKey='Total';
+    machines.push(totalKey);
+    const dayRows=source.filter(r=>r.dateStr===DT_DATE);
+    // Each category: for each machine, sum field value (minutes) across shifts that day, convert to hours
+    categories=[];
+    // Synthesize a "Total" row at the top that sums all DT fields per machine
+    const totalRow={label:'Total',vals:machines.map(m=>{
+      const rs=m===totalKey?dayRows:dayRows.filter(r=>r.machine===m);
+      const mins=rs.reduce((s,r)=>s+dtFields.filter(f=>f.key!=='boatChangeTime').reduce((ss,f)=>ss+(r[f.key]||0),0),0);
+      return mins/60;
+    })};
+    categories.push(totalRow);
+    dtFields.forEach(f=>{
+      const vals=machines.map(m=>{
+        const rs=m===totalKey?dayRows:dayRows.filter(r=>r.machine===m);
+        const mins=rs.reduce((s,r)=>s+(r[f.key]||0),0);
+        return mins/60;
+      });
+      if(vals.some(v=>v>0))categories.push({label:f.label,vals});
+    });
+    sourceNote=`Daily view for ${DT_DATE} · aggregated from ${dayRows.length} shift-records`;
+  } else {
+    // Monthly: prefer DT_SUMMARY if available (matches Excel's pre-aggregated totals exactly),
+    // otherwise fall back to summing from source rows
+    if(DT_SUMMARY&&DT_SUMMARY.categories.length){
+      machines=DT_SUMMARY.machines.slice();
+      categories=DT_SUMMARY.categories.slice();
+      // Source Excel for slitter file incorrectly labels columns "Met-1/Met-2" — relabel
+      if(isSlitFile){
+        machines=machines.map(m=>{
+          const l=String(m).toLowerCase();
+          if(l.includes('met-1')||l==='met-1')return'Slit-1';
+          if(l.includes('met-2')||l==='met-2')return'Slit-2';
+          return m;
+        });
+      }
+      sourceNote=`Monthly view · from Downtime Summary sheet`;
+    } else {
+      machines=[...new Set(source.map(r=>r.machine))].sort();
+      machines.push('Total');
+      categories=[];
+      const totalRow={label:'Total',vals:machines.map(m=>{
+        const rs=m==='Total'?source:source.filter(r=>r.machine===m);
+        const mins=rs.reduce((s,r)=>s+dtFields.filter(f=>f.key!=='boatChangeTime').reduce((ss,f)=>ss+(r[f.key]||0),0),0);
+        return mins/60;
+      })};
+      categories.push(totalRow);
+      dtFields.forEach(f=>{
+        const vals=machines.map(m=>{
+          const rs=m==='Total'?source:source.filter(r=>r.machine===m);
+          const mins=rs.reduce((s,r)=>s+(r[f.key]||0),0);
+          return mins/60;
+        });
+        if(vals.some(v=>v>0))categories.push({label:f.label,vals});
+      });
+      sourceNote=`Monthly view · computed from ${source.length} shift-records`;
+    }
+  }
+
+  g('dt-source-note').textContent=sourceNote;
+
+  // Render table
+  let th='<table><thead><tr><th>Category</th>';
+  machines.forEach(m=>th+=`<th>${m} (hr)</th>`);
+  th+='</tr></thead><tbody>';
+  const dtCats=categories.filter(c=>{
+    const l=c.label.toLowerCase();
+    return !(l.includes('no of days')||l.includes('run days')||l.includes('mt/day'));
+  });
+  dtCats.forEach(c=>{
+    th+=`<tr><td class="tc">${c.label}</td>`;
+    c.vals.forEach((v,i)=>{
+      const isTotal=String(machines[i]).toLowerCase().includes('total')||c.label.toLowerCase()==='total';
+      const cls=v>20?'tr':v>5?'ty':v>0?'':'';
+      th+=`<td class="${cls}" ${isTotal?'style="font-weight:700;color:var(--t1);"':''}>${(v||0).toFixed(1)}</td>`;
+    });
+    th+='</tr>';
+  });
+  th+='</tbody></table>';
+  g('mdt-machine-table').innerHTML=th;
+
+  // Grouped category breakdown bars (exclude Total column + Total row)
+  const dispMachines=machines.filter(m=>!String(m).toLowerCase().includes('total'));
+  const colors=['#f97316','#00cdb5','#a78bfa','#38bdf8'];
+  const plotCats=dtCats.filter(c=>c.label.toLowerCase()!=='total'&&c.vals.slice(0,dispMachines.length).some(v=>v>0));
+  if(!plotCats.length){g('mdt-machine-bars').innerHTML='<div style="font-size:11px;color:var(--t3);padding:8px;">No downtime recorded for this view</div>';return;}
+  const max=Math.max(...plotCats.flatMap(c=>c.vals.slice(0,dispMachines.length)),1);
+  let html='<div style="font-size:10px;color:var(--t3);margin-bottom:8px;text-transform:uppercase;letter-spacing:1.5px;">Category Breakdown</div>';
+  plotCats.forEach(c=>{
+    html+=`<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:700;color:var(--t2);margin-bottom:3px;">${c.label}</div>`;
+    dispMachines.forEach((m,i)=>{
+      const v=c.vals[i]||0;
+      const pct=(v/max*100).toFixed(0);
+      html+=`<div class="dt-bar-row" style="margin-bottom:3px;"><div class="dt-bar-lbl" style="width:60px;font-size:10px;">${m}</div><div class="dt-bar-track"><div class="dt-bar-fill" style="width:${pct}%;background:${colors[i%colors.length]};"></div></div><div class="dt-bar-val">${v.toFixed(1)}h</div></div>`;
+    });
+    html+='</div>';
+  });
+  g('mdt-machine-bars').innerHTML=html;
+}
+
+/* ══ SLITTER INDIVIDUAL PERFORMANCE ══ */
+// Helper: format distance as "X.XX Lac m" (1 Lac = 100,000 m), used for slit length metrics per user request
+function fmtLacM(n){
+  if(isNaN(n)||n===null||n===undefined)return'—';
+  if(n>=100000)return(n/100000).toFixed(2)+' Lac m';
+  if(n>=1000)return(n/1000).toFixed(1)+' km';
+  return parseFloat(n.toFixed(0)).toLocaleString('en-IN')+' m';
+}
+
+const SLIT_METRICS = [
+  {id:'slitLen',     label:'Slit Length (Total)',unit:'',         fmt:v=>fmtLacM(v),       agg:'sum',     color:'#38bdf8'},
+  {id:'avgSlitLen',  label:'Avg Slit Length',    unit:'/shift',   fmt:v=>fmtLacM(v),       agg:'bucketAvg',color:'#38bdf8',sourceField:'slitLen', target:400000},
+  {id:'avgEqvSlitLen',label:'Avg Eqv. Slit Length',unit:'/shift', fmt:v=>fmtLacM(v),       agg:'bucketAvg',color:'#0ea5e9',sourceField:'eqvSlitLen',target:400000},
+  {id:'avgEqvRolls', label:'Eqv. No. of Rolls',  unit:'/shift',   fmt:v=>v.toFixed(1),     agg:'bucketAvg',color:'#8b5cf6',sourceField:'eqvRolls'},
+  {id:'avgSpeed',    label:'Avg Speed',          unit:' m/min',   fmt:v=>v.toFixed(0),     agg:'bucketAvg',color:'#00cdb5',                     target:800},
+  {id:'setChTime',   label:'Avg Set Changeover', unit:' min/set', fmt:v=>v.toFixed(1),     agg:'ratio',   color:'#fbbf24', numer:'setChangeover',denom:r=>(r.sets24k+r.sets36k),target:5},
+  {id:'rcoPerRoll',  label:'Avg RCO / Roll',     unit:' min/roll',fmt:v=>v.toFixed(1),     agg:'ratio',   color:'#f0aa00', numer:'rcoTime',      denom:r=>(r.sets24k/3+r.sets36k/2),target:18},
+  {id:'totalOutput', label:'Total Eqv. Output',  unit:'',         fmt:v=>fmtWeight(v),     agg:'sum',     color:'#22d65e'},
+  {id:'avgOutput',   label:'Avg Eqv. Output',    unit:'/shift',   fmt:v=>fmtWeight(v),     agg:'bucketAvg',color:'#22d65e',sourceField:'eqvOutput',target:19900},
+  {id:'totalDT',     label:'Total Downtime',     unit:' min',     fmt:v=>v.toFixed(0),     agg:'sum',     color:'#f04438'},
+  {id:'bareWaste',   label:'Bare Waste',         unit:'',         fmt:v=>fmtWeight(v),     agg:'sum',     color:'#fbbf24'},
+  {id:'metWaste',    label:'Met Waste',          unit:'',         fmt:v=>fmtWeight(v),     agg:'sum',     color:'#f97316'},
+  // New % metrics — ratios of person's totals (sum of bare/met waste divided by sum of prod cols Y to AI)
+  {id:'pctBareWaste',label:'% Bare Waste',       unit:' %',       fmt:v=>v.toFixed(2),     agg:'ratio',   color:'#fbbf24', numer:'bareWaste',denom:r=>r.totalProd,target:0.7},
+  {id:'pctMetWaste', label:'% Met Waste',        unit:' %',       fmt:v=>v.toFixed(2),     agg:'ratio',   color:'#f97316', numer:'metWaste', denom:r=>r.totalProd,target:1.0},
+  // Downgradation split between slitter and met operators; reason chart is a special full-width chart
+  {id:'downgradSlit',label:'Downgrad (Slitter)', unit:'',         fmt:v=>fmtWeight(v),     agg:'downgrad',color:'#a78bfa',opCol:'slitOps'},
+  {id:'downgradMet', label:'Downgrad (Met Op)',  unit:'',         fmt:v=>fmtWeight(v),     agg:'downgrad',color:'#a78bfa',opCol:'metOps'},
+  {id:'downgradReason',label:'Downgrad by Reason',unit:'',        fmt:v=>fmtWeight(v),     agg:'reason',  color:'#a78bfa'},
+];
+
+function setSlitMetric(id){
+  SLIT_METRIC=id;
+  document.querySelectorAll('#slit-metric-btns .sheet-btn').forEach(b=>b.classList.toggle('act',b.dataset.id===id));
+  renderSlitterPerson();
+}
+function setSlitView(v){
+  SLIT_VIEW=v;
+  g('sv-monthly').classList.toggle('act',v==='monthly');
+  g('sv-daily').classList.toggle('act',v==='daily');
+  g('slit-date-pick').style.display=v==='daily'?'block':'none';
+  renderSlitterPerson();
+}
+
+function getSlitDates(){
+  const set=new Set();
+  ALL_SLIT_ROWS.forEach(r=>{if(r.dateStr)set.add(r.dateStr);});
+  return [...set].sort((a,b)=>{
+    const da=new Date(a+' 2026'),db=new Date(b+' 2026');
+    return da-db;
+  });
+}
+
+// Aggregate a slitter metric per person across rows.
+//
+// agg modes:
+//   'sum'       — simple total across all of the person's rows (Total Output, Bare Waste, etc.)
+//   'ratio'     — sum(numerator) / sum(denominator) across all rows (Avg Set Changeover, RCO/Roll)
+//                 Sum-of-sums naturally weights by activity volume, which is appropriate for rates.
+//   'bucketAvg' — two-stage: group by (person, machine, shift), avg within each non-zero bucket,
+//                 then simple avg of bucket values. Gives equal weight to Day/Night and to each machine,
+//                 so an operator who worked 20 Day shifts + 2 Night shifts isn't dominated by Day numbers.
+//                 Used for: Avg Speed, Avg Slit Length, Avg Eqv. Output.
+function aggSlitMetric(rows,role,metricDef){
+  const LOWER_BETTER=['totalDT','bareWaste','metWaste','downgradSlit','downgradMet','downgradReason','setChTime','rcoPerRoll','pctBareWaste','pctMetWaste'].includes(metricDef.id);
+
+  // ─── Downgradation metrics: aggregate from DOWNGRAD_ROWS, not from shift rows ───
+  // downgradSlit  → per-slitter-operator total (col H)
+  // downgradMet   → per-met-operator total (col I)
+  if(metricDef.agg==='downgrad'){
+    // Supervisors never appear in the downgradation sheet
+    if(role==='sup')return [];
+    const map={};
+    const opCol=metricDef.opCol||'slitOps';
+    DOWNGRAD_ROWS.forEach(d=>{
+      const names=d[opCol]||[];
+      names.forEach(raw=>{
+        const c=canonName(raw);if(!c)return;
+        if(!map[c])map[c]={name:c,val:0,count:0};
+        map[c].val+=d.wt;
+        map[c].count++;
+      });
+    });
+    const arr=Object.entries(map).map(([,p])=>({name:p.name,val:p.val,days:p.count}))
+      .filter(p=>p.val>0);
+    arr.sort((a,b)=>LOWER_BETTER?a.val-b.val:b.val-a.val);
+    return arr;
+  }
+
+  // ─── Downgradation by Reason: aggregate by reason text, not by person ───
+  if(metricDef.agg==='reason'){
+    // Only render once (as operator "role" — supervisor panel gets a note)
+    if(role==='sup')return [];
+    const map={};
+    DOWNGRAD_ROWS.forEach(d=>{
+      // Normalise reason text — first basic clean (uppercase, collapse whitespace, strip punctuation)
+      let r=(d.reason||'').toUpperCase().replace(/\s+/g,' ').replace(/[.,;:]+$/,'').trim();
+      if(!r){r='(BLANK)';}
+      else {
+        // Then fold defect-family variants into a single canonical bucket so location/severity
+        // suffixes don't fragment the chart. E.g. "LOW OD 20MM TO EDGE" + "LOWWWWWW OD" → "LOW OD".
+        // Order matters: most-specific first wins. Detection is substring-based since data entry
+        // is freeform — operators write things like "PIN HOLE TOP 8000MTR", "PIN HOLE BOTTOM" etc.
+        if(/LO+W+\s*OD/.test(r))         r='LOW OD';
+        else if(/CREASE/.test(r))        r='CREASE';
+        else if(/PIN\s*HOLE/.test(r))    r='PIN HOLE';
+        else if(/SCRATCH/.test(r))       r='SCRATCH';
+        else if(/TEAR/.test(r))          r='TEAR';
+        else if(/OK\s*ROLL\s*NOT\s*ORDER/.test(r)) r='OK ROLL NOT ORDER';
+        else if(/BUNCH\s*MARK/.test(r))  r='BUNCH MARKS';
+        else if(/COATING/.test(r))       r='COATING DEFECT';
+        // Else leave as-is so legitimate distinct reasons still appear separately
+      }
+      if(!map[r])map[r]={name:r,val:0,count:0};
+      map[r].val+=d.wt;
+      map[r].count++;
+    });
+    const arr=Object.entries(map).map(([,p])=>({
+      name:p.name.length>40?p.name.slice(0,38)+'…':p.name,
+      val:p.val,days:p.count
+    })).filter(p=>p.val>0);
+    arr.sort((a,b)=>b.val-a.val);  // always highest first for reasons
+    return arr.slice(0,20);  // cap at top-20 reasons so the chart doesn't explode
+  }
+
+  // ─── Two-stage bucketing (bucketAvg) — unchanged ───
+  if(metricDef.agg==='bucketAvg'){
+    const sourceField=metricDef.sourceField||metricDef.id;
+    const buckets={};
+    rows.forEach(r=>{
+      const list=role==='sup'?toArr(r.sups):toArr(r.ops);
+      list.forEach(raw=>{
+        const c=canonName(raw);if(!c)return;
+        const machineKey=r.machine||'_';
+        const shiftKey=r.shift||'_';
+        const bk=c+'||'+machineKey+'||'+shiftKey;
+        if(!buckets[bk])buckets[bk]={person:c,vals:[]};
+        const v=r[sourceField]||0;
+        if(v>0)buckets[bk].vals.push(v);
+      });
+    });
+    const pmap={};
+    Object.values(buckets).forEach(b=>{
+      if(!b.vals.length)return;
+      const bucketAvg=b.vals.reduce((s,x)=>s+x,0)/b.vals.length;
+      if(!pmap[b.person])pmap[b.person]={vals:[],shifts:0};
+      pmap[b.person].vals.push(bucketAvg);
+      pmap[b.person].shifts+=b.vals.length;
+    });
+    const arr=Object.entries(pmap).map(([name,p])=>({
+      name,val:p.vals.reduce((s,x)=>s+x,0)/p.vals.length,days:p.shifts,buckets:p.vals.length
+    })).filter(p=>p.val>0);
+    arr.sort((a,b)=>LOWER_BETTER?a.val-b.val:b.val-a.val);
+    return arr;
+  }
+
+  // ─── Sum / Ratio path ───
+  const map={};
+  rows.forEach(r=>{
+    const list=role==='sup'?toArr(r.sups):toArr(r.ops);
+    list.forEach(raw=>{
+      const canon=canonName(raw);
+      if(!canon)return;
+      if(!map[canon])map[canon]={name:canon,num:0,den:0};
+      if(metricDef.agg==='ratio'){
+        // numer may be a string field or (rarely) a function; denom may be either
+        const nv = typeof metricDef.numer==='function' ? metricDef.numer(r) : (r[metricDef.numer]||0);
+        const dv = typeof metricDef.denom==='function' ? metricDef.denom(r) : (r[metricDef.denom]||0);
+        map[canon].num += nv;
+        map[canon].den += dv;
+      }else{
+        map[canon].num+=r[metricDef.id]||0;
+      }
+    });
+  });
+  const isPercent=metricDef.id==='pctBareWaste'||metricDef.id==='pctMetWaste';
+  const arr=Object.values(map).map(p=>{
+    let val=0;
+    if(metricDef.agg==='ratio')val=p.den>0?(p.num/p.den)*(isPercent?100:1):0;
+    else val=p.num;
+    return {name:p.name,val,days:0};
+  }).filter(p=>p.val>0);
+  arr.sort((a,b)=>LOWER_BETTER?a.val-b.val:b.val-a.val);
+  return arr;
+}
+
+function renderSlitterPerson(){
+  if(!ALL_SLIT_ROWS.length){g('slit-person-wrap').style.display='none';return;}
+  g('slit-person-wrap').style.display='block';
+
+  // Build metric button bar once
+  if(!g('slit-metric-btns').children.length){
+    g('slit-metric-btns').innerHTML=SLIT_METRICS.map(m=>
+      `<button class="sheet-btn${m.id===SLIT_METRIC?' act':''}" data-id="${m.id}" onclick="setSlitMetric('${m.id}')">${m.label}</button>`
+    ).join('');
+  }
+  // Populate date dropdown
+  const dateSel=g('slit-date-pick');
+  if(!dateSel.children.length){
+    const dates=getSlitDates();
+    dateSel.innerHTML=dates.map(d=>`<option value="${d}">${d}</option>`).join('');
+    if(dates.length)SLIT_SELECTED_DATE=dates[dates.length-1];
+    dateSel.value=SLIT_SELECTED_DATE;
+  }
+  SLIT_SELECTED_DATE=dateSel.value||SLIT_SELECTED_DATE;
+
+  const metricDef=SLIT_METRICS.find(m=>m.id===SLIT_METRIC);
+  const rows=SLIT_VIEW==='daily'
+    ? ALL_SLIT_ROWS.filter(r=>r.dateStr===SLIT_SELECTED_DATE)
+    : ALL_SLIT_ROWS;
+
+  // Formula note
+  const formulas={
+    setChTime:    'Σ col I ÷ Σ (col G + col H) · Target 5 min/set',
+    rcoPerRoll:   'Σ col K ÷ Σ (G÷3 + H÷2) · Target 18 min/roll',
+    avgSpeed:     'Per-shift avg of col E, bucketed by machine+shift · Target 800 m/min',
+    avgSlitLen:   'Per-shift avg of col D (raw), bucketed by machine+shift · Target 4 Lac m',
+    avgEqvSlitLen:'Per-shift avg of col D × 720 ÷ (720 − col W − col X), bucketed by machine+shift · Target 4 Lac m · Normalises for No-Order + No-Feed time',
+    avgEqvRolls:  'Per-shift avg of col G × 720 ÷ (720 − col W − col X), bucketed by machine+shift · Normalises 24K-set count for No-Order + No-Feed time',
+    avgOutput:    'Per-shift avg of col AM × 720 ÷ (720 − col W − col X), bucketed by machine+shift · Target 19.9 MT · Normalises for No-Order + No-Feed time',
+    pctBareWaste: 'Σ col AT (Bare Waste) ÷ Σ col Y:AI (Production) × 100 · Target ≤ 0.7 %',
+    pctMetWaste:  'Σ col AU (Met Waste) ÷ Σ col Y:AI (Production) × 100 · Target ≤ 1.0 %',
+    downgradSlit: 'Σ col E from Downgradation sheet, grouped by col H (Slitter Operator)',
+    downgradMet:  'Σ col E from Downgradation sheet, grouped by col I (Met Operator)',
+    downgradReason:'Σ col E grouped by col K (Downgradation Reason), top 20 reasons shown',
+  };
+  g('slit-formula-note').textContent=formulas[SLIT_METRIC]||'';
+
+  const LOWER_BETTER_IDS=['totalDT','bareWaste','metWaste','downgradSlit','downgradMet','setChTime','rcoPerRoll','pctBareWaste','pctMetWaste'];
+  const chartOpts={target:metricDef.target,lowerBetter:LOWER_BETTER_IDS.includes(SLIT_METRIC)};
+
+  const fmtVal=v=>metricDef.fmt(v)+metricDef.unit;
+
+  // Special layout: Downgrad-by-Reason is a single full-width chart (no sup/op split)
+  if(SLIT_METRIC==='downgradReason'){
+    const reasons=aggSlitMetric(rows,'op',metricDef);
+    // Use the operator panel as the full canvas and show a note in the supervisor panel
+    g('slit-chart-sup').innerHTML='<div style="font-size:11px;color:var(--t3);padding:14px;text-align:center;">Downgradation reason totals are shown in the panel to the right — each bar is one reason from <b>col K</b> of the Downgradation Record, summed across all rolls.</div>';
+    g('slit-chart-op').innerHTML=svgBarChartCustom(reasons,'#a78bfa',fmtVal,{containerId:'slit-chart-op'});
+    return;
+  }
+
+  const sups=aggSlitMetric(rows,'sup',metricDef);
+  const ops=aggSlitMetric(rows,'op',metricDef);
+
+  const isDowngradPersonMetric=SLIT_METRIC==='downgradSlit'||SLIT_METRIC==='downgradMet';
+  g('slit-chart-sup').innerHTML = isDowngradPersonMetric
+    ? '<div style="font-size:11px;color:var(--t3);padding:14px;text-align:center;">Downgradation is tracked per <b>operator</b>, not per supervisor.</div>'
+    : svgBarChartCustom(sups,'#f97316',fmtVal,{...chartOpts,containerId:'slit-chart-sup'});
+  g('slit-chart-op').innerHTML=svgBarChartCustom(ops,'#00cdb5',fmtVal,{...chartOpts,containerId:'slit-chart-op'});
+}
+
+// Custom bar chart that uses a value formatter function
+//
+// Per-chart member exclusion: opts.containerId enables click-to-exclude bars.
+// Excluded names are tracked per container (so Sup chart and Op chart filter independently)
+// and persist across metric switches within a session. Hidden bars don't appear in the SVG
+// at all, so the PNG download automatically excludes them.
+function svgBarChartCustom(data,color,fmtFn,opts){
+  opts=opts||{};
+  const containerId=opts.containerId;
+  const excludedSet=containerId?(EXCLUDED_NAMES[containerId]=EXCLUDED_NAMES[containerId]||new Set()):null;
+
+  // Filter out excluded names; keep the original list for the toggle UI
+  const allData=data;
+  const visible=excludedSet ? data.filter(d=>!excludedSet.has(stripMarkers(d.name))) : data;
+
+  if(!visible.length){
+    const restoreBtn=excludedSet&&excludedSet.size
+      ? `<div style="margin-top:10px;"><button onclick="clearExcluded('${containerId}')" style="background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:6px 12px;font-size:11px;font-weight:700;color:var(--m1);cursor:pointer;">↺ Restore ${excludedSet.size} hidden</button></div>`
+      : '';
+    return '<div style="font-size:12px;color:var(--t3);padding:20px;text-align:center;">'+
+      (allData.length?'All members hidden':'No data')+restoreBtn+'</div>';
+  }
+
+  const target=opts.target;
+  const lowerBetter=!!opts.lowerBetter;
+  const dataMax=Math.max(...visible.map(d=>d.val),1);
+  const max=target?Math.max(dataMax,target*1.08):dataMax;
+  const barH=24,gap=5,padL=110,padR=95,padT=14,padB=12;
+  const H=visible.length*(barH+gap)-gap+padT+padB;
+  const chartW=340,W=padL+chartW+padR;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;font-family:'Barlow',sans-serif;" preserveAspectRatio="xMinYMin meet">`;
+
+  visible.forEach((d,i)=>{
+    const y=padT+i*(barH+gap);
+    const w=(d.val/max)*chartW;
+    const cleanName=stripMarkers(d.name);
+    const name=d.name.length>14?d.name.slice(0,13)+'…':d.name;
+    let labelColor=color;
+    if(target!=null){
+      const meetsTarget=lowerBetter?(d.val<=target):(d.val>=target);
+      labelColor=meetsTarget?'#16a34a':'#dc2626';
+    }
+    svg+=`<text x="${padL-6}" y="${y+barH/2+4}" font-size="11" font-weight="600" fill="currentColor" text-anchor="end">${name}</text>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${chartW}" height="${barH}" fill="currentColor" opacity="0.06" rx="3"/>`;
+    svg+=`<rect x="${padL}" y="${y}" width="${w}" height="${barH}" fill="${color}" rx="3"><title>${d.name}: ${fmtFn(d.val)}${target!=null?' (target '+fmtFn(target)+')':''}</title></rect>`;
+    svg+=`<text x="${padL+w+5}" y="${y+barH/2+4}" font-size="10" font-weight="700" fill="${labelColor}">${fmtFn(d.val)}</text>`;
+  });
+
+  if(target!=null&&target>0){
+    const tx=padL+(target/max)*chartW;
+    svg+=`<line x1="${tx}" y1="${padT-4}" x2="${tx}" y2="${H-padB+4}" stroke="#dc2626" stroke-width="2" stroke-dasharray="5,4"/>`;
+    const labelText=`TARGET ${fmtFn(target)}`;
+    const lblW=labelText.length*5.2+10;
+    let lblX=tx-lblW/2;
+    if(lblX<padL)lblX=padL;
+    if(lblX+lblW>W-2)lblX=W-2-lblW;
+    svg+=`<rect x="${lblX}" y="0" width="${lblW}" height="12" rx="2" fill="#dc2626"/>`;
+    svg+=`<text x="${lblX+lblW/2}" y="9" font-size="8" font-weight="800" fill="#ffffff" text-anchor="middle">${labelText}</text>`;
+  }
+  svg+='</svg>';
+
+  // Exclude/include toggle list — shown beneath the SVG so it doesn't pollute the PNG export
+  if(containerId&&allData.length>1){
+    const hiddenCount=excludedSet.size;
+    let toggleHtml=`<div class="exclude-bar" style="margin-top:14px;padding:10px 12px;background:var(--bg3);border:1px solid var(--ln2);border-radius:8px;font-size:11px;color:var(--t2);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap;">
+        <span style="text-transform:uppercase;letter-spacing:1.2px;font-weight:800;font-size:10px;color:var(--m1);">⚙ Filter members for PNG export</span>
+        ${hiddenCount?`<button onclick="clearExcluded('${containerId}')" style="background:var(--m1);border:none;border-radius:5px;padding:4px 10px;font-size:10px;color:#fff;cursor:pointer;font-weight:800;letter-spacing:.3px;">↺ Show all (${hiddenCount} hidden)</button>`:`<span style="font-size:10px;color:var(--t3);font-style:italic;">click a name to hide it from the chart &amp; downloaded PNG</span>`}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">`;
+    allData.forEach(d=>{
+      const cleanName=stripMarkers(d.name);
+      const isHidden=excludedSet.has(cleanName);
+      const safeName=cleanName.replace(/'/g,"\\'");
+      toggleHtml+=`<button onclick="toggleExcluded('${containerId}','${safeName}')" style="
+        background:${isHidden?'transparent':color+'22'};
+        border:1.5px solid ${isHidden?'var(--ln2)':color};
+        color:${isHidden?'var(--t3)':'var(--t1)'};
+        text-decoration:${isHidden?'line-through':'none'};
+        opacity:${isHidden?'0.55':'1'};
+        border-radius:13px;padding:3px 11px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;transition:all .15s;
+      " title="${isHidden?'Click to include in chart':'Click to hide from chart and PNG'}">${isHidden?'+ ':'✓ '}${cleanName.length>16?cleanName.slice(0,15)+'…':cleanName}</button>`;
+    });
+    toggleHtml+='</div></div>';
+    return svg+toggleHtml;
+  }
+
+  return svg;
+}
+
+// Per-chart excluded names map: containerId → Set of canonicalized person names
+const EXCLUDED_NAMES={};
+
+// Strip the suffix markers like " ⚡(2/14)" so the toggle list uses clean canonical names
+function stripMarkers(name){return String(name).replace(/\s*⚡.*$/,'').trim();}
+
+function toggleExcluded(containerId,name){
+  if(!EXCLUDED_NAMES[containerId])EXCLUDED_NAMES[containerId]=new Set();
+  const s=EXCLUDED_NAMES[containerId];
+  if(s.has(name))s.delete(name);else s.add(name);
+  rerenderChart(containerId);
+}
+
+function clearExcluded(containerId){
+  if(EXCLUDED_NAMES[containerId])EXCLUDED_NAMES[containerId].clear();
+  rerenderChart(containerId);
+}
+
+// Re-render whichever chart was touched. We don't know which chart is which without a lookup,
+// so just refresh the appropriate parent renderer. Cheap and reliable.
+function rerenderChart(containerId){
+  if(containerId==='chart-sup'||containerId==='chart-op'){
+    if(typeof renderMetalPerson==='function')renderMetalPerson();
+  } else if(containerId==='slit-chart-sup'||containerId==='slit-chart-op'){
+    if(typeof renderSlitterPerson==='function')renderSlitterPerson();
+  }
+}
+
+/* ══ SLITTER MACHINE-WISE WASTE & DT ══ */
+function renderSlitterMachine(){
+  if(!ALL_SLIT_ROWS.length){g('slit-machine-wrap').style.display='none';return;}
+  g('slit-machine-wrap').style.display='block';
+
+  // Unique machines (Slit-1, Slit-2)
+  const machines=[...new Set(ALL_SLIT_ROWS.map(r=>r.machine))].sort();
+  const colors={'Slit-1':'#f97316','Slit-2':'#00cdb5'};
+  const dates=getSlitDates();
+
+  // Build daily-by-machine series for bare/met waste
+  function dailySeries(key){
+    return machines.map(m=>{
+      const vals=dates.map(dt=>{
+        return ALL_SLIT_ROWS.filter(r=>r.machine===m&&r.dateStr===dt).reduce((s,r)=>s+(r[key]||0),0);
+      });
+      return {machine:m,vals,color:colors[m]||'#a78bfa'};
+    });
+  }
+  g('chart-bare-daily').innerHTML=svgLineChart(dailySeries('bareWaste'),dates,'kg');
+  g('chart-met-daily').innerHTML=svgLineChart(dailySeries('metWaste'),dates,'kg');
+
+  // Monthly totals grouped bars
+  const monthTotals=machines.map(m=>{
+    const rows=ALL_SLIT_ROWS.filter(r=>r.machine===m);
+    return {
+      machine:m,
+      bare:rows.reduce((s,r)=>s+r.bareWaste,0),
+      met:rows.reduce((s,r)=>s+r.metWaste,0),
+      color:colors[m]||'#a78bfa'
+    };
+  });
+  g('chart-waste-monthly').innerHTML=svgGroupedBars(monthTotals);
+}
+
+function svgLineChart(series,labels,unit){
+  if(!series.length||!labels.length)return'<div style="font-size:12px;color:var(--t3);padding:20px;text-align:center;">No data</div>';
+  const max=Math.max(...series.flatMap(s=>s.vals),1);
+  const W=560,H=180,padL=46,padR=10,padT=12,padB=28;
+  const chartW=W-padL-padR,chartH=H-padT-padB;
+  const n=labels.length;
+  const xStep=n>1?chartW/(n-1):0;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" preserveAspectRatio="xMinYMin meet">`;
+  // Y grid with weight-aware labels (kg/MT)
+  [0,.5,1].forEach(p=>{
+    const y=padT+chartH*(1-p);
+    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.1"/>`;
+    svg+=`<text x="${padL-4}" y="${y+3}" font-size="9" fill="currentColor" opacity="0.5" text-anchor="end">${fmtWeight(max*p)}</text>`;
+  });
+  // X labels (every Nth)
+  const step=Math.max(1,Math.ceil(n/10));
+  labels.forEach((lbl,i)=>{
+    if(i%step!==0&&i!==n-1)return;
+    const x=padL+i*xStep;
+    svg+=`<text x="${x}" y="${H-8}" font-size="8" fill="currentColor" opacity="0.55" text-anchor="middle">${lbl}</text>`;
+  });
+  // Lines + points
+  series.forEach(s=>{
+    const pts=s.vals.map((v,i)=>`${padL+i*xStep},${padT+chartH*(1-v/max)}`).join(' ');
+    svg+=`<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    s.vals.forEach((v,i)=>{
+      if(v<=0)return;
+      const x=padL+i*xStep,y=padT+chartH*(1-v/max);
+      svg+=`<circle cx="${x}" cy="${y}" r="2.5" fill="${s.color}"><title>${s.machine} · ${labels[i]}: ${fmtWeight(v)}</title></circle>`;
+    });
+  });
+  // Legend
+  let lx=padL+4;
+  series.forEach(s=>{
+    svg+=`<rect x="${lx}" y="${padT-2}" width="10" height="3" fill="${s.color}"/>`;
+    svg+=`<text x="${lx+14}" y="${padT+2}" font-size="9" font-weight="700" fill="${s.color}">${s.machine}</text>`;
+    lx+=70;
+  });
+  svg+='</svg>';return svg;
+}
+
+function svgGroupedBars(data){
+  if(!data.length)return'';
+  const max=Math.max(...data.flatMap(d=>[d.bare,d.met]),1);
+  const W=500,H=180,padL=54,padR=10,padT=20,padB=36;
+  const chartW=W-padL-padR,chartH=H-padT-padB;
+  const groupW=chartW/data.length;
+  const barW=(groupW-14)/2;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;" preserveAspectRatio="xMinYMin meet">`;
+  // Y grid — use fmtWeight so labels say "5.2 MT" instead of "5.2K"
+  [0,.5,1].forEach(p=>{
+    const y=padT+chartH*(1-p);
+    svg+=`<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="currentColor" stroke-opacity="0.1"/>`;
+    svg+=`<text x="${padL-4}" y="${y+3}" font-size="9" fill="currentColor" opacity="0.5" text-anchor="end">${fmtWeight(max*p)}</text>`;
+  });
+  data.forEach((d,i)=>{
+    const gx=padL+i*groupW+7;
+    const bh=chartH*(d.bare/max),mh=chartH*(d.met/max);
+    svg+=`<rect x="${gx}" y="${padT+chartH-bh}" width="${barW}" height="${bh}" fill="#fbbf24" rx="2"><title>${d.machine} Bare: ${fmtWeight(d.bare)}</title></rect>`;
+    svg+=`<text x="${gx+barW/2}" y="${padT+chartH-bh-4}" font-size="10" font-weight="700" fill="#fbbf24" text-anchor="middle">${fmtWeight(d.bare)}</text>`;
+    svg+=`<rect x="${gx+barW+4}" y="${padT+chartH-mh}" width="${barW}" height="${mh}" fill="#f04438" rx="2"><title>${d.machine} Met: ${fmtWeight(d.met)}</title></rect>`;
+    svg+=`<text x="${gx+barW+4+barW/2}" y="${padT+chartH-mh-4}" font-size="10" font-weight="700" fill="#f04438" text-anchor="middle">${fmtWeight(d.met)}</text>`;
+    svg+=`<text x="${gx+groupW/2-7}" y="${H-18}" font-size="11" font-weight="800" fill="currentColor" text-anchor="middle">${d.machine}</text>`;
+  });
+  // Legend
+  svg+=`<rect x="${padL}" y="4" width="10" height="8" fill="#fbbf24"/><text x="${padL+14}" y="12" font-size="10" font-weight="700" fill="currentColor">Bare Waste</text>`;
+  svg+=`<rect x="${padL+100}" y="4" width="10" height="8" fill="#f04438"/><text x="${padL+114}" y="12" font-size="10" font-weight="700" fill="currentColor">Met Waste</text>`;
+  svg+='</svg>';return svg;
+}
+
+
+function saveAnalysis(){
+  if(!PARSED_DATA){showToast('Nothing to save','red');return;}
+  // Test localStorage availability (used as fallback and as the id source)
+  let lsOK=true;
+  try{localStorage.setItem('__test__','1');localStorage.removeItem('__test__');}catch(e){lsOK=false;}
+  if(!lsOK && !CLOUD.available){showToast('Storage not available — can\'t save','red',4000);return;}
+  try{
+    const id=String(Date.now());
+    const rows=PARSED_DATA;
+    const totalOut=rows.reduce((s,r)=>s+r.totalOutput,0);
+    const totalTgt=rows.reduce((s,r)=>s+r.targetOutput,0);
+    const eff=totalTgt>0?(totalOut/totalTgt*100):0;
+    const isSlit=rows[0]?.isSlit;
+    // Strip derived fields before storing — recomputed on load. Significant size savings.
+    const slimRow=r=>{
+      const s={...r};
+      delete s.dateObj;delete s.eqvSlitLen;delete s.eqvOutput;delete s.eqvRolls;
+      delete s.totalProd;delete s.rollsNorm;delete s.shiftBase;
+      return s;
+    };
+    const payload={
+      sheet:CURRENT_SHEET,file:FILE_NAME,
+      allMet:ALL_MET_ROWS.map(slimRow),
+      allSlit:ALL_SLIT_ROWS.map(slimRow),
+      downgrad:DOWNGRAD_ROWS,
+      dtSummary:DT_SUMMARY,isSlit
+    };
+    let payloadStr;
+    try{payloadStr=JSON.stringify(payload);}
+    catch(e){showToast('Snapshot too complex to save','red');return;}
+    const sizeKB=Math.round(payloadStr.length/1024);
+
+    const indexEntry={
+      id,sheet:CURRENT_SHEET,file:FILE_NAME,rows:rows.length,totalOut,eff,isSlit,
+      savedAt:new Date().toLocaleString('en-IN'),
+      savedAtMs:Date.now(),
+      sizeKB,
+      createdBy:CLOUD.userName||'local',
+      createdByEmpId:CLOUD.userEmpId||''
+    };
+
+    // ───────── Cloud save ─────────
+    if(CLOUD.available){
+      showToast('⏳ Saving to cloud…','teal',2500);
+      // Write index entry and payload in parallel. Firebase RTDB accepts nested JSON fine,
+      // but we keep them in separate children so a client can list the index cheaply
+      // without downloading every payload. Path layout:
+      //   supskill/analyses/{id}      → lightweight index entry (what History shows)
+      //   supskill/payloads/{id}      → full data blob (fetched on-demand by loadAnalysis)
+      Promise.all([
+        cloudCall('set','supskill/analyses/'+id, indexEntry),
+        cloudCall('set','supskill/payloads/'+id, payload)
+      ]).then(results=>{
+        if(results[0]===null||results[1]===null){
+          // Parent Firebase rejected — fall back to local
+          saveLocalOnly(id,indexEntry,payloadStr,sizeKB);
+          showToast('⚠ Cloud blocked — saved locally only ('+sizeKB+'KB)','yellow',3500);
+        }else{
+          showToast('✓ Saved to cloud ('+sizeKB+'KB) — visible to all users','green',3000);
+        }
+      }).catch(err=>{
+        console.error(err);
+        saveLocalOnly(id,indexEntry,payloadStr,sizeKB);
+        showToast('⚠ Cloud save failed — saved locally ('+sizeKB+'KB)','yellow',3500);
+      });
+      return;
+    }
+
+    // ───────── Local-only save (fallback when parent/Firebase not available) ─────────
+    saveLocalOnly(id,indexEntry,payloadStr,sizeKB);
+    showToast('✓ Saved locally ('+sizeKB+'KB)','green',3000);
+  }catch(e){console.error(e);showToast('Error saving: '+e.message,'red');}
+}
+function saveLocalOnly(id,indexEntry,payloadStr,sizeKB){
+  try{localStorage.setItem('ss_h_data_'+id,payloadStr);}
+  catch(e){
+    pruneOldSnapshots();
+    try{localStorage.setItem('ss_h_data_'+id,payloadStr);}
+    catch(e2){showToast('Local storage full — clear old history first','red',4000);return;}
+  }
+  let h=JSON.parse(localStorage.getItem('ss_h')||'[]');
+  h.unshift(indexEntry);
+  localStorage.setItem('ss_h',JSON.stringify(h.slice(0,30)));
+}
+// Free space by dropping the oldest snapshot payloads (keeps newest 5)
+function pruneOldSnapshots(){
+  try{
+    let h=JSON.parse(localStorage.getItem('ss_h')||'[]');
+    h.slice(5).forEach(e=>localStorage.removeItem('ss_h_data_'+e.id));
+    localStorage.setItem('ss_h',JSON.stringify(h.slice(0,5)));
+  }catch(e){}
+}
+// Load an analysis by id. source: 'local' (localStorage) or 'cloud' (parent Firebase)
+function loadAnalysis(id, source){
+  source = source || 'local';
+  const applyPayload = (p)=>{
+    // Firebase RTDB converts arrays to objects ({0:..., 1:..., 2:...}) when storing.
+    // We must coerce them back to real arrays before any .forEach/.map/.filter calls.
+    const toArr = v => {
+      if(Array.isArray(v)) return v;
+      if(v && typeof v==='object') return Object.values(v);
+      return [];
+    };
+    // Coerce top-level arrays
+    p.allMet   = toArr(p.allMet);
+    p.allSlit  = toArr(p.allSlit);
+    p.downgrad = toArr(p.downgrad);
+    p.parsed   = p.parsed ? toArr(p.parsed) : null;
+    // Coerce nested arrays inside each row (sups, ops, slitOps, metOps)
+    const fixRow = r => {
+      if(r.sups) r.sups = toArr(r.sups);
+      if(r.ops)  r.ops  = toArr(r.ops);
+      if(r.slitOps) r.slitOps = toArr(r.slitOps);
+      if(r.metOps)  r.metOps  = toArr(r.metOps);
+    };
+    p.allMet.forEach(fixRow);
+    p.allSlit.forEach(fixRow);
+    p.downgrad.forEach(fixRow);
+    if(p.parsed) p.parsed.forEach(fixRow);
+
+    // Rehydrate rows: recompute derived fields that were stripped to save storage space
+    p.allSlit.forEach(r=>{
+      if(r.eqvSlitLen===undefined){
+        const avail=720-(r.noOrder||0)-(r.noFeed||0);
+        r.eqvSlitLen = avail>0 ? (r.slitLen||0)*720/avail : (r.slitLen||0);
+        r.eqvOutput  = avail>0 ? (r.totalOutput||0)*720/avail : (r.totalOutput||0);
+        r.eqvRolls   = avail>0 ? (r.sets24k||0)*720/avail : (r.sets24k||0);
+      }
+      if(r.totalProd===undefined) r.totalProd=r.totalOutput||0;
+    });
+    p.allMet.forEach(r=>{
+      if(r.rollsNorm===undefined&&r.rolls){
+        const base=r.shiftBase||720;
+        const planned=r.totalPlanned||0;
+        r.rollsNorm=(base-planned)>0?(r.rolls*base/(base-planned)):r.rolls;
+      }
+    });
+    ALL_MET_ROWS=p.allMet;ALL_SLIT_ROWS=p.allSlit;
+    PARSED_DATA=p.parsed||(ALL_MET_ROWS.length?ALL_MET_ROWS:ALL_SLIT_ROWS);
+    DOWNGRAD_ROWS=p.downgrad;DT_SUMMARY=p.dtSummary||null;
+    CURRENT_SHEET=p.sheet||'';FILE_NAME=p.file||'';WORKBOOK=null;
+    g('metal-metric-btns').innerHTML='';g('metal-date-pick').innerHTML='';METAL_DATE='';
+    g('slit-metric-btns').innerHTML='';g('slit-date-pick').innerHTML='';SLIT_SELECTED_DATE='';
+    g('dt-date-pick').innerHTML='';DT_DATE='';DT_VIEW='monthly';
+    switchTab('daily');switchSub('analysis');
+    g('upz-main').style.display='none';
+    rebuildSheetSelectorFromSnapshot();
+    renderAnalysis();buildPeopleReport();
+    showToast('✓ Loaded '+(source==='cloud'?'cloud':'local')+' analysis','teal');
+    g('analysis-result').scrollIntoView({behavior:'smooth',block:'start'});
+  };
+
+  if(source==='cloud'){
+    showToast('⏳ Downloading from cloud…','teal',3000);
+    cloudCall('get','supskill/payloads/'+id).then(snap=>{
+      if(!snap){showToast('Cloud fetch failed','red',3500);return;}
+      const val = snap.val ? snap.val() : null;
+      if(!val){showToast('Cloud payload missing — may have been deleted','red',3500);return;}
+      try{applyPayload(val);}
+      catch(e){console.error(e);showToast('Error loading: '+e.message,'red');}
+    }).catch(err=>{console.error(err);showToast('Cloud error: '+err.message,'red');});
+    return;
+  }
+
+  try{
+    const payloadStr=localStorage.getItem('ss_h_data_'+id);
+    if(!payloadStr){showToast('Snapshot not found — may be from older version','red',3500);return;}
+    applyPayload(JSON.parse(payloadStr));
+  }catch(e){console.error(e);showToast('Error loading: '+e.message,'red');}
+}
+
+// Reconstruct the sheet selector from snapshot data so switching between
+// Met-1 Day, Met-2 Night, MET ALL etc. works even after reload without the original Excel.
+function rebuildSheetSelectorFromSnapshot(){
+  const source=ALL_MET_ROWS.length?ALL_MET_ROWS:ALL_SLIT_ROWS;
+  if(!source.length){g('sheet-sel-wrap').style.display='none';return;}
+  const isMet=ALL_MET_ROWS.length>0;
+  const prefix=isMet?'MET':'Slit';
+  // Build the canonical sheet names from the (machine,shift) combos present in the snapshot
+  const combos=new Set(source.map(r=>`${r.machine}|${r.shift}`));
+  const sheetNames=[];
+  const seenMachines=[...new Set(source.map(r=>r.machine))].sort();
+  seenMachines.forEach(m=>{
+    const mNum=m.replace(/[^0-9]/g,'');
+    if(combos.has(`${m}|Day`))sheetNames.push(`${prefix} ${mNum} DAY`);
+    if(combos.has(`${m}|Night`))sheetNames.push(`${prefix} ${mNum} Night`);
+    sheetNames.push(`${prefix} ${mNum} Total`);
+  });
+  const wrap=g('sheet-sel-wrap');
+  wrap.style.display='block';
+  let html=sheetNames.map(n=>{
+    const nl=n.toLowerCase();
+    let cls='sheet-btn';
+    if(nl.includes('day'))cls+=' day';
+    else if(nl.includes('night'))cls+=' night';
+    else if(nl.includes('total'))cls+=' total';
+    const act=(n===CURRENT_SHEET)?' act':'';
+    return `<button class="${cls}${act}" onclick="selectSheetFromSnapshot('${n}')">${n}</button>`;
+  }).join('');
+  if(seenMachines.length>1){
+    const lbl=isMet?'🏭 MET ALL':'✂️ SLIT ALL';
+    const act=(CURRENT_SHEET==='__ALL__')?' act':'';
+    html+=`<button class="sheet-btn${act}" style="border:1.5px solid var(--m1);color:var(--m1);font-weight:900;" onclick="selectSheetFromSnapshot('__ALL__')">${lbl}</button>`;
+  }
+  g('sheet-btns').innerHTML=html;
+}
+
+// Switch sheets while in "restored from snapshot" mode — works without WORKBOOK
+// by filtering ALL_MET_ROWS / ALL_SLIT_ROWS directly instead of re-parsing XLSX.
+function selectSheetFromSnapshot(name){
+  document.querySelectorAll('.sheet-btn').forEach(b=>{
+    const isThis=(name==='__ALL__'&&(b.textContent.includes('MET ALL')||b.textContent.includes('SLIT ALL')))||(b.textContent===name);
+    b.classList.toggle('act',isThis);
+  });
+  CURRENT_SHEET=name;
+  g('metal-metric-btns').innerHTML='';g('metal-date-pick').innerHTML='';METAL_DATE='';
+  g('slit-metric-btns').innerHTML='';g('slit-date-pick').innerHTML='';SLIT_SELECTED_DATE='';
+  if(name==='__ALL__'){buildCombinedAllSheet();return;}
+  // Rebuild PARSED_DATA by filtering ALL_MET_ROWS/ALL_SLIT_ROWS to the requested sheet scope
+  const source=ALL_MET_ROWS.length?ALL_MET_ROWS:ALL_SLIT_ROWS;
+  const targetMachine=detectMachine(name);
+  const isTotal=name.toLowerCase().includes('total');
+  const targetShift=detectShift(name);
+  PARSED_DATA = isTotal
+    ? source.filter(r=>r.machine===targetMachine)
+    : source.filter(r=>r.machine===targetMachine&&r.shift===targetShift);
+  renderAnalysis();
+  buildPeopleReport();
+}
+function renderHistory(){
+  const list=g('hlist');
+  let storageOK=true;
+  try{localStorage.setItem('__test__','1');localStorage.removeItem('__test__');}catch(e){storageOK=false;}
+
+  // Cloud entries (from real-time listener) + local entries (localStorage)
+  const cloudEntries = CLOUD.available ? CLOUD.cache.slice() : [];
+  let localEntries=[];
+  if(storageOK){try{localEntries=JSON.parse(localStorage.getItem('ss_h')||'[]');}catch(e){}}
+
+  // Status banner at the top — tells you which mode you're in
+  let banner='';
+  if(CLOUD.available && CLOUD.ready){
+    banner=`<div style="background:var(--gd);border:1px solid rgba(34,214,94,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--green);">
+      🟢 <b>Cloud sync active</b> — signed in as <b>${CLOUD.userName||'?'}</b> (${CLOUD.userRole}). Saves are visible to everyone on the GLSMP app in real-time.
+    </div>`;
+  } else if(CLOUD.available && !CLOUD.ready){
+    banner=`<div style="background:var(--yd);border:1px solid rgba(251,191,36,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--yellow);">
+      ⏳ Connecting to cloud… open the GLSMP app's SupSkill tab to sign in.
+    </div>`;
+  } else {
+    banner=`<div style="background:var(--bd);border:1px solid rgba(56,189,248,.25);border-radius:var(--r);padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--blue);">
+      💾 <b>Offline mode</b> — saves are stored only on this device. Open SupSkill through the GLSMP app for cloud sharing.
+    </div>`;
+  }
+
+  if(!storageOK && !CLOUD.available){
+    list.innerHTML=banner+'<div style="text-align:center;padding:30px 16px;"><div style="font-size:16px;margin-bottom:8px;">⚠️ Storage not available</div><div style="font-size:12px;color:var(--t3);line-height:1.6;">Your browser is blocking local storage and the GLSMP cloud is unreachable.<br>Try opening through the GLSMP app.</div></div>';
+    return;
+  }
+
+  // Render one entry card
+  const card=(e,source)=>{
+    const isCloud=source==='cloud';
+    const hasPayload = isCloud ? true : !!localStorage.getItem('ss_h_data_'+e.id);
+    const canDelete = isCloud ? canDeleteCloud(e) : true;
+    const label=(e.sheet||'?')+(e.isSlit?' (Slitter)':' (Metalliser)');
+    const badge = isCloud
+      ? `<span style="background:var(--gd);color:var(--green);font-size:9px;font-weight:800;padding:2px 7px;border-radius:9px;letter-spacing:.5px;">☁ CLOUD</span>`
+      : `<span style="background:var(--bd);color:var(--blue);font-size:9px;font-weight:800;padding:2px 7px;border-radius:9px;letter-spacing:.5px;">💾 LOCAL</span>`;
+    const creator = isCloud && e.createdBy ? `<span style="color:var(--t3);"> · by <b>${e.createdBy}</b></span>` : '';
+    const delBtn = canDelete
+      ? `<button style="background:none;border:1px solid var(--ln2);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--red);cursor:pointer;" onclick="delH('${e.id}','${source}')" title="Delete">🗑</button>`
+      : `<button style="background:none;border:1px solid var(--ln2);border-radius:6px;padding:6px 10px;font-size:12px;color:var(--t3);cursor:not-allowed;opacity:.45;" disabled title="Only the creator or an admin can delete this">🗑</button>`;
+    return `<div style="background:var(--bg2);border:1px solid var(--ln2);border-radius:var(--rl);padding:12px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+        <div style="font-size:18px;flex-shrink:0;">${e.isSlit?'✂️':'🏭'}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;font-weight:700;color:var(--t1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${label}</div>
+          <div style="font-size:10px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e.file||''}</div>
+        </div>
+        ${badge}
+      </div>
+      <div style="font-size:10px;color:var(--t3);margin-bottom:8px;">
+        ${e.savedAt||''} · ${e.rows||0} days · Eff: ${(e.eff||0).toFixed(1)}% · ${fmt(e.totalOut||0)} kg${e.sizeKB?' · '+e.sizeKB+'KB':''}${creator}
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn-t" style="padding:6px 12px;font-size:11px;flex:1;${hasPayload?'':'opacity:.4;cursor:not-allowed;'}" ${hasPayload?`onclick="loadAnalysis('${e.id}','${source}')"`:'disabled'}>👁 View</button>
+        ${delBtn}
+      </div>
+    </div>`;
+  };
+
+  let html=banner;
+
+  // ─── Cloud section ───
+  if(CLOUD.available){
+    html+=`<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin:14px 4px 8px;">☁ Shared Cloud (${cloudEntries.length})</div>`;
+    if(cloudEntries.length===0){
+      html+=`<div style="background:var(--bg2);border:1px dashed var(--ln2);border-radius:var(--r);padding:20px;text-align:center;font-size:12px;color:var(--t3);margin-bottom:8px;">No cloud saves yet. Upload an Excel and click 💾 Save to share with your team.</div>`;
+    } else {
+      html+=cloudEntries.map(e=>card(e,'cloud')).join('');
+    }
+  }
+
+  // ─── Local section ───
+  if(storageOK){
+    html+=`<div style="font-size:10px;font-weight:700;color:var(--t3);letter-spacing:1.5px;text-transform:uppercase;margin:14px 4px 8px;">💾 On This Device Only (${localEntries.length})</div>`;
+    if(localEntries.length===0){
+      html+=`<div style="background:var(--bg2);border:1px dashed var(--ln2);border-radius:var(--r);padding:16px;text-align:center;font-size:11px;color:var(--t3);">No local-only saves.</div>`;
+    } else {
+      html+=localEntries.map(e=>card(e,'local')).join('');
+    }
+  }
+
+  list.innerHTML=html;
+}
+
+// Delete handler — routes to cloud or local based on source
+function delH(id,source){
+  source=source||'local';
+  if(source==='cloud'){
+    const entry=CLOUD.cache.find(e=>String(e.id)===String(id));
+    if(!entry){showToast('Entry not found','red');return;}
+    if(!canDeleteCloud(entry)){showToast('Only the creator or an admin can delete this','red',3000);return;}
+    if(!confirm('Delete this cloud save? Everyone will lose access to it.'))return;
+    showToast('⏳ Deleting…','teal',2000);
+    Promise.all([
+      cloudCall('remove','supskill/analyses/'+id),
+      cloudCall('remove','supskill/payloads/'+id)
+    ]).then(()=>{
+      showToast('✓ Deleted from cloud','teal');
+      // Listener will auto-refresh renderHistory
+    }).catch(err=>{showToast('Delete failed: '+err.message,'red');});
+    return;
+  }
+  // Local delete
+  try{
+    let h=JSON.parse(localStorage.getItem('ss_h')||'[]');
+    localStorage.setItem('ss_h',JSON.stringify(h.filter(e=>String(e.id)!==String(id))));
+    localStorage.removeItem('ss_h_data_'+id);
+    renderHistory();showToast('Deleted local copy','teal');
+  }catch(e){}
+}
+
+function clrAllH(){
+  if(!confirm('Clear all LOCAL saves on this device?\n(Cloud saves are not affected — delete them individually.)'))return;
+  try{
+    let h=JSON.parse(localStorage.getItem('ss_h')||'[]');
+    h.forEach(e=>localStorage.removeItem('ss_h_data_'+e.id));
+    localStorage.removeItem('ss_h');
+  }catch(e){}
+  renderHistory();showToast('Local cleared','red');
+}
+function clearMain(){
+  g('analysis-result').style.display='none';
+  g('upz-main').style.display='block';
+  g('sheet-sel-wrap').style.display='none';
+  g('fi-main').value='';
+  WORKBOOK=null;PARSED_DATA=null;SCHEMA=null;DT_SUMMARY=null;
+  ALL_SLIT_ROWS=[];ALL_MET_ROWS=[];DOWNGRAD_ROWS=[];
+  g('slit-metric-btns').innerHTML='';g('slit-date-pick').innerHTML='';
+  g('metal-metric-btns').innerHTML='';g('metal-date-pick').innerHTML='';
+  g('dt-date-pick').innerHTML='';DT_DATE='';DT_VIEW='monthly';
+  METAL_DATE='';
+  g('people-empty').style.display='block';
+  g('people-content').style.display='none';
+}
+
+function fmt(n){if(isNaN(n)||n===null||n===undefined)return'—';if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return parseFloat(n.toFixed(1)).toLocaleString('en-IN');}
+
+// Weight formatter — input is always kilograms, output is "X MT" when ≥1000 kg (1 MT = 1000 kg) or "X kg" otherwise.
+// Used for output, waste, downgradation, eqv. output. Never uses "K" suffix because it's ambiguous
+// (K could mean kilograms OR thousands, and "K kg" reads as "kilo kg" which is meaningless).
+function fmtWeight(n){
+  if(isNaN(n)||n===null||n===undefined)return'—';
+  if(n>=1000)return(n/1000).toFixed(2)+' MT';
+  return parseFloat(n.toFixed(1)).toLocaleString('en-IN')+' kg';
+}
+
+// Distance formatter — input is always metres, output is "X km" when ≥1000 m, otherwise "X m".
+// Used for slit length metrics. "km" is unambiguous where "K m" / "M m" were not.
+function fmtDist(n){
+  if(isNaN(n)||n===null||n===undefined)return'—';
+  if(n>=1000)return(n/1000).toLocaleString('en-IN',{maximumFractionDigits:1})+' km';
+  return parseFloat(n.toFixed(0)).toLocaleString('en-IN')+' m';
+}
+
+/* ══ CHART DOWNLOAD AS PNG ══
+   Renders the SVG inside containerId onto a white-background canvas at 2× scale with VKS Tech branding:
+   - Header row: VKS logo (from GitHub) + chart title
+   - Footer row: "Created by VKS Tech · https://vkstech.com"
+   The logo is preloaded once and cached in memory to avoid re-fetching on every download. */
+
+const VKS_LOGO_URL='https://raw.githubusercontent.com/vkstecho/glsmp/main/vkslogo512.png';
+let VKS_LOGO_IMG=null;       // cached HTMLImageElement once loaded
+let VKS_LOGO_LOADING=null;   // in-flight promise to avoid duplicate loads
+
+function loadVKSLogo(){
+  if(VKS_LOGO_IMG)return Promise.resolve(VKS_LOGO_IMG);
+  if(VKS_LOGO_LOADING)return VKS_LOGO_LOADING;
+  VKS_LOGO_LOADING=new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';  // needed so canvas isn't tainted after drawImage
+    img.onload=()=>{VKS_LOGO_IMG=img;resolve(img);};
+    img.onerror=()=>{VKS_LOGO_IMG=null;resolve(null);};  // fall back silently if load fails
+    img.src=VKS_LOGO_URL;
+  });
+  return VKS_LOGO_LOADING;
+}
+// Kick off preload as soon as the page loads so the first download doesn't wait
+loadVKSLogo();
+
+function downloadChartPNG(containerId,baseName){
+  const wrap=g(containerId);
+  if(!wrap){showToast('Chart not found','red');return;}
+  const svgEl=wrap.querySelector('svg');
+  if(!svgEl){showToast('No chart to download — switch to a metric with data','red');return;}
+
+  // Smart filename + header title based on current app state
+  let suffix='',chartTitle='';
+  if(containerId==='chart-sup'||containerId==='chart-op'){
+    const m=METAL_METRICS.find(x=>x.id===METAL_METRIC);
+    const role=containerId==='chart-sup'?'Supervisors':'Operators';
+    const scopeLabel=CURRENT_SHEET==='__ALL__'?'MET ALL':(CURRENT_SHEET||'Metalliser');
+    chartTitle=`${scopeLabel} · ${m?.label||''} · ${role} (${METAL_VIEW==='daily'?'Daily '+METAL_DATE:'Monthly Avg'})`;
+    suffix=`-${(m?.label||'').replace(/[^a-z0-9]/gi,'_')}-${METAL_VIEW}${METAL_VIEW==='daily'?'-'+METAL_DATE.replace(/\s/g,''):''}`;
+  } else if(containerId==='slit-chart-sup'||containerId==='slit-chart-op'){
+    const m=SLIT_METRICS.find(x=>x.id===SLIT_METRIC);
+    const role=containerId==='slit-chart-sup'?'Supervisors':'Operators';
+    chartTitle=`Slitter · ${m?.label||''} · ${role} (${SLIT_VIEW==='daily'?'Daily '+SLIT_SELECTED_DATE:'Monthly Avg'})`;
+    suffix=`-${(m?.label||'').replace(/[^a-z0-9]/gi,'_')}-${SLIT_VIEW}${SLIT_VIEW==='daily'?'-'+SLIT_SELECTED_DATE.replace(/\s/g,''):''}`;
+  } else if(containerId.startsWith('chart-bare')||containerId.startsWith('chart-met')||containerId.startsWith('chart-waste')){
+    const titles={'chart-bare-daily':'Slitter · Bare Waste (kg) · Daily by Machine','chart-met-daily':'Slitter · Met Waste (kg) · Daily by Machine','chart-waste-monthly':'Slitter · Monthly Waste Totals by Machine'};
+    chartTitle=titles[containerId]||baseName;
+  } else {
+    chartTitle=baseName.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+  }
+  const filename=(baseName+suffix).replace(/_+/g,'_').replace(/-+/g,'-').replace(/[_-]+$/,'')+'.png';
+
+  // Prepare the chart SVG as an image for compositing
+  const clone=svgEl.cloneNode(true);
+  const vb=svgEl.viewBox?.baseVal;
+  const chartW=(vb&&vb.width)||svgEl.clientWidth||600;
+  const chartH=(vb&&vb.height)||svgEl.clientHeight||300;
+  clone.setAttribute('width',chartW);
+  clone.setAttribute('height',chartH);
+  clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+  let svgStr=new XMLSerializer().serializeToString(clone);
+  svgStr=svgStr.replace(/currentColor/g,'#0f1923');
+  const svgBlob=new Blob([svgStr],{type:'image/svg+xml;charset=utf-8'});
+  const svgUrl=URL.createObjectURL(svgBlob);
+
+  Promise.all([loadVKSLogo(),new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>res(img);
+    img.onerror=()=>rej(new Error('SVG load failed'));
+    img.src=svgUrl;
+  })]).then(([logoImg,chartImg])=>{
+    URL.revokeObjectURL(svgUrl);
+
+    // Layout constants (in unscaled units — the canvas scales 2× afterward)
+    const headerH=64;      // header row with logo + title
+    const footerH=36;      // footer row with credit line
+    const padX=20;
+    const totalW=Math.max(chartW+padX*2,640);
+    const totalH=headerH+chartH+footerH;
+
+    const scale=2;  // retina
+    const canvas=document.createElement('canvas');
+    canvas.width=totalW*scale;
+    canvas.height=totalH*scale;
+    const ctx=canvas.getContext('2d');
+    ctx.scale(scale,scale);
+
+    // White background
+    ctx.fillStyle='#ffffff';
+    ctx.fillRect(0,0,totalW,totalH);
+
+    // ─── HEADER ─────────────────────────────────────────────────────
+    // Subtle light background band for the header
+    ctx.fillStyle='#f5f7fa';
+    ctx.fillRect(0,0,totalW,headerH);
+    // Orange accent bar on left edge (matches SupSkill's brand)
+    ctx.fillStyle='#f97316';
+    ctx.fillRect(0,0,4,headerH);
+
+    // Logo — render at 44px square, top-left
+    const logoSize=44;
+    const logoX=padX,logoY=(headerH-logoSize)/2;
+    if(logoImg){
+      ctx.drawImage(logoImg,logoX,logoY,logoSize,logoSize);
+    } else {
+      // Fallback: draw a text badge if the remote logo didn't load
+      ctx.fillStyle='#f97316';
+      ctx.beginPath();
+      if(ctx.roundRect)ctx.roundRect(logoX,logoY,logoSize,logoSize,8);
+      else ctx.rect(logoX,logoY,logoSize,logoSize);
+      ctx.fill();
+      ctx.fillStyle='#ffffff';
+      ctx.font='900 18px "Barlow Condensed", Arial, sans-serif';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText('VKS',logoX+logoSize/2,logoY+logoSize/2);
+      ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    }
+
+    // Header title + sub-title text block
+    const textX=logoX+logoSize+14;
+    ctx.fillStyle='#0f1923';
+    ctx.font='900 18px "Barlow Condensed", Arial, sans-serif';
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+    // Clamp title if it's too wide
+    const maxTitleW=totalW-textX-padX;
+    let displayTitle=chartTitle;
+    while(ctx.measureText(displayTitle).width>maxTitleW&&displayTitle.length>10){
+      displayTitle=displayTitle.slice(0,-1);
+    }
+    if(displayTitle!==chartTitle)displayTitle=displayTitle.slice(0,-1)+'…';
+    ctx.fillText(displayTitle,textX,headerH/2-2);
+    // Sub-line: file / date stamp
+    ctx.font='600 11px "Barlow", Arial, sans-serif';
+    ctx.fillStyle='#64748b';
+    const dateStamp=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const subLine=`${FILE_NAME||''}${FILE_NAME?' · ':''}Generated ${dateStamp}`;
+    ctx.fillText(subLine,textX,headerH/2+14);
+
+    // ─── CHART ──────────────────────────────────────────────────────
+    // Center the chart horizontally in the canvas
+    const chartX=(totalW-chartW)/2;
+    ctx.drawImage(chartImg,chartX,headerH,chartW,chartH);
+
+    // ─── FOOTER ─────────────────────────────────────────────────────
+    const footerY=headerH+chartH;
+    ctx.fillStyle='#f5f7fa';
+    ctx.fillRect(0,footerY,totalW,footerH);
+    // Thin orange divider line above footer
+    ctx.fillStyle='#f97316';
+    ctx.fillRect(0,footerY,totalW,1);
+    // Credit text centered
+    ctx.font='700 12px "Barlow Condensed", Arial, sans-serif';
+    ctx.fillStyle='#0f1923';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText('Created by VKS Tech',totalW/2-80,footerY+footerH/2);
+    ctx.font='600 12px "Barlow", Arial, sans-serif';
+    ctx.fillStyle='#f97316';
+    ctx.fillText('· https://vkstech.com',totalW/2+60,footerY+footerH/2);
+    // Reset alignment for safety
+    ctx.textAlign='left';ctx.textBaseline='alphabetic';
+
+    // ─── EXPORT ─────────────────────────────────────────────────────
+    try{
+      canvas.toBlob(function(pngBlob){
+        if(!pngBlob){showToast('Export failed — canvas tainted. Logo may need CORS fix.','red',4000);return;}
+        const link=document.createElement('a');
+        link.href=URL.createObjectURL(pngBlob);
+        link.download=filename;
+        document.body.appendChild(link);link.click();link.remove();
+        setTimeout(()=>URL.revokeObjectURL(link.href),200);
+        showToast('✓ Downloaded '+filename,'green');
+      },'image/png');
+    }catch(e){
+      // Canvas tainted (logo CORS issue) — retry without logo
+      showToast('Logo blocked by CORS — retrying without logo','yellow',3000);
+      VKS_LOGO_IMG=null;
+      setTimeout(()=>downloadChartPNG(containerId,baseName),100);
+    }
+  }).catch(err=>{
+    URL.revokeObjectURL(svgUrl);
+    console.error(err);
+    showToast('Error generating image: '+err.message,'red');
+  });
+}
+
+/* ══════════════ FORMULA CALCULATORS ══════════════ */
+function cW(){const L=v('w-len'),W=v('w-wid'),M=v('w-mic'),D=v('w-type');const r=g('w-r'),r2=g('w-r2');if(!L||!W||!M){r.textContent='—';r2.textContent='';return;}const wt=L*(W/1000)*(M/1e6)*D;r.textContent=wt.toFixed(3);r.style.color='var(--gold)';r2.textContent=(wt*1000).toFixed(0)+' g';}
+function cOD(){const cid=v('od-cid'),wall=v('od-wall'),L=v('od-len'),M=v('od-mic');const r=g('od-r'),r2=g('od-r2');if(!cid||!L||!M){r.textContent='—';r2.textContent='';return;}const cOD=cid+2*wall,od=Math.sqrt(cOD*cOD+(4*L*M)/Math.PI);r.textContent=od.toFixed(1);r.style.color='var(--teal)';r2.textContent='Core OD: '+cOD.toFixed(1)+' mm';}
+function cLW(){const Wt=v('lw-wt'),W=v('lw-wid'),M=v('lw-mic'),D=v('lw-type');const r=g('lw-r'),r2=g('lw-r2');if(!Wt||!W||!M){r.textContent='—';r2.textContent='';return;}const L=(Wt*1e9)/(W*M*D);r.textContent=L.toFixed(0);r.style.color='var(--gold)';r2.textContent=(L/1000).toFixed(2)+' km';}
+function cLO(){const OD=v('lo-od'),cid=v('lo-cid'),wall=v('lo-wall'),M=v('lo-mic');const r=g('lo-r'),r2=g('lo-r2');if(!OD||!cid||!M){r.textContent='—';r2.textContent='';return;}const cOD=cid+2*wall;if(OD<=cOD){r.textContent='OD<Core';r2.textContent='';return;}const L=(Math.PI*(OD*OD-cOD*cOD))/(4*M);r.textContent=L.toFixed(0);r.style.color='var(--green)';r2.textContent=(L/1000).toFixed(2)+' km';}
+function cMic(){const L=v('mic-len'),Wt=v('mic-wt'),W=v('mic-wid'),D=v('mic-type');const r=g('mic-r');if(!L||!Wt||!W){r.textContent='—';return;}r.textContent=((Wt*1e9)/(L*W*D)).toFixed(2);r.style.color='var(--purple)';}
+function cEff(){const a=v('eff-act'),t=v('eff-tgt');const r=g('eff-r'),r2=g('eff-r2');if(!a||!t){r.textContent='—';r2.textContent='';return;}const e=a/t*100;r.textContent=e.toFixed(1);r.style.color=e>=95?'var(--green)':e>=85?'var(--yellow)':'var(--red)';r2.textContent='Gap: '+(a-t>=0?'+':'')+(a-t).toLocaleString('en-IN');}
+function cDT(){const dt=v('dt-mins'),sh=v('dt-shift')||720;const r=g('dt-r'),r2=g('dt-r2');if(isNaN(dt)||dt<0){r.textContent='—';r2.textContent='';return;}const p=dt/sh*100;r.textContent=p.toFixed(1);r.style.color=p>20?'var(--red)':p>10?'var(--yellow)':'var(--green)';r2.textContent='Running: '+(sh-dt)+' min';}
+function cBoat(){const b=v('bc-boats'),rol=v('bc-rolls'),c=v('bc-cost');const r=g('bc-r'),r2=g('bc-r2');if(!b||!rol){r.textContent='—';r2.textContent='';return;}r.textContent=(b/rol).toFixed(2);r.style.color='var(--gold)';r2.textContent=c>0?'Total cost: ₹'+(b*c).toLocaleString('en-IN'):'';}
+function cOD2(){const i0=v('od2-i0'),i=v('od2-i');const r=g('od2-r'),r2=g('od2-r2');if(!i0||!i||i>i0){r.textContent='—';r2.textContent='';return;}const od=Math.log10(i0/i);r.textContent=od.toFixed(3);r.style.color=od>=1.8?'var(--green)':od>=1.4?'var(--yellow)':'var(--red)';r2.textContent='Transmittance: '+(i/i0*100).toFixed(2)+'%';}
+function cWB(){const b=v('wb-breaks'),h=v('wb-hrs'),rec=v('wb-rec');const r=g('wb-r'),r2=g('wb-r2');if(!b||!h){r.textContent='—';r2.textContent='';return;}const rate=b/h;r.textContent=rate.toFixed(2);r.style.color=rate>0.5?'var(--red)':rate>0.2?'var(--yellow)':'var(--green)';r2.textContent=rec>0?'Time lost: '+(b*rec).toFixed(0)+' min':'';}
+function cWire(){const wire=v('wc-wire'),rol=v('wc-rolls'),wid=v('wc-wid'),len=v('wc-len');const r=g('wc-r'),r2=g('wc-r2');if(!wire||!rol){r.textContent='—';r2.textContent='';return;}r.textContent=((wire*1000)/rol).toFixed(0);r.style.color='var(--blue)';r2.textContent=wid&&len?'Per m²: '+((wire*1000)/(wid*len*rol)).toFixed(4)+' g':'';}
+function cYield(){const inp=v('fy-in'),out=v('fy-out');const r=g('fy-r'),r2=g('fy-r2');if(!inp||!out){r.textContent='—';r2.textContent='';return;}const y=out/inp*100;r.textContent=y.toFixed(2);r.style.color=y>=98?'var(--green)':y>=95?'var(--yellow)':'var(--red)';r2.textContent='Waste: '+(100-y).toFixed(2)+'%';}
+function cGSM(){const mic=v('gm-mic'),D=parseFloat(g('gm-type').value);const r=g('gm-r'),r2=g('gm-r2'),u=g('gm-u');if(!mic){r.textContent='—';r2.textContent='';return;}r.textContent=(mic*D).toFixed(2);r.style.color='var(--gold)';u.textContent='GSM';r2.textContent='From '+mic+' μm';}
+function cGSMr(){const gsm=v('gm-gsm'),D=parseFloat(g('gm-type').value);const r=g('gm-r'),r2=g('gm-r2'),u=g('gm-u');if(!gsm){r.textContent='—';r2.textContent='';return;}r.textContent=(gsm/D).toFixed(2);r.style.color='var(--purple)';u.textContent='μm';r2.textContent='From '+gsm+' GSM';}
+function cUtil(){const sh=v('mu-shift')||720,setup=v('mu-setup'),dt=v('mu-dt');const r=g('mu-r'),r2=g('mu-r2');const run=sh-setup-dt;if(run<=0){r.textContent='0';r2.textContent='Check inputs';return;}const u=run/sh*100;r.textContent=u.toFixed(1);r.style.color=u>=85?'var(--green)':u>=70?'var(--yellow)':'var(--red)';r2.textContent='Running: '+run+' min';}
+function cFC(){const rate=v('fc-rate'),mic=v('fc-mic'),D=v('fc-type');const r=g('fc-r'),r2=g('fc-r2');if(!rate||!mic){r.textContent='—';r2.textContent='';return;}const cost=rate*(D*mic/1e6);r.textContent=cost.toFixed(4);r.style.color='var(--gold)';r2.textContent='₹'+(cost*1000).toFixed(2)+' per 1000 m²';}
+function cSR(){const mw=v('sr-mw'),sw=v('sr-sw'),trim=v('sr-trim')||0;const r=g('sr-r'),r2=g('sr-r2');if(!mw||!sw){r.textContent='—';r2.textContent='';return;}const usable=mw-trim*2;const rolls=Math.floor(usable/sw);const waste=usable-rolls*sw;r.textContent=rolls;r.style.color=waste/mw*100<5?'var(--green)':'var(--yellow)';r2.textContent='Trim waste: '+waste.toFixed(0)+'mm ('+((waste/mw)*100).toFixed(1)+'%)';}
+function cPR(){const spd=v('pr-spd'),wid=v('pr-wid'),mic=v('pr-mic'),D=v('pr-type');const r=g('pr-r'),r2=g('pr-r2');if(!spd||!wid){r.textContent='—';r2.textContent='';return;}const m2hr=spd*60*(wid/1000);r.textContent=Math.round(m2hr).toLocaleString('en-IN');r.style.color='var(--teal)';const kghr=mic&&D?m2hr*(mic/1e6)*D:0;r2.textContent=(kghr>0?'kg/hr: '+kghr.toFixed(1)+' · ':'')+'12hr: '+fmt(m2hr*12)+' m²';}
+function cLW2(){const wid=v('lw2-wid'),mic=v('lw2-mic'),D=v('lw2-type');const r=g('lw2-r'),r2=g('lw2-r2');if(!wid||!mic){r.textContent='—';r2.textContent='';return;}const kgm=(wid/1000)*(mic/1e6)*D;r.textContent=kgm.toFixed(5);r.style.color='var(--green)';r2.textContent=(kgm*1000).toFixed(3)+' g/m';}
+function cAl(){const od=v('al-od'),factor=v('al-type');const r=g('al-r'),r2=g('al-r2');if(!od){r.textContent='—';r2.textContent='';return;}const nm=od*factor;r.textContent=nm.toFixed(1);r.style.color=nm>=20&&nm<=35?'var(--green)':nm<15?'var(--red)':'var(--yellow)';r2.textContent=nm>=20&&nm<=35?'✓ Good barrier':nm<15?'Too thin':'Marginal';}
+function cEl(){const orig=v('el-orig'),fin=v('el-final');const r=g('el-r'),r2=g('el-r2');if(!orig||!fin){r.textContent='—';r2.textContent='';return;}const e=(fin-orig)/orig*100;r.textContent=e.toFixed(2);r.style.color=e<0?'var(--red)':e<5?'var(--green)':e<15?'var(--yellow)':'var(--red)';r2.textContent='Extension: '+(fin-orig).toFixed(2)+' units';}
+function cCW(){const od=v('cw-od'),id=v('cw-id'),len=v('cw-len'),den=v('cw-den')||1100;const r=g('cw-r'),r2=g('cw-r2');if(!od||!id||!len||od<=id){r.textContent='—';r2.textContent='';return;}const wt=(Math.PI/4)*(od*od-id*id)*len*den/1e9;r.textContent=wt.toFixed(3);r.style.color='var(--blue)';r2.textContent=(wt*1000).toFixed(0)+' g';}
+function cRCO(){const time=v('rco-time'),spd=v('rco-spd'),wid=v('rco-wid'),mic=v('rco-mic'),rate=v('rco-rate'),D=v('rco-type');const r=g('rco-r'),r2=g('rco-r2');if(!time||!spd){r.textContent='—';r2.textContent='';return;}const lossM=time*spd;r.textContent=lossM.toLocaleString('en-IN',{maximumFractionDigits:0});r.style.color='var(--red)';let sub='Loss: '+lossM.toFixed(0)+' m';if(wid&&mic&&D){const lossKg=lossM*(wid/1000)*(mic/1e6)*D;sub+=' · '+lossKg.toFixed(2)+' kg';if(rate>0)sub+=' · ₹'+(lossKg*rate).toLocaleString('en-IN',{maximumFractionDigits:0});}r2.textContent=sub;}
+</script>
+</body>
+</html>

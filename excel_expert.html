@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="hi" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="google" content="notranslate">
+<title>Excel Expert — Flexible Packaging Industry Training</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--g:#16a34a;--gd:#065f46;--gl:#f0fdf4;--gb:#bbf7d0;--gb2:#86efac;--bg:#f8fafc;--card:#fff;--text:#1f2937;--muted:#6b7280;--muted2:#9ca3af;--border:#e5e7eb;--border2:#f1f5f9;--r:12px}
+body{font-family:'Segoe UI','Noto Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);max-width:480px;margin:0 auto;min-height:100vh;overflow-x:hidden}
+.hide{display:none!important}
+
+/* ── Bottom Nav ── */
+.bnav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;display:flex;justify-content:space-around;padding:8px 0 max(12px,env(safe-area-inset-bottom));border-top:1px solid var(--border2);z-index:100;box-shadow:0 -2px 10px rgba(0,0,0,.04)}
+.bnav button{background:none;border:none;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:4px 12px;font-family:inherit;color:var(--muted2);font-size:11px;font-weight:500}
+.bnav button.on{color:var(--g)}
+.bnav button svg{width:20px;height:20px}
+
+/* ── Tab Content ── */
+.tab-content{padding-bottom:80px;min-height:100vh}
+
+/* ── Greeting ── */
+.greet{display:flex;justify-content:space-between;align-items:center;padding:20px 16px 12px;background:linear-gradient(135deg,#f0fdf4,#ecfdf5);margin:16px;border-radius:16px}
+.greet h2{font-size:18px;font-weight:700}.greet p{font-size:12px;color:var(--muted);margin-top:4px}
+.prog-wrap{position:relative;width:52px;height:52px;display:flex;align-items:center;justify-content:center}
+.prog-wrap span{position:absolute;font-size:12px;font-weight:700;color:var(--g)}
+
+/* ── Search ── */
+.search-wrap{display:flex;align-items:center;gap:8px;margin:0 16px 16px;padding:10px 14px;background:#fff;border-radius:var(--r);border:1.5px solid var(--border)}
+.search-wrap input{flex:1;border:none;outline:none;font-size:14px;font-family:inherit;background:transparent}
+.search-result{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#fff;border-radius:10px;margin-bottom:6px;cursor:pointer;border:1px solid var(--border2)}
+.search-result .sn{font-weight:700;font-size:14px}.search-result .sc{font-size:11px;color:var(--muted2)}
+
+/* ── Stats ── */
+.stats{display:flex;gap:10px;padding:0 16px;margin-bottom:16px}
+.stat{flex:1;background:#fff;border-radius:var(--r);padding:14px 12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.stat .n{display:block;font-size:22px;font-weight:700}.stat .l{display:block;font-size:11px;color:var(--muted2);margin-top:2px}
+
+/* ── Section Title ── */
+.sec-t{font-size:16px;font-weight:700;padding:0 16px;margin:16px 0 10px}
+
+/* ── Category Grid ── */
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px}
+.cat-card{background:#fff;border-radius:var(--r);padding:14px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.cat-card .cn{margin:8px 0 2px;font-size:14px;font-weight:700}.cat-card .cd{font-size:11px;color:var(--muted2);line-height:1.3}
+.cat-card .cpb{height:4px;background:#f1f5f9;border-radius:2px;margin-top:10px;overflow:hidden}
+.cat-card .cpf{height:100%;border-radius:2px;transition:width .3s}
+.cat-card .ct{display:flex;justify-content:space-between;align-items:center}
+.cat-card .ci{font-size:24px}.cat-card .cc{font-size:11px;color:var(--muted2)}
+
+/* ── Formula List Item ── */
+.fli{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-radius:var(--r);margin:0 16px 8px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.03)}
+.fli .fn{font-weight:700;font-size:15px;display:block}.fli .fd{font-size:12px;color:var(--muted);display:block;margin-top:2px;line-height:1.3}
+.done-badge{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:9px;background:#d1fae5;color:var(--g);font-size:11px;font-weight:700;margin-left:6px}
+
+/* ── Pills ── */
+.pill-row{display:flex;gap:6px;padding:12px 16px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+.pill{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);background:#fff;font-size:12px;font-weight:500;cursor:pointer;color:#374151;flex-shrink:0;font-family:inherit}
+.pill.on{background:var(--g);color:#fff;border-color:var(--g)}
+.clr-btn{background:none;border:none;color:var(--g);font-size:13px;font-weight:600;padding:12px 16px;cursor:pointer;font-family:inherit}
+
+/* ── Formula Detail Screen ── */
+.f-screen{min-height:100vh;background:var(--bg)}
+.f-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#fff;border-bottom:1px solid var(--border2);position:sticky;top:0;z-index:10}
+.f-hdr h2{font-size:18px;font-weight:700}
+.f-hdr button{background:none;border:none;cursor:pointer;padding:4px;color:#374151}
+.f-body{padding:16px}
+
+/* ── Video ── */
+.vid-box{border-radius:14px;overflow:hidden;margin-bottom:16px;background:#000;aspect-ratio:16/9}
+.vid-box iframe{width:100%;height:100%;border:none}
+.vid-ph{display:flex;flex-direction:column;align-items:center;justify-content:center;height:160px;background:#1f2937;border-radius:14px;margin-bottom:16px;color:var(--muted)}
+
+/* ── Section Cards ── */
+.s-card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.s-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;background:#dbeafe;color:#1e40af;margin-bottom:8px}
+.one-l{font-size:15px;font-weight:500;line-height:1.5}
+.plant-u{font-size:14px;color:#92400e;line-height:1.5}
+.syntax-c{display:block;padding:10px 14px;background:#f8fafc;border-radius:8px;font-size:14px;font-family:'Fira Code','SF Mono',monospace;color:#7c3aed;word-break:break-all}
+.explain-t{font-size:14px;color:#374151;line-height:1.6}
+
+/* ── Ready Formula ── */
+.ready-card{background:var(--gl);border:2px solid var(--gb2);border-radius:14px;padding:16px;margin-bottom:12px}
+.ready-card .top{display:flex;justify-content:space-between;align-items:center}
+.ready-card .rl{font-weight:700;font-size:14px;color:var(--gd)}
+.cp-btn{display:flex;align-items:center;gap:4px;background:var(--g);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.ready-code{display:block;margin-top:10px;padding:10px 14px;background:#fff;border-radius:8px;font-size:14px;font-family:'Fira Code','SF Mono',monospace;color:var(--gd);word-break:break-all;border:1px solid var(--gb)}
+
+/* ── Table ── */
+.t-wrap{overflow-x:auto;margin-top:8px}
+.t-wrap table{width:100%;border-collapse:collapse;font-size:13px}
+.t-wrap th{background:#f1f5f9;padding:8px 10px;text-align:left;font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap}
+.t-wrap td{padding:8px 10px;border-bottom:1px solid var(--border2);white-space:nowrap}
+
+/* ── Practice ── */
+.prac{background:var(--gl);border:1px solid var(--gb);border-radius:14px;padding:16px;margin-bottom:12px}
+.prac .pq{margin:8px 0 10px;font-size:14px;font-weight:500;line-height:1.5}
+.prac input{width:100%;border:2px solid var(--gb2);border-radius:10px;padding:10px 12px;font-size:14px;font-family:'Fira Code','SF Mono',monospace;outline:none;box-sizing:border-box}
+.prac .btns{display:flex;gap:8px;margin-top:10px}
+.chk-btn{padding:8px 18px;border:none;border-radius:8px;background:var(--g);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.chk-btn.sec{background:#e5e7eb;color:#374151}
+.ok-msg{margin-top:10px;font-size:14px;color:var(--g);font-weight:600}
+.err-msg{margin-top:10px;font-size:14px;color:#ef4444;font-weight:600}
+.ans-box{margin-top:10px;padding:12px;background:#fff;border-radius:10px;border:1px solid var(--gb)}
+.ans-box code{display:block;margin-bottom:6px;color:var(--gd);font-size:14px;font-weight:600}
+.ans-box p{font-size:13px;color:#374151}
+
+.done-btn{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;font-family:inherit}
+.tip-card{background:#fffbeb;border:1px solid #fde68a;border-radius:14px;padding:16px;margin-bottom:12px;font-size:13px;color:#92400e}
+
+/* ── Quiz ── */
+.q-start{display:flex;flex-direction:column;align-items:center;padding:60px 32px;text-align:center}
+.q-btn{margin-top:20px;padding:14px 40px;border:none;border-radius:12px;background:var(--g);color:#fff;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
+.q-result{display:flex;flex-direction:column;align-items:center;padding:32px 20px}
+.q-rev{padding:10px 12px;background:#f9fafb;border-radius:8px;margin-bottom:6px}
+.q-pbar{height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:20px;overflow:hidden}
+.q-pfill{height:100%;background:var(--g);border-radius:3px;transition:width .3s}
+.q-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.q-card .qq{font-size:16px;font-weight:600;line-height:1.5;margin-bottom:16px}
+.q-opt{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:12px;background:#fff;font-size:14px;color:#374151;cursor:pointer;margin-bottom:8px;text-align:left;font-family:inherit}
+.q-opt .ol{display:flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#f1f5f9;font-weight:700;font-size:13px;flex-shrink:0}
+
+/* ── Admin ── */
+.adm-row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fff;border-radius:10px;margin-bottom:8px;flex-wrap:wrap;gap:8px}
+.adm-row input{flex:1;min-width:150px;border:1.5px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:13px;outline:none;font-family:inherit}
+.adm-save{padding:8px 14px;border:none;border-radius:8px;background:var(--g);color:#fff;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+.adm-edit{padding:6px 14px;border:1.5px solid #d1d5db;border-radius:8px;background:#fff;font-size:12px;font-weight:500;cursor:pointer;color:#374151;font-family:inherit}
+.adm-stat{background:#fff;border-radius:12px;padding:16px;font-size:14px;color:#374151}
+.reset-btn{margin-top:16px;width:100%;padding:12px;border:none;border-radius:12px;background:#ef4444;color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit}
+.admin-unlock{padding:40px;text-align:center}
+.admin-unlock button{margin-top:16px;padding:10px 24px;border:none;border-radius:12px;background:#6b7280;color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+</style>
+</head>
+<body>
+
+<!-- ════ APP SHELL ════ -->
+<div id="homeTab" class="tab-content"></div>
+<div id="learnTab" class="tab-content hide"></div>
+<div id="quizTab" class="tab-content hide"></div>
+<div id="adminTab" class="tab-content hide"></div>
+<div id="formulaView" class="f-screen hide"></div>
+
+<!-- ════ BOTTOM NAV ════ -->
+<div class="bnav">
+  <button id="navHome" class="on" onclick="switchTab('home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</button>
+  <button id="navLearn" onclick="switchTab('learn')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>Learn</button>
+  <button id="navQuiz" onclick="switchTab('quiz')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9H4.5a2.5 2.5 0 010-5H6"/><path d="M18 9h1.5a2.5 2.5 0 000-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22"/><path d="M18 2H6v7a6 6 0 0012 0V2z"/></svg>Quiz</button>
+  <button id="navAdmin" onclick="switchTab('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Admin</button>
+</div>
+
+<script>
+// ════════════════════════════════════════════
+// DATA
+// ════════════════════════════════════════════
+const FORMULAS=[{id:"if",name:"IF",cat:"basic",catL:"Basic Formulas",one:"Agar condition true hai toh ek value do, nahi toh doosri.",plant:"Metalliser mein OD check — agar OD 2.2 se zyada toh \"OK\", nahi toh \"REJECT\".",syn:"=IF(condition, true_value, false_value)",ready:'=IF(B2>=2.2, "OK", "REJECT")',exp:"IF formula ek condition check karta hai. Sahi hai toh pehli value, galat hai toh doosri.",tbl:{h:["Roll No","OD (inch)","Status"],r:[["R001","2.3","OK"],["R002","2.0","REJECT"],["R003","2.5","OK"]]},pQ:"Weight 500 Kg hai. >450 toh \"HEAVY\", nahi toh \"LIGHT\".",pA:'=IF(B2>450, "HEAVY", "LIGHT")',pE:"500>450=TRUE → answer \"HEAVY\".",vid:"",tip:"IF ke andar IF bhi laga sakte ho (nested), lekin IFS zyada easy."},{id:"ifs",name:"IFS",cat:"basic",catL:"Basic Formulas",one:"Multiple conditions ek saath check karo.",plant:"OD se grade assign — 2.5+=A, 2.2+=B, baaki=C.",syn:"=IFS(cond1, val1, cond2, val2, ...)",ready:'=IFS(B2>=2.5,"A", B2>=2.2,"B", TRUE,"C")',exp:"IFS har condition check karta hai. Pehla TRUE milte hi value de deta hai.",tbl:{h:["Roll","OD","Grade"],r:[["R001","2.6","A"],["R002","2.3","B"],["R003","1.9","C"]]},pQ:"Waste%: <2=\"Excellent\", <5=\"Good\", baaki=\"Poor\".",pA:'=IFS(B2<2,"Excellent", B2<5,"Good", TRUE,"Poor")',pE:"Pehle <2 check, phir <5. Koi nahi toh \"Poor\".",vid:""},{id:"iferror",name:"IFERROR",cat:"basic",catL:"Basic Formulas",one:"Error aaye toh uski jagah kuch aur dikhao.",plant:"VLOOKUP mein #N/A ki jagah \"Not Found\".",syn:"=IFERROR(formula, error_value)",ready:'=IFERROR(VLOOKUP(A2,Data!A:D,4,0), "Not Found")',exp:"Error ko pakad ke clean value dikha deta hai.",tbl:{h:["Roll","Lookup","With IFERROR"],r:[["R001","2.3","2.3"],["R099","#N/A","Not Found"]]},pQ:"A2/B2, agar B2=0 toh \"Cannot Divide\".",pA:'=IFERROR(A2/B2, "Cannot Divide")',pE:"B2=0 → #DIV/0! → IFERROR catches → \"Cannot Divide\".",vid:""},{id:"left",name:"LEFT",cat:"text",catL:"Text Formulas",one:"Text ke left side se characters nikalo.",plant:"\"G10301M22\" se \"G10\" nikalna (micron code).",syn:"=LEFT(text, num_chars)",ready:"=LEFT(A2, 3)",exp:"LEFT text ke shuru se utne characters deta hai jitne batao.",tbl:{h:["Material Code","First 3"],r:[["G10301M22","G10"],["G08201M25","G08"]]},pQ:"\"ORD-2025-001\" se pehle 3 chars nikalo.",pA:"=LEFT(A2, 3)",pE:"LEFT(\"ORD-2025-001\",3) = \"ORD\".",vid:""},{id:"right",name:"RIGHT",cat:"text",catL:"Text Formulas",one:"Text ke right side se characters nikalo.",plant:"Material code se \"M22\" nikalna (OD size).",syn:"=RIGHT(text, num_chars)",ready:"=RIGHT(A2, 3)",exp:"RIGHT text ke end se characters deta hai.",tbl:{h:["Material Code","Last 3"],r:[["G10301M22","M22"],["G08201M25","M25"]]},pQ:"\"BATCH-MAR-26\" se last 2 chars.",pA:"=RIGHT(A2, 2)",pE:"RIGHT(\"BATCH-MAR-26\",2) = \"26\".",vid:""},{id:"mid",name:"MID",cat:"text",catL:"Text Formulas",one:"Text ke beech se characters nikalo.",plant:"\"G10301M22\" se position 2 se \"10\" (micron).",syn:"=MID(text, start_pos, num_chars)",ready:"=MID(A2, 2, 2)",exp:"MID beech se characters nikalta hai. Position 1 se count.",tbl:{h:["Code","Micron"],r:[["G10301M22","10"],["G08201M25","08"]]},pQ:"\"ROLL-1105-MET\" se width (pos 6, 4 chars).",pA:"=MID(A2, 6, 4)",pE:"MID = \"1105\" (slitting width).",vid:""},{id:"len",name:"LEN",cat:"text",catL:"Text Formulas",one:"Text ki length (characters) gino.",plant:"Batch code length check — <10 toh incomplete.",syn:"=LEN(text)",ready:"=LEN(A2)",exp:"Total characters count karta hai. Spaces bhi.",tbl:{h:["Text","Length"],r:[["G10301M22","9"],["ROLL 001","8"]]},pQ:"\"Metalliser-ARM1\" ki length?",pA:"=LEN(\"Metalliser-ARM1\") → 15",pE:"Sab characters milake 15.",vid:""},{id:"trim",name:"TRIM",cat:"text",catL:"Text Formulas",one:"Extra spaces hatao — SAP data clean karo.",plant:"SAP data mein spaces hote hain — VLOOKUP fail. TRIM lagao.",syn:"=TRIM(text)",ready:"=TRIM(A2)",exp:"Shuru, end aur extra beech ke spaces hata deta hai.",tbl:{h:["Raw SAP","After TRIM"],r:[["  R001  MET  ","R001 MET"]]},pQ:"\"  Slitting   Plan  \" clean karo.",pA:"=TRIM(\"  Slitting   Plan  \") → \"Slitting Plan\"",pE:"Extra spaces hat gaye.",vid:""},{id:"substitute",name:"SUBSTITUTE",cat:"text",catL:"Text Formulas",one:"Text mein ek character/word replace karo.",plant:"Material code mein \"-\" hatao.",syn:"=SUBSTITUTE(text, old, new)",ready:'=SUBSTITUTE(A2, "-", "")',exp:"Purana text dhundh ke naye se replace.",tbl:{h:["Original","Cleaned"],r:[["ROLL-001-MET","ROLL001MET"]]},pQ:"\"Production_Report\" mein _ ko space se replace.",pA:'=SUBSTITUTE(A2, "_", " ")',pE:"Underscore space ban gaya.",vid:""},{id:"search",name:"SEARCH",cat:"text",catL:"Text Formulas",one:"Text mein word/char ki position dhundho.",plant:"\"M\" kahan hai dhundho — uske baad OD size.",syn:"=SEARCH(find_text, within_text)",ready:'=SEARCH("M", A2)',exp:"Position number deta hai. Case-insensitive.",tbl:{h:["Code","M Position"],r:[["G10301M22","7"]]},pQ:"\"SLITTING-PLAN-MAR\" mein \"PLAN\" position?",pA:'=SEARCH("PLAN","SLITTING-PLAN-MAR") → 10',pE:"P = 10th position.",vid:""},{id:"isnumber",name:"ISNUMBER",cat:"text",catL:"Text Formulas",one:"Check — number hai ya nahi (TRUE/FALSE).",plant:"SEARCH+ISNUMBER = check \"MET\" hai ya nahi.",syn:"=ISNUMBER(value)",ready:'=ISNUMBER(SEARCH("MET", A2))',exp:"SEARCH number deta hai agar milta hai. ISNUMBER se TRUE/FALSE.",tbl:{h:["Description","Has MET?"],r:[["Metallised Film","TRUE"],["Plain BOPP","FALSE"]]},pQ:"A2 mein \"ARM\" hai ya nahi?",pA:'=ISNUMBER(SEARCH("ARM", A2))',pE:"ARM milega toh TRUE.",vid:""},{id:"textjoin",name:"TEXTJOIN",cat:"text",catL:"Text Formulas",one:"Multiple cells ka text jodo — separator se.",plant:"Arm1-Arm5 remarks ek cell mein combine.",syn:"=TEXTJOIN(delim, ignore_empty, range)",ready:'=TEXTJOIN(", ", TRUE, B2:F2)',exp:"Values ko delimiter se jodta hai. Empty skip.",tbl:{h:["Arm1","Arm2","Arm3","Combined"],r:[["Coating done","","Speed low","Coating done, Speed low"]]},pQ:"\"Slitting\",\"Width\",\"1105\" ko \" - \" se jodo.",pA:'=TEXTJOIN(" - ", TRUE, A2:C2)',pE:"→ \"Slitting - Width - 1105\".",vid:""},{id:"vlookup",name:"VLOOKUP",cat:"lookup",catL:"Lookup & Matching",one:"Value dhundho aur uski row se data lao.",plant:"Roll number se OD/width/weight dhundna.",syn:"=VLOOKUP(value, table, col, 0)",ready:"=VLOOKUP(A2, Data!A:E, 3, 0)",exp:"Pehle column mein dhundta hai, milne pe us row ka doosra column deta hai.",tbl:{h:["Roll","Width","OD","Weight"],r:[["R001","1105","2.3","450"],["R002","820","2.1","380"]]},pQ:"R002 ka weight (4th col)?",pA:'=VLOOKUP("R002", A:D, 4, 0) → 380',pE:"R002 mila, 4th col = 380.",vid:"",tip:"VLOOKUP sirf left→right. Right→left ke liye INDEX-MATCH ya XLOOKUP."},{id:"xlookup",name:"XLOOKUP",cat:"lookup",catL:"Lookup & Matching",one:"Kisi bhi direction mein dhundho.",plant:"Width se customer name (right to left bhi).",syn:"=XLOOKUP(lookup, lookup_range, return_range, not_found)",ready:'=XLOOKUP(A2, Data!C:C, Data!A:A, "Not Found")',exp:"Left-right dono direction. Not found value directly.",tbl:{h:["Width","Customer","Qty"],r:[["1105","ABC Corp","5000"],["820","XYZ Ltd","3000"]]},pQ:"Width 820 se customer?",pA:'=XLOOKUP(820, B:B, A:A, "Not Found") → "XYZ Ltd"',pE:"820 column B mein mila → A = XYZ Ltd.",vid:""},{id:"indexmatch",name:"INDEX-MATCH",cat:"lookup",catL:"Lookup & Matching",one:"Sabse powerful lookup — koi bhi direction.",plant:"Material+month match karke output nikalna.",syn:"=INDEX(return, MATCH(lookup, range, 0))",ready:"=INDEX(D:D, MATCH(A2, B:B, 0))",exp:"MATCH row dhundta hai, INDEX us row se data nikalta hai.",tbl:{h:["Sr","Material","Month","Qty"],r:[["1","G10301M22","Mar","15000"],["2","G08201M25","Mar","12000"]]},pQ:"G10301M22 ka Qty?",pA:'=INDEX(D:D, MATCH("G10301M22", B:B, 0)) → 15000',pE:"MATCH row 2, INDEX D2 = 15000.",vid:""},{id:"sumif",name:"SUMIF",cat:"conditional",catL:"Conditional Calculations",one:"Ek condition pe sum karo.",plant:"Sirf ARM1 ka total production.",syn:"=SUMIF(range, criteria, sum_range)",ready:'=SUMIF(A:A, "ARM1", C:C)',exp:"Matching rows ka sum.",tbl:{h:["Machine","Date","Prod"],r:[["ARM1","01-Mar","850"],["ARM2","01-Mar","720"],["ARM1","02-Mar","900"]]},pQ:"ARM1 ka total?",pA:'=SUMIF(A:A, "ARM1", C:C) → 1750',pE:"850+900=1750.",vid:""},{id:"sumifs",name:"SUMIFS",cat:"conditional",catL:"Conditional Calculations",one:"Multiple conditions pe sum karo.",plant:"ARM1 + 10 micron ka March production.",syn:"=SUMIFS(sum, range1,crit1, range2,crit2...)",ready:'=SUMIFS(D:D, A:A,"ARM1", B:B,"10")',exp:"Saari conditions match toh sum.",tbl:{h:["Machine","Micron","Date","Prod"],r:[["ARM1","10","01-Mar","500"],["ARM1","12","01-Mar","300"],["ARM1","10","02-Mar","600"]]},pQ:"ARM1 + 10µ production?",pA:'=SUMIFS(D:D, A:A,"ARM1", B:B,"10") → 1100',pE:"500+600=1100.",vid:"",tip:'Wildcard: "304*" = 304 se shuru hone wale sab.'},{id:"countif",name:"COUNTIF",cat:"conditional",catL:"Conditional Calculations",one:"Condition match rows gino.",plant:"Kitne rolls REJECT hain.",syn:"=COUNTIF(range, criteria)",ready:'=COUNTIF(C:C, "REJECT")',exp:"Matching rows ki count.",tbl:{h:["Roll","OD","Status"],r:[["R001","2.3","OK"],["R002","1.9","REJECT"],["R003","2.1","REJECT"]]},pQ:"Kitne REJECT?",pA:'=COUNTIF(C:C,"REJECT") → 2',pE:"2 rows match.",vid:""},{id:"countifs",name:"COUNTIFS",cat:"conditional",catL:"Conditional Calculations",one:"Multiple conditions pe count.",plant:"ARM1 ke 10µ reject rolls.",syn:"=COUNTIFS(r1,c1, r2,c2...)",ready:'=COUNTIFS(A:A,"ARM1", C:C,"REJECT", B:B,"10")',exp:"Saari conditions match toh count.",tbl:{h:["Machine","Micron","Status"],r:[["ARM1","10","REJECT"],["ARM1","12","OK"],["ARM2","10","REJECT"]]},pQ:"ARM1 + 10µ REJECT count?",pA:'=COUNTIFS(A:A,"ARM1",B:B,"10",C:C,"REJECT") → 1',pE:"Sirf pehli row match.",vid:""},{id:"averageif",name:"AVERAGEIF",cat:"conditional",catL:"Conditional Calculations",one:"Condition match rows ka average.",plant:"ARM1 ka average OD.",syn:"=AVERAGEIF(range, criteria, avg_range)",ready:'=AVERAGEIF(A:A,"ARM1",C:C)',exp:"Matching rows ka mean.",tbl:{h:["Machine","Roll","OD"],r:[["ARM1","R001","2.3"],["ARM2","R002","2.1"],["ARM1","R003","2.4"]]},pQ:"ARM1 avg OD?",pA:'=AVERAGEIF(A:A,"ARM1",C:C) → 2.35',pE:"(2.3+2.4)/2=2.35.",vid:""},{id:"averageifs",name:"AVERAGEIFS",cat:"conditional",catL:"Conditional Calculations",one:"Multiple conditions pe average.",plant:"ARM1 + 10µ ka avg weight.",syn:"=AVERAGEIFS(avg, r1,c1, r2,c2)",ready:'=AVERAGEIFS(D:D,A:A,"ARM1",B:B,"10")',exp:"Multiple filter lagake average.",tbl:{h:["Machine","Micron","Shift","Wt"],r:[["ARM1","10","A","450"],["ARM1","10","B","480"],["ARM1","12","A","520"]]},pQ:"ARM1 + 10µ avg weight?",pA:'=AVERAGEIFS(D:D,A:A,"ARM1",B:B,"10") → 465',pE:"(450+480)/2=465.",vid:""},{id:"sumproduct",name:"SUMPRODUCT",cat:"advanced",catL:"Advanced Formulas",one:"Columns multiply karke sum — sets×width ek shot.",plant:"Slitting plan: Sets×Width total — sabse important formula.",syn:"=SUMPRODUCT(array1, array2)",ready:"=SUMPRODUCT(B2:B10, C2:C10)",exp:"Har row multiply, phir sum. Conditional bhi ho sakta hai.",tbl:{h:["Width","Sets","S×W"],r:[["1105","2","2210"],["820","1","820"],["460","3","1380"],["","Total","4410"]]},pQ:"W=1105,820,460. S=2,1,3. Total?",pA:"=SUMPRODUCT({1105,820,460},{2,1,3}) → 4410",pE:"2210+820+1380=4410.",vid:"",tip:'Conditional: =SUMPRODUCT((A2:A10="ARM1")*1, C2:C10)'},{id:"filter",name:"FILTER",cat:"dynamic",catL:"Dynamic Formulas",one:"Matching rows dikhao — automatic.",plant:"REJECT rolls ki list — ek formula se.",syn:"=FILTER(array, condition, if_empty)",ready:'=FILTER(A2:D100, C2:C100="REJECT", "None")',exp:"Condition match rows return karta hai.",tbl:{h:["Roll","Width","Status","Wt"],r:[["R001","1105","OK","450"],["R002","820","REJECT","380"]]},pQ:"Sirf OK rolls dikhao.",pA:'=FILTER(A2:D100, C2:C100="OK")',pE:"Status=OK wali rows.",vid:""},{id:"unique",name:"UNIQUE",cat:"dynamic",catL:"Dynamic Formulas",one:"Duplicate hatao — sirf unique values.",plant:"Unique machine names ki list.",syn:"=UNIQUE(array)",ready:"=UNIQUE(A2:A100)",exp:"Ek-ek baar dikhata hai.",tbl:{h:["All","→","Unique"],r:[["ARM1","","ARM1"],["ARM2","","ARM2"],["ARM1","","ARM3"]]},pQ:"1105,820,1105,460,820 → unique?",pA:"=UNIQUE(A2:A6) → 1105,820,460",pE:"Duplicates hat gaye.",vid:""},{id:"sort",name:"SORT",cat:"dynamic",catL:"Dynamic Formulas",one:"Data sort karo — ascending/descending.",plant:"Highest→lowest production sort.",syn:"=SORT(array, col, order)",ready:"=SORT(A2:D100, 4, -1)",exp:"1=ascending, -1=descending.",tbl:{h:["Machine","Prod","Sorted"],r:[["ARM1","1500","ARM3—1800"],["ARM3","1800","ARM1—1500"]]},pQ:"Col 2 descending sort.",pA:"=SORT(A2:B10, 2, -1)",pE:"Highest pehle.",vid:""},{id:"today",name:"TODAY",cat:"date",catL:"Date Formulas",one:"Aaj ki date — auto update.",plant:"Pending days = TODAY() - Order Date.",syn:"=TODAY()",ready:"=TODAY()-A2",exp:"Current date deta hai.",tbl:{h:["Order Date","Today","Pending"],r:[["01-Mar-2026","08-Apr-2026","38"]]},pQ:"Order 15-Mar. Kitne din pending?",pA:"=TODAY()-A2",pE:"Aaj minus order date.",vid:""},{id:"eomonth",name:"EOMONTH",cat:"date",catL:"Date Formulas",one:"Month ka last date nikalo.",plant:"Monthly report date range filtering.",syn:"=EOMONTH(date, months)",ready:"=EOMONTH(A2, 0)",exp:"0=current month end, -1=pichla month end.",tbl:{h:["Date","Month End","Prev End"],r:[["15-Mar","31-Mar","28-Feb"]]},pQ:"15-Mar ke pichle month end?",pA:'=EOMONTH("15-Mar-2026", -1) → 28-Feb',pE:"-1 = Feb end = 28.",vid:""},{id:"day",name:"DAY",cat:"date",catL:"Date Formulas",one:"Date se sirf din (1-31) nikalo.",plant:"Daily tracking ke liye din number.",syn:"=DAY(date)",ready:"=DAY(A2)",exp:"Sirf din ka number.",tbl:{h:["Date","Day"],r:[["15-Mar","15"],["01-Apr","1"]]},pQ:"28-Feb se din?",pA:"=DAY(\"28-Feb-2026\") → 28",pE:"Din=28.",vid:""},{id:"datevalue",name:"DATEVALUE",cat:"date",catL:"Date Formulas",one:"Text date ko real date mein badlo.",plant:"SAP text date ko Excel date convert.",syn:"=DATEVALUE(text)",ready:'=DATEVALUE("15-Mar-2026")',exp:"Text → proper date. Phir calculations possible.",tbl:{h:["Text","Real","Calc?"],r:[["15-Mar-2026","46097","Yes"]]},pQ:"\"01-Jan-2026\" convert karo.",pA:'=DATEVALUE("01-Jan-2026")',pE:"Text se date ban gayi.",vid:""},{id:"average",name:"AVERAGE",cat:"statistical",catL:"Statistical",one:"Numbers ka average nikalo.",plant:"Daily average production.",syn:"=AVERAGE(range)",ready:"=AVERAGE(B2:B31)",exp:"Mean nikalta hai. Empty skip.",tbl:{h:["Day","Prod"],r:[["1","800"],["2","950"],["3","870"],["Avg","873"]]},pQ:"800,950,870 ka average?",pA:"=AVERAGE(800,950,870) → 873.33",pE:"2620/3=873.33.",vid:""},{id:"min",name:"MIN",cat:"statistical",catL:"Statistical",one:"Sabse chhoti value.",plant:"Sabse kam production wala din.",syn:"=MIN(range)",ready:"=MIN(B2:B31)",exp:"Minimum number.",tbl:{h:["Day","Prod"],r:[["1","800"],["3","620"],["MIN","620"]]},pQ:"450,380,520 min?",pA:"=MIN(450,380,520) → 380",pE:"380 minimum.",vid:""},{id:"max",name:"MAX",cat:"statistical",catL:"Statistical",one:"Sabse badi value.",plant:"Highest production day.",syn:"=MAX(range)",ready:"=MAX(B2:B31)",exp:"Maximum number.",tbl:{h:["Day","Prod"],r:[["2","950"],["MAX","950"]]},pQ:"OD 2.1,2.5,2.3 max?",pA:"=MAX(2.1,2.5,2.3) → 2.5",pE:"2.5 maximum.",vid:""}];
+
+const CATS=[{id:"basic",l:"Basic",i:"📗",c:"#16a34a",d:"IF, IFS, IFERROR"},{id:"text",l:"Text",i:"📝",c:"#2563eb",d:"LEFT, RIGHT, MID, TRIM..."},{id:"lookup",l:"Lookup",i:"🔍",c:"#9333ea",d:"VLOOKUP, XLOOKUP, INDEX-MATCH"},{id:"conditional",l:"Conditional",i:"📊",c:"#ea580c",d:"SUMIF, COUNTIF, AVERAGEIF..."},{id:"advanced",l:"Advanced",i:"⚡",c:"#dc2626",d:"SUMPRODUCT"},{id:"dynamic",l:"Dynamic",i:"🔄",c:"#0891b2",d:"FILTER, UNIQUE, SORT"},{id:"date",l:"Date",i:"📅",c:"#4f46e5",d:"TODAY, EOMONTH, DAY..."},{id:"statistical",l:"Stats",i:"📈",c:"#be185d",d:"AVERAGE, MIN, MAX"}];
+
+const QUIZ=[{q:"OD 2.2 se zyada toh OK. Formula?",o:["VLOOKUP","IF","SUMIF","LEFT"],a:1},{q:"SAP extra spaces clean?",o:["LEN","SUBSTITUTE","TRIM","MID"],a:2},{q:"\"G10301M22\" se \"M22\"?",o:["LEFT(A2,3)","RIGHT(A2,3)","MID(A2,3,2)","SEARCH(A2)"],a:1},{q:"Sirf ARM1 total production?",o:["SUM","SUMIF","COUNTIF","AVERAGE"],a:1},{q:"VLOOKUP #N/A fix?",o:["TRIM","IFERROR","LEFT","Dono A&B"],a:3},{q:"REJECT count?",o:["SUMIF","COUNTIF","AVERAGEIF","FILTER"],a:1},{q:"Sets×Width total?",o:["SUM","SUMIF","SUMPRODUCT","VLOOKUP"],a:2},{q:"Month last date?",o:["TODAY","DAY","EOMONTH","DATEVALUE"],a:2},{q:"Unique machine list?",o:["SORT","FILTER","UNIQUE","TRIM"],a:2},{q:"\"M\" ki position?",o:["FIND","SEARCH","MID","LEFT"],a:1},{q:"Multiple conditions sum?",o:["SUMIF","SUMIFS","COUNTIFS","SUM"],a:1},{q:"Text→real date?",o:["TODAY","DAY","DATEVALUE","EOMONTH"],a:2}];
+
+// ════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════
+const SK='excel_expert_v2';
+let state={favs:[],done:[],vids:{},isAdmin:false,curTab:'home',selCat:null,quiz:null};
+
+function loadState(){try{const s=JSON.parse(localStorage.getItem(SK));if(s){state.favs=s.favs||[];state.done=s.done||[];state.vids=s.vids||{};state.isAdmin=!!s.isAdmin}}catch(e){}}
+function saveState(){try{localStorage.setItem(SK,JSON.stringify({favs:state.favs,done:state.done,vids:state.vids,isAdmin:state.isAdmin}))}catch(e){}}
+
+// Listen for parent MET Power messages
+window.addEventListener('message',function(e){
+  if(e.data&&(e.data.type==='userInfo'||e.data.type==='excelExpertUser')){
+    if(e.data.role==='admin'||e.data.role==='manager'||e.data.isAdmin){state.isAdmin=true;saveState()}
+  }
+});
+try{window.parent.postMessage({type:'requestUserInfo',from:'excelExpert'},'*')}catch(e){}
+
+// ════════════════════════════════════════════
+// HELPERS
+// ════════════════════════════════════════════
+function h(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
+function prog(){return Math.round((state.done.length/FORMULAS.length)*100)}
+function copyF(t){navigator.clipboard&&navigator.clipboard.writeText(t);const b=document.getElementById('cpFeedback');if(b){b.textContent='Copied!';setTimeout(()=>{b.textContent='Copy'},1500)}}
+
+// ════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════
+function switchTab(t){
+  state.curTab=t;
+  ['home','learn','quiz','admin'].forEach(id=>{
+    document.getElementById(id+'Tab').classList.toggle('hide',id!==t);
+    document.getElementById('nav'+id.charAt(0).toUpperCase()+id.slice(1)).classList.toggle('on',id===t);
+  });
+  document.getElementById('formulaView').classList.add('hide');
+  document.querySelector('.bnav').style.display='flex';
+  if(t==='home')renderHome();
+  if(t==='learn')renderLearn();
+  if(t==='quiz')renderQuiz();
+  if(t==='admin')renderAdmin();
+}
+
+// ════════════════════════════════════════════
+// HOME TAB
+// ════════════════════════════════════════════
+function renderHome(){
+  const p=prog();
+  let html=`<div class="greet"><div><h2>📊 Excel Expert</h2><p>Flexible Packaging Industry Training</p></div><div class="prog-wrap"><svg width="52" height="52" viewBox="0 0 52 52"><circle cx="26" cy="26" r="22" fill="none" stroke="#e5e7eb" stroke-width="4"/><circle cx="26" cy="26" r="22" fill="none" stroke="#16a34a" stroke-width="4" stroke-dasharray="${p*1.382} 200" stroke-linecap="round" transform="rotate(-90 26 26)"/></svg><span>${p}%</span></div></div>`;
+
+  html+=`<div class="search-wrap"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input placeholder="Formula dhundho... (IF, VLOOKUP, SUMIF...)" oninput="searchFormulas(this.value)"></div><div id="searchResults"></div>`;
+
+  html+=`<div class="stats"><div class="stat"><span class="n">${FORMULAS.length}</span><span class="l">Formulas</span></div><div class="stat"><span class="n">${state.done.length}</span><span class="l">Complete</span></div><div class="stat"><span class="n">${state.favs.length}</span><span class="l">Saved</span></div></div>`;
+
+  html+=`<h3 class="sec-t">Categories</h3><div class="cat-grid">`;
+  CATS.forEach(c=>{
+    const t=FORMULAS.filter(f=>f.cat===c.id).length;
+    const d=FORMULAS.filter(f=>f.cat===c.id&&state.done.includes(f.id)).length;
+    html+=`<div class="cat-card" style="border-left:4px solid ${c.c}" onclick="state.selCat='${c.id}';switchTab('learn')"><div class="ct"><span class="ci">${c.i}</span><span class="cc">${d}/${t}</span></div><p class="cn">${c.l}</p><p class="cd">${c.d}</p><div class="cpb"><div class="cpf" style="width:${t?d/t*100:0}%;background:${c.c}"></div></div></div>`;
+  });
+  html+=`</div>`;
+
+  if(state.favs.length){
+    html+=`<h3 class="sec-t">⭐ Saved Formulas</h3>`;
+    FORMULAS.filter(f=>state.favs.includes(f.id)).forEach(f=>{
+      html+=`<div class="fli" onclick="openFormula('${f.id}')"><div><span class="fn">${h(f.name)}</span><span class="fd">${h(f.one)}</span></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>`;
+    });
+  }
+  document.getElementById('homeTab').innerHTML=html;
+}
+
+function searchFormulas(q){
+  const box=document.getElementById('searchResults');
+  if(!q.trim()){box.innerHTML='';return}
+  const ql=q.toLowerCase();
+  const res=FORMULAS.filter(f=>f.name.toLowerCase().includes(ql)||f.one.toLowerCase().includes(ql)||f.plant.toLowerCase().includes(ql));
+  box.innerHTML=res.map(f=>`<div class="search-result" style="margin:0 16px 6px" onclick="openFormula('${f.id}')"><span class="sn">${h(f.name)}</span><span class="sc">${h(f.catL)}</span></div>`).join('');
+}
+
+// ════════════════════════════════════════════
+// LEARN TAB
+// ════════════════════════════════════════════
+function renderLearn(){
+  const sc=state.selCat;
+  let html='';
+  if(sc) html+=`<button class="clr-btn" onclick="state.selCat=null;renderLearn()">← Sab Categories</button>`;
+
+  html+=`<div class="pill-row"><button class="pill ${!sc?'on':''}" onclick="state.selCat=null;renderLearn()">All</button>`;
+  CATS.forEach(c=>{html+=`<button class="pill ${sc===c.id?'on':''}" ${sc===c.id?`style="background:${c.c};border-color:${c.c}"`:''} onclick="state.selCat='${c.id}';renderLearn()">${c.i} ${c.l}</button>`});
+  html+=`</div>`;
+
+  const cats=sc?[sc]:CATS.map(c=>c.id);
+  cats.forEach(ci=>{
+    const ca=CATS.find(c=>c.id===ci);
+    const fs=FORMULAS.filter(f=>f.cat===ci);
+    if(!fs.length)return;
+    html+=`<div style="margin-bottom:20px;padding:0 16px"><h3 class="sec-t" style="color:${ca.c};padding:0;margin:12px 0 8px">${ca.i} ${ca.l}</h3>`;
+    fs.forEach(f=>{
+      html+=`<div class="fli" style="margin:0 0 8px" onclick="openFormula('${f.id}')"><div style="flex:1"><div style="display:flex;align-items:center;gap:8px"><span class="fn">${h(f.name)}</span>${state.done.includes(f.id)?'<span class="done-badge">✓</span>':''}</div><span class="fd">${h(f.one)}</span></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>`;
+    });
+    html+=`</div>`;
+  });
+  document.getElementById('learnTab').innerHTML=html;
+}
+
+// ════════════════════════════════════════════
+// FORMULA DETAIL
+// ════════════════════════════════════════════
+function openFormula(id){
+  const f=FORMULAS.find(x=>x.id===id);if(!f)return;
+  document.querySelector('.bnav').style.display='none';
+  ['homeTab','learnTab','quizTab','adminTab'].forEach(t=>document.getElementById(t).classList.add('hide'));
+  const v=document.getElementById('formulaView');
+  v.classList.remove('hide');
+
+  const vu=state.vids[f.id]||f.vid;
+  const isFav=state.favs.includes(f.id);
+  const isDone=state.done.includes(f.id);
+
+  let html=`<div class="f-hdr"><button onclick="closeFormula()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg></button><h2>${h(f.name)}</h2><button onclick="toggleFav('${f.id}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="${isFav?'#f59e0b':'none'}" stroke="#f59e0b" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></button></div>`;
+
+  html+=`<div class="f-body">`;
+  if(vu){html+=`<div class="vid-box"><iframe src="${vu.replace('watch?v=','embed/')}" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope" allowfullscreen></iframe></div>`}
+  else{html+=`<div class="vid-ph"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg><p style="margin-top:6px;font-size:13px">Video jaldi aayega</p></div>`}
+
+  html+=`<div class="s-card"><div class="s-badge">Kya Karta Hai?</div><p class="one-l">${h(f.one)}</p></div>`;
+  html+=`<div class="s-card"><div class="s-badge" style="background:#fef3c7;color:#92400e">Plant Mein Kahan?</div><p class="plant-u">🏭 ${h(f.plant)}</p></div>`;
+  html+=`<div class="s-card"><div class="s-badge" style="background:#ede9fe;color:#5b21b6">Syntax</div><code class="syntax-c">${h(f.syn)}</code></div>`;
+
+  html+=`<div class="ready-card"><div class="top"><span class="rl">📋 Copy-Paste Formula</span><button class="cp-btn" onclick="copyF('${f.ready.replace(/'/g,"\\'")}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> <span id="cpFeedback">Copy</span></button></div><code class="ready-code">${h(f.ready)}</code></div>`;
+
+  html+=`<div class="s-card"><div class="s-badge" style="background:#e0f2fe;color:#075985">Samjho</div><p class="explain-t">${h(f.exp)}</p></div>`;
+
+  if(f.tbl){
+    html+=`<div class="s-card"><div class="s-badge" style="background:#d1fae5;color:#065f46">Example</div><div class="t-wrap"><table><thead><tr>${f.tbl.h.map(x=>'<th>'+h(x)+'</th>').join('')}</tr></thead><tbody>${f.tbl.r.map(r=>'<tr>'+r.map(c=>'<td>'+h(c)+'</td>').join('')+'</tr>').join('')}</tbody></table></div></div>`;
+  }
+  if(f.tip){html+=`<div class="tip-card">💡 <strong>Tip:</strong> ${h(f.tip)}</div>`}
+
+  html+=`<div class="prac"><div class="s-badge" style="background:#16a34a;color:#fff">🎯 Practice</div><p class="pq">${h(f.pQ)}</p><input id="pracInput" placeholder="Yahan formula likho..."><div class="btns"><button class="chk-btn" onclick="checkPractice('${f.id}')">Check Answer</button><button class="chk-btn sec" onclick="toggleAnswer('${f.id}')">Show Answer</button></div><div id="pracResult"></div><div id="pracAnswer" class="hide"><div class="ans-box"><code>${h(f.pA)}</code><p>${h(f.pE)}</p></div></div></div>`;
+
+  html+=`<button class="done-btn" style="background:${isDone?'#d1fae5':'#16a34a'};color:${isDone?'#065f46':'#fff'}" onclick="markDone('${f.id}')">${isDone?'✅ Completed!':'Mark as Complete ✓'}</button>`;
+  html+=`</div>`;
+  v.innerHTML=html;
+}
+
+function closeFormula(){
+  document.getElementById('formulaView').classList.add('hide');
+  document.querySelector('.bnav').style.display='flex';
+  switchTab(state.curTab);
+}
+
+function toggleFav(id){
+  const i=state.favs.indexOf(id);
+  if(i>=0)state.favs.splice(i,1);else state.favs.push(id);
+  saveState();openFormula(id);
+}
+
+function markDone(id){
+  if(!state.done.includes(id))state.done.push(id);
+  saveState();openFormula(id);
+}
+
+function checkPractice(id){
+  const f=FORMULAS.find(x=>x.id===id);
+  const inp=document.getElementById('pracInput')?.value||'';
+  const cl=s=>s.replace(/[\s""\u201C\u201D]/g,'').toLowerCase();
+  const key=cl(f.pA).split('→')[0].split('=')[1]||'';
+  const ok=key&&cl(inp).includes(key);
+  document.getElementById('pracResult').innerHTML=ok?'<p class="ok-msg">✅ Sahi jawab! Bahut badhiya!</p>':'<p class="err-msg">❌ Galat. Phir try karo ya answer dekho.</p>';
+  if(ok)markDone(id);
+}
+
+function toggleAnswer(){
+  const el=document.getElementById('pracAnswer');
+  el.classList.toggle('hide');
+}
+
+// ════════════════════════════════════════════
+// QUIZ TAB
+// ════════════════════════════════════════════
+function renderQuiz(){
+  const q=state.quiz;
+  if(!q){
+    document.getElementById('quizTab').innerHTML=`<div class="q-start"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89L17 22l-5-3-5 3 1.523-9.11"/></svg><h2 style="margin:12px 0 6px;font-size:20px">Excel Quiz</h2><p style="color:#6b7280;font-size:14px;line-height:1.5">${QUIZ.length} questions ka quiz!</p><button class="q-btn" onclick="startQuiz()">Start Quiz 🚀</button></div>`;
+    return;
+  }
+  if(q.done){
+    const pct=Math.round(q.sc/QUIZ.length*100);
+    let html=`<div class="q-result"><span style="font-size:56px">${pct>=80?'🏆':pct>=50?'👍':'📚'}</span><h2 style="margin:8px 0;font-size:24px">Score: ${q.sc}/${QUIZ.length}</h2><p style="color:#6b7280;font-size:15px">${pct>=80?'Excellent!':pct>=50?'Good job!':'Formulas padho phir try karo.'}</p><div style="width:100%;margin-top:16px">`;
+    QUIZ.forEach((qn,i)=>{
+      const ok=q.ans[i]===qn.a;
+      html+=`<div class="q-rev" style="border-left:3px solid ${ok?'#16a34a':'#ef4444'}"><p style="font-size:13px;font-weight:600">Q${i+1}: ${h(qn.q)}</p><p style="margin-top:4px;font-size:12px;color:${ok?'#16a34a':'#ef4444'}">Aapka: ${h(qn.o[q.ans[i]])} ${ok?'✅':'❌'}${ok?'':` → Sahi: ${h(qn.o[qn.a])}`}</p></div>`;
+    });
+    html+=`</div><button class="q-btn" onclick="state.quiz=null;renderQuiz()">Try Again</button></div>`;
+    document.getElementById('quizTab').innerHTML=html;
+    return;
+  }
+  const qn=QUIZ[q.qi];
+  let html=`<div style="padding:16px"><div style="display:flex;justify-content:space-between;margin-bottom:12px"><span style="font-size:13px;color:#6b7280">Q ${q.qi+1}/${QUIZ.length}</span><span style="font-size:13px;font-weight:600;color:#16a34a">Score: ${q.sc}</span></div><div class="q-pbar"><div class="q-pfill" style="width:${(q.qi/QUIZ.length)*100}%"></div></div><div class="q-card"><p class="qq">${h(qn.q)}</p>`;
+  qn.o.forEach((o,i)=>{
+    html+=`<button class="q-opt" onclick="answerQuiz(${i})"><span class="ol">${String.fromCharCode(65+i)}</span>${h(o)}</button>`;
+  });
+  html+=`</div></div>`;
+  document.getElementById('quizTab').innerHTML=html;
+}
+
+function startQuiz(){state.quiz={qi:0,sc:0,ans:[],done:false};renderQuiz()}
+function answerQuiz(i){
+  const q=state.quiz;const qn=QUIZ[q.qi];
+  q.ans.push(i);if(i===qn.a)q.sc++;
+  if(q.qi+1>=QUIZ.length)q.done=true;else q.qi++;
+  renderQuiz();
+}
+
+// ════════════════════════════════════════════
+// ADMIN TAB
+// ════════════════════════════════════════════
+function renderAdmin(){
+  if(!state.isAdmin){
+    document.getElementById('adminTab').innerHTML=`<div class="admin-unlock"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><p style="color:#6b7280;margin-top:12px">Admin access sirf Managers ke liye hai.</p><p style="color:#9ca3af;font-size:12px;margin-top:8px">MET Power app mein Admin/Manager login se access milega.</p></div>`;
+    return;
+  }
+  let html=`<div style="padding:16px"><h3 class="sec-t" style="padding:0">🎥 Video Links</h3><p style="font-size:12px;color:#6b7280;margin:4px 0 12px">Har formula ke liye YouTube video link add karo</p>`;
+  FORMULAS.forEach(f=>{
+    const has=!!state.vids[f.id];
+    html+=`<div class="adm-row"><div style="flex:1"><span style="font-weight:600;font-size:14px">${h(f.name)}</span>${has?'<span style="font-size:11px;color:#16a34a;margin-left:8px">✓</span>':''}</div><button class="adm-edit" onclick="editVideo('${f.id}')">${has?'Edit':'+ Add'}</button></div>`;
+  });
+  html+=`<h3 class="sec-t" style="padding:0;margin-top:24px">📊 Stats</h3><div class="adm-stat"><p><strong>Formulas:</strong> ${FORMULAS.length}</p><p style="margin-top:6px"><strong>Videos:</strong> ${Object.keys(state.vids).filter(k=>state.vids[k]).length}</p><p style="margin-top:6px"><strong>Completed:</strong> ${state.done.length}/${FORMULAS.length}</p></div>`;
+  html+=`<button class="reset-btn" onclick="if(confirm('Sab progress reset?')){state.done=[];state.favs=[];saveState();renderAdmin();renderHome()}">🗑️ Reset All Progress</button></div>`;
+  document.getElementById('adminTab').innerHTML=html;
+}
+
+function editVideo(id){
+  const cur=state.vids[id]||'';
+  const url=prompt('YouTube URL paste karo:',cur);
+  if(url!==null){state.vids[id]=url.trim();saveState();renderAdmin()}
+}
+
+// ════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════
+loadState();
+renderHome();
+</script>
+</body>
+</html>
