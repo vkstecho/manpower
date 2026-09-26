@@ -16,14 +16,14 @@
   --gen:#38bdf8;--genbg:rgba(56,189,248,.22);
   --green:#22c55e;--greenbg:rgba(34,197,94,.11);
   --salary-color:#fbbf24;--desig-color:#a78bfa;
-  --text:#dde8f2;--muted:#4e6278;--muted2:#7a9ab8;
+  --text:#f1f5f9;--muted:#94a3b8;--muted2:#cbd5e1;
   --radius:14px;--radius-sm:9px;
 }
 /* ── LIGHT MODE (default) ── */
 body.light{
   --bg:#f0f2f5;--bg2:#e8eaef;--panel:#ffffff;--card:#ffffff;--card2:#f5f6f8;
   --border:rgba(0,0,0,0.08);--border2:rgba(0,0,0,0.14);
-  --text:#1a1a2e;--muted:#8892a4;--muted2:#5a6579;
+  --text:#0f172a;--muted:#475569;--muted2:#334155;
   --green:#16a34a;/* darker green readable on white */
   --salary-color:#b45309;/* darker amber readable on white */
   --desig-color:#7c3aed;/* darker purple readable on white */
@@ -2938,3 +2938,42 @@ body.light .hm-chip-meta { color: #64748b !important; }
 .shc.G { background:#0284c7 !important; color:#fff !important; }
 .shc.CO { background:#92400e !important; color:#fde68a !important; }
 .shc.H, .shc.HLF { background:#ea580c !important; color:#fff !important; }
+
+/* FINAL uniform shift colors — every surface */
+span.shc.D, .shc.D, .ms-day-sh.shc.D { background:#f59e0b !important; color:#000 !important; }
+span.shc.N, .shc.N, .ms-day-sh.shc.N { background:#4f46e5 !important; color:#fff !important; }
+span.shc.A, .shc.A { background:#16a34a !important; color:#fff !important; }
+span.shc.B, .shc.B { background:#db2777 !important; color:#fff !important; }
+span.shc.C, .shc.C { background:#0891b2 !important; color:#fff !important; }
+span.shc.O, .shc.O, .ms-day-sh.shc.O { background:#475569 !important; color:#fff !important; }
+span.shc.L, .shc.L, .ms-day-sh.shc.L { background:#be123c !important; color:#fff !important; }
+span.shc.G, .shc.G, .ms-day-sh.shc.G { background:#0284c7 !important; color:#fff !important; }
+span.shc.CO, .shc.CO { background:#92400e !important; color:#fde68a !important; }
+span.shc.H, .shc.H, span.shc.HLF, .shc.HLF { background:#ea580c !important; color:#fff !important; }
+span.shc.Ab, .shc.Ab { background:#7f1d1d !important; color:#fca5a5 !important; }
+
+/* contrast-fix — labels, chips, empty states */
+body.light .stitle,
+body.light .card-sub,
+body.light .card-meta,
+body.light .sec-machine,
+body.light .hm-chip-meta,
+body.light .field label,
+body.light .chip:not(.on),
+body.light .page-title {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+}
+body.light .chip:not(.on) {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+}
+body.dark .stitle,
+body.dark .card-sub,
+body.dark .card-meta,
+body.dark .field label {
+  color: #cbd5e1 !important;
+  -webkit-text-fill-color: #cbd5e1 !important;
+}
+body.light .ms-hint { color: #475569 !important; }
+body.light .ms-day-num { color: #475569 !important; font-weight: 800 !important; }

@@ -1008,7 +1008,11 @@ function getSchedFilteredEmps(){
   // Sub-filter: SEC:value | MC:value | RESP:value | DESIG:value
   if(String(schedSec).startsWith('SEC:')){
     const v=String(schedSec).slice(4);
-    return all.filter(e=>String(e.sec||'')===v || _normSecKey(e.sec)===_normSecKey(v));
+    const nv=_normSecKey(v);
+    return all.filter(e=>{
+      const sec = getEmpSection(e);
+      return sec===v || _normSecKey(sec)===nv || String(e.sec||'')===v || _normSecKey(e.sec)===nv;
+    });
   }
   if(String(schedSec).startsWith('MC:')){
     const v=String(schedSec).slice(3);
@@ -1031,17 +1035,50 @@ function getSchedFilteredEmps(){
 }
 
 /** Unique sorted values from team for a field */
+
+/** Excel Section column value preferred; map legacy M1/S1/MGR codes to real section names */
+function getEmpSection(e){
+  if(!e) return '';
+  const raw = String(e.sec||'').trim();
+  if(!raw) return '';
+  // Already free-text category from Excel
+  if(/metalliser|slitter|met\s*prod|metprod|production/i.test(raw) && !/^M[12]$/i.test(raw) && !/^S[12]$/i.test(raw))
+    return raw;
+  const key = raw.toUpperCase().replace(/[^A-Z0-9&]/g,'');
+  // Legacy machine-as-section codes
+  if(key==='M1'||key==='M2'||key==='M12'||key==='MET'||key==='M1M2'||key==='M1AND2') return 'Metalliser';
+  if(key==='S1'||key==='S2'||key==='S12'||key==='SLIT'||key==='S1S2'||key==='S1AND2') return 'Slitter';
+  // Met Prod / managers / engineers often stored as MGR, ALL, SUP
+  const des = String(e.designation||'').toLowerCase();
+  const mc = String(e.mc||e.machine||'').toLowerCase();
+  if(key==='MGR'||key==='MANAGER'||key==='ALL'||key==='SUP'||key==='SUPERVISOR'){
+    if(/met\s*prod|metprod|prod/.test(raw+des+mc) || mc==='all') return 'MetProd';
+    if(/slit/.test(des+mc)) return 'Slitter';
+    if(/met|metal/.test(des+mc)) return 'Metalliser';
+    return raw; // keep as-is for filter visibility
+  }
+  return raw;
+}
+function getEmpMachine(e){
+  if(!e) return '';
+  return String(e.mc||e.machine||'').trim();
+}
+function getEmpResp(e){
+  if(!e) return '';
+  return String(e.resp||e.responsibility||'').trim();
+}
+
 function _teamFieldValues(field){
   const set=new Set();
   (getEmps()||[]).forEach(e=>{
     let v='';
-    if(field==='section') v=String(e.sec||'').trim();
-    else if(field==='machine') v=String(e.mc||e.machine||'').trim();
-    else if(field==='responsibility') v=String(e.resp||e.responsibility||'').trim();
+    if(field==='section') v=getEmpSection(e);
+    else if(field==='machine') v=getEmpMachine(e);
+    else if(field==='responsibility') v=getEmpResp(e);
     else if(field==='designation') v=String(e.designation||'').trim();
     if(v) set.add(v);
   });
-  return Array.from(set).sort((a,b)=>a.localeCompare(b));
+  return Array.from(set).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
 }
 
 function _normSecKey(s){ return (s||'').toString().toUpperCase().replace(/[^A-Z0-9]/g,''); }
@@ -1256,11 +1293,14 @@ let _lang = localStorage.getItem('mp_lang') || 'hi';
 
 
 function shareApp(){
-  const url = location.href.split('#')[0];
+  const url = (location.origin + location.pathname).replace(/\/+$/,'') + '/';
   const title = 'Man Power';
-  const text = 'Man Power — Team Management & Training App\n'+url;
+  // Do NOT put URL in text — share sheet / WhatsApp already attaches url once
+  const text = 'Man Power — A Team Management and Training Application';
   if(navigator.share){
-    navigator.share({title, text, url}).catch(()=>{});
+    navigator.share({ title, text, url }).catch(()=>{
+      try{ navigator.clipboard.writeText(url); toast('✅ App link copied'); }catch(e){ prompt('Copy:', url); }
+    });
   } else {
     try{
       navigator.clipboard.writeText(url);
@@ -4690,7 +4730,7 @@ function openEditProfileModal(){
     <div class="field"><label>${isEn?'Date of Joining':'जॉइनिंग डेट'}</label>
       <input class="inp-field" type="date" id="profileDojInput" value="${esc(emp.joiningDate||emp.doj||'')}"></div>
     <div class="field"><label>${isEn?'Salary (monthly)':'सैलरी (मासिक)'}</label>
-      <input class="inp-field" type="number" id="profileSalaryInput" value="${esc(emp.salary||'')}" placeholder="₹"></div>
+      <input class="inp-field" type="number" id="profileSalaryInput" value="${esc(emp.salary||emp.monthlySalary||'')}" placeholder="₹"></div>
     <div class="field"><label>${isEn?'Weekly Off':'वीकली ऑफ'}</label>
       <select class="inp-field" id="profileWoffInput">
         ${['','SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<option value="${d}" ${(emp.woff||'')===d?'selected':''}>${d||'—'}</option>`).join('')}
@@ -4803,6 +4843,7 @@ async function saveProfileEdits(){
           dob: dob || null,
           joiningDate: doj || null,
           salary: salary || null,
+          monthlySalary: salary ? Number(salary) : null,
           woff: woff || null,
           designation: desig || null,
           profileUpdatedAt: new Date().toISOString()
@@ -4822,6 +4863,7 @@ async function saveProfileEdits(){
           dob: dob || null,
           joiningDate: doj || null,
           salary: salary || null,
+          monthlySalary: salary ? Number(salary) : null,
           woff: woff || null,
           designation: desig || null,
           empId: empIdEdit || empBefore.empId || null,
@@ -4838,7 +4880,7 @@ async function saveProfileEdits(){
     if((empBefore.name||'') !== name) changes.push('Name');
     if((empBefore.dob||'') !== dob) changes.push('DOB');
     if((empBefore.joiningDate||empBefore.doj||'') !== doj) changes.push('DOJ');
-    if(String(empBefore.salary||'') !== String(salary||'')) changes.push('Salary');
+    if(String(empBefore.salary||empBefore.monthlySalary||'') !== String(salary||'')) changes.push('Salary');
     if((empBefore.woff||'') !== woff) changes.push('Weekly Off');
     if((empBefore.designation||'') !== desig) changes.push('Designation');
     if(changes.length){
@@ -5259,7 +5301,7 @@ async function showProfile(){
           ['Emp Code', er.empId||er.code||SESSION.empId||'—'],
           ['DOB', er.dob||'—'],
           ['Date of Joining', er.joiningDate||er.doj||'—'],
-          ['Salary', (er.salary!=null&&er.salary!=='')?('₹ '+er.salary):'—'],
+          ['Salary', (er.salary!=null&&er.salary!=='')?('₹ '+er.salary):(er.monthlySalary!=null?('₹ '+er.monthlySalary):'—')],
           ['Weekly Off', er.woff||'—'],
           ['Designation', er.designation||'—'],
           ['Section', secLabel||er.sec||'—'],
@@ -6130,8 +6172,9 @@ async function renderHome(){
     <div class="stat-card"><div class="stat-val" style="color:var(--night)">${nE}</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--lv)">${lvE}</div><div class="stat-lbl" id="leaveStatLbl">${en?'On Leave':'छुट्टी पर'}</div></div>`;
 
-  const isMet = e => { const t=(SEC[e.sec]||{}).type; return t==='metalliser' || ['M1','M2','MET'].includes(String(e.sec||'').toUpperCase()); };
-  const isSlit= e => { const t=(SEC[e.sec]||{}).type; return t==='slitter'    || ['S1','S2','SLIT'].includes(String(e.sec||'').toUpperCase()); };
+  const isMet = e => { const sec=getEmpSection(e); return /metalliser/i.test(sec) || (SEC[e.sec]||{}).type==='metalliser' || ['M1','M2','MET'].includes(String(e.sec||'').toUpperCase()); };
+  const isSlit= e => { const sec=getEmpSection(e); return /slitter/i.test(sec) || (SEC[e.sec]||{}).type==='slitter' || ['S1','S2','SLIT'].includes(String(e.sec||'').toUpperCase()); };
+  const isMetProd = e => { const sec=getEmpSection(e); return /met\s*prod|metprod/i.test(sec); };
   const isEng = e => {
     const t=(SEC[e.sec]||{}).type;
     if(t==='sup' || t==='mgr') return true;
@@ -6164,37 +6207,34 @@ async function renderHome(){
   const metWarn  = metMin>0 && metDuty<metMin;
   const slitWarn = slitMin>0 && slitDuty<slitMin;
 
+  const secNames = _teamFieldValues('section');
   document.getElementById('homeSectionTitle').textContent = en
-    ? "Today's Shift — Metalliser & Slitter"
-    : 'आज की शिफ्ट — Metalliser & Slitter';
+    ? ("Today's Shift — " + (secNames.join(' · ') || 'All sections'))
+    : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
-  document.getElementById('homeSections').innerHTML = `
-    <div class="sec-card" style="${metWarn?'border-color:rgba(244,63,94,.4);':''}">
+  // Build one summary card per Excel Section
+  document.getElementById('homeSections').innerHTML = secNames.map((secName, idx)=>{
+    const list = emps.filter(e=>getEmpSection(e)===secName);
+    const dayN = list.filter(e=>isDay(getShift(e,TODAY_STR))).length;
+    const nightN = list.filter(e=>isNight(getShift(e,TODAY_STR))).length;
+    const duty = dayN + nightN;
+    const colors = ['#f97316','#0284c7','#7c3aed','#16a34a','#db2777'];
+    const col = colors[idx % colors.length];
+    const mcs = [...new Set(list.map(e=>getEmpMachine(e)).filter(Boolean))].slice(0,4).join(' · ') || '—';
+    return `<div class="sec-card">
       <div style="display:flex;align-items:center;gap:12px">
-        <div class="sec-icon" style="background:var(--m1bg)">🏭</div>
+        <div class="sec-icon" style="background:${col}22">🏭</div>
         <div>
-          <div class="sec-name" style="color:var(--m1)">${en?'Metalliser (All)':'Metalliser (सभी)'}${metWarn?'<span class="warning-dot" style="margin-left:6px"></span>':''}</div>
-          <div class="sec-machine">M-1 · M-2</div>
+          <div class="sec-name" style="color:${col}">${secName}</div>
+          <div class="sec-machine">${mcs}</div>
         </div>
       </div>
       <div>
-        <div class="sec-count" style="color:${metWarn?'var(--lv)':'var(--m1)'}">${metDuty}/${metEmps.length}</div>
-        <div class="sec-count-lbl" style="font-size:10px">${metWarn?(en?'⚠️ Low':'⚠️ कम'):(en?'Duty':'ड्यूटी')} <span style="color:var(--day)">${metDay.length}D</span> <span style="color:var(--night)">${metNight.length}N</span></div>
-      </div>
-    </div>
-    <div class="sec-card" style="${slitWarn?'border-color:rgba(244,63,94,.4);':''}">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="sec-icon" style="background:var(--s1bg)">✂️</div>
-        <div>
-          <div class="sec-name" style="color:var(--s1)">${en?'Slitter (All)':'Slitter (सभी)'}${slitWarn?'<span class="warning-dot" style="margin-left:6px"></span>':''}</div>
-          <div class="sec-machine">S-1 · S-2</div>
-        </div>
-      </div>
-      <div>
-        <div class="sec-count" style="color:${slitWarn?'var(--lv)':'var(--s1)'}">${slitDuty}/${slitEmps.length}</div>
-        <div class="sec-count-lbl" style="font-size:10px">${slitWarn?(en?'⚠️ Low':'⚠️ कम'):(en?'Duty':'ड्यूटी')} <span style="color:var(--day)">${slitDay.length}D</span> <span style="color:var(--night)">${slitNight.length}N</span></div>
+        <div class="sec-count" style="color:${col}">${duty}/${list.length}</div>
+        <div class="sec-count-lbl" style="font-size:10px">${en?'Duty':'ड्यूटी'} <span style="color:#f59e0b">${dayN}D</span> <span style="color:#4f46e5">${nightN}N</span></div>
       </div>
     </div>`;
+  }).join('') || '<div style="color:var(--muted2);padding:12px">Upload team Excel to see sections</div>';
 
   function _nameChip(emp, sh){
     const role=getEmpRole(emp);
@@ -6203,7 +6243,7 @@ async function renderHome(){
     const chipCls = 'hm-chip' + (isMain?' main':isSup?' sup':'');
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
-    const shLabel = sh?`<span class="shc ${cellClass(sh)}" style="width:22px;height:18px;font-size:10px;margin-left:4px">${cellDisp(sh)}</span>`:'';
+    const shLabel = sh?`<span class="shc ${cellClass(sh)}" style="width:22px;height:18px;font-size:10px;margin-left:4px;display:inline-flex;align-items:center;justify-content:center">${cellDisp(sh)}</span>`:'';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -6226,14 +6266,22 @@ async function renderHome(){
     </div>`;
   }
 
-  document.getElementById('homeRoster').innerHTML =
-    `<div class="stitle hm-section-title">${en?'Manpower on Duty — Names':'ड्यूटी पर Manpower — नाम'}</div>` +
-    _groupBlock(en?'Day Shift — Metalliser':'दिन शिफ्ट — Metalliser', '☀️', 'var(--day)', metDay,   en?'No one on day metalliser':'दिन Metalliser पर कोई नहीं') +
-    _groupBlock(en?'Day Shift — Slitter':'दिन शिफ्ट — Slitter',       '☀️', 'var(--s1)', slitDay,  en?'No one on day slitter':'दिन Slitter पर कोई नहीं') +
-    _groupBlock(en?'Night Shift — Metalliser':'रात शिफ्ट — Metalliser','🌙', 'var(--night)', metNight, en?'No one on night metalliser':'रात Metalliser पर कोई नहीं') +
-    _groupBlock(en?'Night Shift — Slitter':'रात शिफ्ट — Slitter',      '🌙', 'var(--sup)', slitNight,en?'No one on night slitter':'रात Slitter पर कोई नहीं') +
-    _groupBlock(en?'Engineers Today':'आज के Engineers / Supervisors',  '👷', 'var(--sup)', engToday, en?'No engineers on duty today':'आज कोई Engineer duty पर नहीं') +
-    `<div class="hm-link-sched" onclick="goTab('schedule')">${en?'View full schedule →':'पूरा शेड्यूल देखें →'}</div>`;
+  let rosterHtml = `<div class="stitle hm-section-title">${en?'Manpower on Duty — Names':'ड्यूटी पर Manpower — नाम'}</div>`;
+  const _secList = secNames.length ? secNames : _teamFieldValues('section');
+  _secList.forEach(secName=>{
+    const list = emps.filter(e=>getEmpSection(e)===secName);
+    const dayList = list.filter(e=>isDay(getShift(e,TODAY_STR)));
+    const nightList = list.filter(e=>isNight(getShift(e,TODAY_STR)));
+    const genList = list.filter(e=>{ const sh=getShift(e,TODAY_STR); return sh==='G'||sh==='GP'; });
+    if(dayList.length) rosterHtml += _groupBlock((en?'Day Shift — ':'दिन — ')+secName, '☀️', '#f59e0b', dayList, '');
+    if(nightList.length) rosterHtml += _groupBlock((en?'Night Shift — ':'रात — ')+secName, '🌙', '#4f46e5', nightList, '');
+    if(genList.length) rosterHtml += _groupBlock((en?'General — ':'जनरल — ')+secName, '🔵', '#0284c7', genList, '');
+  });
+  // Engineers / non-operation roles still shown
+  if(typeof engToday!=='undefined' && engToday && engToday.length)
+    rosterHtml += _groupBlock(en?'Engineers / Others Today':'आज Engineers / अन्य', '👷', '#7c3aed', engToday, '');
+  rosterHtml += `<div class="hm-link-sched" onclick="goTab('schedule')">${en?'View full schedule →':'पूरा शेड्यूल देखें →'}</div>`;
+  document.getElementById('homeRoster').innerHTML = rosterHtml;
 
   // ════════════════════════════════════════
   // 2) PERSONAL CALENDAR — previous 3 + upcoming 14 (all users)
@@ -6491,9 +6539,10 @@ function renderMyShift(){
     const click = canSelf
       ? `onclick="editShiftCell('${e.id}','${String(e.name||'').replace(/'/g,"\\'")}','${ds}','${String(sh).replace(/'/g,"\\'")}')"`
       : '';
+    const cls = cellClass(sh);
     cells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:${canSelf?'pointer':'default'}">
       <div class="ms-day-num">${d}</div>
-      <div class="ms-day-sh" style="background:${st.bg};color:${st.fg}">${disp}</div>
+      <div class="ms-day-sh shc ${cls}" style="background:${st.bg} !important;color:${st.fg} !important;border:none;width:auto;min-width:36px;height:auto;padding:4px 6px">${disp}</div>
     </div>`;
   }
 
@@ -11513,7 +11562,7 @@ function openAddEmpForm(){
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ne_dob" type="date"></div>
   </div>
   <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="number" min="0" step="1" placeholder="e.g. 15000"></div>
-  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section is set automatically from Machine.':'Section मशीन से अपने आप सेट होगी।'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section from Excel column (Metalliser / Slitter / MetProd…).':'Section Excel column से।'}</div>
   <button class="submit-btn" onclick="addEmployee()">✅ ${typeof t==='function'?t('जोड़ें'):'Add'}</button>
   <button class="cancel-btn" onclick="closeModal()">${typeof t==='function'?t('रद्द करें'):'Cancel'}</button>`);
 }
@@ -11642,7 +11691,7 @@ function openEditEmpForm(empId){
     </label>
     <div style="font-size:10px;color:var(--muted2);margin-top:6px">${isEn?'Leave tick = can approve team leave & C-Off':'Leave ✓ = team leave / C-Off approve कर सकते हैं'}</div>
   </div>` : ''}
-  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section updates automatically from Machine.':'Section मशीन से अपने आप अपडेट होगी।'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section comes from Excel / edit form (not from Machine).':'Section Excel / form से (Machine से नहीं)।'}</div>
   <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();saveEmployee('${empId}')">💾 ${isEn?'Save':'सेव करें'}</button>
   <button type="button" class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
 }
@@ -11689,7 +11738,7 @@ async function saveEmployee(empId){
     name:        nameVal,
     empId:       val('ee_code'),
     mc:          mcVal,
-    sec:         (typeof _secFromMachine==='function' ? _secFromMachine(mcVal, desigVal) : (e&&e.sec)||''),
+    sec:         (document.getElementById('ee_sec') ? val('ee_sec') : (e&&e.sec) || ''),
     resp:        val('ee_resp'),
     woff:        val('ee_woff') || 'SUN',
     status:      val('ee_status') || 'active',
@@ -12375,6 +12424,7 @@ async function handleTeamExcelFile(file){
         dob: dob || (matched&&matched.dob) || '',
         woff: woff || (matched&&matched.woff) || '',
         monthlySalary: (salary!=null && !isNaN(salary)) ? salary : (matched&&matched.monthlySalary) || null,
+        salary: (salary!=null && !isNaN(salary)) ? salary : (matched&&(matched.salary||matched.monthlySalary)) || null,
         existing: !!matched,
         otherTeam,
         _conflictWith: conflictWith,
@@ -12422,11 +12472,14 @@ async function confirmTeamExcelUpload(){
   let saved=0, failed=0;
   for(const emp of parsed){
     try{
+      const sal = (emp.monthlySalary!=null && !isNaN(emp.monthlySalary)) ? Number(emp.monthlySalary)
+        : (emp.salary!=null && !isNaN(emp.salary) ? Number(emp.salary) : null);
       const update = {
         id: emp.id,
         empId: emp.empId,
         name: emp.name,
         sec: emp.sec || emp.section || 'General',
+        section: emp.sec || emp.section || 'General',
         mc: emp.machine || emp.mc || '',
         machine: emp.machine || emp.mc || '',
         designation: emp.designation || '',
@@ -12439,10 +12492,16 @@ async function confirmTeamExcelUpload(){
         dob: emp.dob || '',
         companyId: SESSION.companyId || _normCompanyId(SESSION.company) || 'gls',
         companyLabel: SESSION.company || 'Man Power',
+        managerId: mgrKey || emp.managerId || '',
         updatedAt: new Date().toISOString(),
-        updatedBy: SESSION.name || 'manager'
+        updatedBy: SESSION.name || 'manager',
+        excelSyncedAt: new Date().toISOString()
       };
-      if(emp.monthlySalary!=null) update.monthlySalary = emp.monthlySalary;
+      // Salary from Excel → both keys so Profile + salary reports work
+      if(sal!=null){
+        update.monthlySalary = sal;
+        update.salary = sal;
+      }
       if(mgrKey) update.managerId = mgrKey;
       // Manager's own row: mobile must equal login number (cannot change via Excel)
       if(isMgr() && isManagerSelfRecord({...emp, phone: emp.phone||emp.mobile, id: emp.id})){
@@ -12466,25 +12525,46 @@ async function confirmTeamExcelUpload(){
         update.createdBy = SESSION.name || 'manager';
       }
       await fbUpdate('employees/' + emp.id, update);
-      // Pre-approve mobileUsers for OTP login when mobile present
+      // Save full profile under mobile number (create or update mobileUsers)
       if(update.phone && update.phone.length===10){
         try{
-          const existing = await fbGet('mobileUsers/'+update.phone);
-          if(!existing){
-            await fbSet('mobileUsers/'+update.phone, {
-              name: update.name,
-              mobile: update.phone,
-              role: 'member',
-              status: 'approved',
-              managerId: mgrKey || '',
-              company: update.companyLabel,
-              companyId: update.companyId,
-              empId: update.empId,
-              approvedAt: new Date().toISOString(),
-              approvedBy: SESSION.name || 'manager'
-            });
+          const existing = await fbGet('mobileUsers/'+update.phone) || {};
+          // Never demote manager/admin role via Excel
+          const keepRole = (existing.role==='manager' || existing.role==='admin') ? existing.role : 'member';
+          const keepStatus = (existing.status==='approved' || keepRole==='manager') ? 'approved' : (existing.status||'approved');
+          const profilePayload = {
+            ...existing,
+            name: update.name,
+            mobile: update.phone,
+            phone: update.phone,
+            role: keepRole,
+            status: keepStatus,
+            managerId: existing.managerId || mgrKey || '',
+            company: update.companyLabel || existing.company || '',
+            companyId: update.companyId || existing.companyId || '',
+            empId: update.empId,
+            empObjId: update.id,
+            designation: update.designation || '',
+            sec: update.sec || '',
+            section: update.sec || '',
+            mc: update.mc || '',
+            machine: update.machine || '',
+            resp: update.resp || '',
+            responsibility: update.responsibility || '',
+            woff: update.woff || '',
+            joiningDate: update.joiningDate || '',
+            dob: update.dob || '',
+            salary: update.salary!=null ? update.salary : (existing.salary||null),
+            monthlySalary: update.monthlySalary!=null ? update.monthlySalary : (existing.monthlySalary||null),
+            excelSyncedAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          if(!existing.approvedAt && keepStatus==='approved'){
+            profilePayload.approvedAt = new Date().toISOString();
+            profilePayload.approvedBy = SESSION.name || 'manager';
           }
-        }catch(ex){ console.warn('mobileUsers skip', update.phone, ex); }
+          await fbSet('mobileUsers/'+update.phone, profilePayload);
+        }catch(ex){ console.warn('mobileUsers profile', update.phone, ex); }
       }
       saved++;
     }catch(e){
@@ -14511,15 +14591,18 @@ async function saveAllShiftChanges(){
 
     try{ await _processAutoCompOffRules(savedEntries); }catch(e){ console.warn(e); }
 
-    // ── WhatsApp notifications to affected employees ──
-    // Group all changes by employee
+    // Manager/Admin changing schedule themselves → no approval, no member notifications
+    if(isMgr() || isAdmin() || SESSION.role==='manager' || SESSION.role==='admin'){
+      return;
+    }
+
+    // ── Notifications only when non-manager (e.g. delegated editor) saves ──
     const byEmp = {};
     for(const e of savedEntries){
       if(!byEmp[e.empId]) byEmp[e.empId] = [];
       byEmp[e.empId].push(e);
     }
 
-    // Build notifications: ALWAYS in-app for members; WhatsApp optional
     const waQueue = [];
     const _waCfg = getShiftConfigSync();
     const shiftNames = {D:'Day Shift',N:'Night Shift',A:'A Shift',B:'B Shift',C:'C Shift',O:'Weekly Off',L:'Leave',G:'General Shift','C/O':'Comp Off',HLF:'Half Day',Ab:'Absent',H:'Holiday',OD:'Other Dept',GP:'Gate Pass'};
