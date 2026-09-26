@@ -649,7 +649,7 @@ async function initData(){
     if(window._empLoadWatch){ clearTimeout(window._empLoadWatch); window._empLoadWatch=null; }
 
     _cache.schedules = schedulesSnap || {};
-    _cache.leaves = leavesSnap ? Object.values(leavesSnap) : [];
+    _cache.leaves = _normalizeLeavesSnap(leavesSnap);
     _cache.overrides = overridesSnap || {};
     // Non-blocking UI update with what we have
     try{ refreshAll(); }catch(e){}
@@ -680,7 +680,7 @@ async function initData(){
     _refreshTabs(['home','schedule','myshift']);
   });
   fbListen('leaves', v => {
-    _cache.leaves = v ? Object.values(v) : [];
+    _cache.leaves = _normalizeLeavesSnap(v);
     _refreshTabs(['home','leave','pending']);
   });
   fbListen('overrides', v => {
@@ -1202,6 +1202,16 @@ async function saveShiftConfig(cfg,keyOverride){
 }
 
 function getSchedules(){ return _cache.schedules   || {}; }
+
+
+/** Always attach Firebase push key as _key (Object.values alone loses keys) */
+function _normalizeLeavesSnap(v){
+  if(!v || typeof v!=='object') return [];
+  return Object.entries(v).map(([k,l])=>{
+    if(!l || typeof l!=='object') return null;
+    return {...l, _key: l._key || k, id: l.id || l._key || k};
+  }).filter(Boolean);
+}
 
 function getLeaves(){
   const scopedIds=new Set(getEmps().map(e=>e.id));
@@ -4693,6 +4703,13 @@ function clearProfilePhoto(){
 async function saveProfileEdits(){
   const name = (document.getElementById('profileNameInput')?.value||'').trim();
   if(!name){ toast('⚠️ Name required'); return; }
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Phone OTP verify करें — फिर Save दबाएँ'); return; }
+    }
+  }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
+
   const dob = (document.getElementById('profileDobInput')?.value||'').trim();
   const doj = (document.getElementById('profileDojInput')?.value||'').trim();
   const salary = (document.getElementById('profileSalaryInput')?.value||'').trim();
@@ -4740,7 +4757,11 @@ async function saveProfileEdits(){
           designation: desig || null,
           profileUpdatedAt: new Date().toISOString()
         });
-      }catch(e){ console.warn('mobileUsers profile', e); }
+      }catch(e){
+        console.error('mobileUsers profile', e);
+        toast('❌ Profile save failed: '+(e.message||e.code||e));
+        throw e;
+      }
     }
     const empId = SESSION.empObjId || empBefore.id;
     if(empId){
@@ -4880,78 +4901,69 @@ async function openLeaveBalanceModal(){
   }catch(e){}
   const emp = myEmp();
   const year = new Date().getFullYear();
-  const used = { CL:0, SL:0, EL:0, CO:0, L:0, other:0 };
   const yStart = year+'-01-01', yEnd = year+'-12-31';
+  const used = { CL:0, SL:0, EL:0, CO:0, other:0 };
+  const calL = new Set(); // dates marked L on calendar
+  const calCO = new Set();
 
-  // 1) From leave applications (authoritative by type)
+  // A) Approved leave applications (primary source by type)
   try{
-    (getLeaves()||[]).filter(l=>{
-      if(!emp || !l) return false;
-      if(l.empId!==emp.id && l.empId!==emp.empId) return false;
-      if(l.status==='rejected') return false;
-      // count approved + pending for remaining estimate; used = approved only for "used"
-      return l.status==='approved' || l.status==='pending';
-    }).forEach(l=>{
+    (getLeaves()||[]).forEach(l=>{
+      if(!emp || !l || l.status!=='approved') return;
+      if(l.empId!==emp.id && l.empId!==emp.empId) return;
+      const from = l.from||'';
+      if(from && (from < yStart || from > yEnd)) return;
       const days = Number(l.days)||1;
-      const t = String(l.leaveType||l.type||'L').toLowerCase();
-      const isApproved = l.status==='approved';
-      if(!isApproved) return; // used counts only approved
-      if(/sick|sl/.test(t)) used.SL += days;
-      else if(/earned|el|privilege|pl/.test(t)) used.EL += days;
-      else if(/c-?off|comp|\/o|co\b/.test(t)) used.CO += days;
-      else if(/casual|cl/.test(t)) used.CL += days;
-      else { used.L += days; used.other += days; }
+      const t = String(l.leaveType||l.type||'').toLowerCase();
+      if(/sick|\bsl\b/.test(t)) used.SL += days;
+      else if(/earned|\bel\b|privilege/.test(t)) used.EL += days;
+      else if(/c-?off|comp|\bc\/o\b|\bco\b/.test(t)) used.CO += days;
+      else if(/casual|\bcl\b/.test(t)) used.CL += days;
+      else used.other += days;
     });
   }catch(e){}
 
-  // 2) From schedule / overrides (L and C/O codes on calendar)
+  // B) Calendar marks — only for dates not already explained by applications
   try{
     if(emp && emp.id){
       for(let m=0;m<12;m++){
-        const mk = year+'_'+String(m+1).padStart(2,'0'); // schedules key format
-        const sched = (typeof getSchedules==='function' ? getSchedules()[mk] : null)
-          || (_cache.schedules && (_cache.schedules[mk]||_cache.schedules[year+'-'+String(m+1).padStart(2,'0')]))
-          || {};
+        const mk = year+'_'+String(m+1).padStart(2,'0');
+        const sched = (typeof getSchedules==='function' ? getSchedules()[mk] : null) || {};
         const row = sched[emp.id] || sched[emp.empId] || {};
-        const vals = Array.isArray(row) ? row : Object.values(row||{});
-        vals.forEach(sh=>{
-          if(sh==='L') used.L++;
-          if(sh==='C/O'||sh==='CO') used.CO++;
+        const vals = Array.isArray(row) ? row : [];
+        vals.forEach((sh,i)=>{
+          const ds = year+'-'+String(m+1).padStart(2,'0')+'-'+String(i+1).padStart(2,'0');
+          if(sh==='L') calL.add(ds);
+          if(sh==='C/O'||sh==='CO') calCO.add(ds);
         });
       }
-      // overrides for the year
-      const ov = (typeof getOverrides==='function' ? getOverrides() : null) || _cache.overrides || {};
+      const ov = (typeof getOverrides==='function'?getOverrides():null)||{};
       Object.keys(ov).forEach(k=>{
         if(!k.startsWith(emp.id+'_')) return;
         const d = k.slice(emp.id.length+1);
-        if(d < yStart || d > yEnd) return;
-        const sh = ov[k];
-        if(sh==='L') used.L++;
-        if(sh==='C/O'||sh==='CO') used.CO++;
+        if(d<yStart||d>yEnd) return;
+        if(ov[k]==='L') calL.add(d);
+        if(ov[k]==='C/O'||ov[k]==='CO') calCO.add(d);
       });
     }
   }catch(e){}
 
-  // Prefer leave-app counts for CL/SL/EL; calendar L supplements CL if apps empty
-  const usedCL = used.CL || used.L;
-  const usedSL = used.SL;
-  const usedEL = used.EL;
-  const usedCO = used.CO;
+  // If no typed CL apps, fall back to unique calendar L days
+  if(used.CL===0 && calL.size) used.CL = calL.size;
+  if(used.CO===0 && calCO.size) used.CO = calCO.size;
 
-  // Dynamic types from quota object
-  const quotaKeys = Object.keys(q).filter(k=>!['updatedAt','updatedBy'].includes(k) && typeof q[k]!=='object');
+  const quotaKeys = Object.keys(q).filter(k=>!['updatedAt','updatedBy'].includes(k) && (typeof q[k]==='number' || !isNaN(Number(q[k]))));
   const cards = quotaKeys.map(k=>{
     const quota = Number(q[k])||0;
     let u = 0;
-    if(k==='CL') u = usedCL;
-    else if(k==='SL') u = usedSL;
-    else if(k==='EL') u = usedEL;
-    else if(k==='CO' || k==='C/O') u = usedCO;
+    if(k==='CL') u = used.CL;
+    else if(k==='SL') u = used.SL;
+    else if(k==='EL') u = used.EL;
+    else if(k==='CO'||k==='C/O') u = used.CO;
     else if(k==='other') u = used.other;
-    else u = 0;
     const left = Math.max(0, quota - u);
     const label = k==='CL'?'Casual Leave (CL)':k==='SL'?'Sick Leave (SL)':k==='EL'?'Earned Leave (EL)':k==='CO'?'Comp Off (C/O)':k;
-    const color = k==='SL'?'#38bdf8':k==='CO'?'#fbbf24':k==='EL'?'#a78bfa':'#22c55e';
+    const color = k==='SL'?'#0ea5e9':k==='CO'?'#d97706':k==='EL'?'#7c3aed':'#16a34a';
     return `<div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
       <div style="font-weight:800;color:var(--text)">${label}</div>
       <div style="font-size:22px;font-weight:900;color:${color}">${left} <span style="font-size:12px;color:var(--muted2)">left of ${quota}</span></div>
@@ -4961,10 +4973,11 @@ async function openLeaveBalanceModal(){
 
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">🏖️ Leave Balance ${year}</div>
-    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Quota from Manager · Used from approved leave apps + schedule L / C-Off</div>
-    <div style="display:grid;gap:10px;margin:12px 0">${cards||'<div style="color:var(--muted2)">No quotas set — Manager → Team Leave Quota</div>'}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Quota from Manager · Used from approved leave applications (calendar only if no apps)</div>
+    <div style="display:grid;gap:10px;margin:12px 0">${cards||'<div style="color:var(--muted2)">No quotas — Manager sets Team Leave Quota</div>'}</div>
     <button class="cancel-btn" onclick="closeModal()">Close</button>`);
 }
+
 async function openHolidayListSettings(){
   if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
   const key = 'holidayLists/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
@@ -5868,6 +5881,24 @@ function getShift(emp, dateStr){
 
   return '';
 }
+
+/** Single source of truth — schedule, My Shift, picker */
+window.MP_SHIFT_COLORS = {
+  D:{bg:'#f59e0b',fg:'#000'}, N:{bg:'#4f46e5',fg:'#fff'},
+  A:{bg:'#16a34a',fg:'#fff'}, B:{bg:'#db2777',fg:'#fff'}, C:{bg:'#0891b2',fg:'#fff'},
+  O:{bg:'#475569',fg:'#fff'}, L:{bg:'#be123c',fg:'#fff'}, G:{bg:'#0284c7',fg:'#fff'},
+  'C/O':{bg:'#92400e',fg:'#fde68a'}, CO:{bg:'#92400e',fg:'#fde68a'},
+  H:{bg:'#ea580c',fg:'#fff'}, HLF:{bg:'#ea580c',fg:'#fff'},
+  OD:{bg:'#0d9488',fg:'#ccfbf1'}, GP:{bg:'#6d28d9',fg:'#e9d5ff'},
+  Ab:{bg:'#7f1d1d',fg:'#fca5a5'}
+};
+function mpShiftStyle(code){
+  const c = window.MP_SHIFT_COLORS[code] || window.MP_SHIFT_COLORS[String(code||'').toUpperCase()];
+  if(c) return c;
+  if(String(code||'').indexOf('+')>=0) return {bg:'#7c3aed',fg:'#fff'};
+  return {bg:'#1e293b',fg:'#94a3b8'};
+}
+
 function cellClass(s){ if(!s) return 'blank'; if(String(s).indexOf('+')>=0 || (parseShiftWorkCodes(s).length>1)) return 'G'; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||'O'; }
 
 /** Show full employee name when schedule column truncates on small screens */
@@ -6362,21 +6393,14 @@ function renderMyShift(){
   const monthName = first.toLocaleDateString((_lang==='en')?'en-IN':'hi-IN',{month:'long',year:'numeric'});
   const canSelf = !isPendingMember(); // members can request change
 
-  const shStyle = {
-    D:{bg:'#f59e0b',fg:'#000'}, N:{bg:'#4f46e5',fg:'#fff'},
-    A:{bg:'#16a34a',fg:'#fff'}, B:{bg:'#db2777',fg:'#fff'}, C:{bg:'#0891b2',fg:'#fff'},
-    O:{bg:'#334155',fg:'#e2e8f0'}, L:{bg:'#9f1239',fg:'#fecdd3'}, G:{bg:'#0c4a6e',fg:'#7dd3fc'},
-    'C/O':{bg:'#713f12',fg:'#fde68a'}, CO:{bg:'#713f12',fg:'#fde68a'}, H:{bg:'#ea580c',fg:'#fff'},
-    OD:{bg:'#0d9488',fg:'#ccfbf1'}, GP:{bg:'#6d28d9',fg:'#e9d5ff'}, HLF:{bg:'#f97316',fg:'#fff'},
-    Ab:{bg:'#450a0a',fg:'#fca5a5'}
-  };
+  const shStyle = window.MP_SHIFT_COLORS || {};
 
   let cells = '';
   for(let i=0;i<startDow;i++) cells += '<div class="ms-day empty"></div>';
   for(let d=1;d<=daysInMonth;d++){
     const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     const sh = getShift(e, ds) || '';
-    const st = shStyle[sh] || (String(sh).indexOf('+')>=0 ? {bg:'#7c3aed',fg:'#fff'} : {bg:'#1e293b',fg:'#94a3b8'});
+    const st = (typeof mpShiftStyle==='function' ? mpShiftStyle(sh) : (shStyle[sh]||{bg:'#1e293b',fg:'#94a3b8'}));
     const isToday = ds===TODAY_STR;
     const disp = cellDisp(sh) || '·';
     const click = canSelf
@@ -7989,8 +8013,8 @@ function renderLeaves(){
         </div>
       </div>${ra}
       ${canApproveLeave()&&l.status==='pending'?`<div class="action-row">
-        <button type="button" class="act-btn approve" onclick="event.stopPropagation();actLeave('${l._key||l.id}','approved')">✅ Approve</button>
-        <button type="button" class="act-btn reject"  onclick="event.stopPropagation();actLeave('${l._key||l.id}','rejected')">❌ Reject</button>
+        <button type="button" class="act-btn approve" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','approved')">✅ Approve</button>
+        <button type="button" class="act-btn reject"  data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','rejected')">❌ Reject</button>
       </div>`:''}
     </div>`;
   }).join('') : '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी आवेदन नहीं</div></div>';
@@ -8136,7 +8160,21 @@ async function actLeave(key, status){
   if(!canApproveLeave()){ toast('❌ Leave approve permission नहीं है'); return; }
   key = String(key||'').trim();
   if(!key || key==='undefined' || key==='null'){
-    toast('❌ Leave key missing — refresh करके फिर try करें');
+    // Last resort: reload leaves from Firebase with keys
+    try{
+      const snap = await fbGet('leaves');
+      _cache.leaves = _normalizeLeavesSnap(snap);
+      const pending = (getLeaves()||[]).filter(l=>l.status==='pending');
+      if(pending.length===1) key = pending[0]._key||pending[0].id||'';
+    }catch(e){}
+  }
+  if(!key || key==='undefined' || key==='null'){
+    toast('❌ Leave key missing — app data refresh हो रहा है, 2 सेकंड बाद Approve फिर दबाएँ');
+    try{
+      const snap = await fbGet('leaves');
+      _cache.leaves = _normalizeLeavesSnap(snap);
+      if(typeof renderPending==='function') renderPending();
+    }catch(e){}
     return;
   }
   // Phone auth required by Firebase rules
@@ -9704,8 +9742,8 @@ function renderPending(){
         </div>
       </div>
       <div class="action-row">
-        <button type="button" class="act-btn approve" onclick="event.stopPropagation();actLeave('${l._key||l.id}','approved')">✅ Approve</button>
-        <button type="button" class="act-btn reject"  onclick="event.stopPropagation();actLeave('${l._key||l.id}','rejected')">❌ Reject</button>
+        <button type="button" class="act-btn approve" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','approved')">✅ Approve</button>
+        <button type="button" class="act-btn reject"  data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','rejected')">❌ Reject</button>
       </div>
     </div>`).join('') :
     '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी पेंडिंग नहीं</div></div>';
@@ -14793,13 +14831,11 @@ function editShiftCell(empId, empName, date, currentShift){
   }
 
   const _cfg = getShiftConfigSync();
-  const _fixedShiftStyle = {
-    D:{bg:'#f59e0b',color:'#000'}, N:{bg:'#4f46e5',color:'#fff'},
-    A:{bg:'#16a34a',color:'#fff'}, B:{bg:'#db2777',color:'#fff'}, C:{bg:'#0891b2',color:'#fff'},
-    O:{bg:'#334155',color:'#94a3b8'}, L:{bg:'#9f1239',color:'#fda4af'}, G:{bg:'#0c4a6e',color:'#7dd3fc'},
-    'C/O':{bg:'#713f12',color:'#fde68a'}, H:{bg:'#ea580c',color:'#fff'}, OD:{bg:'#0d9488',color:'#ccfbf1'},
-    GP:{bg:'#6d28d9',color:'#e9d5ff'}, HLF:{bg:'#f97316',color:'#fff'}, Ab:{bg:'#450a0a',color:'#fca5a5'}
-  };
+  const _fixedShiftStyle = {};
+  Object.keys(window.MP_SHIFT_COLORS||{}).forEach(k=>{
+    const c = MP_SHIFT_COLORS[k];
+    _fixedShiftStyle[k] = {bg:c.bg, color:c.fg};
+  });
   // Offer only active work shifts (D/N/A/B/C); hide if inactive or profile hide flags
   const _cfgByCode = {};
   (_cfg.shifts||[]).forEach(s=>{ if(s&&s.code) _cfgByCode[String(s.code).toUpperCase()]=s; });
