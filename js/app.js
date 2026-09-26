@@ -5245,7 +5245,7 @@ async function showProfile(){
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
         <div class="pa-icon" style="background:rgba(245,158,11,.12)">📅</div>
-        <div><div class="pa-label">Holiday List</div><div class="pa-sub">Date + Reason · Excel / image upload</div></div>
+        <div><div class="pa-label">Holiday List</div><div class="pa-sub">Date + Reason · Excel / Auto-fetch All-India</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action danger" onclick="doLogout()" style="margin-top:4px">
@@ -5347,7 +5347,7 @@ async function showProfile(){
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
         <div class="pa-icon" style="background:rgba(245,158,11,.12)">📅</div>
-        <div><div class="pa-label">Holiday List</div><div class="pa-sub">${(_lang==='en')?'Date + Reason · Excel / snapshot':'Date + Reason · Excel / snapshot'}</div></div>
+        <div><div class="pa-label">Holiday List</div><div class="pa-sub">${(_lang==='en')?'Date + Reason · Excel / Auto-fetch All-India':'Date + Reason · Excel / Auto-fetch All-India'}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${isMgr()?`<button type="button" class="profile-action" onclick="openLeaveQuotaSettings()">
@@ -13908,13 +13908,28 @@ function _holidayListKey(){
 }
 
 async function loadHolidayList(){
+  const key = _holidayListKey();
+  const lsKey = 'mp_holidayList_'+key;
+  // Prefer network; fall back to localStorage for offline viewing
   try{
-    const key = _holidayListKey();
     const rec = await fbGet('holidayLists/'+key);
-    if(rec && Array.isArray(rec.items)) return rec;
-    if(rec && rec.items && typeof rec.items==='object') return { items: Object.values(rec.items), snapshotUrl: rec.snapshotUrl||null };
-    return { items: [], snapshotUrl: null };
-  }catch(e){ return { items: [], snapshotUrl: null }; }
+    if(rec && (Array.isArray(rec.items) || (rec.items && typeof rec.items==='object'))){
+      const out = {
+        items: Array.isArray(rec.items) ? rec.items : Object.values(rec.items),
+        snapshotUrl: rec.snapshotUrl||null
+      };
+      try{ localStorage.setItem(lsKey, JSON.stringify(out)); }catch(e){}
+      return out;
+    }
+  }catch(e){ /* offline or network error */ }
+  try{
+    const raw = localStorage.getItem(lsKey);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(parsed && Array.isArray(parsed.items)) return parsed;
+    }
+  }catch(e){}
+  return { items: [], snapshotUrl: null };
 }
 
 async function saveHolidayList(data){
@@ -13925,11 +13940,17 @@ async function saveHolidayList(data){
       date: String(x.date||'').slice(0,10),
       reason: String(x.reason||'').trim()
     })).filter(x=>x.date),
-    snapshotUrl: data.snapshotUrl || null,
+    snapshotUrl: null, // image upload removed — keep field null for schema compat
     updatedAt: new Date().toISOString(),
     updatedBy: SESSION.name||''
   };
-  await fbSet('holidayLists/'+key, payload);
+  try{ localStorage.setItem('mp_holidayList_'+key, JSON.stringify({ items: payload.items, snapshotUrl: null })); }catch(e){}
+  try{
+    await fbSet('holidayLists/'+key, payload);
+  }catch(e){
+    // Offline: still saved to localStorage above
+    console.warn('[HolidayList] Firebase save failed (offline?)', e);
+  }
   return payload;
 }
 
@@ -13944,7 +13965,7 @@ async function openHolidayListModal(){
     const data = await loadHolidayList();
     _holidayDraft = {
       items: (data.items||[]).slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))),
-      snapshotUrl: data.snapshotUrl||null
+      snapshotUrl: null
     };
   }catch(e){
     _holidayDraft = { items: [], snapshotUrl: null };
@@ -13964,12 +13985,13 @@ function _renderHolidayListModal(){
         <button type="button" onclick="_removeHolidayItem(${i})" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.35);color:#f43f5e;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-size:12px">✕</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--muted2);font-size:13px">${isEn?'No holidays yet — add below or upload Excel/image':'अभी कोई holiday नहीं — नीचे जोड़ें या Excel/Image upload करें'}</td></tr>`;
+  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--muted2);font-size:13px">${isEn?'No holidays yet — add below, Excel, or Auto-fetch':'अभी कोई holiday नहीं — नीचे जोड़ें, Excel, या Auto-fetch करें'}</td></tr>`;
 
+  const yNow = new Date().getFullYear();
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">📅 ${isEn?'Holiday List':'Holiday List'}</div>
   <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-    ${isEn?'Add <b>Date + Reason</b>. You can also upload Excel (<code>Date | Reason</code>) or a snapshot image.':'Manager यहाँ <b>Date + Reason</b> जोड़ सकता है। Excel या snapshot image भी upload हो सकती है।'}
+    ${isEn?'Add <b>Date + Reason</b>, upload Excel (<code>Date | Reason</code>), or <b>Auto-fetch</b> All-India public holidays for a year.':'Manager यहाँ <b>Date + Reason</b> जोड़ सकता है, Excel upload कर सकता है, या <b>Auto-fetch</b> से All-India holidays ला सकता है।'}
   </div>
 
   <div style="overflow-x:auto;border:1px solid var(--border2);border-radius:12px;margin-bottom:12px">
@@ -13995,20 +14017,24 @@ function _renderHolidayListModal(){
       <div style="font-size:10px;color:var(--muted2);margin-bottom:4px">${isEn?'Reason':'Reason'}</div>
       <input type="text" id="hl_reason" placeholder="${isEn?'e.g. Diwali / Company holiday':'e.g. Diwali / Company holiday'}" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;box-sizing:border-box">
     </div>
-    <button type="button" onclick="_addHolidayItem()" style="padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:900;cursor:pointer;font-size:13px;white-space:nowrap">${isEn?'Add':'Add'}</button>
+    <button type="button" onclick="_addHolidayItem()" style="padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;cursor:pointer;font-size:13px">Add</button>
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 6px">📊 ${isEn?'Excel import':'Excel import'}</div>
-  <div style="font-size:11px;color:var(--muted2);margin-bottom:8px;line-height:1.45">
-    ${isEn?'Columns: <b>Date</b> | <b>Reason</b> (first row = header).':'Columns: <b>Date</b> | <b>Reason</b>'}
+  <div style="font-size:12px;font-weight:800;color:#22c55e;margin:4px 0 8px">🇮🇳 ${isEn?'Auto-fetch All-India holidays':'Auto-fetch All-India holidays'}</div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+    <select id="hl_year" style="padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700">
+      <option value="${yNow-1}">${yNow-1}</option>
+      <option value="${yNow}" selected>${yNow}</option>
+      <option value="${yNow+1}">${yNow+1}</option>
+    </select>
+    <button type="button" class="submit-btn" style="margin:0;flex:1;min-width:160px;padding:10px 14px" onclick="_autoFetchIndiaHolidays()">⚡ ${isEn?'Auto Fetch':'Auto Fetch'}</button>
   </div>
+  <div style="font-size:11px;color:var(--muted2);margin:-6px 0 14px;line-height:1.4">${isEn?'Fetches official public holidays (Republic Day, Holi, Diwali, etc.) for the selected year. Merges with your list (same date = update). Works offline if previously fetched.':'चयनित वर्ष की आधिकारिक सार्वजनिक छुट्टियाँ (Republic Day, Holi, Diwali आदि)। सूची में merge होती हैं। पहले fetch हो चुकी हों तो offline भी चलती हैं।'}</div>
+
+  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:4px 0 8px">📂 ${isEn?'Excel / CSV import':'Excel / CSV import'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin-bottom:8px">${isEn?'Columns: <b>Date</b> | <b>Reason</b>':'Columns: <b>Date</b> | <b>Reason</b>'}</div>
   <input type="file" id="hl_excel" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="_importHolidayExcel(this)">
   <button type="button" class="cancel-btn" style="margin-bottom:12px" onclick="document.getElementById('hl_excel').click()">📂 ${isEn?'Choose Excel / CSV':'Choose Excel / CSV'}</button>
-
-  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:8px 0 6px">🖼️ ${isEn?'Snapshot image (optional)':'Snapshot image (optional)'}</div>
-  <input type="file" id="hl_img" accept="image/*" style="display:none" onchange="_importHolidayImage(this)">
-  <button type="button" class="cancel-btn" style="margin-bottom:8px" onclick="document.getElementById('hl_img').click()">📷 ${isEn?'Upload image':'Upload image'}</button>
-  ${(_holidayDraft.snapshotUrl?`<div style="margin:8px 0 12px"><img src="${_holidayDraft.snapshotUrl}" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid var(--border2)"><div style="margin-top:6px"><button type="button" onclick="_holidayDraft.snapshotUrl=null;_renderHolidayListModal()" style="font-size:12px;color:#f43f5e;background:none;border:none;cursor:pointer;font-weight:700">${isEn?'Remove image':'Remove image'}</button></div></div>`:'')}
 
   <button class="submit-btn" style="margin-top:8px" onclick="_saveHolidayListUI()">✅ ${isEn?'Save Holiday List':'Save Holiday List'}</button>
   <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
@@ -14315,26 +14341,60 @@ async function _importHolidayExcel(input){
   input.value = '';
 }
 
-async function _importHolidayImage(input){
-  const file = input.files && input.files[0];
-  if(!file) return;
-  if(file.size > 4*1024*1024){ toast('⚠️ Image 4MB से छोटी रखें'); input.value=''; return; }
+/* _importHolidayImage removed — replaced by Auto-fetch All-India holidays */
+
+
+async function _autoFetchIndiaHolidays(){
+  const isEn = (_lang==='en');
+  const yearEl = document.getElementById('hl_year');
+  const year = parseInt(yearEl && yearEl.value ? yearEl.value : new Date().getFullYear(), 10);
+  const cacheKey = 'mp_india_holidays_'+year;
+
+  function mergeItems(items){
+    const map = {};
+    (_holidayDraft.items||[]).forEach(it=>{ if(it && it.date) map[it.date]=it; });
+    items.forEach(it=>{ if(it && it.date) map[it.date]=it; });
+    _holidayDraft.items = Object.values(map).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  }
+
+  // Try network first
   try{
-    const reader = new FileReader();
-    const dataUrl = await new Promise((res,rej)=>{ reader.onload=()=>res(reader.result); reader.onerror=rej; reader.readAsDataURL(file); });
-    // Prefer Firebase Storage if available
-    let url = dataUrl;
-    if(typeof window._fbUploadSelfie === 'function'){
-      const path = 'holidaySnapshots/'+_holidayListKey()+'/'+Date.now()+'.jpg';
-      const uploaded = await window._fbUploadSelfie(dataUrl, path);
-      if(uploaded) url = uploaded;
-    }
-    _holidayDraft.snapshotUrl = url;
-    toast('✅ Image attached');
+    toast(isEn ? ('⏳ Fetching All-India holidays for '+year+'…') : ('⏳ '+year+' की All-India holidays ला रहे हैं…'));
+    const res = await fetch('https://date.nager.at/api/v3/PublicHolidays/'+year+'/IN', { cache: 'default' });
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+    if(!Array.isArray(data) || !data.length) throw new Error('Empty response');
+    const items = data.map(h=>({
+      id: 'h_nager_'+String(h.date||''),
+      date: String(h.date||'').slice(0,10),
+      reason: String(h.localName || h.name || 'Holiday').trim()
+    })).filter(x=>x.date);
+    try{ localStorage.setItem(cacheKey, JSON.stringify(items)); }catch(e){}
+    mergeItems(items);
+    toast('✅ '+items.length+' All-India holidays · total '+_holidayDraft.items.length);
     _renderHolidayListModal();
-  }catch(e){ toast('❌ Image error: '+(e.message||e)); }
-  input.value='';
+    return;
+  }catch(netErr){
+    console.warn('[Holiday AutoFetch]', netErr);
+  }
+
+  // Offline / failed — use local cache
+  try{
+    const raw = localStorage.getItem(cacheKey);
+    if(raw){
+      const items = JSON.parse(raw);
+      if(Array.isArray(items) && items.length){
+        mergeItems(items);
+        toast(isEn ? ('📴 Offline: '+items.length+' cached holidays for '+year) : ('📴 Offline: '+year+' के '+items.length+' cached holidays'));
+        _renderHolidayListModal();
+        return;
+      }
+    }
+  }catch(e){}
+
+  toast(isEn ? '❌ Could not fetch holidays (no network & no cache)' : '❌ Holidays fetch नहीं हुई (network/cache नहीं)');
 }
+try{ window._autoFetchIndiaHolidays = _autoFetchIndiaHolidays; }catch(e){}
 
 async function _saveHolidayListUI(){
   try{
