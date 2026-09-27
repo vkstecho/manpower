@@ -4122,3 +4122,43 @@ body.light .login-friendly-err { color: #9f1239; background: rgba(244,63,94,.08)
   overflow-x: auto;
 }
 body.light .sched-edit-hint { color: #c2410c; }
+
+/* Schedule equal columns + no header drift */
+#schedDateHdr, #schedMonthHdr {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+#schedDateHdr > div, #schedMonthHdr > div {
+  flex: 0 0 auto !important;
+  box-sizing: border-box !important;
+}
+.sched-ecol-spacer {
+  flex: 0 0 auto !important;
+  background: #0a1628;
+}
+#schedHdrStack {
+  width: max-content;
+  max-width: none;
+}
+#schedDateHdrWrap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#tab-schedule .sched-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+#tab-schedule .sched-tbl {
+  border-collapse: collapse !important;
+  table-layout: fixed !important;
+}
+#tab-schedule .sched-tbl td,
+#tab-schedule .sched-tbl th {
+  box-sizing: border-box !important;
+  overflow: hidden;
+}

@@ -9302,108 +9302,150 @@ function _alignSchedColumns(){
     if(!tbl || !dateHdr) return;
 
     const mob = window.innerWidth <= 640;
-    const colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (mob ? 26 : 34);
-    const ecolTarget = (typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (mob ? 70 : 128);
+    const colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (mob ? 28 : 34);
+    const ecolW = (typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (mob ? 86 : 128);
 
-    const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
-    const n = hdrCells.length;
+    // Count date columns from header (prefer data-date-col) or table
+    let hdrCells = [...dateHdr.querySelectorAll('[data-date-col]')];
+    // Ensure name spacer exists as first child
+    let spacer = dateHdr.querySelector('.sched-ecol-spacer');
+    if(!spacer){
+      spacer = document.createElement('div');
+      spacer.className = 'sched-ecol-spacer';
+      dateHdr.insertBefore(spacer, dateHdr.firstChild);
+    }
+    // Re-query date cells only
+    hdrCells = [...dateHdr.querySelectorAll('[data-date-col]')];
+    const n = hdrCells.length || (tbl.querySelector('tbody tr:not(.sec-row)')?.cells?.length - 1) || 0;
     if(!n) return;
 
-    // Install / refresh <colgroup> so table-layout:fixed is reliable
+    const totalW = ecolW + n * colW;
+
+    // Table fixed layout
     let cg = tbl.querySelector('colgroup');
     if(!cg){
       cg = document.createElement('colgroup');
       tbl.insertBefore(cg, tbl.firstChild);
     }
-    cg.innerHTML = '<col class="sched-ecol" style="width:'+ecolTarget+'px">' +
-      Array.from({length:n}).map(()=>'<col class="sched-dcol" style="width:'+colW+'px">').join('');
+    cg.innerHTML = '<col class="sched-ecol" style="width:'+ecolW+'px;min-width:'+ecolW+'px">' +
+      Array.from({length:n}).map(()=>'<col class="sched-dcol" style="width:'+colW+'px;min-width:'+colW+'px">').join('');
 
     tbl.style.tableLayout = 'fixed';
-    tbl.style.width = (ecolTarget + n * colW) + 'px';
-    tbl.style.minWidth = (ecolTarget + n * colW) + 'px';
+    tbl.style.borderCollapse = 'collapse';
+    tbl.style.width = totalW + 'px';
+    tbl.style.minWidth = totalW + 'px';
+    tbl.style.maxWidth = totalW + 'px';
+
+    // Force every body cell width
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      if(tr.classList.contains('sec-row')){
+        // section banner rows: single cell spanning — leave alone
+        return;
+      }
+      const tds = tr.children;
+      for(let i=0;i<tds.length;i++){
+        const td = tds[i];
+        td.style.boxSizing = 'border-box';
+        td.style.paddingLeft = '0';
+        td.style.paddingRight = '0';
+        if(i===0){
+          td.style.width = ecolW+'px';
+          td.style.minWidth = ecolW+'px';
+          td.style.maxWidth = ecolW+'px';
+        } else {
+          td.style.width = colW+'px';
+          td.style.minWidth = colW+'px';
+          td.style.maxWidth = colW+'px';
+        }
+      }
+    });
+
+    // Name spacer in date header (matches employee column)
+    spacer.style.flex = 'none';
+    spacer.style.boxSizing = 'border-box';
+    spacer.style.width = ecolW+'px';
+    spacer.style.minWidth = ecolW+'px';
+    spacer.style.maxWidth = ecolW+'px';
+    spacer.style.margin = '0';
+    spacer.style.padding = '0';
+    spacer.style.flexShrink = '0';
+
+    // Date header cells — exact same width as table day columns
+    dateHdr.style.display = 'flex';
+    dateHdr.style.boxSizing = 'border-box';
+    dateHdr.style.padding = '0';
+    dateHdr.style.margin = '0';
+    dateHdr.style.width = totalW+'px';
+    dateHdr.style.minWidth = totalW+'px';
+    dateHdr.style.maxWidth = totalW+'px';
 
     hdrCells.forEach(hc=>{
       hc.style.flex = 'none';
+      hc.style.flexShrink = '0';
       hc.style.boxSizing = 'border-box';
-      hc.style.width = colW + 'px';
-      hc.style.minWidth = colW + 'px';
-      hc.style.maxWidth = colW + 'px';
+      hc.style.width = colW+'px';
+      hc.style.minWidth = colW+'px';
+      hc.style.maxWidth = colW+'px';
       hc.style.margin = '0';
       hc.style.paddingLeft = '0';
       hc.style.paddingRight = '0';
     });
 
-    tbl.querySelectorAll('tbody tr').forEach(tr=>{
-      if(tr.classList.contains('sec-row')) return;
-      const tds = tr.querySelectorAll('td');
-      tds.forEach((td, i)=>{
-        td.style.boxSizing = 'border-box';
-        if(i === 0){
-          td.style.width = ecolTarget + 'px';
-          td.style.minWidth = ecolTarget + 'px';
-          td.style.maxWidth = ecolTarget + 'px';
-        } else {
-          td.style.width = colW + 'px';
-          td.style.minWidth = colW + 'px';
-          td.style.maxWidth = colW + 'px';
-          td.style.paddingLeft = '0';
-          td.style.paddingRight = '0';
-        }
-      });
-    });
-
-    // Measure actual sticky ecol (borders/shadow can add px)
-    const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
-    let ecolWidth = ecolTarget;
-    if(firstDataRow && firstDataRow.cells[0]){
-      ecolWidth = Math.round(firstDataRow.cells[0].getBoundingClientRect().width) || ecolTarget;
-    }
-
-    // Measure first date cell to lock header to same width
-    let measuredColW = colW;
-    if(firstDataRow && firstDataRow.cells[1]){
-      measuredColW = Math.round(firstDataRow.cells[1].getBoundingClientRect().width) || colW;
-    }
-    hdrCells.forEach(hc=>{
-      hc.style.width = measuredColW + 'px';
-      hc.style.minWidth = measuredColW + 'px';
-      hc.style.maxWidth = measuredColW + 'px';
-    });
-
-    const totalDateW = n * measuredColW;
-    const totalW = ecolWidth + totalDateW;
-
-    dateHdr.style.boxSizing = 'border-box';
-    dateHdr.style.paddingLeft = ecolWidth + 'px';
-    dateHdr.style.minWidth = totalW + 'px';
-    dateHdr.style.width = totalW + 'px';
-
+    // Month header: spacer + month groups rebuilt to exact colW
     if(monthHdr){
+      monthHdr.style.display = 'flex';
       monthHdr.style.boxSizing = 'border-box';
-      monthHdr.style.paddingLeft = ecolWidth + 'px';
-      monthHdr.style.minWidth = totalW + 'px';
-      monthHdr.style.width = totalW + 'px';
-    }
-    if(hdrStack){
-      hdrStack.style.minWidth = totalW + 'px';
-      hdrStack.style.width = totalW + 'px';
+      monthHdr.style.padding = '0';
+      monthHdr.style.margin = '0';
+      monthHdr.style.width = totalW+'px';
+      monthHdr.style.minWidth = totalW+'px';
+      monthHdr.style.maxWidth = totalW+'px';
+      // If month groups exist, scale them; else leave for renderSchedule builder
+      const groups = [...monthHdr.querySelectorAll(':scope > div')];
+      if(groups.length){
+        // First child should be spacer
+        let mSpacer = monthHdr.querySelector('.sched-ecol-spacer');
+        if(!mSpacer){
+          mSpacer = document.createElement('div');
+          mSpacer.className = 'sched-ecol-spacer';
+          monthHdr.insertBefore(mSpacer, monthHdr.firstChild);
+        }
+        mSpacer.style.flex = 'none';
+        mSpacer.style.width = ecolW+'px';
+        mSpacer.style.minWidth = ecolW+'px';
+        mSpacer.style.maxWidth = ecolW+'px';
+        mSpacer.style.margin = '0';
+        mSpacer.style.padding = '0';
+      }
     }
 
-    // Zero out gutter drift between header scroll and table scroll
+    if(hdrStack){
+      hdrStack.style.display = 'flex';
+      hdrStack.style.flexDirection = 'column';
+      hdrStack.style.width = totalW+'px';
+      hdrStack.style.minWidth = totalW+'px';
+      hdrStack.style.maxWidth = totalW+'px';
+      hdrStack.style.boxSizing = 'border-box';
+    }
     if(hdrWrap){
       hdrWrap.style.margin = '0';
       hdrWrap.style.padding = '0';
+      hdrWrap.style.overflowX = 'auto';
+      hdrWrap.style.overflowY = 'hidden';
     }
     if(wrap){
       wrap.style.margin = '0';
       wrap.style.padding = '0';
+      wrap.style.overflowX = 'auto';
     }
 
-    if(wrap && hdrWrap){
+    // Keep scroll positions in sync
+    if(wrap && hdrWrap && Math.abs(wrap.scrollLeft - hdrWrap.scrollLeft) > 1){
       hdrWrap.scrollLeft = wrap.scrollLeft;
     }
-  }catch(e){ console.warn('[alignSched]', e); }
+  }catch(e){ console.warn('[_alignSchedColumns]', e); }
 }
+
 
 function renderSchedule(){
   // Force compact mobile layout every render (CSS alone was not enough on some phones)
@@ -9682,16 +9724,17 @@ function renderSchedule(){
           });
           // Render month spans
           const MONTH_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#6366f1','#14b8a6','#ec4899','#84cc16','#0ea5e9'];
-          monthHdr.style.paddingLeft = ecolWidth + 'px';
+          monthHdr.style.paddingLeft = '0';
           monthHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
-          monthHdr.innerHTML = groups.map(g=>{
+          const _ecolSp = (typeof _schedEcolWidth==='function')?_schedEcolWidth():128;
+          monthHdr.innerHTML = `<div class="sched-ecol-spacer" style="flex:none;width:${_ecolSp}px;min-width:${_ecolSp}px;max-width:${_ecolSp}px;margin:0;padding:0"></div>` + groups.map(g=>{
             const color = MONTH_COLORS[g.month % 12];
             const label = MONTHS_SHORT[g.month] + ' ' + String(g.year).slice(2);
-            return `<div style="width:${g.w}px;min-width:${g.w}px;max-width:${g.w}px;text-align:center;padding:3px 2px;border-right:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);overflow:hidden">
+            return `<div style="flex:none;width:${g.w}px;min-width:${g.w}px;max-width:${g.w}px;text-align:center;padding:3px 0;box-sizing:border-box;border-right:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);overflow:hidden">
               <span style="font-family:'Barlow Condensed';font-size:10px;font-weight:900;color:${color};letter-spacing:.5px;text-transform:uppercase;white-space:nowrap">${label}</span>
             </div>`;
           }).join('');
-          if(hdrStack) hdrStack.style.minWidth = (ecolWidth + totalDateW) + 'px';
+          if(hdrStack){ hdrStack.style.minWidth = (_ecolSp + totalDateW) + 'px'; hdrStack.style.width = (_ecolSp + totalDateW) + 'px'; }
         }
       }
     }
