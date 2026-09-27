@@ -1,5 +1,19 @@
 <!-- ── SCHEDULE ── -->
 <div class="tab" id="tab-schedule">
+  <div class="page-title" style="margin-bottom:4px">शेड्यूल</div>
+  <div class="page-sub">Week view · Sections from your team Excel</div>
+  <div class="sch-mode-toggle" id="schModeToggle" role="group" aria-label="Schedule mode">
+    <button type="button" class="on" id="schModeView" onclick="window._schedEditMode=false;document.getElementById('schModeView').classList.add('on');document.getElementById('schModeEdit').classList.remove('on');if(typeof renderSchedule==='function')renderSchedule();">👁️ View</button>
+    <button type="button" id="schModeEdit" onclick="window._schedEditMode=true;document.getElementById('schModeEdit').classList.add('on');document.getElementById('schModeView').classList.remove('on');if(typeof renderSchedule==='function')renderSchedule();">✏️ Edit</button>
+  </div>
+  <div class="schedule-legend" aria-label="Shift legend">
+    <span><i style="background:var(--day)"></i> D Day</span>
+    <span><i style="background:var(--night)"></i> N Night</span>
+    <span><i style="background:var(--off)"></i> O Off</span>
+    <span><i style="background:var(--lv)"></i> L Leave</span>
+    <span><i style="background:var(--co)"></i> C/O</span>
+    <span><i style="background:var(--gen)"></i> G General</span>
+  </div>
   <div class="sched-nav">
     <button class="nav-btn" onclick="moveW(-7)">‹</button>
     <div class="sched-lbl" id="schedLbl"></div>

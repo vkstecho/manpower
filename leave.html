@@ -6,10 +6,10 @@
     <button class="action-secondary red" onclick="openResignationForm()">📝 Resignation</button>
   </div>
   <div class="chips" id="leaveFilter">
-    <div class="chip on" onclick="setLF('all',this)" data-i18n-all>सभी</div>
-    <div class="chip" onclick="setLF('pending',this)">⏳ प्रतीक्षा में</div>
-    <div class="chip" onclick="setLF('approved',this)">✅ मंजूर</div>
-    <div class="chip" onclick="setLF('rejected',this)">❌ अस्वीकार</div>
+    <div class="chip on" onclick="setLF('all',this)" data-i18n-all>सभी <span class="chip-badge" id="lfCountAll">0</span></div>
+    <div class="chip" onclick="setLF('pending',this)">⏳ प्रतीक्षा <span class="chip-badge" id="lfCountPending">0</span></div>
+    <div class="chip" onclick="setLF('approved',this)">✅ मंजूर <span class="chip-badge" id="lfCountApproved">0</span></div>
+    <div class="chip" onclick="setLF('rejected',this)">❌ अस्वीकार <span class="chip-badge" id="lfCountRejected">0</span></div>
   </div>
   <div id="resignList"></div>
   <div id="leaveList"></div>

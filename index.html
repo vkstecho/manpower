@@ -50,7 +50,7 @@ window.addEventListener('appinstalled', function () {
 
 <script type="module" src="js/firebase-init.js?v=240"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="stylesheet" href="css/app.css?v=240">
+<link rel="stylesheet" href="css/app.css?v=242">
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -413,20 +413,20 @@ window.addEventListener('appinstalled', function () {
       <div class="hdr-brand"><span>MP</span> Man Power</div>
     </div>
     <div class="hdr-right">
-      <div id="langToggleBtn" onclick="toggleLang()" title="हिंदी / English"
+      <div id="langToggleBtn" onclick="toggleLang()" title="हिंदी / English" aria-label="Language"
         style="display:flex;align-items:center;justify-content:center;
                width:38px;height:38px;border-radius:10px;cursor:pointer;
                background:var(--card2);border:1px solid var(--border2);font-size:13px;
                font-weight:900;font-family:'Barlow Condensed',sans-serif;color:var(--text)">
         EN
       </div>
-      <div id="shareAppBtn" onclick="shareApp()" title="Share App"
+      <div id="shareAppBtn" onclick="shareApp()" title="Share App" aria-label="Share app"
         style="display:flex;align-items:center;justify-content:center;
                width:38px;height:38px;border-radius:10px;cursor:pointer;
                background:var(--card2);border:1px solid var(--border2);font-size:16px">
         📤
       </div>
-      <div id="themeToggleBtn" onclick="toggleTheme()" title="Dark/Light Mode"
+      <div id="themeToggleBtn" onclick="toggleTheme()" title="Dark/Light Mode" aria-label="Theme"
         style="display:flex;align-items:center;justify-content:center;
                width:38px;height:38px;border-radius:10px;cursor:pointer;
                background:var(--card2);border:1px solid var(--border2);font-size:18px">
@@ -1320,7 +1320,7 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/app.js?v=240"></script>
+<script src="js/app.js?v=242"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

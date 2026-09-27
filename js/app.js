@@ -2954,6 +2954,21 @@ function _launchAsNewUser(userData){
   }catch(e){}
   saveSession();
   try{ writeIntegrityToken(); localStorage.setItem('mp_int_ok','1'); }catch(e){}
+  // Cache phone verify on this device so Save / edit member mobile skips OTP for ~90 days
+  try{
+    const m = _normMobileKey(userData.mobile||SESSION.mobile||'');
+    if(m){
+      localStorage.setItem('mp_device_phone', '+91'+m);
+      localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      sessionStorage.setItem('mp_write_auth','1');
+    }
+    const u = window._fbAuth && window._fbAuth.currentUser;
+    if(u && u.phoneNumber){
+      localStorage.setItem('mp_device_phone', u.phoneNumber);
+      localStorage.setItem('mp_device_uid', u.uid||'');
+    }
+  }catch(e){}
   try{
     // Show shell immediately so OTP never ends on a black page
     const _mh = document.getElementById('mainHdr');
@@ -4835,21 +4850,46 @@ async function _ensureWriteAuth(){
     else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function') await window._fbAuth.authStateReady();
   }catch(e){}
 
-  // Extra wait if this device already verified phone (IndexedDB restore lags after deploy/SW/close)
+  const _sessMob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
+  const _markDeviceCache = ()=>{
+    try{
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      sessionStorage.setItem('mp_write_auth','1');
+      const u = window._fbAuth && window._fbAuth.currentUser;
+      if(u && u.phoneNumber){
+        localStorage.setItem('mp_device_phone', u.phoneNumber);
+        localStorage.setItem('mp_device_uid', u.uid||'');
+        if(!localStorage.getItem('mp_device_verified_at'))
+          localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      } else if(_sessMob){
+        localStorage.setItem('mp_device_phone', '+91'+_sessMob);
+      }
+    }catch(e){}
+  };
+
+  // Fast path: Firebase Phone Auth already active on this tab
+  if(_hasElevatedFirebaseAuth()){
+    await _syncAuthRoleNodes();
+    _markDeviceCache();
+    return true;
+  }
+
+  // Device cache: phone already verified on this browser (up to 90 days) — wait for Auth restore
   try{
     const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
-    const hadPhone = localStorage.getItem('mp_device_phone');
+    const hadPhone = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'');
     const recentWrite = parseInt(localStorage.getItem('mp_write_auth_at')||'0',10);
-    const within30d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 30*24*3600*1000;
-    const within7dWrite = recentWrite && (Date.now()-recentWrite) < 7*24*3600*1000;
-    if(within30d || within7dWrite){
-      // Up to ~3s for Auth restore — avoid OTP popup on every app open
-      for(let i=0;i<20;i++){
+    const phoneMatches = !hadPhone || !_sessMob || hadPhone.slice(-10) === _sessMob;
+    const within90d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 90*24*3600*1000;
+    const within14dWrite = recentWrite && (Date.now()-recentWrite) < 14*24*3600*1000;
+    const sessionOk = sessionStorage.getItem('mp_write_auth')==='1';
+    if(phoneMatches && (within90d || within14dWrite || sessionOk || hadPhone)){
+      // Up to ~5s for IndexedDB Phone Auth restore — avoid OTP on every Save
+      for(let i=0;i<34;i++){
         if(_hasElevatedFirebaseAuth()) break;
         await new Promise(r=>setTimeout(r, 150));
         try{
           if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
-          else if(window._fbAuth && window._fbAuth.authStateReady) await window._fbAuth.authStateReady();
         }catch(e){}
       }
     }
@@ -4857,29 +4897,24 @@ async function _ensureWriteAuth(){
 
   if(_hasElevatedFirebaseAuth()){
     await _syncAuthRoleNodes();
-    try{
-      localStorage.setItem('mp_write_auth_at', String(Date.now()));
-      sessionStorage.setItem('mp_write_auth','1');
-      const u = window._fbAuth && window._fbAuth.currentUser;
-      if(u && u.phoneNumber) localStorage.setItem('mp_device_phone', u.phoneNumber);
-    }catch(e){}
+    _markDeviceCache();
     return true;
   }
 
-  // Same-session / recent verify: wait once more before showing OTP modal
+  // Last short wait if cache says this device was verified
   try{
     if(sessionStorage.getItem('mp_write_auth')==='1' || localStorage.getItem('mp_device_phone')){
-      await new Promise(r=>setTimeout(r, 600));
+      await new Promise(r=>setTimeout(r, 800));
       if(_hasElevatedFirebaseAuth()){
         await _syncAuthRoleNodes();
-        try{ localStorage.setItem('mp_write_auth_at', String(Date.now())); }catch(e){}
+        _markDeviceCache();
         return true;
       }
     }
   }catch(e){}
 
-  // Manager/member with known mobile → OTP only if Phone auth truly missing
-  const mob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
+  // OTP only when Phone Auth is truly missing on this browser
+  const mob = _sessMob;
   if((isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
     return await _openQuickPhoneReauth(mob);
   }
@@ -4981,7 +5016,7 @@ async function _reauthVerifyOtp(){
       }
     }catch(e){}
     try{ await _syncAuthRoleNodes(); }catch(e){}
-    toast('✅ Phone verified — this device remembered (no OTP until logout)');
+    toast('✅ Phone verified — this device cached 90 days (OTP only if browser data cleared)');
     const ov = document.getElementById('quickReauthOverlay');
     if(ov) ov.remove();
     const r = _reauthResolve;
@@ -5244,14 +5279,43 @@ async function buildNav(){
   const syncRow = document.getElementById('syncRow');
   if(syncRow) syncRow.style.display = isGuest() ? 'none' : '';
 
-  document.getElementById('mainNav').innerHTML = tabs.map((t,i)=>{
+  // Prefer primary tabs; overflow into More sheet (max 5 bottom items)
+  const PRIMARY_ORDER = ['home','myshift','schedule','leave','pending','team','todo','reports'];
+  tabs = tabs.slice().sort((a,b)=>PRIMARY_ORDER.indexOf(a.id)-PRIMARY_ORDER.indexOf(b.id));
+  const maxPrimary = 4;
+  const primaryTabs = tabs.length <= 5 ? tabs : tabs.slice(0, maxPrimary);
+  const moreTabs = tabs.length <= 5 ? [] : tabs.slice(maxPrimary);
+  window._navMoreTabs = moreTabs;
+
+  const _nbHtml = (t, on)=>{
     const label = (typeof _lang !== 'undefined' && _lang === 'en') ? (t.lblEn||t.lbl) : t.lbl;
-    return `<button class="nb${t.id===firstTab?' on':''}" id="nb-${t.id}" onclick="goTab('${t.id}')" aria-label="${label}">
-      <span class="nb-ico">${t.ico}</span><span style="font-size:14px;font-weight:800">${label}</span>
+    return `<button class="nb${on?' on':''}" id="nb-${t.id}" onclick="goTab('${t.id}')" aria-label="${label}">
+      <span class="nb-ico">${t.ico}</span><span style="font-size:12px;font-weight:800">${label}</span>
       ${t.id==='pending'?'<span class="nb-badge" id="pendingBadge" style="display:none">0</span>':''}
       ${t.id==='todo'?'<span class="nb-badge" id="todoBadge" style="display:none">0</span>':''}
     </button>`;
-  }).join('');
+  };
+  let navHtml = primaryTabs.map(t=>_nbHtml(t, t.id===firstTab)).join('');
+  if(moreTabs.length){
+    const moreOn = moreTabs.some(t=>t.id===firstTab);
+    navHtml += `<button class="nb${moreOn?' on':''}" id="nb-more" onclick="openNavMoreSheet()" aria-label="More">
+      <span class="nb-ico">☰</span><span style="font-size:12px;font-weight:800">${(typeof _lang!=='undefined'&&_lang==='en')?'More':'और'}</span>
+    </button>`;
+  }
+  document.getElementById('mainNav').innerHTML = navHtml;
+  // Ensure more sheet host exists
+  if(!document.getElementById('navMoreSheet')){
+    const sheet = document.createElement('div');
+    sheet.id = 'navMoreSheet';
+    sheet.className = 'nav-more-sheet';
+    sheet.onclick = (e)=>{ if(e.target===sheet) closeNavMoreSheet(); };
+    sheet.innerHTML = `<div class="nav-more-panel" onclick="event.stopPropagation()">
+      <div class="nav-more-handle"></div>
+      <div style="font-weight:900;font-size:16px;margin-bottom:12px;color:var(--text)">More</div>
+      <div class="nav-more-grid" id="navMoreGrid"></div>
+    </div>`;
+    document.body.appendChild(sheet);
+  }
 
   // ── PC Sidebar: mirror the same tabs with sidebar button style ──
   const sidebar = document.getElementById('pcSidebar');
@@ -6812,7 +6876,28 @@ function _mpInitHistory(){
 const _openModalOrig_ref = 'function openModal(html){';
 
 
+function openNavMoreSheet(){
+  const sheet = document.getElementById('navMoreSheet');
+  const grid = document.getElementById('navMoreGrid');
+  if(!sheet || !grid) return;
+  const tabs = window._navMoreTabs || [];
+  const en = (typeof _lang!=='undefined' && _lang==='en');
+  grid.innerHTML = tabs.map(t=>{
+    const label = en ? (t.lblEn||t.lbl) : t.lbl;
+    return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();goTab('${t.id}')" aria-label="${label}">
+      <span style="font-size:22px">${t.ico}</span>${label}
+    </button>`;
+  }).join('') || `<div class="empty-state-sub">${en?'No extra tabs':'और टैब नहीं'}</div>`;
+  sheet.classList.add('open');
+}
+function closeNavMoreSheet(){
+  const sheet = document.getElementById('navMoreSheet');
+  if(sheet) sheet.classList.remove('open');
+}
+
 function goTab(t){
+  try{ if(typeof closeNavMoreSheet==='function') closeNavMoreSheet(); }catch(e){}
+
   if(typeof isPendingMember==='function' && isPendingMember()){
     const allowed = ['home','todo'];
     if(t && !allowed.includes(t)){
@@ -7240,7 +7325,44 @@ function isManPowerCompanyUser(){ return isAdmin() || SESSION.company === 'Man P
 // ════════════════════════════════════════
 // HOME / OVERVIEW
 // ════════════════════════════════════════
+
+function _homeTodaySummaryHtml(){
+  try{
+    const emps = (typeof getEmps==='function' ? getEmps() : []).filter(e=>e && e.status!=='resigned' && e.status!=='left');
+    const leaves = (typeof getLeaves==='function' ? getLeaves() : []).filter(l=>l.status==='approved' || l.status==='pending');
+    const today = (typeof TODAY_DATE!=='undefined' && TODAY_DATE) ? TODAY_DATE : new Date();
+    const ymd = today.toISOString().slice(0,10);
+    let onLeave = 0;
+    leaves.forEach(l=>{
+      const f = (l.from||'').toString().slice(0,10);
+      const t = (l.to||l.from||'').toString().slice(0,10);
+      if(f && t && f<=ymd && ymd<=t && l.status==='approved') onLeave++;
+    });
+    const present = Math.max(0, emps.length - onLeave);
+    const pendingLeave = leaves.filter(l=>l.status==='pending').length;
+    const en = (typeof _lang!=='undefined' && _lang==='en');
+    return `<div class="today-summary" aria-label="Today summary">
+      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${present}</div><div class="today-summary-lbl">${en?'On duty':'ड्यूटी पर'}</div></div>
+      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--lv)">${onLeave}</div><div class="today-summary-lbl">${en?'On leave':'अवकाश पर'}</div></div>
+      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--day)">${pendingLeave}</div><div class="today-summary-lbl">${en?'Leave pending':'Leave पेंडिंग'}</div></div>
+    </div>`;
+  }catch(e){ return ''; }
+}
+
 async function renderHome(){
+  try{
+    let host = document.getElementById('homeTodaySummary');
+    if(!host){
+      const tab = document.getElementById('tab-home');
+      if(tab){
+        host = document.createElement('div');
+        host.id = 'homeTodaySummary';
+        tab.insertBefore(host, tab.firstChild);
+      }
+    }
+    if(host) host.innerHTML = _homeTodaySummaryHtml();
+  }catch(e){}
+
   try{ if(typeof _forceShiftBadgeColors==='function') _forceShiftBadgeColors(); }catch(e){}
   if(typeof isPendingMember==='function' && isPendingMember()){
     try{
@@ -9915,7 +10037,33 @@ async function downloadTrendBar(){
 let _lvFilter='all';
 function setLF(f,el){ _lvFilter=f; document.querySelectorAll('#leaveFilter .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderLeaves(); renderResignations(); }
 
+
+function updateLeaveFilterCounts(){
+  try{
+    const all = (typeof getLeaves==='function' ? getLeaves() : []) || [];
+    const mine = (typeof isAdmin==='function' && isAdmin()) || (typeof isMgr==='function' && isMgr())
+      ? all
+      : all.filter(l => {
+          const id = (SESSION && (SESSION.empObjId||SESSION.empId||''));
+          return !id || l.empId===id || l.empObjId===id || l.empName===SESSION.name;
+        });
+    const n = {
+      all: mine.length,
+      pending: mine.filter(l=>l.status==='pending').length,
+      approved: mine.filter(l=>l.status==='approved').length,
+      rejected: mine.filter(l=>l.status==='rejected').length
+    };
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=String(v); };
+    set('lfCountAll', n.all);
+    set('lfCountPending', n.pending);
+    set('lfCountApproved', n.approved);
+    set('lfCountRejected', n.rejected);
+  }catch(e){}
+}
+
 function renderLeaves(){
+  try{ updateLeaveFilterCounts(); }catch(e){}
+
   let list = getLeaves().filter(l=> {
     if(isAdmin()) return true;
     if(canApproveLeave()) return true; // Manager / delegated leave approver sees team leave
@@ -11704,6 +11852,11 @@ function renderPending(){
 
   // Pending leaves
   const leaves=getLeaves().filter(l=>l.status==='pending');
+  const _pgLeave=document.getElementById('pendingLeaves');
+  if(_pgLeave && !_pgLeave.previousElementSibling?.classList?.contains('pending-group-title')){
+    const h=document.createElement('div'); h.className='pending-group-title'; h.textContent='Leave requests';
+    _pgLeave.parentNode.insertBefore(h, _pgLeave);
+  }
   document.getElementById('pendingLeaves').innerHTML = leaves.length ? leaves.map(l=>`
     <div class="card">
       <div class="card-row">
@@ -15751,6 +15904,22 @@ function t(str){
   return str;
 }
 
+
+/** User-facing Firebase / network errors (no raw PERMISSION_DENIED) */
+function friendlyFbError(err){
+  const msg = String((err && (err.message||err.code)) || err || '');
+  const en = (typeof _lang!=='undefined' && _lang==='en');
+  if(/PERMISSION_DENIED|permission_denied/i.test(msg))
+    return en
+      ? 'Action not allowed. Try Phone verify once on this device, or ask Admin/Manager.'
+      : 'यह क्रिया अनुमति नहीं मिली। इस device पर एक बार Phone verify करें, या Admin/Manager से पूछें।';
+  if(/network|offline|Failed to fetch|unavailable/i.test(msg))
+    return en ? 'Network issue — check internet and retry.' : 'नेटवर्क समस्या — इंटरनेट जाँचें और फिर try करें।';
+  if(/too many requests|quota/i.test(msg))
+    return en ? 'Too many attempts — wait a minute and try again.' : 'बहुत attempts हो गए — थोड़ा रुककर फिर try करें।';
+  return msg.length > 120 ? msg.slice(0,120)+'…' : msg;
+}
+
 function toast(msg){
   const t_el = document.getElementById('toast');
   t_el.textContent = (typeof t === 'function') ? t(msg) : msg;
@@ -16889,7 +17058,7 @@ async function saveAllShiftChanges(){
         }
         errEl.style.cssText = 'background:rgba(244,63,94,.18);border:1.5px solid #f43f5e;border-radius:10px;padding:10px 12px;margin-bottom:10px;color:#fecdd3;font-size:12px;font-weight:800;line-height:1.45';
         if(isPerm){
-          errEl.innerHTML = '⛔ <b>PERMISSION_DENIED</b><br>Firebase में anonymous session है। <b>Logout की ज़रूरत नहीं</b> — नीचे से Phone verify करें, फिर Save।'
+          errEl.innerHTML = '⛔ <b>'+friendlyFbError({message:'PERMISSION_DENIED'})+'</b><br>Firebase में anonymous session है। <b>Logout की ज़रूरत नहीं</b> — नीचे से Phone verify करें, फिर Save।'
             + '<br><button type="button" onclick="_retrySaveAfterReauth()" style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#f97316;color:#fff;font-weight:900;cursor:pointer">🔐 Phone verify &amp; retry Save</button>';
         } else {
           errEl.innerHTML = '⛔ Save error: '+String(msg).replace(/</g,'&lt;');
