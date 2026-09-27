@@ -6766,16 +6766,17 @@ function shiftWord(s){
   const mapHi = {D:'दिन',N:'रात',O:'ऑफ',L:'छुट्टी',G:'जनरल',GP:'GP',CO:'C-Off','C/O':'C-Off',H:'हॉलिडे',HLF:'आधा',Ab:'अनुप',OD:'OD',A:'A शिफ्ट',B:'B शिफ्ट',C:'C शिफ्ट'};
   return (en ? mapEn : mapHi)[key] || key;
 }
-/** Colored badge HTML: letter + short word (for Home day cards) */
+/** Colored badge HTML: letter + short word (for Home day cards) — SAME colours as Schedule */
 function shiftBadgeHtml(s, size){
   const code = cellDisp(s) || '—';
   const word = shiftWord(s) || (code === '—' ? '—' : code);
   const cls = cellClass(s) || 'blank';
   const sizeCls = size === 'lg' ? ' hm-today-badge' : '';
-  // D uses dark text on amber — handled in CSS
-  return `<div class="hm-shift-badge ${cls}${sizeCls}" title="${code} ${word}">
-    <span class="hm-shift-letter">${code}</span>
-    <span class="hm-shift-word">${word}</span>
+  const st = (typeof mpShiftStyle === 'function') ? mpShiftStyle(code === '—' ? '' : (s || code)) : {bg:'#475569',fg:'#fff'};
+  // Inline colours from MP_SHIFT_COLORS so Home always matches Schedule (ignore CSS drift)
+  return `<div class="hm-shift-badge ${cls}${sizeCls}" title="${code} ${word}" style="background:${st.bg} !important;border-color:transparent">
+    <span class="hm-shift-letter" style="color:${st.fg} !important">${code}</span>
+    <span class="hm-shift-word" style="color:${st.fg} !important;opacity:.95">${word}</span>
   </div>`;
 }
 
@@ -6875,8 +6876,8 @@ async function renderHome(){
   const lvE =emps.filter(e=>getShift(e,TODAY_STR)==='L').length;
 
   document.getElementById('homeStats').innerHTML=`
-    <div class="stat-card"><div class="stat-val" style="color:var(--day)">${dayE}</div><div class="stat-lbl" id="dayStatLbl">${en?'Day Shift':'दिन शिफ्ट'}</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--night)">${nE}</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#f59e0b">${dayE}</div><div class="stat-lbl" id="dayStatLbl">${en?'Day Shift':'दिन शिफ्ट'}</div></div>
+    <div class="stat-card"><div class="stat-val" style="color:#4f46e5">${nE}</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
     <div class="stat-card"><div class="stat-val" style="color:var(--lv)">${lvE}</div><div class="stat-lbl" id="leaveStatLbl">${en?'On Leave':'छुट्टी पर'}</div></div>`;
 
   const isMet = e => { const sec=getEmpSection(e); return /metalliser/i.test(sec) || (SEC[e.sec]||{}).type==='metalliser' || ['M1','M2','MET'].includes(String(e.sec||'').toUpperCase()); };
@@ -7099,7 +7100,7 @@ function _renderHomePersonalCalendar(){
     });
     if(shiftMates.length > 0){
       const shiftLabel = todaySh === 'D' ? (en?'Day Shift mates':'दिन शिफ्ट साथी') : todaySh === 'N' ? (en?'Night Shift mates':'रात शिफ्ट साथी') : (en?'Shift mates today':'आज के शिफ्ट साथी');
-      const shiftColor = todaySh === 'D' ? 'var(--day)' : todaySh === 'N' ? 'var(--night)' : 'var(--s1)';
+      const shiftColor = todaySh === 'D' ? '#f59e0b' : todaySh === 'N' ? '#4f46e5' : todaySh === 'G' || todaySh === 'GP' ? '#0284c7' : '#38bdf8';
       calHtml += `<div class="stitle" style="margin-top:8px">${shiftLabel}</div>
       <div class="hm-mates">
         <div class="hm-mates-meta">${en?'Total':'कुल'} <b style="color:${shiftColor}">${shiftMates.length}</b></div>
@@ -8532,14 +8533,14 @@ function renderSchedule(){
   }
   const _shiftRowColorMap={
     D:{clr:'#f59e0b',bg:'rgba(245,158,11,.06)',icon:'☀️'},
-    N:{clr:'#818cf8',bg:'rgba(129,140,248,.06)',icon:'🌙'},
+    N:{clr:'#4f46e5',bg:'rgba(79,70,229,.06)',icon:'🌙'},
     A:{clr:'#16a34a',bg:'rgba(22,163,74,.08)',icon:'🅰️'},
     B:{clr:'#db2777',bg:'rgba(219,39,119,.08)',icon:'🅱️'},
     C:{clr:'#0891b2',bg:'rgba(8,145,178,.08)',icon:'©️'},
   };
   const _shiftRowColors=[
     {clr:'#f59e0b',bg:'rgba(245,158,11,.06)',icon:'☀️'},
-    {clr:'#818cf8',bg:'rgba(129,140,248,.06)',icon:'🌙'},
+    {clr:'#4f46e5',bg:'rgba(79,70,229,.06)',icon:'🌙'},
     {clr:'#16a34a',bg:'rgba(22,163,74,.08)',icon:'🅰️'},
     {clr:'#db2777',bg:'rgba(219,39,119,.08)',icon:'🅱️'},
     {clr:'#0891b2',bg:'rgba(8,145,178,.08)',icon:'©️'},

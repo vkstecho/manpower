@@ -8,8 +8,8 @@
   --s2:#60a5fa;--s2bg:rgba(96,165,250,.10);
   --sup:#a3e635;--supbg:rgba(163,230,53,.10);
   --mgr:#e879f9;--mgrbg:rgba(232,121,249,.10);
-  --day:#fbbf24;--daybg:rgba(251,191,36,.13);
-  --night:#818cf8;--nightbg:rgba(129,140,248,.13);
+  --day:#f59e0b;--daybg:rgba(245,158,11,.13);
+  --night:#4f46e5;--nightbg:rgba(79,70,229,.13);
   --off:#94a3b8;--offbg:rgba(100,116,139,.35);
   --lv:#f43f5e;--lvbg:rgba(244,63,94,.22);
   --co:#facc15;--cobg:rgba(250,204,21,.25);
@@ -30,7 +30,7 @@ body.light{
   --m1bg:rgba(249,115,22,.08);--m2bg:rgba(251,146,60,.07);
   --s1bg:rgba(56,189,248,.07);--s2bg:rgba(96,165,250,.07);
   --supbg:rgba(163,230,53,.08);--mgrbg:rgba(232,121,249,.07);
-  --daybg:rgba(251,191,36,.10);--nightbg:rgba(129,140,248,.10);
+  --daybg:rgba(245,158,11,.10);--nightbg:rgba(79,70,229,.10);
   --offbg:rgba(100,116,139,.12);--lvbg:rgba(244,63,94,.08);
   --cobg:rgba(250,204,21,.10);--genbg:rgba(56,189,248,.08);
   --greenbg:rgba(34,197,94,.08);
@@ -297,6 +297,8 @@ body.light .emergency-num { color:#c2410c !important; }
 .hm-shift-badge.D .hm-shift-letter,
 .hm-shift-badge.D .hm-shift-word{ color:#1a1a2e !important; }
 .hm-shift-badge.N{ background:#4f46e5 !important; }
+.hm-shift-badge.N .hm-shift-letter,
+.hm-shift-badge.N .hm-shift-word{ color:#fff !important; }
 .hm-shift-badge.A{ background:#16a34a !important; }
 .hm-shift-badge.A .hm-shift-letter,
 .hm-shift-badge.A .hm-shift-word{ color:#fff !important; }
@@ -308,6 +310,8 @@ body.light .emergency-num { color:#c2410c !important; }
 .hm-shift-badge.C .hm-shift-word{ color:#fff !important; }
 
 .hm-shift-badge.G{ background:#0284c7 !important; }
+.hm-shift-badge.G .hm-shift-letter,
+.hm-shift-badge.G .hm-shift-word{ color:#fff !important; }
 .hm-shift-badge.L{ background:#be123c !important; }
 .hm-shift-badge.CO,
 .hm-shift-badge.C\/O{ background:#92400e !important; }
@@ -3125,3 +3129,35 @@ body {
 .sched-tbl .shc.N { background: #4f46e5 !important; color: #ffffff !important; }
 .hm-chip .shc.G, .shc.G, span.shc.G, .ms-day-sh.shc.G,
 .sched-tbl .shc.G { background: #0284c7 !important; color: #ffffff !important; }
+
+
+/* === UNIFIED SHIFT COLOURS: Home + Schedule + MyShift === */
+/* D Day = #f59e0b | N Night = #4f46e5 | G General = #0284c7 */
+.shc.D, .ms-day-sh.shc.D, .hm-shift-badge.D,
+span.shc.D, .sched-tbl .shc.D {
+  background: #f59e0b !important;
+  color: #000 !important;
+}
+.hm-shift-badge.D .hm-shift-letter,
+.hm-shift-badge.D .hm-shift-word { color: #1a1a2e !important; }
+
+.shc.N, .ms-day-sh.shc.N, .hm-shift-badge.N,
+span.shc.N, .sched-tbl .shc.N {
+  background: #4f46e5 !important;
+  color: #fff !important;
+}
+.hm-shift-badge.N .hm-shift-letter,
+.hm-shift-badge.N .hm-shift-word { color: #fff !important; }
+
+.shc.G, .ms-day-sh.shc.G, .hm-shift-badge.G,
+span.shc.G, .sched-tbl .shc.G {
+  background: #0284c7 !important;
+  color: #fff !important;
+}
+.hm-shift-badge.G .hm-shift-letter,
+.hm-shift-badge.G .hm-shift-word { color: #fff !important; }
+
+/* Home name-chip small badges keep same palette */
+.hm-chip-meta .shc.D, .hm-chips .shc.D { background: #f59e0b !important; color: #000 !important; }
+.hm-chip-meta .shc.N, .hm-chips .shc.N { background: #4f46e5 !important; color: #fff !important; }
+.hm-chip-meta .shc.G, .hm-chips .shc.G { background: #0284c7 !important; color: #fff !important; }
