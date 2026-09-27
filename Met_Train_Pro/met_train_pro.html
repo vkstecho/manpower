@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Met Train PRO — Vacuum Metallisation Training Platform for metalliser operators. Hindi-first industrial training.">
+<title>Met Train PRO v7 — Industry Metalliser Training</title>
+<link rel="icon" type="image/svg+xml" href="Met_Train_Pro/assets/favicon.svg">
+<link rel="apple-touch-icon" href="Met_Train_Pro/assets/logo-icon.svg">
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWV0IFRyYWluIFBSTyIsInNob3J0X25hbWUiOiJNZXRUcmFpbiIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMTExMTExIiwidGhlbWVfY29sb3IiOiIjMjVkMzY2IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzE5Micgdmlld0JveD0nMCAwIDE5MiAxOTInPjxyZWN0IHdpZHRoPScxOTInIGhlaWdodD0nMTkyJyByeD0nMzInIGZpbGw9JyMyNWQzNjYnLz48dGV4dCB4PSc5NicgeT0nMTE2JyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyBmb250LXNpemU9JzY0JyBmb250LWZhbWlseT0nc2Fucy1zZXJpZicgZm9udC13ZWlnaHQ9JzkwMCcgZmlsbD0nI2ZmZic+TVQ8L3RleHQ+PC9zdmc+Iiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV19">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Mukta:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<link rel="stylesheet" href="Met_Train_Pro/css/styles.css">
+</head>
+<body>
+<div id="topbar">
+  <!-- Back button: shown when NOT on landing, always leftmost -->
+  <button id="tb-back-btn" onclick="backToLanding()" style="display:none;background:rgba(37,211,102,.08);border:1.5px solid rgba(37,211,102,.35);border-radius:9px;padding:7px 15px;color:#25d366;font-size:13px;font-weight:800;cursor:pointer;font-family:'Mukta','Hind',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:.01em">← वापस</button>
+
+  <!-- Logo: shown on landing only -->
+  <div class="tb-logo" id="tbLogo" style="cursor:default">
+    <div class="tb-hex" style="padding:0;overflow:hidden;background:transparent;box-shadow:none"><img src="Met_Train_Pro/assets/logo-icon.svg" alt="MT" width="38" height="38" style="display:block;border-radius:11px"></div>
+    <div><div class="tb-name">Met Train <span>PRO</span></div><div class="tb-sub">मेटलाइज़र फ्लोर ट्रेनिंग</div></div>
+  </div>
+
+  <!-- Mode chip + page name: shown when inside section -->
+  <div id="tb-mode-label" style="display:none;align-items:center;gap:8px;flex:1;min-width:0;overflow:hidden">
+    <div id="tb-mode-chip" style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:6px;font-family:'Share Tech Mono',monospace;letter-spacing:.06em;text-transform:uppercase;flex-shrink:0"></div>
+    <div id="tb-page-title" style="font-size:14px;font-weight:700;color:var(--txt);font-family:'Mukta','Hind',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+  </div>
+
+  <div class="tb-langs" id="tb-langs-wrap">
+    <button class="lb on" onclick="setLang('hi')">हिं</button>
+    <button class="lb" onclick="setLang('en')">EN</button>
+    <button class="lb" onclick="setLang('or')">ଓ</button>
+    <button class="lb" onclick="setLang('ta')">த</button>
+    <button class="lb" onclick="setLang('te')">తె</button>
+    <button class="lb" onclick="setLang('th')">ไท</button>
+  </div>
+</div>
+  <div id="body">
+  <div id="sidebar"></div>
+  <!-- Mobile Bottom Nav -->
+  <nav id="mob-nav"></nav>
+  <div id="content">
+    <div class="pg on" id="pg-landing"></div>
+    <div class="pg" id="pg-home"></div>
+    <div class="pg" id="pg-met"></div>
+    <div class="pg" id="pg-slit"></div>
+    <div class="pg" id="pg-safety"></div>
+    <div class="pg" id="pg-sops"></div>
+    <div class="pg" id="pg-sap"></div>
+    <div class="pg" id="pg-maint"></div>
+    <div class="pg" id="pg-genmet"></div>
+    <div class="pg" id="pg-genslit"></div>
+    <div class="pg" id="pg-terms"></div>
+    <div class="pg" id="pg-quiz"></div>
+    <div class="pg" id="pg-check"></div>
+    <div class="pg" id="pg-askai"></div>
+    <div class="pg" id="pg-manuals"></div>
+    <div class="pg" id="pg-defect"></div>
+  </div>
+</div>
+
+<!-- ══ PAYMENT MODAL ══ -->
+<div id="payModal" style="display:none"></div>
+<div id="mob-nav" style="display:none"></div>
+
+<!-- ═══ NEW v6 FEATURES ═══ -->
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- SEARCH OVERLAY -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-box">
+    <input class="search-input" id="searchInput" type="text" placeholder="🔍 खोजें — SOP, WI, शब्द, विषय..." autocomplete="off">
+    <button class="search-close" onclick="closeSearch()">✕</button>
+  </div>
+  <div class="search-results" id="searchResults">
+    <div class="search-hint">कम से कम 2 अक्षर टाइप करें...<br><span style="font-family:'Share Tech Mono',monospace;font-size:10px;opacity:.6">Ctrl+K / ⌘K से भी खोल सकते हैं</span></div>
+  </div>
+</div>
+
+<!-- SOS EMERGENCY BUTTON -->
+<div class="sos-btn" id="sosBtn" onclick="toggleSOS()" title="आपातकालीन सुरक्षा">🆘</div>
+<div class="sos-panel" id="sosPanel">
+  <div class="sos-panel-title">⚠️ आपातकालीन सुरक्षा</div>
+  <div class="sos-item" onclick="nav('safety');closeSOS()">🦺 PPE एवं सुरक्षा नियम</div>
+  <div class="sos-item" onclick="showSOPDetail('WI-05');closeSOS()">⛔ Moving Parts सुरक्षा</div>
+  <div class="sos-item" onclick="showSOPDetail('WI-14');closeSOS()">🌫️ Al Dust खतरे</div>
+  <div class="sos-item" onclick="showSOPDetail('SOP-10');closeSOS()">🗑️ Al Dust निपटान</div>
+  <div class="sos-item" onclick="showSOPDetail('WI-06');closeSOS()">🧪 Caustic Soda / Acetone</div>
+  <div class="sos-item" onclick="nav('check');closeSOS()">✅ प्री-स्टार्ट चेकलिस्ट</div>
+</div>
+
+<!-- CERTIFICATE MODAL -->
+<div class="cert-modal" id="certModal" onclick="if(event.target===this)closeCert()">
+  <div class="cert-card">
+    <div class="cert-crown">🏆</div>
+    <div class="cert-title">प्रमाण पत्र</div>
+    <div class="cert-sub">Certificate of Completion — Met Train PRO</div>
+    <input class="cert-name-input" id="certNameInput" placeholder="अपना नाम लिखें..." maxlength="50">
+    <div class="cert-score-val" id="certScoreVal"></div>
+    <div class="cert-detail" id="certDetail"></div>
+    <div class="cert-date" id="certDate"></div>
+    <div class="cert-actions">
+      <button class="btn btn-p" onclick="downloadCert()">📥 डाउनलोड करें</button>
+      <button class="btn btn-s" onclick="closeCert()">बंद करें</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Met Train PRO modules (folder: Met_Train_Pro/) -->
+<script src="Met_Train_Pro/js/config.js"></script>
+<script src="Met_Train_Pro/js/core.js"></script>
+<script src="Met_Train_Pro/js/defects.js"></script>
+<script src="Met_Train_Pro/js/sops.js"></script>
+<script src="Met_Train_Pro/js/process.js"></script>
+<script src="Met_Train_Pro/js/quiz_check.js"></script>
+<script src="Met_Train_Pro/js/ai.js"></script>
+<script src="Met_Train_Pro/js/extras.js"></script>
+<script src="Met_Train_Pro/js/manuals.js"></script>
+<script src="Met_Train_Pro/js/ai_kb_extra.js"></script>
+
+
+<script>
+// Boot after all Met_Train_Pro modules are loaded
+(function bootMetTrain(){
+  try {
+    if (typeof renderSB === 'function') renderSB();
+    if (typeof renderMobNav === 'function') renderMobNav();
+    if (typeof nav === 'function') nav('landing');
+    if (typeof updateTopbar === 'function') updateTopbar();
+    if (typeof buildSearchIndex === 'function') buildSearchIndex();
+  } catch (e) {
+    console.error('Met Train PRO boot error:', e);
+  }
+})();
+</script>
+
+</body>
+</html>
