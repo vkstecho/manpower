@@ -4162,3 +4162,27 @@ body.light .sched-edit-hint { color: #c2410c; }
   box-sizing: border-box !important;
   overflow: hidden;
 }
+
+/* In-table sticky schedule header — guaranteed column alignment */
+#schedDateHdrWrap { display: none !important; }
+.sched-tbl thead.sched-thead-sticky th {
+  box-sizing: border-box !important;
+}
+.sched-tbl thead.sched-thead-sticky {
+  position: relative;
+  z-index: 5;
+}
+.sched-tbl thead .sched-date-th,
+.sched-tbl thead .sched-month-th {
+  box-sizing: border-box !important;
+  vertical-align: middle;
+}
+.sched-wrap {
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+@media (max-width: 640px) {
+  .sched-wrap { max-height: calc(100vh - 180px); }
+  .sched-tbl thead .sched-date-th { top: 22px !important; }
+  .sched-tbl thead tr.sched-date-row .ecol { top: 22px !important; }
+}

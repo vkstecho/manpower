@@ -9295,6 +9295,42 @@ function _alignSchedColumns(){
   try{
     const tbl = document.getElementById('schedTbl');
     const dateHdr = document.getElementById('schedDateHdr');
+    // In-table sticky thead: only lock colgroup widths on the table
+    const theadSticky = tbl && tbl.querySelector('thead.sched-thead-sticky');
+    if(theadSticky){
+      const mob = window.innerWidth <= 640;
+      const colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (mob ? 28 : 34);
+      const ecolW = (typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (mob ? 86 : 128);
+      const n = theadSticky.querySelectorAll('tr.sched-date-row th.sched-date-th').length;
+      if(n){
+        let cg = tbl.querySelector('colgroup');
+        if(!cg){ cg = document.createElement('colgroup'); tbl.insertBefore(cg, tbl.firstChild); }
+        cg.innerHTML = '<col style="width:'+ecolW+'px">'+Array.from({length:n}).map(()=>'<col style="width:'+colW+'px">').join('');
+        tbl.style.tableLayout = 'fixed';
+        tbl.style.width = (ecolW + n*colW)+'px';
+        tbl.style.minWidth = (ecolW + n*colW)+'px';
+        theadSticky.querySelectorAll('th.sched-date-th').forEach(th=>{
+          th.style.width = colW+'px';
+          th.style.minWidth = colW+'px';
+          th.style.maxWidth = colW+'px';
+        });
+        theadSticky.querySelectorAll('th.ecol').forEach(th=>{
+          th.style.width = ecolW+'px';
+          th.style.minWidth = ecolW+'px';
+          th.style.maxWidth = ecolW+'px';
+        });
+        tbl.querySelectorAll('tbody tr:not(.sec-row)').forEach(tr=>{
+          const cells = tr.children;
+          for(let i=0;i<cells.length;i++){
+            cells[i].style.boxSizing = 'border-box';
+            if(i===0){ cells[i].style.width=ecolW+'px'; cells[i].style.minWidth=ecolW+'px'; cells[i].style.maxWidth=ecolW+'px'; }
+            else { cells[i].style.width=colW+'px'; cells[i].style.minWidth=colW+'px'; cells[i].style.maxWidth=colW+'px'; }
+          }
+        });
+      }
+      return;
+    }
+
     const monthHdr = document.getElementById('schedMonthHdr');
     const hdrStack = document.getElementById('schedHdrStack');
     const hdrWrap = document.getElementById('schedDateHdrWrap');
@@ -9549,32 +9585,57 @@ function renderSchedule(){
     return {isT, bg, col, colSub, day:DAYS_EN[dO.getDay()], date:dO.getDate(), month:dO.getMonth(), year:dO.getFullYear()};
   });
 
-  // Populate the sticky date header (outside scroll container)
-  // Initial render with flex — will be corrected to exact pixel widths after table renders
-  const dateHdr = document.getElementById('schedDateHdr');
-  if(dateHdr){
-    const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
-    const _colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (_mob ? 26 : 34);
-    dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
-      const todayMark = c.isT ? ' data-today-col="1"' : '';
-      const emptyMark = _emptyFutureCols.has(i) ? ' sched-empty-col' : '';
-      // FIXED equal width for every day (today included) — highlight via inset only
-      const base = 'flex:none;box-sizing:border-box;width:'+_colW+'px;min-width:'+_colW+'px;max-width:'+_colW+'px;text-align:center;padding:3px 0;margin:0;overflow:hidden;';
-      const todayStyle = c.isT
-        ? base+'background:rgba(249,115,22,.32);box-shadow:inset 0 0 0 2px #f97316;border-radius:4px;'
-        : base+'background:'+c.bg+';border-right:1px solid var(--border);';
-      return `<div data-date-col="${i}" class="${emptyMark.trim()}"${todayMark} style="${todayStyle}">
-        <div style="font-family:'Barlow Condensed';font-size:8px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
-        <div style="font-family:'Barlow Condensed';font-size:12px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
-      </div>`;
-    }).join('');
-  }
+  // Hide external dual-header (was causing misalignment). Dates live in table thead.
+  try{
+    const _ext = document.getElementById('schedDateHdrWrap');
+    if(_ext) _ext.style.display = 'none';
+    const _stk = document.getElementById('schedHdrStack');
+    if(_stk) _stk.style.display = 'none';
+  }catch(e){}
 
-  // thead is now hidden (date row shown in sticky header above)
-  let thead=`<thead style="visibility:hidden;height:0"><tr style="height:0"><th class="ecol" style="padding:0;height:0;border:none"></th>${dates.map(d=>{
-    const dO=new Date(d);const isT=d===TODAY_STR;
-    return `<th style="padding:0;height:0;border:none;background:${isT?'rgba(249,115,22,.18)':'var(--card2)'}"></th>`;
-  }).join('')}</tr></thead>`;
+  // In-table sticky thead — same columns as body (perfect alignment)
+  const _mobH = (typeof window!=='undefined' && window.innerWidth<=640);
+  const _colWH = (typeof _schedColWidth==='function') ? _schedColWidth() : (_mobH ? 28 : 34);
+  const _ecolH = (typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (_mobH ? 86 : 128);
+
+  // Month groups for first header row
+  const _monthGroups = [];
+  dateCellsHtml.forEach((c,i)=>{
+    const key = c.year+'-'+c.month;
+    if(!_monthGroups.length || _monthGroups[_monthGroups.length-1].key!==key){
+      _monthGroups.push({key, month:c.month, year:c.year, span:0});
+    }
+    _monthGroups[_monthGroups.length-1].span++;
+  });
+  const MONTHS_SHORT_H = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  const MONTH_COLORS_H = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#06b6d4','#f97316','#84cc16','#ec4899','#14b8a6','#a855f7','#eab308'];
+  const monthThs = _monthGroups.map(g=>{
+    const color = MONTH_COLORS_H[g.month % 12];
+    const label = MONTHS_SHORT_H[g.month]+' '+String(g.year).slice(2);
+    return `<th class="sched-month-th" colspan="${g.span}" style="background:#0a1628;color:${color};font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:900;letter-spacing:.5px;text-align:center;padding:4px 2px;border-right:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:5">${label}</th>`;
+  }).join('');
+
+  const dateThs = dateCellsHtml.map((c,i)=>{
+    const emptyCls = _emptyFutureCols.has(i) ? ' sched-empty-col' : '';
+    const todayCls = c.isT ? ' sched-today-col' : '';
+    const bg = c.isT ? 'rgba(249,115,22,.32)' : '#1c2d42';
+    const shadow = c.isT ? 'box-shadow:inset 0 0 0 2px #f97316;' : '';
+    return `<th class="sched-date-th${todayCls}${emptyCls}" data-date-col="${i}" style="width:${_colWH}px;min-width:${_colWH}px;max-width:${_colWH}px;box-sizing:border-box;text-align:center;padding:3px 0;background:${bg};${shadow}position:sticky;top:24px;z-index:5;border-right:1px solid rgba(255,255,255,.06)">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:8px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
+    </th>`;
+  }).join('');
+
+  let thead = `<thead class="sched-thead-sticky">
+    <tr class="sched-month-row">
+      <th class="ecol sched-month-th" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#0a1628;position:sticky;left:0;top:0;z-index:6"></th>
+      ${monthThs}
+    </tr>
+    <tr class="sched-date-row">
+      <th class="ecol" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#111d2e;position:sticky;left:0;top:24px;z-index:6;box-shadow:3px 0 8px rgba(0,0,0,.5)"></th>
+      ${dateThs}
+    </tr>
+  </thead>`;
 
   let tbody='<tbody>';
   DISPLAY_ORDER.forEach(group=>{
