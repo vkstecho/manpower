@@ -1,25 +1,11 @@
 
 // ════════════════════════════════════════════════════
-//  M.P. MANAGEMENT SYSTEM
+//  MAN POWER — Multi-Industry Team & Shift Management
 //  Firebase Realtime DB · Hindi UI · Mobile First
+//  v2.4.0
 // ════════════════════════════════════════════════════
-
-// ── UTILITY: HTML escape (prevents XSS in dynamic content) ──
-function escHtml(str){
-  if(str===null||str===undefined) return '';
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
-    .replace(/'/g,'&#39;');
-}
-
-// ── SECURITY: Firebase path sanitization ──
-function sanitizeFbPath(path){
-  // Remove dangerous characters from Firebase paths
-  return String(path||'').replace(/[.$#\[\]\/\x00-\x1f]/g, '_').substring(0, 256);
-}
+// Utilities (escHtml, sanitizeFbPath, isValidEmpId, hashPass) live in js/utils.js
+// and are exposed as globals for gradual modularization.
 
 // ── SECURITY: Compress images before storing in Firebase ──
 async function compressImage(base64, maxWidth, quality){
@@ -40,11 +26,6 @@ async function compressImage(base64, maxWidth, quality){
     img.onerror = ()=>resolve(base64); // fallback to original
     img.src = base64;
   });
-}
-
-// ── SECURITY: Validate employee ID format ──
-function isValidEmpId(id){
-  return /^[A-Z0-9]{3,20}$/.test(String(id||''));
 }
 
 // ── SECURITY: Setup admin hashes in Firebase (run once) ──
@@ -71,7 +52,7 @@ const CFG = {
   // SECURITY: Admin credentials checked ONLY via Firebase adminAuth — not hardcoded
   adminCreds:[], // Empty — all auth goes through Firebase
   supervisorInstructor: 'MOHIT',
-  minShift: { metalliser:4, slitter:3 },
+  minShift: { default:2 },
   shiftLabels: { D:'दिन (7AM-7PM)', N:'रात (7PM-7AM)', A:'A Shift', B:'B Shift', C:'C Shift', O:'साप्ताहिक छुट्टी', L:'लीव', G:'जनरल', 'C/O':'Comp Off' },
   // ── Contact numbers (update here, applies everywhere) ──
   contactVivek:  '+918168771239',   // Manager VIVEK — device approvals, access extensions
@@ -107,7 +88,7 @@ function secName(sec){
   // Generic pool categories from Excel imports / free-form section codes
   const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
   const key = sec.toString().trim().toUpperCase();
-  if(key==='MET')  return isEn ? 'Met (All Metalliser)' : 'Met (सभी Metalliser)';
+  if(key==='MET')  return isEn ? 'Met (All)' : 'Met (All)';
   if(key==='SLIT') return isEn ? 'Slit (All Slitter)'   : 'Slit (सभी Slitter)';
   if(key==='ALL')  return isEn ? 'Supervisor'            : 'Supervisor';
   return sec;
@@ -654,7 +635,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.30';
+const APP_VERSION = '2.4.0';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -804,11 +785,11 @@ function _refreshTabs(tabs){
   }
 }
 
-function _normCompanyId(s){ return (s||'').toString().trim().toLowerCase() || 'gls'; }
+function _normCompanyId(s){ return (s||'').toString().trim().toLowerCase() || 'default'; }
 function myCompanyId(){
   if(isAdmin()) return SESSION.viewCompanyId || 'ALL';
   if(SESSION.companyId) return SESSION.companyId;
-  return 'gls'; // legacy employee-code workers/managers/supervisors — all pre-existing Man Power staff
+  return 'default'; // legacy employee-code workers/managers/supervisors — all pre-existing Man Power staff
 }
 function listAllCompanies(){
   const ids=new Set();
@@ -842,7 +823,7 @@ function listAllCompanies(){
   }catch(e){}
   return Array.from(ids).map(cid=>({
     id:cid,
-    label: labels[cid] || (cid==='gls'?'Man Power':cid.toUpperCase())
+    label: labels[cid] || (cid==='default'?'Man Power':cid.toUpperCase())
   })).sort((a,b)=>a.label.localeCompare(b.label));
 }
 
@@ -1848,7 +1829,7 @@ function getDeviceId(){
 // Token lives in CacheStorage which is cleared with app cache.
 // localStorage/cookies survive cache clear — this bridges the gap.
 // ══════════════════════════════════════════════════════════════
-const INTEGRITY_CACHE_NAME = 'glsmp-integrity';
+const INTEGRITY_CACHE_NAME = 'mp-integrity';
 const INTEGRITY_TOKEN_URL  = '/integrity-token';
 
 // Write integrity token into CacheStorage — called at login
@@ -2316,7 +2297,7 @@ let _step3Dept    = '';
 
 const COMPANY_INFO = {
   // Page 1 — Top 5
-  METPOWER:   { ico:'🏭', label:'Man Power',    sub:'Polyfilms',     color:'#f97316', page:1 },
+  METPOWER:   { ico:'🏭', label:'Man Power',    sub:'Team Management',     color:'#f97316', page:1 },
   UFLEX:      { ico:'📦', label:'UFlex',         sub:'Noida',         color:'#38bdf8', page:1 },
   JINDAL:     { ico:'🎞️', label:'Jindal',        sub:'Poly Films',    color:'#a3e635', page:1 },
   CHIRIPAL:   { ico:'🏬', label:'Chiripal',      sub:'Poly Films',    color:'#e879f9', page:1 },
@@ -4067,7 +4048,7 @@ function _submitSetPassword(empId, empName, deviceId, afterApproval){
   const pw=(document.getElementById('spw1')?.value||'');
   if(pw.length<5){ toast('❌ Password कम से कम 5 characters होना चाहिए'); return; }
   // Save password using SHA-256 hash (secure)
-  hashPass(pw+'mp_salt_gls').then(h=>{ try{ localStorage.setItem('mp_pw_'+empId, h); }catch(e){} });
+  hashPass(pw+'mp_salt_v24').then(h=>{ try{ localStorage.setItem('mp_pw_'+empId, h); }catch(e){} });
   const ov=document.getElementById('setPasswordOverlay');
   if(ov) ov.remove();
   toast('✅ Password set हो गया! अगली बार सीधे login करें');
@@ -4118,7 +4099,7 @@ async function _submitPwLogin(empId, empName, deviceId){
   const entered=(document.getElementById('pwlInput')?.value||'');
   const saved=localStorage.getItem('mp_pw_'+empId);
   const errEl=document.getElementById('pwlErr');
-  const enteredHash = await hashPass(entered+'mp_salt_gls');
+  const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
     if(errEl) errEl.textContent='❌ गलत Password — दोबारा try करें';
     document.getElementById('pwlInput').style.borderColor='#f43f5e';
@@ -13482,7 +13463,7 @@ async function addEmployee(){
   const id='e'+Date.now().toString(36);
   const emp={id,name,empId:code,sec,mc,resp,woff,status:'active',
     designation,
-    companyId:myCompanyId()==='ALL'?'gls':myCompanyId(),
+    companyId:myCompanyId()==='ALL'?'default':myCompanyId(),
     companyLabel:SESSION.company||'Man Power',
     ms:Array(31).fill('D')};
   if(SESSION.role==='manager' && SESSION.mobile){ emp.managerId=_normMobileKey(SESSION.mobile); }
@@ -14365,7 +14346,7 @@ async function confirmTeamExcelUpload(){
         woff: emp.woff || '',
         joiningDate: emp.joiningDate || '',
         dob: emp.dob || '',
-        companyId: SESSION.companyId || _normCompanyId(SESSION.company) || 'gls',
+        companyId: SESSION.companyId || _normCompanyId(SESSION.company) || 'default',
         companyLabel: SESSION.company || 'Man Power',
         managerId: mgrKey || emp.managerId || '',
         updatedAt: new Date().toISOString(),
@@ -15445,7 +15426,7 @@ const _i18n_HI_EN = {
   'मशीन':                                    'Machine',
   'महत्वपूर्ण निर्देश':                      'Important Instructions',
   'महीना चुनें':                             'Select Month',
-  'मेटलाइज़र विभाग':                          'Metalliser Department',
+  'विभाग': 'Department',
   'मेरी छुट्टियाँ':                          'My Leaves',
   'मेरी शिफ्ट':                               'My Shift',
   'यह वापस नहीं होगा!':                      'This cannot be undone!',
@@ -15536,7 +15517,7 @@ const _i18n_HI_EN = {
   'कोई अतिरिक्त जानकारी...':                  'Any additional info...',
   'छुट्टी का कारण लिखें... (अनिवार्य)':      'Write leave reason... (required)',
   'जैसे: M-1 pump check करना है':            'e.g. M-1 pump needs checking',
-  'जैसे: Metalliser Safety Training':         'e.g. Metalliser Safety Training',
+  'e.g. Safety Training':         'e.g. Metalliser Safety Training',
   'जैसे: कल से नई Shift Timing':             'e.g. New Shift Timing from tomorrow',
   'नाम या कोड से खोजें...':                  'Search by name or code...',
   'नियम लिखें...':                            'Write rule...',
@@ -15579,7 +15560,7 @@ const _i18n_HI_EN = {
   'नाम या कोड से खोजें...': 'Search by name or code...',
   'जो कर्मचारी टीम छोड़ चुके हैं': 'Employees who have left the team',
   'ऊपर Month चुनें': 'Select Month above',
-  'मेटलाइज़र विभाग': 'Metalliser Department',
+  'विभाग': 'Department',
   'संपर्क करें': 'Contact',
   'UNLOCK KEY डालें': 'Enter UNLOCK KEY',
   '🔓 अनलॉक करें': '🔓 Unlock',
@@ -15611,12 +15592,12 @@ const _i18n_HI_EN = {
   'सभी codes (D/N/A/B/C) schedule पर manually select हो सकते हैं — timing यहाँ से आती है।': 'All codes (D/N/A/B/C) can still be selected manually on the schedule — timings come from here.',
   '📉 Minimum Staff (संख्या कम होने पर highlight)': '📉 Minimum Staff (highlight when count is low)',
   'दिन की गिनती इस संख्या से कम हो तो summary में लाल/⚠️ दिखेगा।': 'If the day count is below this number, the summary shows red / ⚠️.',
-  'Metalliser min': 'Metalliser min',
+  'Section min': 'Section min',
   'Slitter min': 'Slitter min',
   'Supervisor min': 'Supervisor min',
-  '🏭 Metalliser Machines': '🏭 Metalliser Machines',
+  '🏭 Machines / Sections': '🏭 Machines / Sections',
   '✂️ Slitter Machines': '✂️ Slitter Machines',
-  '+ Metalliser जोड़ें': '+ Add Metalliser',
+  '+ Section जोड़ें': '+ Add Metalliser',
   '+ SLitter जोड़ें': '+ Add Slitter',
   '+ Slitter जोड़ें': '+ Add Slitter',
   '🤖 Auto बनाएं': '🤖 Auto Generate',
@@ -15682,7 +15663,7 @@ const _i18n_HI_EN = {
   'कोड': 'Code',
   'to': 'to',
   'अवर्गीकृत': 'Unassigned',
-  'Met (सभी Metalliser)': 'Met (All Metalliser)',
+  'Met (All)': 'Met (All)',
   'Slit (सभी Slitter)': 'Slit (All Slitter)',
   'NCR रिपोर्ट': 'NCR Report',
   'अनुपस्थिति': 'Absence',
@@ -19627,7 +19608,7 @@ window.sendShiftDataToSupSkill = function(dayIdx, shiftCode){
       firebaseProject: 'man-power-mp'
     };
     fr.contentWindow.postMessage(payload, '*');
-    try{ fr.contentWindow.postMessage({...payload, type:'GLSMP_SHIFT_DATA'}, '*'); }catch(e){}
+    try{ fr.contentWindow.postMessage({...payload, type:'MP_SHIFT_DATA'}, '*'); }catch(e){}
     window.updateSupSkillShiftBadge();
   }catch(err){ console.warn('[SupSkill] sendShiftDataToSupSkill error:', err); }
 };
@@ -20184,7 +20165,7 @@ function openContentUpload(){
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">➕ Content Add करें</div>
   <div class="field"><label>Title (नाम)</label>
-    <input class="inp-field" id="ct_title" placeholder="जैसे: Metalliser Safety Training"></div>
+    <input class="inp-field" id="ct_title" placeholder="e.g. Safety Training"></div>
   <div class="field"><label>Category</label>
     <select class="inp-field" id="ct_cat">
       <option value="met_operation">🏭 Met Operation</option>
@@ -20787,8 +20768,8 @@ function filterTraining(){
 
 // Man Power Training section open/close
 function openMetTrainSection(type){
-  const trainArea  = document.getElementById('glsTrainArea');
-  const careerArea = document.getElementById('glsCareerArea');
+  const trainArea  = document.getElementById('mpTrainArea');
+  const careerArea = document.getElementById('mpCareerArea');
   if(!trainArea || !careerArea) return;
   if(type === 'career'){
     trainArea.style.display = 'none';
@@ -20814,8 +20795,8 @@ function openMetTrainSection(type){
 }
 
 function closeMetTrainSection(){
-  const ta = document.getElementById('glsTrainArea');
-  const ca = document.getElementById('glsCareerArea');
+  const ta = document.getElementById('mpTrainArea');
+  const ca = document.getElementById('mpCareerArea');
   if(ta) ta.style.display = 'none';
   if(ca) ca.style.display = 'none';
 }
@@ -21049,14 +21030,14 @@ const LEARN_MODULES = {
   },
 
   // ════════════════════════════════════════════════
-  // Man Power POLYFILMS — REAL TRAINING MODULES (From actual Man Power training sessions)
+  // Man Power — SAMPLE TRAINING MODULES (customise for your industry)
   // Trainer: Mr. Vivek Kumar | Plant: Man Power Pvt. Ltd., Gurawara
   // ════════════════════════════════════════════════
 
-  gls_sap: {
+  sample_sap: {
     name:'SAP Entry Training', icon:'💻', color:'#06b6d4', isFree:true,
     subtitle:'Man Power के असली SAP गलतियाँ और उनका सही तरीका — Real Training by Vivek Sir',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gs1', title:'Slitting Production Entry — Common Mistakes (TN-01)',
@@ -21125,10 +21106,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_process: {
+  sample_process: {
     name:'Process & Machine', icon:'⚙️', color:'#f97316', isFree:true,
     subtitle:'Metalliser machine के real operation points — Man Power Shop Floor से सीधे',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gp1', title:'Auto Mode for OD Meter — Steps to Follow (TN-23)',
@@ -21199,10 +21180,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_safety: {
+  sample_safety: {
     name:'Safety & 5S', icon:'🛡️', color:'#ef4444', isFree:true,
     subtitle:'Man Power Safety Rules, Emergency Buttons, 5S Audit Points — सभी के लिए जरूरी',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gsa1', title:'Emergency Buttons — Care & Safety (TN2614)',
@@ -21359,10 +21340,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_sop: {
+  sample_sop: {
     name:'SOPs & Rules', icon:'📋', color:'#8b5cf6', isFree:true,
     subtitle:'Man Power के actual SOPs और real rules — जो daily follow करने हैं',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gso1', title:'Metalliser Waste Rule — Stop Diameter (TN2602)',
@@ -21496,10 +21477,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_skills: {
+  sample_skills: {
     name:'Skills & Calculations', icon:'🧮', color:'#10b981', isFree:true,
     subtitle:'PET Roll Weight formula, Excel skills, Jumbo Movement — practical daily skills',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gsk1', title:'PET Roll Weight Calculation (TN-25)',
@@ -21585,10 +21566,10 @@ const LEARN_MODULES = {
   },
 
 
-  gls_maintenance: {
+  sample_maintenance: {
     name:'PM & Maintenance', icon:'🔧', color:'#38bdf8', isFree:true,
     subtitle:'Metalliser का Daily/Weekly/Monthly PM — Oil types, Boat testing, Cleaning record',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gm1', title:'Daily PM Checklist — हर shift में क्या check करें (MET F-07)',
@@ -21693,10 +21674,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_formats: {
+  sample_formats: {
     name:'Formats and Logbooks', icon:'📒', color:'#a3e635', isFree:true,
     subtitle:'Man Power के सभी formats — क्या भरें, कैसे भरें, कौन responsible है',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gf1', title:'Metallizer Log Book — MET F/01',
@@ -21782,7 +21763,7 @@ const LEARN_MODULES = {
       },
       {
         id:'gf6', title:'Complete Man Power MET Document Master List (MET/ML/01)',
-        desc:'Metalliser department के सभी SOPs, Work Instructions, और Formats की official list।',
+        desc:'Department SOPs, Work Instructions, and Formats list.',
         date:'Rev. Date: 07.02.2026 | Issue 01', sop:'MET/ML/01', audio:false, video:false, live:false,
         content:{
           category:'📚 Master List — All Man Power MET Documents',
@@ -21799,10 +21780,10 @@ const LEARN_MODULES = {
     ]
   },
 
-  gls_instructions: {
+  sample_instructions: {
     name:'Manager Instructions', icon:'📢', color:'#f59e0b', isFree:false, plan:'supervisor',
     subtitle:'Vivek Sir के direct instructions — सभी के लिए binding',
-    gls:true,
+    sample:true,
     lessons:[
       {
         id:'gi1', title:'Shift Schedule — No Tolerance (Instruction.docx)',
@@ -21932,7 +21913,7 @@ const CAREER_BOOST = {
       {
         label: '💰 Cost Control',
         questions: [
-          { q: 'Metalliser department में cost कहाँ-कहाँ लगती है?', a: '<b>Raw material (aluminium wire, film), energy (electricity for vacuum pumps + heating), maintenance (spares, consumables), manpower</b> — इन चारों को monitor करना cost management है।' },
+          { q: 'Where does cost occur in your department?', a: '<b>Raw material (aluminium wire, film), energy (electricity for vacuum pumps + heating), maintenance (spares, consumables), manpower</b> — इन चारों को monitor करना cost management है।' },
           { q: 'Aluminium wire wastage कम कैसे करें?', a: '<b>OD control tight रखो</b> (over-coating = wire waste), boat life optimize करो, wire splice quality improve करो, और per-shift wire consumption track करो।' },
           { q: 'Energy cost कैसे reduce करें?', a: '<b>Machine idle time कम करो</b> (pumps always running = expensive), production scheduling optimize करो, air leaks fix करो (vacuum pumps को ज्यादा काम करना पड़ता है), और maintenance से pump efficiency maintain करो।' },
         ]
@@ -22106,11 +22087,11 @@ function openLearnModule(moduleId){
   renderModuleContent(moduleId, 'audio', hasAccess);
 }
 
-function toggleGlsLesson(bodyId){
+function toggleMpLesson(bodyId){
   const body = document.getElementById(bodyId);
   if(!body) return;
-  const lessonId = bodyId.replace('gls_body_','');
-  const arrow = document.getElementById('gls_arrow_' + lessonId);
+  const lessonId = bodyId.replace('mp_body_','');
+  const arrow = document.getElementById('mp_arrow_' + lessonId);
   const isOpen = body.style.display !== 'none';
   body.style.display = isOpen ? 'none' : 'block';
   if(arrow) arrow.textContent = isOpen ? '▼' : '▲';
@@ -22189,18 +22170,18 @@ function renderModuleContent(moduleId, contentType, hasAccess){
     const available = contentType==='audio'?lesson.audio : contentType==='video'?lesson.video : lesson.live;
 
     // Man Power modules with real content — show infographic card instead of audio/video buttons
-    if(mod.gls && lesson.content && (accessible || isPreview)){
+    if(mod.sample && lesson.content && (accessible || isPreview)){
       const c = lesson.content;
-      html += `<div class="lesson-card gls-lesson-card" style="border-color:${modColor}44;margin-bottom:14px">
-        <div class="lesson-card-head" onclick="toggleGlsLesson('gls_body_${lesson.id}')" style="cursor:pointer">
+      html += `<div class="lesson-card mp-lesson-card" style="border-color:${modColor}44;margin-bottom:14px">
+        <div class="lesson-card-head" onclick="toggleMpLesson('mp_body_${lesson.id}')" style="cursor:pointer">
           <div class="lesson-card-num" style="background:${modColor}22;color:${modColor}">${idx+1}</div>
           <div style="flex:1">
             <div class="lesson-card-title">${lesson.title}</div>
             <div class="lesson-card-desc">${lesson.desc}${lesson.date?` · <span style="color:var(--muted2);font-size:10px">${lesson.date}</span>`:''}</div>
           </div>
-          <span style="font-size:18px;color:${modColor};flex-shrink:0" id="gls_arrow_${lesson.id}">▼</span>
+          <span style="font-size:18px;color:${modColor};flex-shrink:0" id="mp_arrow_${lesson.id}">▼</span>
         </div>
-        <div id="gls_body_${lesson.id}" style="display:none;padding:10px 0 4px 0">
+        <div id="mp_body_${lesson.id}" style="display:none;padding:10px 0 4px 0">
           <div style="font-size:11px;font-weight:900;color:${modColor};text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding:6px 10px;background:${modColor}15;border-radius:8px">${c.category||''}</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${(c.points||[]).map(p=>`

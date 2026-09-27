@@ -1,4 +1,4 @@
-# Security setup (v2.3.20)
+# Security setup (v2.4.0)
 
 Client no longer ships admin password hashes or license unlock keys.
 

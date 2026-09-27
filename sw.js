@@ -1,10 +1,10 @@
 /* Man Power — service worker
    - Fixed infinite reload loop
-   - Never deletes glsmp-integrity (session integrity token) on activate
+   - Never deletes mp-integrity (session integrity token) on activate
    - Precaches all tab partials for offline section viewing
 */
-const CACHE = 'metpower-v50';
-const KEEP_CACHES = new Set([CACHE, 'glsmp-integrity']);
+const CACHE = 'manpower-v240';
+const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 const PRECACHE = [
   './',
   './index.html',

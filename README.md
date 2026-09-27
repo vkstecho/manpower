@@ -1,37 +1,39 @@
-# MET Power — Manpower Management System (v2.3.20)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.0)
 
-GLS Polyfilms metalliser department app (Firebase + PWA-ready).
+Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
-## What's new in 2.3.20
+Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
-### Security (hardened)
-- **Admin passwords**: client no longer seeds or ships SHA-256 hashes. Configure `adminAuth` in Firebase Console only (see `SECURITY.md`).
-- **Emergency offline admin login removed** — fails closed if Firebase is unreachable.
-- **License unlock keys** no longer in the JS bundle. Store hashes under `settings/license.unlockHashes` in Firebase.
-- Sensitive admin login console logs removed.
+## What’s new in 2.4.0
 
-### Login friction / stuck pending
-- Pending approval UI always has **Retry** and **Refresh** actions.
-- Approval poller **auto-timeout after 10 minutes**.
-- `cancelLoginRequest` fully clears overlays, poller, and pending flags.
-- Boot recovery clears stale pending state older than 30 minutes.
-- **Known device + password** within 30 days of phone verify → skip OTP, use password screen.
+### Branding & scope
+- Removed all GLS / Polyfilms / fixed “Metalliser department” branding.
+- App is industry-agnostic: manufacturing, logistics, services, healthcare, etc.
+- Default company id is generic (`default`), not `gls`.
 
-### Schedule / Leave / Team
-- Extra sticky-header resync when opening Schedule tab (orientation / filter desync).
-- Leave and Team tab renders wrapped so one failure does not blank the whole tab.
+### Multi-industry sections
+- Sections come from the Manager Excel “Section” column.
+- Display labels, filters, min-staff, and schedule grouping use dynamic section data.
+- Legacy fixed keys (M1/M2/S1/S2…) kept only as migration fallbacks.
 
-### Architecture
-- New modules: `js/config.js`, `js/utils.js` (loaded before `app.js`).
-- Further split of `app.js` can continue feature-by-feature without breaking globals.
-- SW cache bumped to `metpower-v40`; precaches new modules.
+### P0 clean-up
+- Single source of truth for utilities (`js/utils.js`).
+- Version strings aligned to **2.4.0**.
+- Service Worker cache bumped; integrity cache renamed to `mp-integrity`.
+- README & SECURITY updated for multi-tenant use.
+
+### Architecture notes
+- Modules: `js/config.js`, `js/utils.js`, `js/firebase-init.js`, `js/app.js`.
+- Further feature-by-feature split of `app.js` is ongoing.
+- SW precaches tab partials for offline viewing.
 
 ## Folder structure
 
 ```
-met-power/
+manpower/
 ├── index.html
-├── schedule.html, myshift.html, leave.html, reports.html, todo.html, pending.html, team.html, instructions.html
+├── schedule.html, myshift.html, leave.html, reports.html, todo.html,
+│   pending.html, team.html, instructions.html, privacy.html
 ├── css/app.css
 ├── js/
 │   ├── polyfill.js
@@ -44,13 +46,29 @@ met-power/
 └── README.md
 ```
 
-Assets on GitHub (not in every zip): `manifest.json`, icons, logos.
+## Recommended Excel columns (Team upload)
 
-## Firebase setup required after deploy
+| Column (any of these headers) | Purpose |
+|-------------------------------|---------|
+| Name / Employee Name          | Full name |
+| Emp ID / Employee Code / Code | Unique employee code |
+| Mobile / Phone                | 10-digit mobile |
+| Section                       | **Section key** (e.g. Line-1, Warehouse, ICU, Store) |
+| Machine / MC                  | Optional machine or work-centre |
+| Designation / Role            | Job title |
+| Responsibility                | Optional duty group |
+| Joining Date / DOJ            | Date of joining |
+| Date of Birth / DOB           | Optional |
+| Weekly Off / WOff             | Optional |
+| Salary                        | Optional |
 
-1. Ensure `adminAuth/{user}` entries exist (hash = SHA-256 of `user:pass:MP_ADMIN`).
-2. Create `settings/license` with `validTill` and optional `unlockHashes` (see SECURITY.md).
-3. Keep RTDB rules denying public write to those paths.
+Sections discovered from the Excel become the filters, colour groups, and min-staff rows automatically.
+
+## Firebase setup after deploy
+
+1. Create `adminAuth/{username}` entries (hash = SHA-256 of `username:password:MP_ADMIN`). See `SECURITY.md`.
+2. Create `settings/license` with `validTill` and optional `unlockHashes`.
+3. Keep RTDB rules that deny public write to `adminAuth` and `settings/license`.
 
 ## Run locally
 
@@ -60,3 +78,7 @@ python3 -m http.server 8080
 ```
 
 Do **not** open as `file://`.
+
+## License / contact
+
+Configure admin phones and manager invite code via Firebase `settings` or `js/config.js` (non-secret values only).

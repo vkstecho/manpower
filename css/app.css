@@ -1756,12 +1756,12 @@ body.light .learn-hero{ background:linear-gradient(160deg,#1a0533,#0d1623,#080e1
 .tap-card-ico{font-size:28px;line-height:1;}
 .tap-card-lbl{font-size:13px;font-weight:800;color:#fff;}
 .tap-card-sub{font-size:10px;color:var(--muted2);}
-.tap-card.c-gls{--tc:#f97316;}
+.tap-card.c-primary{--tc:#f97316;}
 .tap-card.c-uflex{--tc:#38bdf8;}
 .tap-card.c-jindal{--tc:#a3e635;}
 .tap-card.c-chiripal{--tc:#e879f9;}
 .tap-card.c-others{--tc:#94a3b8;}
-.tap-card.c-gls.selected{border-color:#f97316;background:rgba(249,115,22,.1);}
+.tap-card.c-primary.selected{border-color:#f97316;background:rgba(249,115,22,.1);}
 .tap-card.c-uflex.selected{border-color:#38bdf8;background:rgba(56,189,248,.1);}
 .tap-card.c-jindal.selected{border-color:#a3e635;background:rgba(163,230,53,.1);}
 .tap-card.c-cosmo.selected{border-color:#818cf8;background:rgba(129,140,248,.1);}
