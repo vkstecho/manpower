@@ -5479,11 +5479,12 @@ function _renderShiftSettingsModal(){
   if(d.gpMaxPerMonth==null) d.gpMaxPerMonth = 2;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">⚙️ Shift Settings</div>
+  <div class="modal-title">⚙️ M/c &amp; Shift Setting</div>
   <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">
     ${isAdmin()?'Company: <b style="color:var(--text)">'+(SESSION.viewCompanyId||'').toUpperCase()+'</b>':'For your own team'}
   </div>
 
+  <div class="modal-scroll-body">
   <div style="font-size:12px;font-weight:800;color:#f97316;margin:4px 0 6px">⏰ Shifts — for Auto Schedule</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
     ✅ टिक = <b>Auto बनाएं</b> में ये shifts rotate होंगी (जैसे सिर्फ D+N, या सिर्फ A+B+C)।<br>
@@ -5511,6 +5512,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
 
+  </div>
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
     <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
@@ -5672,7 +5674,7 @@ async function _saveShiftSettings(){
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
     closeModal();
-    toast('✅ Shift Settings save हो गईं');
+    toast('✅ M/c & Shift Setting saved');
   }
 }
 
@@ -6327,7 +6329,7 @@ async function showProfile(){
       </div>
       ${isMgr()?`<button type="button" class="profile-action" onclick="openShiftSettings()">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">⚙️</div>
-        <div><div class="pa-label">Shift Settings</div><div class="pa-sub">${(_lang==='en')?'Shifts & min staff by Section/Machine':'Shifts & Section/Machine minimums'}</div></div>
+        <div><div class="pa-label">M/c &amp; Shift Setting</div><div class="pa-sub">${(_lang==='en')?'Shifts & min staff by Section/Machine':'Shifts & Section/Machine minimums'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
