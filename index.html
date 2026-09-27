@@ -50,7 +50,7 @@ window.addEventListener('appinstalled', function () {
 
 <script type="module" src="js/firebase-init.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<link rel="stylesheet" href="css/app.css?v=18">
+<link rel="stylesheet" href="css/app.css?v=23">
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -1133,10 +1133,8 @@ window.addEventListener('appinstalled', function () {
     <div class="modal-handle"></div>
     <div class="modal-title">📤 Excel से Shift Schedule अपलोड करें</div>
     <p style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.6">
-      दोनों formats support हैं:<br>
-      <span style="color:var(--green)">✅ Man Power Monthly Format</span> — S.No | E.Code | Name | M/C | W-OFF | 1 | 2 | 3...<br>
-      <span style="color:var(--green)✅ Simple Format</span> — Date | EmpID1 | EmpID2...<br>
-      <span style="color:var(--day)">केवल पिछले 10 महीने का डेटा ही save होगा।</span>
+      <span style="color:var(--green)">✅ Recommended:</span> same as <b>Download Excel</b> — Name, Emp ID, Designation, Weekly Off, Mobile, <b>Section</b>, Machine, Responsibility, Salary, Joining Date, Date of Birth, then daily shift columns (01-Jul-25…).<br>
+      Also supports Man Power monthly format. Use Download Excel for the exact template.
     </p>
     <div id="excelUploadDropZone" onclick="document.getElementById('excelFileInput').click()"
       style="border:2px dashed var(--border2);border-radius:14px;padding:30px;text-align:center;cursor:pointer;background:var(--card);margin-bottom:14px;transition:border-color .2s"
@@ -1319,7 +1317,7 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/app.js?v=18"></script>
+<script src="js/app.js?v=23"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

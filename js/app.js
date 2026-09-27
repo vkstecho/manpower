@@ -928,6 +928,7 @@ function _defaultShiftConfig(){
     waAbsentTemplate: '⚠️ *Man Power — Absent (अनुशासनहीनता)*\n_{date}_\n\n*ध्यान दें {name}*,\n\nआप *बिना अनुमति / बिना सूचना* अनुपस्थित (Absent) चिह्नित किए गए हैं:\n{dates}\n\nयह *अनुशासनहीन व्यवहार* माना जाता है।\n• बिना अनुमति duty छोड़ना गंभीर उल्लंघन है\n• वेतन कटौती / NCR / अनुशासनात्मक कार्रवाई हो सकती है\n• दोबारा ऐसा होने पर सख्त कार्रवाई की जाएगी\n\nतुरंत Manager से संपर्क करें।\n_— {manager}_',
     waGPTemplate: '🪪 *Man Power — Gate Pass*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *Gate Pass (GP)* दिया गया है:\n{dates}\n\n📌 *नियम:* एक महीने में अधिकतम *{gpMax}* Gate Pass ही अनुमत हैं।\nइस महीने आपके GP: *{gpCount}/{gpMax}*\n\nअधिक GP के लिए Manager की विशेष अनुमति आवश्यक है।\n_— {manager}_',
     waHolidayTemplate: '🎉 *Man Power — Holiday*\n_{date}_\n\nनमस्ते *{name}*,\n\nनिम्न तिथि(याँ) *Holiday* चिह्नित की गई हैं:\n{dates}\n\nशुभ अवकाश!\n_— {manager}_',
+    waCOffTemplate: '🔄 *Man Power — C-Off*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *Compensatory Off (C-Off)* दिया गया है।\n\n📅 *C-Off Date:* {coffDate}\n📝 *कारण:* {reason}\n\nयह आपकी approved C-Off balance में जोड़ दिया गया है।\n_— {manager}_',
     gpMaxPerMonth: 2,
     waNotifyOnSave: true,
     metallisers: ['M1','M2'],
@@ -1429,7 +1430,8 @@ function applyLang(){
   const schedBtnMap = {
     'schedBuildBtn':       {hi:'📋 Schedule बनाएं',      en:'📋 Create Schedule'},
     'printBtn':            {hi:'🖨️ प्रिंट',              en:'🖨️ Print'},
-    'excelBtn':            {hi:'📊 Excel',                en:'📊 Excel'},
+    'excelBtn':            {hi:'📥 Download Excel',       en:'📥 Download Excel'},
+    'uploadSchedBtn':      {hi:'📤 Upload Schedule',     en:'📤 Upload Schedule'},
     'empUploadBtn':        {hi:'📤 Shift Upload',         en:'📤 Shift Upload'},
     'empUploadWizardBtn':  {hi:'👤 Emp Upload',           en:'👤 Emp Upload'},
     'empReorderBtn':       {hi:'↕️ क्रम बदलें',         en:'↕️ Reorder'},
@@ -4569,6 +4571,7 @@ function _renderShiftSettingsModal(){
   if(!d.waAbsentTemplate) d.waAbsentTemplate = _d0.waAbsentTemplate;
   if(!d.waGPTemplate) d.waGPTemplate = _d0.waGPTemplate;
   if(!d.waHolidayTemplate) d.waHolidayTemplate = _d0.waHolidayTemplate;
+  if(!d.waCOffTemplate) d.waCOffTemplate = _d0.waCOffTemplate;
   if(d.gpMaxPerMonth==null) d.gpMaxPerMonth = 2;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
@@ -4636,6 +4639,11 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div class="field" style="margin-bottom:10px">
     <label style="font-size:11px;color:#94a3b8;font-weight:800">Holiday</label>
     <textarea id="ss_waHoliday" rows="3" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waHolidayTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">C-Off (Compensatory Off)</label>
+    <div style="font-size:10px;color:#64748b;margin-bottom:4px">Placeholders: {name} {date} {coffDate} {reason} {manager}</div>
+    <textarea id="ss_waCOff" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waCOffTemplate||'').replace(/</g,'&lt;')}</textarea>
   </div>
   <div class="field" style="margin-bottom:10px">
     <label style="font-size:11px;color:#94a3b8;font-weight:800">Gate Pass (GP)</label>
@@ -4766,7 +4774,8 @@ async function _saveShiftSettings(){
       ['ss_waLeave','waLeaveTemplate'],
       ['ss_waAbsent','waAbsentTemplate'],
       ['ss_waGP','waGPTemplate'],
-      ['ss_waHoliday','waHolidayTemplate']
+      ['ss_waHoliday','waHolidayTemplate'],
+      ['ss_waCOff','waCOffTemplate']
     ];
     for(const [id,key] of map){
       const el = document.getElementById(id);
@@ -4781,6 +4790,7 @@ async function _saveShiftSettings(){
   if(!_shiftDraft.waAbsentTemplate) _shiftDraft.waAbsentTemplate = _def.waAbsentTemplate;
   if(!_shiftDraft.waGPTemplate) _shiftDraft.waGPTemplate = _def.waGPTemplate;
   if(!_shiftDraft.waHolidayTemplate) _shiftDraft.waHolidayTemplate = _def.waHolidayTemplate;
+  if(!_shiftDraft.waCOffTemplate) _shiftDraft.waCOffTemplate = _def.waCOffTemplate;
   if(!_shiftDraft.gpMaxPerMonth) _shiftDraft.gpMaxPerMonth = 2;
   if(!_shiftDraft.minBySec) _shiftDraft.minBySec = {};
   const ok=await saveShiftConfig(_shiftDraft);
@@ -5098,6 +5108,8 @@ async function openLeaveBalanceModal(){
   const calCO = new Set();
 
   // A) Approved leave applications (primary source by type)
+  // CO credits (holiday/double-shift earned) increase balance; CO usage decreases it
+  let coCredits = 0;
   try{
     (getLeaves()||[]).forEach(l=>{
       if(!emp || !l || l.status!=='approved') return;
@@ -5109,7 +5121,14 @@ async function openLeaveBalanceModal(){
       const t = String(l.leaveType||l.type||'').toLowerCase();
       if(typeCode==='SL' || /sick|\bsl\b/.test(t)) used.SL += days;
       else if(typeCode==='EL' || /earned|\bel\b|privilege/.test(t)) used.EL += days;
-      else if(typeCode==='CO' || /c-?off|comp|\bc\/o\b|\bco\b/.test(t)) used.CO += days;
+      else if(typeCode==='CO' || /c-?off|comp|\bc\/o\b|\bco\b/.test(t)){
+        // credit:true or autoGenerated holiday/double = EARNED (+balance)
+        if(l.credit === true || l.autoGenerated === true){
+          coCredits += days;
+        } else {
+          used.CO += days; // employee took C-Off
+        }
+      }
       else if(typeCode==='CL' || /casual|\bcl\b/.test(t)) used.CL += days;
       else if(typeCode && typeCode!=='L') { used.other += days; }
       else used.other += days;
@@ -5167,24 +5186,32 @@ async function openLeaveBalanceModal(){
 
   // If no typed CL apps, fall back to unique calendar L days
   if(used.CL===0 && calL.size) used.CL = calL.size;
-  if(used.CO===0 && calCO.size) used.CO = calCO.size;
+  // CO used: calendar C/O added in cards section (not here, to avoid double-count with apps)
 
   const quotaKeys = Object.keys(q).filter(k=>!['updatedAt','updatedBy'].includes(k) && (typeof q[k]==='number' || !isNaN(Number(q[k]))));
+  // Calendar C/O days count as USED (reduce balance)
+  if(calCO.size) used.CO += calCO.size;
+
   const cards = quotaKeys.map(k=>{
     const quota = Number(q[k])||0;
     let u = 0;
+    let earned = 0;
     if(k==='CL') u = used.CL;
     else if(k==='SL') u = used.SL;
     else if(k==='EL') u = used.EL;
-    else if(k==='CO'||k==='C/O') u = used.CO;
+    else if(k==='CO'||k==='C/O'){ u = used.CO; earned = coCredits; }
     else if(k==='other') u = used.other;
-    const left = Math.max(0, quota - u);
+    // C-Off balance = quota + earned (holiday duty etc.) − used (took C/O day)
+    const left = Math.max(0, quota + earned - u);
     const label = k==='CL'?'Casual Leave (CL)':k==='SL'?'Sick Leave (SL)':k==='EL'?'Earned Leave (EL)':k==='CO'?'Comp Off (C/O)':k;
     const color = k==='SL'?'#0ea5e9':k==='CO'?'#d97706':k==='EL'?'#7c3aed':'#16a34a';
+    const sub = (k==='CO'||k==='C/O')
+      ? ('Earned +'+earned+' · Used '+u+' · Base quota '+quota)
+      : ('Used (approved): '+u);
     return `<div style="background:var(--panel);border-radius:12px;padding:12px;border:1px solid var(--border2)">
       <div style="font-weight:800;color:var(--text)">${label}</div>
-      <div style="font-size:22px;font-weight:900;color:${color}">${left} <span style="font-size:12px;color:var(--muted2)">left of ${quota}</span></div>
-      <div style="font-size:11px;color:var(--muted2)">Used (approved): ${u}</div>
+      <div style="font-size:22px;font-weight:900;color:${color}">${left} <span style="font-size:12px;color:var(--muted2)">left</span></div>
+      <div style="font-size:11px;color:var(--muted2)">${sub}</div>
     </div>`;
   }).join('');
 
@@ -6045,57 +6072,42 @@ function _discoverAllShiftCodes(allEmps, cfgShifts){
   return result;
 }
 
-function getShift(emp, dateStr){
-  const ov=getOverrides(); const ok=emp.id+'_'+dateStr;
-  if(ov[ok]) return ov[ok];
-  const onLeave=getLeaves().find(l=>l.status==='approved'&&l.empId===emp.id&&l.from<=dateStr&&l.to>=dateStr);
-  if(onLeave) return 'L';
-  const d=new Date(dateStr);
-  const monthKey = dateStr.substring(0,7).replace('-','_'); // YYYY_MM
-
-  // Helper: lookup by emp.id (internal key like 'e15') OR emp.empId (employee code like '30000426')
+/** Base roster shift from schedule/Excel only — ignores overrides (used for holiday duty check). */
+function getBaseShift(emp, dateStr){
+  if(!emp || !dateStr) return '';
+  const d=new Date(dateStr+'T12:00:00');
+  const monthKey = dateStr.substring(0,7).replace('-','_');
   function fbLookup(sched){
     if(!sched) return null;
     if(sched[emp.id]) return sched[emp.id];
     if(emp.empId && sched[emp.empId]) return sched[emp.empId];
     return null;
   }
-
-  // 1. Firebase schedules (from schedule builder OR Excel upload)
   const fbSched = getSchedules()[monthKey];
   const fbRow = fbLookup(fbSched);
   if(fbRow){
     const val = fbRow[d.getDate()-1];
-    // null/undefined = not set, return blank. Empty string = intentionally blank. 'O' = explicitly Off.
     if(val === null || val === undefined) return '';
-    return val; // includes '', 'O', 'D', 'N' etc as-is
+    return val;
   }
-
-  // 2. Hardcoded Excel schedule (Aug 2025 – Apr 2026)
-  if(EXCEL_SCHEDULES[monthKey]){
+  if(typeof EXCEL_SCHEDULES!=='undefined' && EXCEL_SCHEDULES[monthKey]){
     const exRow = fbLookup(EXCEL_SCHEDULES[monthKey]);
     if(exRow){
       const val = exRow[d.getDate()-1];
       if(val === '' || val === null || val === undefined) return '';
       return val;
     }
-    // Month exists in EXCEL_SCHEDULES but employee not in it = not yet joined
     return '';
   }
-
-  // 3. May 2026 onwards — Firebase only (schedule builder)
-  if(d >= new Date(2026,4,1)){
-    return ''; // not yet generated
-  }
-
-  // 4. Apr 2026 — Excel data if available
-  if(d >= new Date(2026,3,1)){
-    const apr = EXCEL_SCHEDULES['2026_04'];
-    if(apr){ const r=fbLookup(apr); if(r) return r[d.getDate()-1]||''; }
-    return '';
-  }
-
   return '';
+}
+
+function getShift(emp, dateStr){
+  const ov=getOverrides(); const ok=emp.id+'_'+dateStr;
+  if(ov[ok]) return ov[ok];
+  const onLeave=getLeaves().find(l=>l.status==='approved'&&l.empId===emp.id&&l.from<=dateStr&&l.to>=dateStr);
+  if(onLeave) return 'L';
+  return getBaseShift(emp, dateStr);
 }
 
 /** Single source of truth — schedule, My Shift, picker */
@@ -6337,7 +6349,8 @@ async function renderHome(){
     const chipCls = 'hm-chip' + (isMain?' main':isSup?' sup':'');
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
-    const shLabel = sh?`<span class="shc shc-sm ${cellClass(sh)}">${cellDisp(sh)}</span>`:'';
+    const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
+    const shLabel = sh?`<span class="shc shc-sm ${cellClass(sh)}" style="background:${_st.bg} !important;color:${_st.fg} !important;width:26px;height:22px;font-size:12px;border-radius:6px;margin-left:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900">${cellDisp(sh)}</span>`:'';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -6746,12 +6759,14 @@ function resetCustomRange(){
 // EXCEL UPLOAD
 // ════════════════════════════════════════
 function openExcelUpload(){
+  try{ /* exposed for Schedule toolbar */ }catch(e){}
   document.getElementById('excelUploadOverlay').classList.add('open');
   document.getElementById('excelUploadStatus').style.display='none';
 }
 function closeExcelUpload(){
   document.getElementById('excelUploadOverlay').classList.remove('open');
 }
+try{ window.openExcelUpload = openExcelUpload; window.closeExcelUpload = closeExcelUpload; window.handleExcelFile = handleExcelFile; }catch(e){}
 function handleExcelDrop(e){
   e.preventDefault();
   document.getElementById('excelUploadDropZone').style.borderColor='var(--border2)';
@@ -6921,33 +6936,102 @@ async function handleExcelFile(file){
           } else { i++; }
         }
       } else {
-        // Simple date-rows format
-        formatName = 'Simple Date-Row Format';
-        const header=rows[0];
-        const now=new Date();
-        const cutoff=new Date(now.getFullYear(),now.getMonth()-12,1);
-        const cutoffStr=cutoff.toISOString().split('T')[0];
-        for(let r=1;r<rows.length;r++){
-          const row=rows[r];
-          if(!row||!row[0]) continue;
-          let dateStr='';
-          const raw=String(row[0]).trim();
-          if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) dateStr=raw;
-          else if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(raw)){
-            const p=raw.split(/[\/\-]/);
-            dateStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
-          } else { const d=new Date(raw); if(!isNaN(d)) dateStr=d.toISOString().split('T')[0]; }
-          if(!dateStr||dateStr<cutoffStr) continue;
-          const monthKey=dateStr.substring(0,7).replace('-','_');
-          const dayIdx=parseInt(dateStr.split('-')[2],10)-1;
-          if(!schedByMonth[monthKey]) schedByMonth[monthKey]={};
-          for(let c=1;c<header.length;c++){
-            const empId=String(header[c]||'').trim();
+        // FORMAT C: Flat employee rows — Name | Emp ID | … | Section | Machine | … | 01-Jul-25 | 02-Jul-25 …
+        // Same layout as Download Excel / Manager working file
+        const headerRowIdx = rows.findIndex(r => {
+          const cells = (r||[]).map(c=>String(c||'').trim().toLowerCase());
+          const hasName = cells.some(c=>c==='name');
+          const hasCode = cells.some(c=>/^(emp\s*id|e\s*code|emp\s*code|code)$/.test(c));
+          return hasName && hasCode;
+        });
+        if(headerRowIdx >= 0){
+          formatName = 'Flat Team+Schedule (Name / Emp ID / Section + dates)';
+          const header = rows[headerRowIdx] || [];
+          const norm = (s)=> String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+          let empCodeCol = -1, nameCol = -1;
+          const dayColMap = {}; // colIndex → {year, month, day}
+          const MONTH_ABBR = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};
+          header.forEach((cell, ci)=>{
+            const n = norm(cell);
+            if(n==='name') nameCol = ci;
+            if(/^(emp id|e code|emp code|code|emp id)$/.test(n) || n==='empid') empCodeCol = ci;
+            // 01-Jul-25, 1-Jul-2025, 01/07/2025, 2025-07-01
+            let m = String(cell||'').trim().match(/^(\d{1,2})[-/ .](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .](\d{2,4})$/i);
+            if(m){
+              let year = parseInt(m[3],10); if(year < 100) year += 2000;
+              const month = MONTH_ABBR[m[2].toLowerCase().slice(0,3)];
+              const day = parseInt(m[1],10);
+              if(month && day) dayColMap[ci] = { year, month, day };
+              return;
+            }
+            m = String(cell||'').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+            if(m){ dayColMap[ci] = { year:+m[1], month:+m[2], day:+m[3] }; return; }
+            m = String(cell||'').trim().match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+            if(m){
+              let year = parseInt(m[3],10); if(year < 100) year += 2000;
+              dayColMap[ci] = { year, month: parseInt(m[2],10), day: parseInt(m[1],10) };
+            }
+          });
+          if(empCodeCol < 0){
+            // fallback: second column often Emp ID
+            empCodeCol = 1;
+          }
+          const SH_NORM2 = {'C/O':'C/O','CO':'C/O','COFF':'C/O','C-OFF':'C/O','GP':'GP','HLF':'HLF','HALF':'HLF','H':'H','AB':'Ab','ABSENT':'Ab','OD':'OD','G':'G','GENERAL':'G','SL':'L'};
+          for(let r = headerRowIdx + 1; r < rows.length; r++){
+            // skip weekday-only helper row
+            const row = rows[r];
+            if(!row) continue;
+            const codeRaw = String(row[empCodeCol]||'').trim();
+            const empId = codeRaw.replace(/[^0-9A-Za-z]/g,'');
             if(!empId) continue;
-            const sh=String(row[c]||'O').trim().toUpperCase()||'O';
-            if(!schedByMonth[monthKey][empId]) schedByMonth[monthKey][empId]=[];
-            schedByMonth[monthKey][empId][dayIdx]=sh;
-            empCount++;
+            // skip pure weekday rows
+            const first = String(row[0]||'').trim().toLowerCase();
+            if(/^(sun|mon|tue|wed|thu|fri|sat)$/.test(first) && !String(row[empCodeCol]||'').trim()) continue;
+            Object.entries(dayColMap).forEach(([col, dm])=>{
+              const monthKey = dm.year + '_' + String(dm.month).padStart(2,'0');
+              const dayIdx = dm.day - 1;
+              const daysInMonth = new Date(dm.year, dm.month, 0).getDate();
+              if(dayIdx < 0 || dayIdx >= daysInMonth) return;
+              if(!schedByMonth[monthKey]) schedByMonth[monthKey] = {};
+              if(!schedByMonth[monthKey][empId]) schedByMonth[monthKey][empId] = new Array(daysInMonth).fill('');
+              let sh = String(row[parseInt(col,10)]||'').trim().toUpperCase();
+              sh = SH_NORM2[sh] || sh;
+              if(!sh) return;
+              if(['D','N','O','L','C/O','G','GP','HLF','H','Ab','OD','A','B','C'].includes(sh) || sh.length <= 4){
+                schedByMonth[monthKey][empId][dayIdx] = sh;
+                empCount++;
+              }
+            });
+          }
+        } else {
+          // Simple date-rows format (Date | Emp1 | Emp2 …)
+          formatName = 'Simple Date-Row Format';
+          const header=rows[0];
+          const now=new Date();
+          const cutoff=new Date(now.getFullYear(),now.getMonth()-12,1);
+          const cutoffStr=cutoff.toISOString().split('T')[0];
+          for(let r=1;r<rows.length;r++){
+            const row=rows[r];
+            if(!row||!row[0]) continue;
+            let dateStr='';
+            const raw=String(row[0]).trim();
+            if(/^\d{4}-\d{2}-\d{2}$/.test(raw)) dateStr=raw;
+            else if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(raw)){
+              const p=raw.split(/[\/\-]/);
+              dateStr=`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+            } else { const d=new Date(raw); if(!isNaN(d)) dateStr=d.toISOString().split('T')[0]; }
+            if(!dateStr||dateStr<cutoffStr) continue;
+            const monthKey=dateStr.substring(0,7).replace('-','_');
+            const dayIdx=parseInt(dateStr.split('-')[2],10)-1;
+            if(!schedByMonth[monthKey]) schedByMonth[monthKey]={};
+            for(let c=1;c<header.length;c++){
+              const empId=String(header[c]||'').trim();
+              if(!empId) continue;
+              const sh=String(row[c]||'O').trim().toUpperCase()||'O';
+              if(!schedByMonth[monthKey][empId]) schedByMonth[monthKey][empId]=[];
+              schedByMonth[monthKey][empId][dayIdx]=sh;
+              empCount++;
+            }
           }
         }
       }
@@ -14595,10 +14679,10 @@ async function _saveHolidayListUI(){
     const dates = (_holidayDraft.items||[]).map(x=>x.date).filter(Boolean);
     let n = 0;
     if(dates.length && typeof applyHolidaysToTeam==='function'){
-      toast('⏳ Applying Holiday + C-Off for team…');
+      toast('⏳ Checking duty on holidays → C-Off credits…');
       n = await applyHolidaysToTeam(dates);
     }
-    toast('✅ Holiday List save · '+(n? (n+' C-Off granted') : 'saved'));
+    toast('✅ Holiday List saved · '+(n? (n+' members got C-Off +1') : 'no duty on holiday dates'));
     closeModal();
   }catch(e){ toast('❌ Save failed: '+(e.message||e)); }
 }
@@ -14720,10 +14804,10 @@ async function _processAutoCompOffRules(savedEntries){
       const emp = byId[e.empId];
       if(!emp) continue;
       const sh = String(e.newShift||'');
+      // Double shift → C-Off credit (+1 balance)
       if(typeof parseShiftWorkCodes==='function' && parseShiftWorkCodes(sh).length>=2)
-        await _requestCompOff(emp, e.date, 'Double shift ('+sh+') — C-Off eligibility');
-      if(sh==='H')
-        await _requestCompOff(emp, e.date, 'Holiday marked — C-Off');
+        await _requestCompOff(emp, e.date, 'Double shift ('+sh+') — C-Off +1');
+      // Manual H on one cell does NOT auto-grant (Holiday List controls C-Off for holidays)
     }
     const affectedIds = [...new Set((savedEntries||[]).map(x=>x.empId))];
     for(const eid of affectedIds){
@@ -14754,43 +14838,105 @@ async function _checkWeeklyOffGapAndRequestCO(emp){
   }catch(e){ console.warn('[weeklyOffGap]', e); }
 }
 async function applyHolidaysToTeam(dates){
+  /** Does NOT mark H on the schedule.
+   *  For each holiday date: if member's base roster was a working shift (D/N/A/B/C/G/GP/…),
+   *  grant +1 approved C-Off credit to their balance.
+   *  Also clears any previous auto-H overrides on those dates so schedule shows real duty.
+   */
   const team = (getEmps()||[]).filter(e=>e.status!=='resigned'&&e.status!=='left');
   let n=0;
-  const ovUpdates = {};
   const WORK = new Set(['A','B','C','D','N','GP','G','1','2','OD']);
+  const clearH = {}; // remove mistaken auto-H so schedule is not overwritten
   for(const dateStr of dates){
     for(const emp of team){
-      // Mark calendar H for everyone
-      ovUpdates[emp.id+'_'+dateStr] = 'H';
-      // If member was already on a working shift that day, grant APPROVED C-Off (+1 balance)
-      const prior = String(getShift(emp, dateStr)||'').toUpperCase();
+      const key = emp.id+'_'+dateStr;
+      const ov = (getOverrides()||{})[key];
+      // Clear auto-H only (leave other overrides like L, C/O alone)
+      if(String(ov)===('H') || String(ov)==='Holiday'){
+        clearH[key] = null; // Firebase null deletes
+      }
+      // Duty check uses base schedule (Excel/Firebase), not override
+      const prior = String((typeof getBaseShift==='function' ? getBaseShift(emp, dateStr) : getShift(emp, dateStr))||'').toUpperCase();
       const codes = (typeof parseShiftWorkCodes==='function') ? parseShiftWorkCodes(prior) : [prior];
       const wasWorking = codes.some(c=>WORK.has(String(c).toUpperCase())) || WORK.has(prior);
       if(wasWorking){
-        await _grantApprovedCompOff(emp, dateStr, 'Holiday — worked on '+prior+' · C-Off +1');
+        await _grantApprovedCompOff(emp, dateStr, 'Holiday list — worked on '+prior+' · C-Off +1', { credit: true });
         n++;
       }
     }
   }
-  if(Object.keys(ovUpdates).length){
-    try{ await fbUpdate('overrides', ovUpdates); }catch(e){ console.warn(e); }
-    try{ _cache.overrides = {...(getOverrides()||{}), ...ovUpdates}; }catch(e){}
+  if(Object.keys(clearH).length){
+    try{
+      // RTDB: set null to remove keys
+      await fbUpdate('overrides', clearH);
+      const oc = {...(getOverrides()||{})};
+      Object.keys(clearH).forEach(k=>{ delete oc[k]; });
+      _cache.overrides = oc;
+    }catch(e){ console.warn('[clearH]', e); }
   }
   return n;
 }
 
 /** Grant approved C-Off (increases balance) — no pending approval / no manager notification. */
-async function _grantApprovedCompOff(emp, dateStr, reason){
+async function _grantApprovedCompOff(emp, dateStr, reason, opts){
   try{
     if(!emp || !emp.id || !dateStr) return;
+    try{
+      const existing = (getLeaves()||[]).find(l=>
+        (l.empId===emp.id || l.empId===emp.empId) &&
+        String(l.from)===String(dateStr) &&
+        (l.type==='CO' || /C-?Off|Comp/i.test(String(l.leaveType||'')))
+      );
+      if(existing && !(opts && opts.sendWA)) return;
+      if(existing && opts && opts.sendWA){
+        // already recorded — only WhatsApp
+        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
+        if(phone && phone.length===10 && typeof openWA==='function'){
+          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
+          let tpl = cfg.waCOffTemplate || def.waCOffTemplate || '';
+          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
+          const msg = (tpl||'🔄 *C-Off*\n*{name}*\n📅 {coffDate}\n{reason}\n_— {manager}_')
+            .replace(/\{name\}/g, emp.name||'')
+            .replace(/\{date\}/g, fmtD)
+            .replace(/\{coffDate\}/g, fmtD)
+            .replace(/\{reason\}/g, reason||'C-Off')
+            .replace(/\{manager\}/g, SESSION.name||'Manager');
+          openWA(phone, msg);
+        }
+        return;
+      }
+    }catch(e){}
     const payload = {
       empId: emp.id, empName: emp.name||'', empCode: emp.empId||'',
       type:'CO', leaveType:'C/O', from:dateStr, to:dateStr, days:1,
       reason: reason||'Compensatory Off', status:'approved', autoGenerated:true,
+      credit: true, // earns +1 C-Off balance (not a used day)
       approvedAt: new Date().toISOString(), approvedBy: SESSION.name||'system',
-      requestedAt: new Date().toISOString()
+      requestedAt: new Date().toISOString(),
+      coffDate: dateStr
     };
     await fbPush('leaves', payload);
+    // WhatsApp only when explicitly requested (manual C-Off mark), not bulk auto
+    if(opts && opts.sendWA){
+      try{
+        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
+        if(phone && phone.length===10 && typeof openWA==='function'){
+          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
+          let tpl = cfg.waCOffTemplate || def.waCOffTemplate ||
+            '🔄 *Man Power — C-Off*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *C-Off* दिया गया है।\n📅 *C-Off Date:* {coffDate}\n📝 {reason}\n_— {manager}_';
+          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
+          const msg = tpl
+            .replace(/\{name\}/g, emp.name||'')
+            .replace(/\{date\}/g, fmtD)
+            .replace(/\{coffDate\}/g, fmtD)
+            .replace(/\{reason\}/g, reason||'C-Off')
+            .replace(/\{manager\}/g, SESSION.name||'Manager');
+          openWA(phone, msg);
+        }
+      }catch(e){ console.warn('[coff WA]', e); }
+    }
   }catch(e){ console.warn('[grantApprovedCompOff]', e); }
 }
 
@@ -14844,6 +14990,31 @@ async function saveAllShiftChanges(){
     // Update local cache immediately
     const newCache = {...(getOverrides()||{}), ...updates};
     _cache.overrides = newCache;
+
+    // C/O on schedule = USING one C-Off day (balance −1 via calendar). Send WA with date.
+    try{
+      for(const e of savedEntries){
+        const sh = String(e.newShift||'');
+        if(sh!=='C/O' && sh!=='CO') continue;
+        const emp = (getEmps()||[]).find(x=>x.id===e.empId);
+        if(!emp) continue;
+        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
+        if(phone && phone.length===10 && typeof openWA==='function'){
+          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
+          let tpl = cfg.waCOffTemplate || def.waCOffTemplate ||
+            '🔄 *Man Power — C-Off*\n\nनमस्ते *{name}*,\n\nआपका *C-Off* निम्न तिथि पर mark किया गया है।\n📅 *C-Off Date:* {coffDate}\n_— {manager}_';
+          const fmtD = (()=>{ try{ return new Date(e.date+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(ex){ return e.date; }})();
+          const msg = tpl
+            .replace(/\{name\}/g, emp.name||'')
+            .replace(/\{date\}/g, fmtD)
+            .replace(/\{coffDate\}/g, fmtD)
+            .replace(/\{reason\}/g, 'C-Off taken')
+            .replace(/\{manager\}/g, SESSION.name||'Manager');
+          openWA(phone, msg);
+        }
+      }
+    }catch(e){ console.warn('[coff WA batch]', e); }
 
     // Restore button and re-render
     restoreBtn();
@@ -16913,8 +17084,8 @@ async function _execPrint(){
       <div style="display:flex;align-items:center;gap:12px">
         <img src="vkslogo512.png" crossorigin="anonymous" alt="VKS Tech" style="width:52px;height:52px;border-radius:12px;object-fit:contain;background:#fff;border:1px solid #e2e8f0;padding:2px" onerror="this.style.display='none'"/>
         <div>
-          <div style="font-size:18px;font-weight:900;color:#1e293b;line-height:1.15;letter-spacing:0.2px">Made by VKS Tech</div>
-          <div style="font-size:10px;color:#64748b;font-weight:600">vkstech.com</div>
+          <div style="font-size:18px;font-weight:900;color:#1e293b;line-height:1.15;letter-spacing:0.2px">VKS Tech — Technology is power</div>
+          <div style="font-size:10px;color:#64748b;font-weight:600">vkstech.com · Made by VKS Tech</div>
         </div>
       </div>
       <div style="text-align:right">
@@ -16979,7 +17150,26 @@ async function _execPrint(){
 // ════════════════════════════════════════
 // EXCEL EXPORT — Shift Schedule
 // ════════════════════════════════════════
-function exportSchedExcel(){
+/** Load logo as data-URL for Excel branding (same asset as print). */
+async function _loadVksLogoDataUrl(){
+  try{
+    const res = await fetch('vkslogo512.png', { cache: 'force-cache' });
+    if(!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve)=>{
+      const fr = new FileReader();
+      fr.onload = ()=> resolve(fr.result);
+      fr.onerror = ()=> resolve(null);
+      fr.readAsDataURL(blob);
+    });
+  }catch(e){ return null; }
+}
+
+/**
+ * Download Schedule Excel — same fixed columns & order as Team Import template,
+ * then daily shift columns. Branding: VKS Tech – Technology is power + logo (like print).
+ */
+async function exportSchedExcel(){
   if(!isAdminOrMgr()){ toast('❌ Only Admin/Manager can export'); return; }
 
   let dates;
@@ -16994,30 +17184,22 @@ function exportSchedExcel(){
   const allEmps = getEmps().filter(e=>e.status!=='resigned' && e.status!=='left');
   const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const lbl = (document.getElementById('schedLbl')||{}).textContent || '';
+  const genAt = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
-  // Same fixed columns as Team Excel upload template
+  // Column sequence matches Manager's working Excel (Name…Section…DOB then dates)
   const FIXED = [
-    'Name','Emp ID','Designation','Weekly Off','Mobile',
-    'Joining Date','Date of Birth','Machine','Responsibility','Salary (₹/month)'
+    'Name','Emp ID','Designation','Weekly Off','Mobile','Section',
+    'Machine','Responsibility','Salary (₹/month)','Joining Date','Date of Birth'
   ];
 
-  const rows = [];
-  rows.push(['Man Power / Man Power — Schedule + Team export']);
-  rows.push(['Range: ' + lbl, 'Generated: ' + new Date().toLocaleString('en-IN')]);
-  rows.push([]);
-
-  // Header row 1: fixed cols + date numbers
   const headerDates = dates.map(d=>{
     const dt = new Date(d+'T00:00:00');
-    return `${String(dt.getDate()).padStart(2,'0')}-${dt.toLocaleString('en',{month:'short'})}-${String(dt.getFullYear()).slice(2)}`;
+    return String(dt.getDate()).padStart(2,'0')+'-'+dt.toLocaleString('en',{month:'short'})+'-'+String(dt.getFullYear()).slice(2);
   });
-  rows.push([...FIXED, ...headerDates]);
-
-  // Header row 2: blanks for fixed + weekdays
-  rows.push([...FIXED.map(()=>''), ...dates.map(d=>{
+  const weekdayRow = dates.map(d=>{
     const dt = new Date(d+'T00:00:00');
     return dayNames[dt.getDay()];
-  })]);
+  });
 
   const sorted = allEmps.slice().sort((a,b)=>{
     const sa = (a.sec||'').toString();
@@ -17026,45 +17208,132 @@ function exportSchedExcel(){
     return (a.name||'').localeCompare(b.name||'');
   });
 
-  sorted.forEach(e=>{
+  const dataRows = sorted.map(e=>{
     const mobile = (e.phone||e.mobile||'').toString().replace(/\D/g,'').slice(-10);
-    const machine = e.machine || e.mc || e.sec || '';
+    const machine = e.machine || e.mc || '';
     const desig = e.designation || e.desig || '';
     const resp = e.responsibility || e.resp || '';
-    const salary = e.monthlySalary != null && e.monthlySalary !== '' ? e.monthlySalary : '';
+    const section = (typeof getEmpSection==='function' ? getEmpSection(e) : '') || e.section || e.sec || '';
+    const salary = (e.monthlySalary != null && e.monthlySalary !== '') ? e.monthlySalary
+      : (e.salary != null && e.salary !== '' ? e.salary : '');
     const shifts = dates.map(d => {
       try{ return getShift(e, d) || ''; }catch(err){ return ''; }
     });
-    rows.push([
+    // Order: Name, Emp ID, Designation, Weekly Off, Mobile, Section, Machine, Responsibility, Salary, Joining Date, Date of Birth, [dates…]
+    return [
       e.name||'',
       e.empId||'',
       desig,
       e.woff||'',
       mobile,
-      e.joiningDate||'',
-      e.dob||'',
+      section,
       machine,
       resp,
       salary,
+      e.joiningDate||e.doj||'',
+      e.dob||'',
       ...shifts
-    ]);
+    ];
   });
 
-  // CSV escape
-  const esc = (v) => {
-    const s = (v==null?'':String(v));
-    if(/[",\n\r]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-    return s;
-  };
-  const csv = rows.map(r => r.map(esc).join(',')).join('\n');
-  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'MET-Power-Schedule-'+ (dates[0]||'export') + '-to-' + (dates[dates.length-1]||'') + '.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
-  toast('✅ Excel/CSV downloaded (' + sorted.length + ' members)');
+  toast('⏳ Excel तैयार हो रहा है…');
+  const logoDataUrl = await _loadVksLogoDataUrl();
+  const fileBase = 'VKS-Tech-ManPower-Schedule-'+(dates[0]||'export')+'-to-'+(dates[dates.length-1]||'');
+
+  // 1) Branded HTML table (Excel opens this) — includes vkslogo512 like print
+  try{
+    const escH = (s)=> String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    const thFixed = FIXED.map(h=>'<th style="background:#1e293b;color:#fff;padding:6px 8px;border:1px solid #334155;font-size:11px;white-space:nowrap">'+escH(h)+'</th>').join('');
+    const thDates = headerDates.map(h=>'<th style="background:#1e293b;color:#fff;padding:6px 4px;border:1px solid #334155;font-size:10px;text-align:center">'+escH(h)+'</th>').join('');
+    const thWeek = FIXED.map(()=>'<th style="background:#334155;color:#94a3b8;padding:3px 4px;border:1px solid #475569;font-size:9px"></th>').join('')
+      + weekdayRow.map(w=>'<th style="background:#334155;color:#e2e8f0;padding:3px 4px;border:1px solid #475569;font-size:9px;text-align:center">'+escH(w)+'</th>').join('');
+    const body = dataRows.map(r=>{
+      const cells = r.map((c,i)=>{
+        const isShift = i >= FIXED.length;
+        const val = escH(c);
+        const bg = isShift ? (
+          c==='D'?'#f59e0b':c==='N'?'#4f46e5':c==='G'?'#0284c7':c==='O'?'#475569':c==='L'?'#be123c':
+          (c==='C/O'||c==='CO')?'#92400e':c==='H'?'#ea580c':'#fff'
+        ) : '#fff';
+        const fg = isShift && (c==='D') ? '#000' : (isShift && c ? '#fff' : '#1e293b');
+        return '<td style="padding:4px 6px;border:1px solid #cbd5e1;font-size:11px;text-align:'+(isShift?'center':'left')+';background:'+bg+';color:'+fg+';font-weight:'+(isShift?'800':'600')+'">'+val+'</td>';
+      }).join('');
+      return '<tr>'+cells+'</tr>';
+    }).join('');
+    const logoImg = logoDataUrl
+      ? '<img src="'+logoDataUrl+'" width="52" height="52" alt="VKS Tech" style="border-radius:12px;border:1px solid #e2e8f0;background:#fff;padding:2px"/>'
+      : '';
+    const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/>
+<title>VKS Tech — Man Power Schedule</title>
+<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Schedule</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
+<style>
+  body{font-family:Arial,sans-serif;margin:12px;color:#1e293b}
+  table{border-collapse:collapse}
+</style></head><body>
+  <table style="width:100%;margin-bottom:12px;border:none"><tr>
+    <td style="border:none;vertical-align:middle;width:64px">${logoImg}</td>
+    <td style="border:none;vertical-align:middle;padding-left:10px">
+      <div style="font-size:18px;font-weight:900">VKS Tech — Technology is power</div>
+      <div style="font-size:11px;color:#64748b">vkstech.com · Made by VKS Tech</div>
+    </td>
+    <td style="border:none;text-align:right;vertical-align:middle">
+      <div style="font-size:16px;font-weight:900">Man Power — Shift Schedule</div>
+      <div style="font-size:12px;color:#475569;font-weight:700">${escH(lbl)}</div>
+      <div style="font-size:10px;color:#64748b">Generated: ${escH(genAt)} · ${sorted.length} employees</div>
+    </td>
+  </tr></table>
+  <table>
+    <thead>
+      <tr>${thFixed}${thDates}</tr>
+      <tr>${thWeek}</tr>
+    </thead>
+    <tbody>${body}</tbody>
+  </table>
+  <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center">
+    ${logoDataUrl?'<img src="'+logoDataUrl+'" width="16" height="16" style="vertical-align:middle;border-radius:3px"/>':''}
+    VKS Tech — Technology is power · vkstech.com
+  </div>
+</body></html>`;
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileBase + '.xls';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    toast('✅ Excel downloaded ('+sorted.length+' members) · VKS Tech branding');
+    return;
+  }catch(err){
+    console.warn('[exportSchedExcel] HTML/xls failed', err);
+  }
+
+  // 2) Fallback: .xlsx via SheetJS (text branding, same columns)
+  try{
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej; document.head.appendChild(s);
+      });
+    }
+    const aoa = [];
+    aoa.push(['VKS Tech — Technology is power']);
+    aoa.push(['Man Power — Shift Schedule', lbl||'', 'Generated: '+genAt]);
+    aoa.push(['vkstech.com · Made by VKS Tech']);
+    aoa.push([]);
+    aoa.push([...FIXED, ...headerDates]);
+    aoa.push([...FIXED.map(()=>''), ...weekdayRow]);
+    dataRows.forEach(r=> aoa.push(r));
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = FIXED.map((h,i)=>({ wch: i===0 ? 18 : 14 })).concat(headerDates.map(()=>({ wch: 8 })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
+    XLSX.writeFile(wb, fileBase + '.xlsx');
+    toast('✅ Excel downloaded ('+sorted.length+' members)');
+  }catch(err2){
+    console.warn('[exportSchedExcel] xlsx failed', err2);
+    toast('❌ Download failed');
+  }
 }
 
 
