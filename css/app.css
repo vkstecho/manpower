@@ -3109,3 +3109,19 @@ body {
 .shc.D, span.shc.D, .hm-chip .shc.D, .ms-day-sh.shc.D { background:#f59e0b !important; color:#000 !important; }
 .shc.N, span.shc.N, .hm-chip .shc.N, .ms-day-sh.shc.N { background:#4f46e5 !important; color:#fff !important; }
 .shc.G, span.shc.G, .hm-chip .shc.G, .ms-day-sh.shc.G { background:#0284c7 !important; color:#fff !important; }
+
+/* IDENTICAL DNG HOME SCHEDULE v25 */
+.hm-chip .shc, .hm-chip-meta .shc, .shc.shc-sm {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-family: 'Barlow Condensed', sans-serif !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.02em;
+}
+.hm-chip .shc.D, .shc.D, span.shc.D, .ms-day-sh.shc.D,
+.sched-tbl .shc.D { background: #f59e0b !important; color: #000000 !important; }
+.hm-chip .shc.N, .shc.N, span.shc.N, .ms-day-sh.shc.N,
+.sched-tbl .shc.N { background: #4f46e5 !important; color: #ffffff !important; }
+.hm-chip .shc.G, .shc.G, span.shc.G, .ms-day-sh.shc.G,
+.sched-tbl .shc.G { background: #0284c7 !important; color: #ffffff !important; }

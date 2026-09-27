@@ -2270,6 +2270,25 @@ async function _sendOTP(isResend){
   _loginMobile=fullPhone;
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
+
+  // Registered member/manager: offer Manager in-app approval first (saves OTP cost)
+  // Skip this gate on explicit resend or when force-OTP flag is set
+  if(!isResend && !window._forceOtpAfterMgrWait){
+    try{
+      const userData = await fbGet('mobileUsers/'+mobile);
+      if(userData && userData.status==='approved' &&
+         (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
+        if(userData.validTill && new Date(userData.validTill)<new Date()){
+          // expired — fall through to OTP / normal handling
+        } else {
+          showManagerLoginApproval(userData, mobile, fullPhone);
+          return;
+        }
+      }
+    }catch(e){ console.warn('[login] mgr-approval check', e); }
+  }
+  window._forceOtpAfterMgrWait = false;
+
   try{
     toast(isResend ? '⏳ Resending OTP…' : 'OTP भेजा जा रहा है...');
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
@@ -2393,6 +2412,50 @@ async function _checkUserAfterOTP(){
         if(userData.validTill && new Date(userData.validTill)<new Date()){
           toast('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920'); return;
         }
+        // Mobile-first login: never ask Emp Code — but if another device already active, request approve there
+        try{
+          const deviceId = getDeviceId();
+          // Resolve employee by mobile
+          let empMatch = null;
+          try{
+            const all = Object.values(await fbGet('employees')||{}) || (_cache.employees||[]);
+            const mobKey = _normMobileKey(mobile);
+            empMatch = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
+            if(!empMatch && userData.empObjId) empMatch = all.find(e=>e.id===userData.empObjId);
+            if(!empMatch && (userData.empId||userData.empCode)){
+              const code = String(userData.empId||userData.empCode).trim().toUpperCase();
+              empMatch = all.find(e=>String(e.empId||'').trim().toUpperCase()===code);
+            }
+          }catch(e){}
+          const empObjId = (empMatch&&empMatch.id) || userData.empObjId || userData.employeeId || '';
+          if(empObjId && (userData.role==='member' || userData.role==='worker' || userData.role==='manager')){
+            let dRec = null;
+            try{ dRec = await fbGet('deviceApprovals/'+empObjId); }catch(e){}
+            if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
+                && dRec.validTill && new Date(dRec.validTill) > new Date()){
+              // Already logged in on another device → approve from that device (no OTP again, no Emp Code)
+              const emp = empMatch || {
+                id: empObjId,
+                empId: userData.empId||userData.empCode||'',
+                name: userData.name||'',
+                phone: mobile
+              };
+              showOtherDeviceLoginRequest(emp, dRec, deviceId);
+              return;
+            }
+            // First time / same device → claim this device
+            try{
+              await fbUpdate('deviceApprovals/'+empObjId, {
+                approvedDeviceId: deviceId,
+                approvedAt: new Date().toISOString(),
+                validTill: new Date(Date.now()+365*86400000).toISOString(),
+                empName: userData.name||'',
+                empId: userData.empId||userData.empCode||'',
+                via: 'mobile_otp'
+              });
+            }catch(e){}
+          }
+        }catch(e){ console.warn('[mobile login device]', e); }
         _launchAsNewUser(userData); return;
       }
     }
@@ -2892,6 +2955,10 @@ async function tryAdminLogin(){
 }
 
 async function proceedFromCode(){
+  // Members must login with Mobile Number only (step 1) — Emp Code is no longer the entry point
+  toast('📱 Member login: पहले Mobile Number डालें');
+  try{ showStep(1); document.getElementById('loginMobile')?.focus(); }catch(e){}
+  return;
   const code=(document.getElementById('wCode')?.value||'').trim().toUpperCase();
   if(!code||code.length<3){ showLoginErrStep(2,'Employee Code डालें (कम से कम 3 characters)'); return; }
   _step1Code=code;
@@ -2921,21 +2988,26 @@ async function proceedFromCode(){
       // ── SMART LOGIN: Check if device already approved ──
       const deviceId = getDeviceId();
       const savedPw = localStorage.getItem('mp_pw_'+match.id);
-      try{
-        const dRec = await fbGet('deviceApprovals/'+match.id);
-        if(dRec && dRec.approvedDeviceId === deviceId && new Date(dRec.validTill) > new Date()){
-          restoreBtn();
-          if(savedPw){
-            showPasswordLoginScreen(match, deviceId);
-          } else {
-            showSetPasswordScreen(match, deviceId);
-          }
-          return;
+      let dRec = null;
+      try{ dRec = await fbGet('deviceApprovals/'+match.id); }catch(e){}
+      if(dRec && dRec.approvedDeviceId === deviceId && new Date(dRec.validTill) > new Date()){
+        restoreBtn();
+        if(savedPw){
+          showPasswordLoginScreen(match, deviceId);
+        } else {
+          showSetPasswordScreen(match, deviceId);
         }
-      }catch(e){}
+        return;
+      }
+
+      // ── OTHER DEVICE LOGIN (no OTP): already logged in elsewhere → ask that device ──
+      if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId){
+        restoreBtn();
+        showOtherDeviceLoginRequest(match, dRec, deviceId);
+        return;
+      }
 
       // ── OTP LOGIN: If employee has registered phone → send OTP automatically ──
-      // Fetch fresh employee record to get phone number
       let freshEmp = match;
       try{ const fe = await fbGet('employees/'+match.id); if(fe && fe.phone) freshEmp = fe; }catch(e){}
       if(freshEmp.phone && freshEmp.phone.length === 10){
@@ -3208,6 +3280,449 @@ async function doLoginAfterApproval(emp, existingReg, deviceId){
     setTimeout(()=>registerFingerprint(emp.name, emp.id), 1500);
   }
 }
+
+
+
+
+// ════════════════════════════════════════
+// MANAGER IN-APP LOGIN APPROVAL (registered members — OTP fallback after 30s)
+// Lightweight: one Firebase write + 2.5s poll, timers always cleared
+// ════════════════════════════════════════
+let _mgrLoginCtx = null;
+
+function _clearMgrLoginTimers(){
+  try{
+    if(_mgrLoginCtx){
+      if(_mgrLoginCtx.timer) clearInterval(_mgrLoginCtx.timer);
+      if(_mgrLoginCtx.poller) clearInterval(_mgrLoginCtx.poller);
+    }
+  }catch(e){}
+}
+
+function closeManagerLoginApproval(){
+  _clearMgrLoginTimers();
+  _mgrLoginCtx = null;
+  const ov = document.getElementById('mgrLoginApprovalOverlay');
+  if(ov) ov.style.display = 'none';
+}
+
+async function showManagerLoginApproval(userData, mobile10, fullPhone){
+  _clearMgrLoginTimers();
+  _mgrLoginCtx = { userData, mobile10, fullPhone, reqKey:null, timer:null, poller:null };
+
+  let ov = document.getElementById('mgrLoginApprovalOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='mgrLoginApprovalOverlay'; document.body.appendChild(ov); }
+  const name = (userData.name||'Member').replace(/</g,'');
+  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:44px;margin-bottom:8px">👔✅</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">Login without OTP</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
+        You are a <b style="color:#fff">registered</b> team member.<br>
+        Ask your <b style="color:#f97316">Manager</b> to approve in the app (saves OTP cost).
+      </div>
+      <div style="background:#1e293b;border-radius:14px;padding:12px;margin-bottom:14px;text-align:left">
+        <div style="font-size:11px;color:#64748b;font-weight:800">ACCOUNT</div>
+        <div style="font-size:16px;font-weight:900;color:#f97316">${name}</div>
+        <div style="font-size:12px;color:#94a3b8">+91-${mobile10} · ${userData.role||'member'}</div>
+      </div>
+      <div id="mlaStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:36px">
+        Manager can approve from <b style="color:#fff">Pending</b>. If not approved in <b style="color:#fff">15s</b>, use OTP.
+      </div>
+      <button id="mlaSendBtn" onclick="sendManagerLoginRequest()"
+        style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
+        📤 Request Manager approval
+      </button>
+      <div id="mlaCountdown" style="display:none;font-size:12px;color:#fbbf24;font-weight:700;margin-bottom:10px"></div>
+      <button id="mlaOtpBtn" onclick="fallbackManagerLoginOTP()"
+        style="width:100%;padding:14px;border:1.5px solid rgba(56,189,248,.5);border-radius:12px;background:rgba(56,189,248,.1);color:#38bdf8;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px;display:none">
+        🔐 Send OTP to my mobile
+      </button>
+      <button onclick="closeManagerLoginApproval()"
+        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+    </div>`;
+  ov.style.display='flex';
+}
+
+async function sendManagerLoginRequest(){
+  if(!_mgrLoginCtx) return;
+  const { userData, mobile10, fullPhone } = _mgrLoginCtx;
+  const statusEl = document.getElementById('mlaStatus');
+  const btn = document.getElementById('mlaSendBtn');
+  const otpBtn = document.getElementById('mlaOtpBtn');
+  const cdEl = document.getElementById('mlaCountdown');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Sending…'; }
+  try{
+    try{ await window._fbSignInAnon(); }catch(e){}
+    const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : ('dev_'+Date.now());
+    const reqKey = await fbPush('loginRequests', {
+      type: 'manager_login_approval',
+      empName: userData.name||'',
+      empId: userData.empId||userData.empCode||'',
+      empObjId: userData.empObjId||userData.employeeId||'',
+      phone: mobile10,
+      mobile: fullPhone,
+      managerId: userData.managerId||'',
+      company: userData.company||'',
+      role: userData.role||'member',
+      deviceId,
+      status: 'pending',
+      requestedAt: new Date().toISOString()
+    });
+    _mgrLoginCtx.reqKey = reqKey;
+
+    // Notify manager only (not whole company) — one push
+    try{
+      if(userData.managerId){
+        await fbPush('userNotifications/'+userData.managerId, {
+          type: 'manager_login_approval',
+          title: '📱 Member login request',
+          body: (userData.name||mobile10)+' wants to login. Open Pending → Approve.',
+          reqKey, phone: mobile10,
+          read: false, at: new Date().toISOString()
+        });
+      }
+    }catch(e){}
+
+    if(statusEl) statusEl.innerHTML =
+      '✅ Request sent to your <b style="color:#fff">Manager</b>.<br>'+
+      'They approve from <b style="color:#4ade80">Pending</b>.<br>'+
+      '<span style="color:#fbbf24">OTP option in 15 seconds if not approved.</span>';
+    if(btn) btn.style.display='none';
+
+    let left = 15;
+    if(cdEl){ cdEl.style.display='block'; cdEl.textContent='⏱ OTP available in '+left+'s…'; }
+    _clearMgrLoginTimers();
+    _mgrLoginCtx.timer = setInterval(()=>{
+      left--;
+      if(cdEl) cdEl.textContent = left>0 ? ('⏱ OTP available in '+left+'s…') : '';
+      if(left<=0){
+        clearInterval(_mgrLoginCtx.timer); _mgrLoginCtx.timer=null;
+        if(cdEl) cdEl.style.display='none';
+        if(otpBtn) otpBtn.style.display='block';
+        if(statusEl) statusEl.innerHTML='⏳ Manager has not approved yet.<br>You can <b style="color:#38bdf8">Send OTP</b> now, or keep waiting.';
+      }
+    }, 1000);
+
+    _mgrLoginCtx.poller = setInterval(async ()=>{
+      try{
+        const rec = await fbGet('loginRequests/'+reqKey);
+        if(!rec) return;
+        if(rec.status==='approved'){
+          _clearMgrLoginTimers();
+          // Launch using existing mobileUsers record — no OTP charge
+          try{
+            const fresh = await fbGet('mobileUsers/'+mobile10) || userData;
+            closeManagerLoginApproval();
+            _launchAsNewUser(fresh);
+            toast('✅ Manager approved — logged in');
+          }catch(e){
+            toast('❌ '+e.message);
+          }
+        } else if(rec.status==='rejected' || rec.status==='cancelled'){
+          _clearMgrLoginTimers();
+          if(statusEl) statusEl.innerHTML='❌ Manager rejected. Use OTP to login.';
+          if(otpBtn) otpBtn.style.display='block';
+          if(btn){ btn.style.display='block'; btn.disabled=false; btn.textContent='📤 Request again'; }
+          if(cdEl) cdEl.style.display='none';
+        }
+      }catch(e){}
+    }, 2500);
+  }catch(e){
+    if(statusEl) statusEl.textContent='❌ '+e.message;
+    if(btn){ btn.disabled=false; btn.textContent='📤 Request Manager approval'; }
+  }
+}
+
+async function fallbackManagerLoginOTP(){
+  if(!_mgrLoginCtx) return;
+  const { reqKey } = _mgrLoginCtx;
+  try{
+    if(reqKey) await fbUpdate('loginRequests/'+reqKey, { status:'cancelled', reason:'otp_fallback', cancelledAt:new Date().toISOString() });
+  }catch(e){}
+  closeManagerLoginApproval();
+  window._forceOtpAfterMgrWait = true;
+  // Fire real OTP on same mobile already in the input
+  try{ await _sendOTP(false); }catch(e){ toast('❌ '+e.message); }
+}
+
+
+async function approveManagerLoginRequest(reqKey){
+  try{
+    await fbUpdate('loginRequests/'+reqKey, {
+      status:'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: SESSION.name||'manager',
+      approvedById: SESSION.empObjId||SESSION.uid||''
+    });
+    toast('✅ Member can login now (no OTP)');
+    try{ renderPending(); }catch(e){}
+  }catch(e){ toast('❌ '+e.message); }
+}
+async function rejectManagerLoginRequest(reqKey){
+  try{
+    await fbUpdate('loginRequests/'+reqKey, {
+      status:'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: SESSION.name||'manager'
+    });
+    toast('Rejected');
+    try{ renderPending(); }catch(e){}
+  }catch(e){ toast('❌ '+e.message); }
+}
+try{ window.approveManagerLoginRequest=approveManagerLoginRequest; window.rejectManagerLoginRequest=rejectManagerLoginRequest; }catch(e){}
+
+try{
+  window.showManagerLoginApproval=showManagerLoginApproval;
+  window.sendManagerLoginRequest=sendManagerLoginRequest;
+  window.fallbackManagerLoginOTP=fallbackManagerLoginOTP;
+  window.closeManagerLoginApproval=closeManagerLoginApproval;
+}catch(e){}
+
+// ════════════════════════════════════════
+// OTHER-DEVICE LOGIN — notify other device OR OTP after 30s
+// ════════════════════════════════════════
+let _odlCtx = null; // { emp, dRec, deviceId, reqKey, timer, poller }
+
+async function showOtherDeviceLoginRequest(emp, dRec, deviceId){
+  // Ensure phone is available for OTP fallback
+  try{
+    if(!(emp.phone||emp.mobile) && emp.id){
+      const fe = await fbGet('employees/'+emp.id);
+      if(fe){ emp.phone = fe.phone||fe.mobile||emp.phone; emp.mobile = fe.mobile||fe.phone||emp.mobile; }
+    }
+  }catch(e){}
+  _odlCtx = { emp, dRec, deviceId, reqKey:null, timer:null, poller:null };
+
+  let ov = document.getElementById('otherDeviceLoginOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
+  const phoneHint = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
+  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:44px;margin-bottom:8px">📱↔️📱</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">Login on this device</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
+        Already logged in on <b style="color:#f97316">another device</b>.<br>
+        Choose how to continue:
+      </div>
+      <div style="background:#1e293b;border-radius:14px;padding:12px;margin-bottom:14px;text-align:left">
+        <div style="font-size:11px;color:#64748b;font-weight:800">EMPLOYEE</div>
+        <div style="font-size:16px;font-weight:900;color:#f97316">${String(emp.name||'').replace(/</g,'')}</div>
+        <div style="font-size:12px;color:#94a3b8">${String(emp.empId||'').replace(/</g,'')}${phoneHint?' · +91-'+phoneHint:''}</div>
+      </div>
+
+      <div id="odlStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:40px">
+        Option 1: notify your other device to <b style="color:#fff">Approve</b> (no OTP).<br>
+        Option 2: if not approved in <b style="color:#fff">15 seconds</b>, use <b style="color:#38bdf8">OTP</b>.
+      </div>
+
+      <button id="odlSendBtn" onclick="sendOtherDeviceLoginRequest()"
+        style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
+        📤 Send notification to other device
+      </button>
+
+      <div id="odlCountdown" style="display:none;font-size:12px;color:#fbbf24;font-weight:700;margin-bottom:10px"></div>
+
+      <button id="odlOtpBtn" onclick="fallbackOtherDeviceOTP()"
+        style="width:100%;padding:14px;border:1.5px solid rgba(56,189,248,.5);border-radius:12px;background:rgba(56,189,248,.1);color:#38bdf8;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px;display:none">
+        🔐 Send OTP instead
+      </button>
+
+      <button onclick="closeOtherDeviceLogin()"
+        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+    </div>`;
+  ov.style.display='flex';
+}
+
+function closeOtherDeviceLogin(){
+  try{
+    if(_odlCtx){
+      if(_odlCtx.timer) clearInterval(_odlCtx.timer);
+      if(_odlCtx.poller) clearInterval(_odlCtx.poller);
+      if(window._odlPoller) clearInterval(window._odlPoller);
+    }
+  }catch(e){}
+  _odlCtx = null;
+  const ov=document.getElementById('otherDeviceLoginOverlay');
+  if(ov) ov.style.display='none';
+}
+
+async function sendOtherDeviceLoginRequest(){
+  if(!_odlCtx){ toast('Session expired — try login again'); return; }
+  const { emp, deviceId } = _odlCtx;
+  const empObjId = emp.id;
+  const empId = emp.empId||'';
+  const empName = emp.name||'';
+  const statusEl = document.getElementById('odlStatus');
+  const btn = document.getElementById('odlSendBtn');
+  const otpBtn = document.getElementById('odlOtpBtn');
+  const cdEl = document.getElementById('odlCountdown');
+  if(btn){ btn.disabled=true; btn.textContent='⏳ Sending…'; }
+  try{
+    try{ await window._fbSignInAnon(); }catch(e){}
+    const reqKey = await fbPush('loginRequests', {
+      type: 'device_transfer',
+      empObjId, empId, empName,
+      deviceId,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      fromDevice: deviceId,
+      note: 'Login from another device — approve without OTP'
+    });
+    _odlCtx.reqKey = reqKey;
+
+    const notif = {
+      type: 'device_login_request',
+      title: '📱 New device login request',
+      body: (empName||'')+' wants to login on another device. Open Pending → Approve.',
+      empObjId, empId, reqKey, deviceId,
+      read: false, at: new Date().toISOString()
+    };
+    try{ await fbPush('userNotifications/'+empObjId, notif); }catch(e){}
+    try{
+      const mob = _normMobileKey(emp.phone||emp.mobile||'');
+      if(mob) await fbPush('userNotifications/'+mob, notif);
+      if(emp.managerId) await fbPush('userNotifications/'+emp.managerId, notif);
+    }catch(e){}
+
+    if(statusEl) statusEl.innerHTML =
+      '✅ Notification sent to your <b style="color:#fff">other device</b>.<br>'+
+      'Open app there → <b style="color:#4ade80">Pending</b> → <b style="color:#4ade80">Approve</b>.<br>'+
+      '<span style="color:#fbbf24">Waiting… OTP option appears in 15 seconds if not approved.</span>';
+    if(btn){ btn.style.display='none'; }
+
+    // 30s countdown → then enable OTP fallback
+    let left = 15;
+    if(cdEl){ cdEl.style.display='block'; cdEl.textContent = '⏱ OTP available in '+left+'s…'; }
+    if(_odlCtx.timer) clearInterval(_odlCtx.timer);
+    _odlCtx.timer = setInterval(()=>{
+      left--;
+      if(cdEl) cdEl.textContent = left>0 ? ('⏱ OTP available in '+left+'s…') : '';
+      if(left <= 0){
+        clearInterval(_odlCtx.timer);
+        _odlCtx.timer = null;
+        if(cdEl){ cdEl.style.display='none'; }
+        if(otpBtn){
+          otpBtn.style.display='block';
+          otpBtn.disabled = false;
+        }
+        if(statusEl) statusEl.innerHTML =
+          '⏳ No approval yet.<br>You can <b style="color:#38bdf8">Send OTP</b> to login on this device,<br>or keep waiting for other-device approval.';
+      }
+    }, 1000);
+
+    // Poll approval
+    if(_odlCtx.poller) clearInterval(_odlCtx.poller);
+    if(window._odlPoller) clearInterval(window._odlPoller);
+    _odlCtx.poller = setInterval(async ()=>{
+      try{
+        const rec = await fbGet('loginRequests/'+reqKey);
+        if(rec && rec.status==='approved'){
+          clearInterval(_odlCtx.poller);
+          if(_odlCtx.timer) clearInterval(_odlCtx.timer);
+          const fullEmp = (getEmps()||[]).find(e=>e.id===empObjId) || emp;
+          await doLoginAfterApproval(fullEmp, null, deviceId);
+          closeOtherDeviceLogin();
+        } else if(rec && (rec.status==='rejected'||rec.status==='cancelled')){
+          clearInterval(_odlCtx.poller);
+          if(_odlCtx.timer) clearInterval(_odlCtx.timer);
+          if(statusEl) statusEl.innerHTML='❌ Request rejected on other device.';
+          if(otpBtn){ otpBtn.style.display='block'; }
+          if(btn){ btn.style.display='block'; btn.disabled=false; btn.textContent='📤 Send notification again'; }
+          if(cdEl) cdEl.style.display='none';
+        }
+      }catch(e){}
+    }, 2500);
+    window._odlPoller = _odlCtx.poller;
+  }catch(e){
+    if(statusEl) statusEl.textContent = '❌ '+e.message;
+    if(btn){ btn.disabled=false; btn.textContent='📤 Send notification to other device'; }
+  }
+}
+
+async function fallbackOtherDeviceOTP(){
+  if(!_odlCtx || !_odlCtx.emp){ toast('Session expired'); return; }
+  const { emp, deviceId, reqKey } = _odlCtx;
+  let phone = String(emp.phone||emp.mobile||'').replace(/\D/g,'');
+  if(phone.length > 10) phone = phone.slice(-10);
+  if(phone.length !== 10){
+    toast('⚠️ Mobile number not found on profile — contact Manager');
+    return;
+  }
+  emp.phone = phone;
+  // Cancel pending transfer request so it does not stay open
+  try{
+    if(reqKey) await fbUpdate('loginRequests/'+reqKey, { status:'cancelled', cancelledAt:new Date().toISOString(), reason:'otp_fallback' });
+  }catch(e){}
+  closeOtherDeviceLogin();
+  toast('🔐 Sending OTP to +91-'+phone);
+  try{
+    await showOTPLoginScreen(emp, deviceId);
+    // auto-trigger send
+    setTimeout(()=>{ try{ _sendDeviceOTP(false); }catch(e){} }, 400);
+  }catch(e){
+    toast('❌ OTP screen: '+e.message);
+  }
+}
+
+/** Logged-in member/manager: show approve buttons for device transfer requests */
+async function renderDeviceTransferRequests(){
+  const host = document.getElementById('deviceTransferRequests');
+  if(!host) return;
+  if(!SESSION || !SESSION.empObjId){ host.innerHTML=''; return; }
+  try{
+    const data = await fbGet('loginRequests') || {};
+    const mine = Object.entries(data).filter(([k,v])=>
+      v && v.status==='pending' && v.type==='device_transfer' &&
+      (v.empObjId===SESSION.empObjId || v.empId===SESSION.empId)
+    );
+    if(!mine.length){ host.innerHTML=''; host.style.display='none'; return; }
+    host.style.display='block';
+    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#f97316;margin:10px 0 8px">📱 Device login requests</div>` +
+      mine.map(([k,v])=>`
+        <div class="card" style="margin-bottom:8px;border-color:rgba(249,115,22,.35)">
+          <div class="card-name">New device wants to login</div>
+          <div class="card-sub">${v.requestedAt?new Date(v.requestedAt).toLocaleString('en-IN'):''}</div>
+          <div class="action-row" style="margin-top:8px;display:flex;gap:8px">
+            <button class="act-btn approve" onclick="approveDeviceTransfer('${k}','${v.deviceId}')">✅ Approve (no OTP)</button>
+            <button class="act-btn reject" onclick="rejectDeviceTransfer('${k}')">❌ Reject</button>
+          </div>
+        </div>`).join('');
+  }catch(e){ host.innerHTML=''; }
+}
+
+async function approveDeviceTransfer(reqKey, newDeviceId){
+  try{
+    await fbUpdate('loginRequests/'+reqKey, { status:'approved', approvedAt:new Date().toISOString(), approvedBy:SESSION.name||'self' });
+    await fbUpdate('deviceApprovals/'+SESSION.empObjId, {
+      approvedDeviceId: newDeviceId,
+      approvedAt: new Date().toISOString(),
+      validTill: new Date(Date.now()+365*86400000).toISOString(),
+      empName: SESSION.name, empId: SESSION.empId,
+      transferredFrom: getDeviceId()
+    });
+    toast('✅ Other device approved — they can login now');
+    renderDeviceTransferRequests();
+  }catch(e){ toast('❌ '+e.message); }
+}
+async function rejectDeviceTransfer(reqKey){
+  try{
+    await fbUpdate('loginRequests/'+reqKey, { status:'rejected', rejectedAt:new Date().toISOString() });
+    toast('Rejected');
+    renderDeviceTransferRequests();
+  }catch(e){ toast('❌ '+e.message); }
+}
+try{
+  window.showOtherDeviceLoginRequest=showOtherDeviceLoginRequest;
+  window.sendOtherDeviceLoginRequest=sendOtherDeviceLoginRequest;
+  window.fallbackOtherDeviceOTP=fallbackOtherDeviceOTP;
+  window.closeOtherDeviceLogin=closeOtherDeviceLogin;
+  window.approveDeviceTransfer=approveDeviceTransfer;
+  window.rejectDeviceTransfer=rejectDeviceTransfer;
+}catch(e){}
+
 
 // ── Set Password Screen (first time after approval) ──
 function showSetPasswordScreen(emp, deviceId, afterApproval=false){
@@ -6104,10 +6619,30 @@ function getBaseShift(emp, dateStr){
 
 function getShift(emp, dateStr){
   const ov=getOverrides(); const ok=emp.id+'_'+dateStr;
-  if(ov[ok]) return ov[ok];
+  const base = getBaseShift(emp, dateStr);
+  const ovVal = ov[ok];
+  // Stale auto-H must NOT hide real Excel/schedule values after upload
+  if(ovVal != null && ovVal !== ''){
+    const o = String(ovVal).toUpperCase();
+    const b = String(base||'').toUpperCase();
+    if((o==='H' || o==='HOLIDAY') && b && b!=='H' && b!=='HOLIDAY'){
+      return base; // uploaded roster wins
+    }
+    return ovVal;
+  }
+  // Also check empId-keyed override (legacy)
+  if(emp.empId){
+    const ok2 = emp.empId+'_'+dateStr;
+    if(ov[ok2]!=null && ov[ok2]!==''){
+      const o = String(ov[ok2]).toUpperCase();
+      const b = String(base||'').toUpperCase();
+      if((o==='H' || o==='HOLIDAY') && b && b!=='H' && b!=='HOLIDAY') return base;
+      return ov[ok2];
+    }
+  }
   const onLeave=getLeaves().find(l=>l.status==='approved'&&l.empId===emp.id&&l.from<=dateStr&&l.to>=dateStr);
   if(onLeave) return 'L';
-  return getBaseShift(emp, dateStr);
+  return base;
 }
 
 /** Single source of truth — schedule, My Shift, picker */
@@ -8723,6 +9258,7 @@ async function approveLeave(leaveKey, leave, suggestions){
     try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
     try{ if(typeof renderLeaves==='function') renderLeaves(); }catch(e){}
     try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+  try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
   }catch(err){
     console.error('[approveLeave]', err);
     toast('❌ Save failed: '+(err.message||err.code||err));
@@ -10006,32 +10542,55 @@ async function rejectLoginRequest(reqKey, empName){
 }
 
 function renderPending(){
-  // ── Login Requests (Admin/Manager can approve each device login) ──
+  try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
+  // ── Login Requests (Admin/Manager) — includes manager_login_approval for team members ──
   if(isAdminOrMgr()){
     const lrEl = document.getElementById('pendingLoginRequests');
+    // Show pending block for managers too when they have team login requests
+    try{
+      const adminBlock = document.getElementById('adminOnlyPendingBlock');
+      if(adminBlock && isMgr() && !isAdmin()) adminBlock.style.display='block';
+    }catch(e){}
     fbGet('loginRequests').then(data=>{
-      const reqs = data ? Object.entries(data).filter(([k,v])=>v.status==='pending') : [];
+      let reqs = data ? Object.entries(data).filter(([k,v])=>v && v.status==='pending') : [];
+      // Managers only see their team / phone-matched requests
+      if(isMgr() && !isAdmin()){
+        const mid = SESSION.empObjId || SESSION.uid || SESSION.managerId || '';
+        const myCompany = (SESSION.company||'').toLowerCase();
+        reqs = reqs.filter(([k,v])=>{
+          if(v.type==='manager_login_approval'){
+            return !v.managerId || v.managerId===mid || v.managerId===SESSION.uid ||
+              (v.company && myCompany && String(v.company).toLowerCase()===myCompany);
+          }
+          if(v.type==='device_transfer') return false; // handled in deviceTransferRequests for self
+          return true; // other login requests visible to manager
+        });
+      }
       if(!lrEl) return;
       if(!reqs.length){
         lrEl.innerHTML='<div class="empty" style="padding:16px"><div class="empty-text" style="font-size:12px">&#128100; कोई Login Request नहीं</div></div>'; return;
       }
-      lrEl.innerHTML = reqs.map(([k,v])=>`
+      lrEl.innerHTML = reqs.map(([k,v])=>{
+        const isMgrAppr = v.type==='manager_login_approval';
+        return `
         <div class="card" style="border-left:3px solid #f97316">
           <div class="card-row">
             <div class="card-ico" style="background:rgba(249,115,22,.15)">&#128241;</div>
             <div class="card-body">
-              <div class="card-name">${v.empName}</div>
-              <div class="card-sub">Code: ${v.empId} · ${secName(v.empSec)||'Man Power'}${v.phone?' · 📱 '+v.phone:''}</div>
-              <div class="card-meta">${new Date(v.requestedAt).toLocaleString('hi-IN')}</div>
+              <div class="card-name">${v.empName||v.phone||'Member'}</div>
+              <div class="card-sub">${isMgrAppr?'Manager login approval':('Code: '+(v.empId||'—'))}${v.phone?' · 📱 '+v.phone:''}</div>
+              <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
+              ${isMgrAppr?'<div style="font-size:11px;color:#38bdf8;font-weight:700">Registered member — approve to login without OTP</div>':''}
               ${v.isNewReg?'<div style="font-size:11px;color:#f97316;font-weight:700">&#128100; Newly Registered Employee</div>':''}
-              ${v.selfieUrl?`<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><img src="${v.selfieUrl}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid rgba(249,115,22,.5);cursor:pointer" onclick="window.open('${v.selfieUrl}','_blank')"><span style="font-size:11px;color:#94a3b8">📸 Selfie<br><span style="font-size:10px;color:#64748b">Tap to zoom</span></span></div>`:'<div style="margin-top:6px;font-size:11px;color:#f43f5e">⚠️ कोई Selfie नहीं</div>'}
+              ${v.selfieUrl?`<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><img src="${v.selfieUrl}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid rgba(249,115,22,.5);cursor:pointer" onclick="window.open('${v.selfieUrl}','_blank')"><span style="font-size:11px;color:#94a3b8">📸 Selfie</span></div>`:''}
             </div>
           </div>
           <div class="action-row">
-            <button class="act-btn approve" onclick="approveLoginRequest('${k}','${v.empObjId}','${v.deviceId}','${v.empName}')">&#9989; Approve</button>
-            <button class="act-btn reject"  onclick="rejectLoginRequest('${k}','${v.empName}')">&#10060; Reject</button>
+            <button class="act-btn approve" onclick="${isMgrAppr?`approveManagerLoginRequest('${k}')`:`approveLoginRequest('${k}','${v.empObjId||''}','${v.deviceId||''}','${(v.empName||'').replace(/'/g,"\'")}')`}">&#9989; Approve</button>
+            <button class="act-btn reject"  onclick="${isMgrAppr?`rejectManagerLoginRequest('${k}')`:`rejectLoginRequest('${k}','${(v.empName||'').replace(/'/g,"\'")}')`}">&#10060; Reject</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }).catch(()=>{ if(lrEl) lrEl.innerHTML=''; });
   }
   // Device change requests
