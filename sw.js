@@ -3,7 +3,7 @@
    - Never deletes glsmp-integrity (session integrity token) on activate
    - Precaches all tab partials for offline section viewing
 */
-const CACHE = 'metpower-v29';
+const CACHE = 'metpower-v30';
 const KEEP_CACHES = new Set([CACHE, 'glsmp-integrity']);
 const PRECACHE = [
   './',

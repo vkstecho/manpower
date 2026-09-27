@@ -3372,18 +3372,37 @@ async function sendManagerLoginRequest(){
     });
     _mgrLoginCtx.reqKey = reqKey;
 
-    // Notify manager only (not whole company) — one push
+    // Notify manager on ALL keys they may listen on (empObjId, mobile, uid)
     try{
-      if(userData.managerId){
-        await fbPush('userNotifications/'+userData.managerId, {
-          type: 'manager_login_approval',
-          title: '📱 Member login request',
-          body: (userData.name||mobile10)+' wants to login. Open Pending → Approve.',
-          reqKey, phone: mobile10,
-          read: false, at: new Date().toISOString()
+      const notif = {
+        type: 'manager_login_approval',
+        title: '📱 Member login request',
+        body: (userData.name||mobile10)+' wants to login. Open Pending → Approve.',
+        reqKey, phone: mobile10,
+        read: false, at: new Date().toISOString()
+      };
+      const targets = new Set();
+      if(userData.managerId) targets.add(userData.managerId);
+      // Resolve manager mobileUsers + employees for reliable delivery
+      try{
+        const allMu = await fbGet('mobileUsers') || {};
+        Object.entries(allMu).forEach(([mobKey, u])=>{
+          if(!u || u.role!=='manager' || u.status!=='approved') return;
+          const same =
+            (userData.managerId && (u.empObjId===userData.managerId || u.employeeId===userData.managerId || mobKey===_normMobileKey(userData.managerId))) ||
+            (userData.company && u.company && String(u.company).toLowerCase()===String(userData.company).toLowerCase());
+          if(same){
+            targets.add(mobKey);
+            if(u.empObjId) targets.add(u.empObjId);
+            if(u.mobile) targets.add(_normMobileKey(u.mobile));
+          }
         });
+      }catch(e){}
+      for(const t of targets){
+        if(!t) continue;
+        try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
       }
-    }catch(e){}
+    }catch(e){ console.warn('[mgr login notif]', e); }
 
     if(statusEl) statusEl.innerHTML =
       '✅ Request sent to your <b style="color:#fff">Manager</b>.<br>'+
@@ -6620,28 +6639,32 @@ function getBaseShift(emp, dateStr){
 function getShift(emp, dateStr){
   const ov=getOverrides(); const ok=emp.id+'_'+dateStr;
   const base = getBaseShift(emp, dateStr);
+  const b = String(base||'').trim().toUpperCase();
+  // Duty codes from uploaded Excel/schedule
+  const isDuty = b && !['L','H','HOLIDAY','AB','ABSENT',''].includes(b) && b.indexOf('L:')!==0;
   const ovVal = ov[ok];
-  // Stale auto-H must NOT hide real Excel/schedule values after upload
   if(ovVal != null && ovVal !== ''){
     const o = String(ovVal).toUpperCase();
-    const b = String(base||'').toUpperCase();
-    if((o==='H' || o==='HOLIDAY') && b && b!=='H' && b!=='HOLIDAY'){
-      return base; // uploaded roster wins
+    // Stale H or L override must not hide real uploaded roster
+    if((o==='H' || o==='HOLIDAY' || o==='L' || o.indexOf('L:')===0) && isDuty){
+      return base;
     }
     return ovVal;
   }
-  // Also check empId-keyed override (legacy)
   if(emp.empId){
     const ok2 = emp.empId+'_'+dateStr;
     if(ov[ok2]!=null && ov[ok2]!==''){
       const o = String(ov[ok2]).toUpperCase();
-      const b = String(base||'').toUpperCase();
-      if((o==='H' || o==='HOLIDAY') && b && b!=='H' && b!=='HOLIDAY') return base;
+      if((o==='H' || o==='HOLIDAY' || o==='L' || o.indexOf('L:')===0) && isDuty) return base;
       return ov[ok2];
     }
   }
+  // Leave record: only if schedule has no explicit duty for that day
   const onLeave=getLeaves().find(l=>l.status==='approved'&&l.empId===emp.id&&l.from<=dateStr&&l.to>=dateStr);
-  if(onLeave) return 'L';
+  if(onLeave){
+    if(isDuty) return base; // Excel upload wins over old leave on that date
+    return 'L';
+  }
   return base;
 }
 
@@ -6655,6 +6678,24 @@ window.MP_SHIFT_COLORS = {
   OD:{bg:'#0d9488',fg:'#ccfbf1'}, GP:{bg:'#6d28d9',fg:'#e9d5ff'},
   Ab:{bg:'#7f1d1d',fg:'#fca5a5'}
 };
+
+/** One badge HTML for Home + Schedule + My Shift — identical colours always */
+function mpShiftBadgeHtml(code, opts){
+  opts = opts || {};
+  const disp = (typeof cellDisp==='function' ? cellDisp(code) : code) || '';
+  const st = (typeof mpShiftStyle==='function') ? mpShiftStyle(disp||code) : {bg:'#475569',fg:'#fff'};
+  const cls = (typeof cellClass==='function' ? cellClass(code) : '') || '';
+  const w = opts.w || 26;
+  const h = opts.h || 22;
+  const fs = opts.fs || 12;
+  const extra = opts.extraStyle || '';
+  return '<span class="shc shc-sm '+cls+'" style="background:'+st.bg+' !important;color:'+st.fg+' !important;'+
+    'width:'+w+'px;height:'+h+'px;min-width:'+w+'px;font-size:'+fs+'px;border-radius:6px;'+
+    'display:inline-flex;align-items:center;justify-content:center;font-weight:900;'+
+    'font-family:\'Barlow Condensed\',sans-serif;line-height:1;box-sizing:border-box;'+extra+'">'+
+    String(disp).replace(/</g,'&lt;')+'</span>';
+}
+
 function mpShiftStyle(code){
   let k = String(code||'').trim();
   if(/^L[:\-_]/i.test(k)) k = 'L';
@@ -6888,7 +6929,7 @@ async function renderHome(){
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
     const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
-    const shLabel = sh?`<span class="shc shc-sm ${cellClass(sh)}" style="background:${_st.bg} !important;color:${_st.fg} !important;width:26px;height:22px;font-size:12px;border-radius:6px;margin-left:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900">${cellDisp(sh)}</span>`:'';
+    const shLabel = sh ? mpShiftBadgeHtml(sh, {w:26,h:22,fs:12,extraStyle:'margin-left:6px;'}) : '';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -7649,7 +7690,52 @@ async function handleExcelFile(file){
       👥 ${empIds.length} employees: ${empIds.slice(0,6).join(', ')}${empIds.length>6?'...':''}`
       +(clearedOv?`<br>🧹 ${clearedOv} old overrides cleared (H no longer blocks Excel)`:'')
       +`</span>`;
-    toast('✅ Shift schedule uploaded'+(clearedOv?' · old H overrides cleared':''));
+    
+    // Cancel approved leaves on days where Excel has a non-L duty (so L does not stick)
+    try{
+      const leaves = getLeaves()||[];
+      let leaveFixes = 0;
+      for(const L of leaves){
+        if(!L || L.status!=='approved') continue;
+        const empKey = L.empId;
+        // find if any uploaded day in range has duty
+        let conflict = false;
+        Object.entries(schedByMonth).forEach(([mk, byEmp])=>{
+          const parts = mk.split('_');
+          const year = parts[0], month = parts[1];
+          const arr = byEmp[empKey] || (L.empObjId && byEmp[L.empObjId]) || null;
+          // also try match via empIdToInternal inverse
+          let row = arr;
+          if(!row){
+            Object.keys(byEmp).forEach(k=>{
+              if(idToInternal[k]===empKey || k===empKey) row = byEmp[k];
+            });
+          }
+          if(!row) return;
+          for(let dayIdx=0; dayIdx<row.length; dayIdx++){
+            const val = String(row[dayIdx]||'').toUpperCase();
+            if(!val || val==='L' || val.indexOf('L:')===0) continue;
+            const dateStr = year+'-'+month+'-'+String(dayIdx+1).padStart(2,'0');
+            if(L.from<=dateStr && L.to>=dateStr) conflict = true;
+          }
+        });
+        if(conflict && L._key){
+          try{
+            await fbUpdate('leaves/'+L._key, { status:'cancelled', cancelReason:'schedule_excel_upload', cancelledAt:new Date().toISOString() });
+            leaveFixes++;
+          }catch(e){}
+        }
+      }
+      if(leaveFixes){
+        try{
+          const allL = await fbGet('leaves');
+          if(allL) _cache.leaves = Object.entries(allL).map(([k,v])=>({...v,_key:k}));
+        }catch(e){}
+      }
+      if(leaveFixes) toast('🧹 '+leaveFixes+' leave(s) cleared where Excel has duty');
+    }catch(e){ console.warn('[upload leave clear]', e); }
+
+    toast('✅ Shift schedule uploaded'+(clearedOv?' · old overrides cleared':''));
     try{ renderSchedule(); }catch(e){}
     try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
   }catch(err){
@@ -8391,18 +8477,14 @@ function renderSchedule(){
             ? `data-empid="${emp.id}" data-empname="${emp.name}" data-date="${d}" data-origsh="${origSh}" style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="handleSchedCellClick(this,'${emp.id}','${emp.name}','${d}','${origSh}')"`
             : (['L','CO','C/O','OD','Ab','HLF'].includes(sh)
               ? `style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="showShiftInfo('${emp.id}','${emp.name.replace(/'/g,"\\'")}','${d}','${sh}')"`
-              : `style="${isT?'background:rgba(249,115,22,.05)':''}"`);          const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
-          const _styleBase = `background:${_st.bg} !important;color:${_st.fg} !important;`;
-          if(pending){
+              : `style="${isT?'background:rgba(249,115,22,.05)':''}"`);          if(pending){
             return `<td ${clickable} data-cellkey="${emp.id}_${d}" data-pending="${pendingKey}" data-orig-shift="${origSh}">
-              <span class="shc ${cellClass(sh)}" style="${_styleBase}outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(sh)}</span>
+              ${mpShiftBadgeHtml(sh,{w:28,h:24,fs:12,extraStyle:'outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)'})}
               ${canEditSchedule()?`<div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`:''}
             </td>`;
           }
           return `<td ${clickable} data-cellkey="${emp.id}_${d}">
-            <span class="shc ${cellClass(sh)}" style="${_styleBase}${isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''}">
-              ${cellDisp(sh)}
-            </span>
+            ${mpShiftBadgeHtml(sh,{w:28,h:24,fs:12,extraStyle:isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''})}
           </td>`;
         }).join('')}
       </tr>`;
@@ -22226,6 +22308,38 @@ function listenUserShiftNotifications(){
   const empId = SESSION.empObjId;
   const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
   if(!empId && !mob) return;
+
+  // Managers: also listen loginRequests so member login requests appear without refresh
+  try{
+    if(typeof isMgr==='function' && isMgr() && !window._loginReqListenOn){
+      window._loginReqListenOn = true;
+      fbListen('loginRequests', (data)=>{
+        try{
+          const pending = data ? Object.values(data).filter(v=>v && v.status==='pending' &&
+            (v.type==='manager_login_approval' || v.type==='device_transfer')) : [];
+          const mine = pending.filter(v=>{
+            if(v.type==='device_transfer') return v.empObjId===empId || v.empId===SESSION.empId;
+            if(v.type==='manager_login_approval'){
+              return !v.managerId || v.managerId===empId || v.managerId===SESSION.uid ||
+                (v.company && SESSION.company && String(v.company).toLowerCase()===String(SESSION.company).toLowerCase());
+            }
+            return false;
+          });
+          if(mine.length){
+            try{
+              if(typeof Notification!=='undefined' && Notification.permission==='granted'){
+                new Notification('📱 Login request', { body: (mine[0].empName||mine[0].phone||'Member')+' wants to login', silent:false });
+              }
+            }catch(e){}
+            toast('📱 '+(mine[0].empName||'Member')+' login request — open Pending');
+            try{ if(_currentTab==='pending' && typeof renderPending==='function') renderPending(); }catch(e){}
+            try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
+          }
+        }catch(e){}
+      });
+    }
+  }catch(e){}
+
 
   const mergeNotifs = (v, prefix) => {
     const items = v ? Object.entries(v).map(([k,n])=>({...n,_key:k,_path:prefix})) : [];
