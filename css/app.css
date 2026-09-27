@@ -1029,8 +1029,11 @@ body.light #learnMainButtons .lc-arrow{opacity:.9 !important;}
 body.light .learn-screen .learn-title { color:#fff !important; -webkit-text-fill-color:#fff !important; }
 body.light .learn-screen .learn-back  { color:#fff !important; }
 body.light .learn-screen [style*="color:var(--text)"] { color:#fff !important; -webkit-text-fill-color:#fff !important; }
-/* ══ NAV ══ */
-.nav{display:flex;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg2);}
+/* ══ NAV — stays visible while scrolling schedule ══ */
+.nav{
+  display:flex;border-bottom:1px solid var(--border);overflow-x:auto;background:var(--bg2);
+  position:sticky;top:var(--hdr-height,120px);z-index:95;
+}
 .nav::-webkit-scrollbar{display:none;}
 .nb{
   flex:1;min-width:56px;border:none;background:none;
@@ -1180,7 +1183,7 @@ body.light .shc.O,body.light .ms-day-sh.shc.O{background:#475569 !important;colo
 /* ══ STICKY SCHEDULE DATE HEADER ══ */
 .sched-sticky-hdr{
   position:sticky;
-  top:var(--hdr-height,120px);
+  top:calc(var(--hdr-height,120px) + var(--nav-height,56px));
   z-index:90;
   background:var(--bg);
   padding-top:6px;
@@ -3334,5 +3337,52 @@ body.light span.shc.G {
   #schedDateHdr > div {
     min-width: 20px !important;
     max-width: 26px !important;
+  }
+}
+
+
+/* === STICKY NAV + SCHEDULE DATE HEADER === */
+.nav {
+  position: sticky !important;
+  top: var(--hdr-height, 120px) !important;
+  z-index: 95 !important;
+  background: var(--bg2) !important;
+}
+.sched-sticky-hdr {
+  position: sticky !important;
+  top: calc(var(--hdr-height, 120px) + var(--nav-height, 56px)) !important;
+  z-index: 90 !important;
+  background: var(--bg2) !important;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+#schedDateHdrWrap {
+  background: var(--card2);
+}
+#schedFilterSecondary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  padding-bottom: 4px;
+}
+#schedFilterSecondary .chip {
+  font-size: 12px;
+  padding: 6px 12px;
+  min-height: 32px;
+}
+/* Keep admin buttons visible — never hide Upload */
+.sched-admin-row {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px !important;
+}
+@media (max-width: 480px) {
+  .sched-admin-row {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  #uploadSchedBtn {
+    display: flex !important;
   }
 }

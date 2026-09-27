@@ -8143,6 +8143,7 @@ function _msUpdateBar(){
   }
   bar.style.display = 'flex';
   cnt.textContent = `${_msSelected.size} cell${_msSelected.size>1?'s':''} चुने`;
+  if(typeof _updateMultiSelectShiftButtons==='function') _updateMultiSelectShiftButtons();
 
   // ── Position dynamically above Save bar if it's visible ──
   const saveBar = document.getElementById('schedSaveBar');
@@ -8166,6 +8167,30 @@ function clearMultiSelect(){
   if(btn){ btn.classList.remove('ms-on'); btn.style.background='rgba(167,139,250,.06)'; btn.style.borderColor='rgba(167,139,250,.4)'; btn.textContent=(_lang==='en')?'☑️ Multi-Select':'☑️ Multi-Select'; }
 }
 
+
+/** Hide A/B/C or D/N on multi-select bar per Profile shift settings */
+function _updateMultiSelectShiftButtons(){
+  try{
+    const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : {}) || {};
+    const hideABC = !!cfg.hideSummaryABC;
+    const hideDN = !!cfg.hideSummaryDN;
+    document.querySelectorAll('#multiSelectBar .ms-shift-abc').forEach(btn=>{
+      btn.style.display = hideABC ? 'none' : '';
+    });
+    document.querySelectorAll('#multiSelectBar .ms-shift-dn').forEach(btn=>{
+      btn.style.display = hideDN ? 'none' : '';
+    });
+    // Also hide inactive shifts from config
+    const byCode = {};
+    (cfg.shifts||[]).forEach(s=>{ if(s&&s.code) byCode[String(s.code).toUpperCase()] = s; });
+    document.querySelectorAll('#multiSelectBar .ms-btn[data-shift]').forEach(btn=>{
+      const code = (btn.getAttribute('data-shift')||'').toUpperCase();
+      const s = byCode[code];
+      if(s && s.active === false) btn.style.display = 'none';
+    });
+  }catch(e){ console.warn('[ms shift filter]', e); }
+}
+
 function toggleSelectMode(){
   if(!canEditSchedule()){ toast('❌ Schedule edit permission नहीं है'); return; }
   if(_msActive){ clearMultiSelect(); return; }
@@ -8178,6 +8203,7 @@ function toggleSelectMode(){
     btn.textContent=(_lang==='en')?'✕ Cancel Select':'✕ Cancel Select';
   }
   toast('☑️ Select Mode ON — tap cells, then choose shift');
+  _updateMultiSelectShiftButtons();
   _msAttachEvents();
 }
 
