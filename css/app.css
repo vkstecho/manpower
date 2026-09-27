@@ -3386,3 +3386,33 @@ body.light span.shc.G {
     display: flex !important;
   }
 }
+
+
+/* v2.3.21 schedule column lock — equal date cols, no today-grow */
+#schedDateHdr > div {
+  flex: none !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+#schedDateHdr > div[data-today-col="1"] {
+  /* keep same box size as other days */
+  box-sizing: border-box !important;
+}
+@media (max-width: 640px) {
+  #schedDateHdr > div {
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+  }
+  .sched-tbl td:not(.ecol) {
+    width: 22px !important;
+    min-width: 22px !important;
+    max-width: 22px !important;
+    box-sizing: border-box !important;
+  }
+  .sched-tbl td.ecol {
+    width: 72px !important;
+    min-width: 72px !important;
+    max-width: 72px !important;
+  }
+}

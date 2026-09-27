@@ -610,7 +610,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.20'; // Bump this to force re-seed
+const APP_VERSION = '2.3.24'; // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -8256,31 +8256,7 @@ function syncStickyTop(){
 }
 window.addEventListener('resize', ()=>{
   syncStickyTop();
-  // Re-align date header columns after resize/orientation change
-  setTimeout(()=>{
-    const tbl = document.getElementById('schedTbl');
-    const dateHdr = document.getElementById('schedDateHdr');
-    if(!tbl || !dateHdr) return;
-    const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
-    if(!firstDataRow) return;
-    const allCells = firstDataRow.querySelectorAll('td');
-    const ecolWidth = allCells[0] ? allCells[0].getBoundingClientRect().width : 110;
-    const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
-    let totalDateW = 0;
-    hdrCells.forEach((hdrCell, i)=>{
-      const tableCell = allCells[i + 1];
-      if(tableCell){
-        const w = tableCell.getBoundingClientRect().width;
-        hdrCell.style.flex = 'none';
-        hdrCell.style.minWidth = w + 'px';
-        hdrCell.style.maxWidth = w + 'px';
-        hdrCell.style.width = w + 'px';
-        totalDateW += w;
-      }
-    });
-    dateHdr.style.paddingLeft = ecolWidth + 'px';
-    dateHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
-  }, 100);
+  setTimeout(()=>{ _alignSchedColumns(); syncStickyTop(); }, 100);
 });
 document.addEventListener('DOMContentLoaded', syncStickyTop);
 setTimeout(syncStickyTop, 500);
@@ -8739,7 +8715,7 @@ function setSchedSec(s,el){
   renderSchedule();
   setTimeout(syncStickyTop,80);
 }
-function renderScheduleLegend(){
+function renderScheduleLegend(emps, dates){
   const el=document.getElementById('schedLegend');
   if(!el) return;
   const cfg=getShiftConfigSync();
@@ -8756,22 +8732,248 @@ function renderScheduleLegend(){
     if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
     return true;
   });
+
+  // Count status codes in current view (hide legend items with zero usage)
+  const roster = emps || getSchedFilteredEmps().filter(e=>e.status!=='resigned');
+  let dateList = dates;
+  if(!dateList || !dateList.length){
+    if(_customRangeActive && _customDateFrom && _customDateTo){
+      dateList=[]; const d=new Date(_customDateFrom), e=new Date(_customDateTo); let cur=new Date(d);
+      while(cur<=e){ dateList.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
+    } else {
+      dateList=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    }
+  }
+  const used = new Set();
+  roster.forEach(emp=>{
+    dateList.forEach(d=>{
+      let sh = getShift(emp, d);
+      if(sh === 'CO') sh = 'C/O';
+      if(sh) used.add(String(sh));
+    });
+  });
+
   let html='';
   cfgShifts.forEach(s=>{
     const code=String(s.code||'').toUpperCase();
+    // Only show work-shift codes that appear (or always show active primary if used empty on first load)
+    if(used.size && !used.has(code) && !used.has(s.code)) return;
     const time=(s.start&&s.end)?` ${s.start}–${s.end}`:'';
     html+=`<div class="leg"><span class="shc ${cellClass(code)}">${code}</span>${s.label||code}${time}</div>`;
   });
-  html+=`
-    <div class="leg"><span class="shc O">O</span>छुट्टी</div>
-    <div class="leg"><span class="shc L">L</span>लीव</div>
-    <div class="leg"><span class="shc CO">CO</span>C-Off</div>
-    <div class="leg"><span class="shc G">G</span>जनरल</div>
-    <div class="leg"><span class="shc HLF">½</span>Half Day</div>
-    <div class="leg"><span class="shc Ab">Ab</span>Absent</div>
-    <div class="leg"><span class="shc H">H</span>Holiday</div>
-    <div class="leg"><span class="shc OD">OD</span>Other Dept</div>`;
+  const statusLegs = [
+    {code:'O', label:'छुट्टी', cls:'O'},
+    {code:'L', label:'लीव', cls:'L'},
+    {code:'C/O', label:'C-Off', cls:'CO', alt:['CO']},
+    {code:'G', label:'जनरल', cls:'G'},
+    {code:'HLF', label:'Half Day', cls:'HLF'},
+    {code:'Ab', label:'Absent', cls:'Ab'},
+    {code:'H', label:'Holiday', cls:'H'},
+    {code:'OD', label:'Other Dept', cls:'OD'},
+  ];
+  statusLegs.forEach(item=>{
+    const hit = used.has(item.code) || (item.alt||[]).some(a=>used.has(a));
+    if(!hit) return; // hide zero-count (e.g. OD when nobody has OD)
+    const disp = item.code === 'C/O' ? 'CO' : (item.code === 'HLF' ? '½' : item.code);
+    html+=`<div class="leg"><span class="shc ${item.cls}">${disp}</span>${item.label}</div>`;
+  });
   el.innerHTML=html;
+}
+
+
+/** Align schedule date header columns with table shift cells (fixes mobile white-gap drift). */
+
+/**
+ * Build schedule table section groups from the active filter category.
+ * ALL / CAT:section → group by Section
+ * CAT:machine       → group by Machine
+ * CAT:responsibility→ group by Responsibility
+ * CAT:designation   → group by Designation
+ * SEC:/MC:/RESP:/DESIG: value → single group for that value (after row filter)
+ */
+function _schedGroupMode(){
+  const s = String(schedSec||'ALL');
+  if(s==='ALL') return 'section';
+  if(s==='CAT:section' || s.startsWith('SEC:')) return 'section';
+  if(s==='CAT:machine' || s.startsWith('MC:')) return 'machine';
+  if(s==='CAT:responsibility' || s.startsWith('RESP:')) return 'responsibility';
+  if(s==='CAT:designation' || s.startsWith('DESIG:')) return 'designation';
+  return 'section';
+}
+
+function _empGroupKey(e, mode){
+  if(!e) return '';
+  if(mode==='machine') return getEmpMachine(e) || '';
+  if(mode==='responsibility') return getEmpResp(e) || '';
+  if(mode==='designation') return String(e.designation||'').trim();
+  return getEmpSection(e) || '';
+}
+
+function _buildSchedDisplayGroups(allEmps){
+  const mode = _schedGroupMode();
+  const colors = ['#f97316','#38bdf8','#a855f7','#16a34a','#db2777','#0891b2','#eab308','#6366f1','#14b8a6','#f43f5e'];
+  const icons = { section:'🏭', machine:'⚙️', responsibility:'🎯', designation:'💼' };
+  const icon = icons[mode] || '📋';
+  const isEn = _lang==='en';
+  const modeLabel = {
+    section: isEn ? 'SECTION' : 'सेक्शन',
+    machine: isEn ? 'MACHINE' : 'मशीन',
+    responsibility: isEn ? 'RESPONSIBILITY' : 'ज़िम्मेदारी',
+    designation: isEn ? 'DESIGNATION' : 'DESIGNATION'
+  }[mode] || mode.toUpperCase();
+
+  // Collect unique values present in the already-filtered roster
+  const valSet = new Set();
+  (allEmps||[]).forEach(e=>{
+    const v = _empGroupKey(e, mode);
+    if(v) valSet.add(v);
+  });
+  let vals = Array.from(valSet).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+
+  // If a specific sub-filter is active, keep only that value as the group header
+  const s = String(schedSec||'');
+  if(s.startsWith('SEC:')) vals = vals.filter(v=>v===s.slice(4) || _normSecKey(v)===_normSecKey(s.slice(4)));
+  if(s.startsWith('MC:')) vals = vals.filter(v=>v===s.slice(3) || _normSecKey(v)===_normSecKey(s.slice(3)));
+  if(s.startsWith('RESP:')) vals = vals.filter(v=>v===s.slice(5));
+  if(s.startsWith('DESIG:')) vals = vals.filter(v=>v===s.slice(6));
+
+  const groups = [];
+  if(!vals.length){
+    groups.push({
+      key:'all',
+      label: icon + ' ' + (isEn ? 'TEAM' : 'टीम') + ' — ' + modeLabel,
+      color:'#94a3b8',
+      filter: e => true,
+      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+    });
+  } else {
+    vals.forEach((val, i)=>{
+      groups.push({
+        key: mode + '_' + i,
+        label: icon + ' ' + String(val).toUpperCase() + ' — ' + modeLabel,
+        color: colors[i % colors.length],
+        filter: e => {
+          const k = _empGroupKey(e, mode);
+          if(mode==='section' || mode==='machine'){
+            return k===val || _normSecKey(k)===_normSecKey(val);
+          }
+          return k===val;
+        },
+        sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+      });
+    });
+  }
+
+  // Orphans (empty field for this mode)
+  const inAny = new Set();
+  groups.forEach(g=>{
+    (allEmps||[]).filter(g.filter).forEach(e=>inAny.add(e.id));
+  });
+  const orphans = (allEmps||[]).filter(e=>!inAny.has(e.id));
+  if(orphans.length){
+    groups.push({
+      key:'dyn_none',
+      label:'👤 '+(isEn?'Unassigned / Other':'अवर्गीकृत / अन्य'),
+      color:'#64748b',
+      filter: e => !inAny.has(e.id),
+      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+    });
+  }
+  return groups;
+}
+
+function _alignSchedColumns(){
+  try{
+    const tbl = document.getElementById('schedTbl');
+    const dateHdr = document.getElementById('schedDateHdr');
+    const monthHdr = document.getElementById('schedMonthHdr');
+    const hdrStack = document.getElementById('schedHdrStack');
+    const hdrWrap = document.getElementById('schedDateHdrWrap');
+    const wrap = document.getElementById('schedWrap');
+    if(!tbl || !dateHdr) return;
+
+    const mob = window.innerWidth <= 640;
+    const colW = mob ? 22 : 28;
+    const ecolTarget = mob ? 72 : 110;
+
+    // Force equal width on every date header cell
+    const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
+    hdrCells.forEach(hc=>{
+      hc.style.flex = 'none';
+      hc.style.boxSizing = 'border-box';
+      hc.style.width = colW + 'px';
+      hc.style.minWidth = colW + 'px';
+      hc.style.maxWidth = colW + 'px';
+      hc.style.margin = '0';
+      hc.style.paddingLeft = '0';
+      hc.style.paddingRight = '0';
+    });
+
+    // Force equal width on every data cell (skip ecol)
+    tbl.querySelectorAll('tbody tr').forEach(tr=>{
+      if(tr.classList.contains('sec-row')) return;
+      const tds = tr.querySelectorAll('td');
+      tds.forEach((td, i)=>{
+        if(i === 0){
+          td.style.boxSizing = 'border-box';
+          td.style.width = ecolTarget + 'px';
+          td.style.minWidth = ecolTarget + 'px';
+          td.style.maxWidth = ecolTarget + 'px';
+        } else {
+          td.style.boxSizing = 'border-box';
+          td.style.width = colW + 'px';
+          td.style.minWidth = colW + 'px';
+          td.style.maxWidth = colW + 'px';
+          td.style.paddingLeft = '0';
+          td.style.paddingRight = '0';
+        }
+      });
+    });
+
+    // Measure sticky name column after forcing sizes
+    const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
+    let ecolWidth = ecolTarget;
+    if(firstDataRow && firstDataRow.cells[0]){
+      ecolWidth = firstDataRow.cells[0].getBoundingClientRect().width || ecolTarget;
+    }
+
+    const n = hdrCells.length;
+    const totalDateW = n * colW;
+    dateHdr.style.paddingLeft = ecolWidth + 'px';
+    dateHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
+    dateHdr.style.width = (ecolWidth + totalDateW) + 'px';
+
+    if(monthHdr){
+      monthHdr.style.paddingLeft = ecolWidth + 'px';
+      monthHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
+      // Rebuild month segments with exact colW multiples if children exist
+      const kids = monthHdr.children;
+      if(kids && kids.length){
+        // leave existing content; widths were set at build time — refresh total only
+      }
+    }
+    if(hdrStack){
+      hdrStack.style.minWidth = (ecolWidth + totalDateW) + 'px';
+      hdrStack.style.width = (ecolWidth + totalDateW) + 'px';
+    }
+
+    // Match horizontal gutter: remove header-only side padding drift
+    if(hdrWrap){
+      hdrWrap.style.marginLeft = '0';
+      hdrWrap.style.marginRight = '0';
+      hdrWrap.style.paddingLeft = '0';
+      hdrWrap.style.paddingRight = '0';
+    }
+    if(wrap){
+      wrap.style.marginLeft = '0';
+      wrap.style.marginRight = '0';
+    }
+
+    // Keep scroll positions in sync
+    if(wrap && hdrWrap){
+      hdrWrap.scrollLeft = wrap.scrollLeft;
+    }
+  }catch(e){ console.warn('[alignSched]', e); }
 }
 
 function renderSchedule(){
@@ -8781,32 +8983,48 @@ function renderSchedule(){
       let s = document.getElementById('mpMobileSchedLock');
       if(!s){ s=document.createElement('style'); s.id='mpMobileSchedLock'; document.head.appendChild(s); }
       s.textContent = `
-        .sched-tbl { min-width:0 !important; table-layout:fixed !important; }
-        .sched-tbl td { padding:2px 0 !important; }
+        .sched-tbl { min-width:0 !important; table-layout:fixed !important; width:max-content !important; }
+        .sched-tbl col.sched-ecol { width:72px; min-width:72px; max-width:72px; }
+        .sched-tbl col.sched-dcol { width:22px; min-width:22px; max-width:22px; }
+        .sched-tbl td { padding:2px 0 !important; box-sizing:border-box !important; }
         .sched-tbl td.ecol, .sched-tbl th.ecol {
-          min-width:68px !important; max-width:78px !important; width:72px !important;
-          padding:3px 3px !important;
+          min-width:72px !important; max-width:72px !important; width:72px !important;
+          padding:3px 3px !important; box-sizing:border-box !important;
+        }
+        .sched-tbl td:not(.ecol), .sched-tbl th:not(.ecol) {
+          width:22px !important; min-width:22px !important; max-width:22px !important;
+          padding:2px 0 !important; box-sizing:border-box !important;
         }
         .sched-tbl .shc, .sched-tbl span.shc, .sched-tbl .shc.shc-sm {
-          width:20px !important; height:18px !important; min-width:20px !important;
-          font-size:10px !important; border-radius:4px !important;
+          width:18px !important; height:16px !important; min-width:18px !important;
+          font-size:9px !important; border-radius:3px !important;
+          margin:0 auto !important; display:inline-flex !important;
+          align-items:center !important; justify-content:center !important;
         }
-        #schedDateHdr > div { min-width:20px !important; max-width:26px !important; padding:3px 0 !important; }
+        #schedDateHdr, #schedMonthHdr { box-sizing:border-box !important; }
+        #schedDateHdr > div {
+          flex:none !important;
+          width:22px !important; min-width:22px !important; max-width:22px !important;
+          padding:3px 0 !important; margin:0 !important;
+          box-sizing:border-box !important; overflow:hidden !important;
+        }
+        /* Today: same width — only inset highlight (no grow) */
         #schedDateHdr > div[data-today-col="1"] {
-          min-width:24px !important; max-width:30px !important;
+          width:22px !important; min-width:22px !important; max-width:22px !important;
           background:rgba(249,115,22,.35) !important;
-          border:2px solid #f97316 !important; border-radius:8px !important;
-          box-shadow:0 0 10px rgba(249,115,22,.55) !important;
+          border:none !important;
+          box-shadow:inset 0 0 0 2px #f97316 !important;
+          border-radius:4px !important;
         }
         .sched-tbl td.sched-today-col {
-          background:rgba(249,115,22,.20) !important;
-          box-shadow:inset 0 0 0 2px rgba(249,115,22,.75) !important;
+          background:rgba(249,115,22,.18) !important;
+          box-shadow:inset 0 0 0 1.5px rgba(249,115,22,.75) !important;
         }
       `;
     }
   }catch(e){}
   _renderSchedFilterChips(schedSec);
-  renderScheduleLegend();
+  // legend filled after allEmps/dates ready
   const _d1=new Date(TODAY_STR+'T00:00:00'); _d1.setFullYear(_d1.getFullYear()-1);
   const _d2=new Date(TODAY_STR+'T00:00:00'); _d2.setFullYear(_d2.getFullYear()+1);
   const SCHED_MIN=_d1.toISOString().split('T')[0];
@@ -8833,42 +9051,9 @@ function renderSchedule(){
     getSchedFilteredEmps()
   ).filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length > 0);
 
-  // ── Build ordered display groups ──
-  // Primary filter: emp.sec (always correct from Firebase)
-  // Secondary: getEmpRole for sub-group ordering within section
-  const DISPLAY_ORDER = (()=>{
-    // Dynamic groups from each employee's Excel Section — no hardcoded Metalliser/Slitter
-    const secVals = _teamFieldValues('section');
-    const colors = ['#f97316','#38bdf8','#a855f7','#16a34a','#db2777','#0891b2','#eab308'];
-    if(!secVals.length){
-      // Fallback: one group with everyone (still no hard-coded section names)
-      return [{ key:'all', label:'TEAM', color:'#94a3b8',
-        filter: e => true, sort: (a,b) => (a.name||'').localeCompare(b.name||'') }];
-    }
-    return secVals.map((secName,i)=>({
-      key: 'sec_'+i,
-      label: '🏭 ' + secName.toUpperCase() + ' — TEAM',
-      color: colors[i % colors.length],
-      filter: e => getEmpSection(e) === secName,
-      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
-    }));
-  })();
-
-  // Fallback: employees not already in a Section group (no real Excel Section)
-  const _inAnySecGroup = new Set();
-  DISPLAY_ORDER.forEach(g=>{
-    allEmps.filter(g.filter).forEach(e=>_inAnySecGroup.add(e.id));
-  });
-  const _orphans = allEmps.filter(e=>!_inAnySecGroup.has(e.id));
-  if(_orphans.length){
-    DISPLAY_ORDER.push({
-      key:'dyn_none',
-      label:'👤 '+(_lang==='en'?'Unassigned / Other':'अवर्गीकृत / अन्य'),
-      color:'#64748b',
-      filter: e => !_inAnySecGroup.has(e.id),
-      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
-    });
-  }
+  // ── Build ordered display groups from active category (Section / Machine / Resp / Desig) ──
+  try{ renderScheduleLegend(allEmps, dates); }catch(e){}
+  const DISPLAY_ORDER = _buildSchedDisplayGroups(allEmps);
 
   // Build date cells for BOTH sticky header and table thead
   const dateCellsHtml = dates.map(d=>{
@@ -8883,14 +9068,18 @@ function renderSchedule(){
   // Initial render with flex — will be corrected to exact pixel widths after table renders
   const dateHdr = document.getElementById('schedDateHdr');
   if(dateHdr){
+    const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
+    const _colW = _mob ? 22 : 28;
     dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
       const todayMark = c.isT ? ' data-today-col="1"' : '';
+      // FIXED equal width for every day (today included) — highlight via inset only
+      const base = 'flex:none;box-sizing:border-box;width:'+_colW+'px;min-width:'+_colW+'px;max-width:'+_colW+'px;text-align:center;padding:3px 0;margin:0;overflow:hidden;';
       const todayStyle = c.isT
-        ? 'flex:1;min-width:28px;max-width:36px;text-align:center;padding:5px 2px;background:rgba(249,115,22,.32);border:2px solid #f97316;border-radius:8px;box-shadow:0 0 10px rgba(249,115,22,.45);margin:0 1px;'
-        : 'flex:1;min-width:22px;max-width:30px;text-align:center;padding:4px 1px;background:'+c.bg+';border-right:1px solid var(--border)';
+        ? base+'background:rgba(249,115,22,.32);box-shadow:inset 0 0 0 2px #f97316;border-radius:4px;'
+        : base+'background:'+c.bg+';border-right:1px solid var(--border);';
       return `<div data-date-col="${i}"${todayMark} style="${todayStyle}">
-        <div style="font-family:'Barlow Condensed';font-size:8px;font-weight:800;color:${c.colSub}">${c.day}</div>
-        <div style="font-family:'Barlow Condensed';font-size:${c.isT?'14':'12'}px;font-weight:900;color:${c.col}">${c.date}</div>
+        <div style="font-family:'Barlow Condensed';font-size:8px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
+        <div style="font-family:'Barlow Condensed';font-size:12px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
       </div>`;
     }).join('');
   }
@@ -9020,47 +9209,31 @@ function renderSchedule(){
 
     // ── PIXEL-PERFECT ALIGNMENT ──
     // Read actual rendered column widths from the table body cells (first data row)
-    // and apply them exactly to the sticky date header cells
+    // Force equal column widths (header + table) then build month row
     if(tbl && dateHdr){
-      const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
-      if(firstDataRow){
-        const allCells = firstDataRow.querySelectorAll('td');
-        // allCells[0] = employee name (ecol), allCells[1..N] = shift cells
-        const ecolWidth = allCells[0] ? allCells[0].getBoundingClientRect().width : 110;
+      _alignSchedColumns();
+      {
+        const mob = window.innerWidth <= 640;
+        const colW = mob ? 22 : 28;
+        const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
+        const ecolWidth = (firstDataRow && firstDataRow.cells[0])
+          ? firstDataRow.cells[0].getBoundingClientRect().width
+          : (mob ? 72 : 110);
         const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
-        let totalDateW = 0;
-        hdrCells.forEach((hdrCell, i)=>{
-          const tableCell = allCells[i + 1]; // +1 to skip ecol
-          if(tableCell){
-            const w = tableCell.getBoundingClientRect().width;
-            hdrCell.style.flex = 'none';
-            hdrCell.style.minWidth = w + 'px';
-            hdrCell.style.maxWidth = w + 'px';
-            hdrCell.style.width = w + 'px';
-            totalDateW += w;
-          }
-        });
-        // Set the header container padding-left to match ecol width exactly
-        dateHdr.style.paddingLeft = ecolWidth + 'px';
-        dateHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
+        const totalDateW = hdrCells.length * colW;
 
         // ── BUILD MONTH ROW ──
         const monthHdr = document.getElementById('schedMonthHdr');
         const hdrStack = document.getElementById('schedHdrStack');
         if(monthHdr){
-          // Group consecutive dates by month/year and accumulate pixel widths
-          const colWidths = [];
-          hdrCells.forEach((hdrCell, i)=>{
-            colWidths.push(parseFloat(hdrCell.style.width) || 0);
-          });
-          // Build month groups
+          // Group consecutive dates by month/year using FIXED col widths
           const groups = [];
           dateCellsHtml.forEach((c, i)=>{
             const key = c.year + '-' + c.month;
             if(!groups.length || groups[groups.length-1].key !== key){
               groups.push({key, month:c.month, year:c.year, w:0, count:0});
             }
-            groups[groups.length-1].w += colWidths[i] || 0;
+            groups[groups.length-1].w += colW;
             groups[groups.length-1].count++;
           });
           // Render month spans
@@ -9100,14 +9273,21 @@ function renderSchedule(){
       };
       wrap.addEventListener('scroll', wrap._scrollSyncHandler);
       hdrWrap.addEventListener('scroll', hdrWrap._scrollSyncHandler);
-      // Scroll to today column
+      // Scroll to today column using fixed column width
       const todayIdx = dates.indexOf(TODAY_STR);
       if(todayIdx > 0){
-        const cellW = wrap.scrollWidth / (dates.length + 1);
-        wrap.scrollLeft = Math.max(0, (todayIdx * cellW) - 110);
+        const colW = window.innerWidth <= 640 ? 22 : 28;
+        const ecolW = window.innerWidth <= 640 ? 72 : 110;
+        wrap.scrollLeft = Math.max(0, (todayIdx * colW) - colW * 2);
+        const hdrWrap2 = document.getElementById('schedDateHdrWrap');
+        if(hdrWrap2) hdrWrap2.scrollLeft = wrap.scrollLeft;
       }
     }
+    _alignSchedColumns();
     syncStickyTop();
+    // Second pass after fonts/layout settle
+    requestAnimationFrame(()=>{ _alignSchedColumns(); syncStickyTop(); });
+    setTimeout(()=>{ _alignSchedColumns(); syncStickyTop(); }, 200);
   }, 80);
   // Render shift trends below the table
   renderShiftTrends(allEmps, dates);
@@ -9123,17 +9303,44 @@ let _trendSortCol = 'name';
 let _trendSortDir = 'asc'; // 'asc' or 'desc'
 let _trendBarMetric = 'L'; // default bar chart metric
 
+let _trendSectionOpen = false;
+let _barSectionOpen = false;
+function toggleTrendSection(which){
+  if(which==='trends') _trendSectionOpen = !_trendSectionOpen;
+  if(which==='bar') _barSectionOpen = !_barSectionOpen;
+  // Re-render with same data
+  let dates;
+  if(_customRangeActive && _customDateFrom && _customDateTo){
+    const d=new Date(_customDateFrom), e=new Date(_customDateTo);
+    dates=[]; let cur=new Date(d);
+    while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
+  } else {
+    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+  }
+  const allEmps = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length > 0);
+  renderShiftTrends(allEmps, dates);
+}
+
 function renderShiftTrends(emps, dates){
   const el = document.getElementById('shiftTrendsSection');
   if(!el) return;
   if(!emps || emps.length === 0){ el.innerHTML=''; return; }
 
+  const cfg = getShiftConfigSync();
   // Count shifts for each employee across the given dates
-  const cfgShifts = _discoverAllShiftCodes(emps, getShiftConfigSync().shifts||[{code:'D'},{code:'N'}]);
+  let cfgShifts = _discoverAllShiftCodes(emps, cfg.shifts||[{code:'D'},{code:'N'}]);
+  // Respect profile hide D/N and hide A/B/C
+  cfgShifts = cfgShifts.filter(s=>{
+    if(!s || !s.code) return false;
+    if(s.active === false) return false;
+    const code = String(s.code).toUpperCase();
+    if(cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
+    if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
+    return true;
+  });
   const shiftColClasses = ['td-d','td-n','td-g'];
   const SHIFT_COLS = cfgShifts.map((s,i)=>({ key:s.code, label:s.code, cls:shiftColClasses[i%3] }));
-  const COLS = [
-    ...SHIFT_COLS,
+  const STATUS_COLS = [
     { key:'O',   label:'O',   cls:'td-o'  },
     { key:'L',   label:'L',   cls:'td-l'  },
     { key:'C/O', label:'C/O', cls:'td-co' },
@@ -9144,6 +9351,22 @@ function renderShiftTrends(emps, dates){
     { key:'H',   label:'H',   cls:'td-h'  },
     { key:'OD',  label:'OD',  cls:'td-od' },
   ];
+  // Pre-count totals so we can hide zero-count status columns (e.g. OD)
+  const totals = {};
+  [...SHIFT_COLS, ...STATUS_COLS].forEach(c => totals[c.key] = 0);
+  emps.forEach(e=>{
+    dates.forEach(d=>{
+      let sh = getShift(e, d);
+      if(sh === 'CO') sh = 'C/O';
+      if(sh && totals[sh] !== undefined) totals[sh]++;
+    });
+  });
+  const COLS = [
+    ...SHIFT_COLS.filter(c => (totals[c.key]||0) > 0 || SHIFT_COLS.length <= 3),
+    ...STATUS_COLS.filter(c => (totals[c.key]||0) > 0),
+  ];
+  // Always keep at least name + one col if everything filtered
+  if(!COLS.length && SHIFT_COLS.length) COLS.push(...SHIFT_COLS.slice(0,2));
 
   // Build data rows
   let rows = emps.map(e => {
@@ -9189,15 +9412,30 @@ function renderShiftTrends(emps, dates){
     : '';
 
   // ── BAR CHART: build bar data for current metric ──
-  const BAR_METRICS = [
+  let BAR_METRICS = [
     {key:'L',   label:'Leave',  color:'#f43f5e'},
     {key:'Ab',  label:'Absent', color:'#ef4444'},
     {key:'HLF', label:'½ Day',  color:'#f59e0b'},
     {key:'O',   label:'Off',    color:'#a78bfa'},
     {key:'D',   label:'Day',    color:'#f97316'},
     {key:'N',   label:'Night',  color:'#818cf8'},
+    {key:'A',   label:'A',      color:'#16a34a'},
+    {key:'B',   label:'B',      color:'#db2777'},
+    {key:'C',   label:'C',      color:'#0891b2'},
+    {key:'OD',  label:'OD',     color:'#0d9488'},
   ];
+  BAR_METRICS = BAR_METRICS.filter(m=>{
+    const code = m.key;
+    if(cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
+    if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
+    if((totals[code]||0) === 0) return false;
+    return true;
+  });
+  if(!BAR_METRICS.length){
+    BAR_METRICS = [{key:'L', label:'Leave', color:'#f43f5e'}];
+  }
   const bm = BAR_METRICS.find(m=>m.key===_trendBarMetric) || BAR_METRICS[0];
+  if(bm) _trendBarMetric = bm.key;
   // Sort bars high→low
   const barData = [...rows].sort((a,b)=>(b.counts[bm.key]||0)-(a.counts[bm.key]||0));
   const barMax = Math.max(1, ...barData.map(r=>r.counts[bm.key]||0));
@@ -9219,33 +9457,48 @@ function renderShiftTrends(emps, dates){
     return `<button onclick="setTrendBar('${m.key}')" style="padding:4px 10px;border-radius:6px;border:1px solid ${active?m.color:'var(--border2)'};background:${active?m.color+'22':'var(--card)'};color:${active?m.color:'var(--muted2)'};font-size:11px;font-weight:${active?'800':'600'};cursor:pointer;transition:all .2s">${m.label}</button>`;
   }).join('');
 
+  const chevT = _trendSectionOpen ? '▼' : '▶';
+  const chevB = _barSectionOpen ? '▼' : '▶';
   el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;margin-top:6px">
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted)">
-        📊 Shift Trends
-      </div>
-      <div style="font-size:10px;color:var(--muted2);font-weight:600">${rangeLabel}</div>
-    </div>
-    <div class="trends-wrap">
-      <table class="trends-tbl">
-        <thead><tr>${thName}${thCols}</tr></thead>
-        <tbody>${tbodyRows}</tbody>
-      </table>
-    </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center">
-      किसी भी column header पर tap करें — Low→High या High→Low sort होगा
-    </div>
-    <!-- BAR CHART -->
-    <div id="trendBarChartBox" style="margin-top:16px;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:12px 14px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">📈 Employee Bar Chart</div>
+    <!-- SHIFT TRENDS (collapsed by default) -->
+    <div style="margin-top:10px;background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden">
+      <button type="button" onclick="toggleTrendSection('trends')"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;text-align:left">
         <div style="display:flex;align-items:center;gap:8px">
-          <div style="font-size:9px;color:var(--muted2)">Sorted High→Low</div>
-          <button onclick="downloadTrendBar()" title="Download as Image" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--muted2);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s" onmouseover="this.style.borderColor='#25d366';this.style.color='#25d366'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--muted2)'">⬇️ Save PNG</button>
+          <span style="font-size:12px;color:var(--muted2)">${chevT}</span>
+          <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text)">📊 Shift Trends</span>
+        </div>
+        <span style="font-size:10px;color:var(--muted2);font-weight:600">${rangeLabel}</span>
+      </button>
+      <div id="trendTableBody" style="display:${_trendSectionOpen?'block':'none'};padding:0 10px 12px">
+        <div class="trends-wrap">
+          <table class="trends-tbl">
+            <thead><tr>${thName}${thCols}</tr></thead>
+            <tbody>${tbodyRows}</tbody>
+          </table>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center">
+          किसी भी column header पर tap करें — Low→High या High→Low sort होगा
         </div>
       </div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${metricBtns}</div>
-      <div id="trendBarChartBars">${barHtml}</div>
+    </div>
+    <!-- EMPLOYEE BAR CHART (collapsed by default) -->
+    <div id="trendBarChartBox" style="margin-top:10px;background:var(--card);border:1px solid var(--border2);border-radius:12px;overflow:hidden">
+      <button type="button" onclick="toggleTrendSection('bar')"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 14px;border:none;background:transparent;cursor:pointer;font-family:inherit;text-align:left">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:12px;color:var(--muted2)">${chevB}</span>
+          <span style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--text)">📈 Employee Bar Chart</span>
+        </div>
+        <span style="font-size:9px;color:var(--muted2)">Sorted High→Low</span>
+      </button>
+      <div id="trendBarBody" style="display:${_barSectionOpen?'block':'none'};padding:0 14px 14px">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+          <button onclick="downloadTrendBar()" title="Download as Image" style="display:flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--muted2);font-size:11px;font-weight:700;cursor:pointer">⬇️ Save PNG</button>
+        </div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${metricBtns}</div>
+        <div id="trendBarChartBars">${barHtml}</div>
+      </div>
     </div>`;
 }
 
@@ -18046,33 +18299,29 @@ async function saveScheduleBuilder(monthKey){
 // openPrintModal → user picks sections → _execPrint()
 // ─────────────────────────────────────────────────────────
 function printSched(){
-  // Broader filters (match schedule DISPLAY_ORDER so groups are never empty when staff exists)
-  const PRINT_GROUPS = [
-    { id:'met_main',  label:'⭐ Metalliser — Main Operators', checked:true,
-      filter:e=>['M1','M2'].includes(e.sec)&&getEmpRole(e).role==='main' },
-    { id:'met_rel',   label:'🔄 Metalliser — Relievers',      checked:true,
-      filter:e=>['M1','M2'].includes(e.sec)&&getEmpRole(e).role==='reliever' },
-    { id:'met_asst',  label:'🏭 Metalliser — Team',           checked:true,
-      filter:e=>['M1','M2'].includes(e.sec)&&!['main','reliever'].includes(getEmpRole(e).role) },
-    { id:'slit_main', label:'⭐ Slitter — Main Operators',    checked:true,
-      filter:e=>['S1','S2'].includes(e.sec)&&getEmpRole(e).role==='main' },
-    { id:'slit_rel',  label:'🔄 Slitter — Relievers',         checked:true,
-      filter:e=>['S1','S2'].includes(e.sec)&&getEmpRole(e).role==='slit_rel' },
-    { id:'slit_asst', label:'✂️ Slitter — Team',              checked:true,
-      filter:e=>['S1','S2'].includes(e.sec)&&!['main','slit_rel'].includes(getEmpRole(e).role) },
-    { id:'sup',       label:'👷 Supervisors / Engineers',                  checked:true,
-      filter:e=>{ const k=_normSecKey(e.sec); return k==='SUP'||k==='ALL'; } },
-    { id:'mgr',       label:'🎯 Manager',                      checked:false,
-      filter:e=>{ const k=_normSecKey(e.sec); return k==='MGR'||k==='MANAGER'; } },
-    { id:'current',   label:'📋 Current View (screen filter)', checked:true,
-      filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id) },
-  ];
+  // Print modal = ONLY current on-screen view groups (Section / Machine / Resp / Designation)
+  const roster = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length>0);
+  const viewGroups = _buildSchedDisplayGroups(roster);
+  const mode = _schedGroupMode();
+  const modeHint = {section:'Sections', machine:'Machines', responsibility:'Responsibility', designation:'Designation'}[mode]||mode;
+  const isEn = _lang==='en';
 
-  const allEmps = getEmps().filter(e=>e.status!=='resigned');
-  let activeGroups = PRINT_GROUPS.filter(g => allEmps.some(g.filter));
-  // Safety: never show an empty modal — always allow "current view" + all
+  try{ window._printViewGroups = viewGroups; }catch(e){}
+
+  // One checkbox per on-screen subsection (all checked by default)
+  let activeGroups = viewGroups.map((g,i)=>({
+    id: 'view_'+i,
+    label: g.label,
+    checked: true,
+    filter: g.filter
+  }));
   if(!activeGroups.length){
-    activeGroups = [{ id:'all', label:'📋 All Employees', checked:true, filter:e=>true }];
+    activeGroups = [{
+      id:'current',
+      label: isEn ? '📋 Current View' : '📋 वर्तमान दृश्य',
+      checked:true,
+      filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id)
+    }];
   }
 
   const rowsHtml = activeGroups.map(g=>`
@@ -18080,33 +18329,31 @@ function printSched(){
       background:var(--card);border:1px solid var(--border);border-radius:10px;cursor:pointer;margin-bottom:4px">
       <input type="checkbox" class="prtchk" id="prtchk_${g.id}" data-prtid="${g.id}" ${g.checked?'checked':''}
         style="width:18px;height:18px;accent-color:#0ea5e9;cursor:pointer;flex-shrink:0">
-      <span style="font-size:13px;font-weight:700;color:var(--text)">${g.label}</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text)">${String(g.label).replace(/</g,'&lt;')}</span>
     </label>`).join('');
 
   openModal(`<div class="modal-handle"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="font-size:28px">🖨️</div>
       <div>
-        <div style="font-size:17px;font-weight:900;color:var(--text)">Print — Section चुनें</div>
-        <div style="font-size:11px;color:var(--muted2);margin-top:2px">जो sections print करनी हों उन्हें tick करें</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text)">${isEn?'Print — Current View':'Print — वर्तमान दृश्य'}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${isEn?'Grouped by':'ग्रुप'}: <b style="color:var(--m1)">${modeHint}</b> — ${isEn?'same as screen':'स्क्रीन जैसा'}</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=true)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ सभी</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ ${isEn?'All':'सभी'}</button>
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=false)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">☐ कोई नहीं</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">⬜ ${isEn?'None':'कोई नहीं'}</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:4px;max-height:45vh;overflow-y:auto;padding-right:2px">
-      ${rowsHtml}
-    </div>
-    <div style="display:flex;gap:8px;margin-top:14px">
+    <div style="max-height:50vh;overflow-y:auto;margin-bottom:14px">${rowsHtml}</div>
+    <div style="display:flex;gap:10px">
       <button type="button" onclick="_execPrint()" style="flex:1;padding:14px;border-radius:12px;border:none;
         background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ Print करें</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${isEn?'Print':'Print करें'}</button>
       <button type="button" onclick="closeModal()" style="padding:12px 16px;border-radius:12px;
         border:1px solid var(--border2);background:var(--card);color:var(--muted2);
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">रद्द</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">${isEn?'Cancel':'रद्द'}</button>
     </div>`);
 }
 
@@ -18125,22 +18372,30 @@ async function _execPrint(){
   }
   closeModal();
 
-  // Redefine groups with filters (same broad rules as printSched)
-  const ALL_PRINT_GROUPS = [
-    { id:'met_main',  label:'⭐ METALLISER — MAIN OPERATORS', color:'#f97316', filter:e=>['M1','M2'].includes(e.sec)&&getEmpRole(e).role==='main' },
-    { id:'met_rel',   label:'🔄 METALLISER — RELIEVERS',      color:'#fb923c', filter:e=>['M1','M2'].includes(e.sec)&&getEmpRole(e).role==='reliever' },
-    { id:'met_asst',  label:'🏭 METALLISER — TEAM',           color:'#d97706', filter:e=>['M1','M2'].includes(e.sec)&&!['main','reliever'].includes(getEmpRole(e).role) },
-    { id:'slit_main', label:'⭐ SLITTER — MAIN OPERATORS',    color:'#0284c7', filter:e=>['S1','S2'].includes(e.sec)&&getEmpRole(e).role==='main' },
-    { id:'slit_rel',  label:'🔄 SLITTER — RELIEVERS',         color:'#0ea5e9', filter:e=>['S1','S2'].includes(e.sec)&&getEmpRole(e).role==='slit_rel' },
-    { id:'slit_asst', label:'✂️ SLITTER — TEAM',              color:'#38bdf8', filter:e=>['S1','S2'].includes(e.sec)&&!['main','slit_rel'].includes(getEmpRole(e).role) },
-    { id:'sup',       label:'👷 SUPERVISORS / ENGINEERS',                  color:'#7c3aed', filter:e=>{ const k=_normSecKey(e.sec); return k==='SUP'||k==='ALL'; } },
-    { id:'mgr',       label:'🎯 MANAGER',                      color:'#a21caf', filter:e=>{ const k=_normSecKey(e.sec); return k==='MGR'||k==='MANAGER'; } },
-    { id:'current',   label:'📋 CURRENT VIEW',                 color:'#0ea5e9', filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id) },
-    { id:'all',       label:'📋 ALL EMPLOYEES',                color:'#64748b', filter:e=>true },
-  ];
+  // Build print groups from current on-screen subsections (view_0, view_1, …)
+  const roster = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length>0);
+  const viewGroups = (window._printViewGroups && window._printViewGroups.length)
+    ? window._printViewGroups
+    : _buildSchedDisplayGroups(roster);
+  const ALL_PRINT_GROUPS = viewGroups.map((g,i)=>({
+    id: 'view_'+i,
+    label: g.label,
+    color: g.color||'#0ea5e9',
+    filter: (function(fn){ return function(e){ return getSchedFilteredEmps().some(x=>x.id===e.id) && fn(e); }; })(g.filter)
+  }));
+  ALL_PRINT_GROUPS.push({
+    id:'current',
+    label:'📋 CURRENT VIEW',
+    color:'#0ea5e9',
+    filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id)
+  });
   let PRINT_GROUPS = ALL_PRINT_GROUPS.filter(g=>selectedIds.includes(g.id));
+  // If nothing checked or only legacy ids — print full current view groups
   if(!PRINT_GROUPS.length){
-    PRINT_GROUPS = [ALL_PRINT_GROUPS.find(g=>g.id==='current')];
+    PRINT_GROUPS = ALL_PRINT_GROUPS.filter(g=>String(g.id).startsWith('view_'));
+  }
+  if(!PRINT_GROUPS.length){
+    PRINT_GROUPS = [{ id:'current', label:'📋 CURRENT VIEW', color:'#0ea5e9', filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id) }];
   }
 
   // Date range
@@ -18160,8 +18415,7 @@ async function _execPrint(){
   const orientation = dates.length > 10 ? 'landscape' : 'portrait';
 
   // Section label for title
-  const sectionNames = { met_main:'Met Main',met_rel:'Met Rel',met_asst:'Met Team',slit_main:'Slit Main',slit_rel:'Slit Rel',slit_asst:'Slit Team',sup:'Supervisor',mgr:'Manager' };
-  const sectionLabel = selectedIds.length === 8 ? 'All Sections' : selectedIds.map(id=>sectionNames[id]||id).join(' + ');
+  const sectionLabel = PRINT_GROUPS.map(g=>g.label).join(' · ') || 'Current View';
 
   // Shift colours
   const SBG={D:'#f59e0b',N:'#4f46e5',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#dcfce7',L:'#fee2e2','C/O':'#ede9fe',G:'#e0f2fe',H:'#ffedd5',OD:'#ccfbf1',HLF:'#fed7aa',Ab:'#fecaca',GP:'#fdf4ff'};
