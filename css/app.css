@@ -1258,7 +1258,7 @@ body.light .emp-id{color:#5a6579 !important;}
 .td-d{color:#f59e0b;}.td-n{color:#818cf8;}.td-o{color:#64748b;}.td-l{color:#f43f5e;}
 .td-co{color:#fde68a;}.td-g{color:#38bdf8;}.td-gp{color:#a78bfa;}.td-hlf{color:#fb923c;}.td-ab{color:#fca5a5;}
 .td-h{color:#ea580c;}.td-od{color:#2dd4bf;}.td-zero{color:var(--border2);}
-body.light .td-n{color:#4338ca;}.body.light .td-co{color:#92400e;}body.light .td-gp{color:#7c3aed;}
+body.light .td-n{color:#4f46e5;}.body.light .td-co{color:#92400e;}body.light .td-gp{color:#7c3aed;}
 body.light .trends-tbl td:first-child{background:var(--card);}
 body.light .trends-tbl th:first-child{background:var(--card2);}
 
@@ -2487,7 +2487,7 @@ body.light .sched-tbl td.ecol .emp-nm {
   border: 1px solid rgba(0,0,0,.15);
 }
 .shc.D { background: #f59e0b !important; color: #000 !important; }
-.shc.N { background: #4338ca !important; color: #fff !important; }
+.shc.N { background: #4f46e5 !important; color: #fff !important; }
 .shc.A { background: #15803d !important; color: #fff !important; }
 .shc.B { background: #be185d !important; color: #fff !important; }
 .shc.C { background: #0e7490 !important; color: #fff !important; }
@@ -3104,3 +3104,8 @@ body {
 .hm-chip .shc.shc-sm.G { background:#0284c7 !important; color:#fff !important; }
 .hm-chip .shc.shc-sm.O { background:#475569 !important; color:#fff !important; }
 .hm-chip .shc.shc-sm.L { background:#be123c !important; color:#fff !important; }
+
+/* HOME=SCHEDULE D/N/G FORCE v24 */
+.shc.D, span.shc.D, .hm-chip .shc.D, .ms-day-sh.shc.D { background:#f59e0b !important; color:#000 !important; }
+.shc.N, span.shc.N, .hm-chip .shc.N, .ms-day-sh.shc.N { background:#4f46e5 !important; color:#fff !important; }
+.shc.G, span.shc.G, .hm-chip .shc.G, .ms-day-sh.shc.G { background:#0284c7 !important; color:#fff !important; }

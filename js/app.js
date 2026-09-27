@@ -6121,7 +6121,10 @@ window.MP_SHIFT_COLORS = {
   Ab:{bg:'#7f1d1d',fg:'#fca5a5'}
 };
 function mpShiftStyle(code){
-  const c = window.MP_SHIFT_COLORS[code] || window.MP_SHIFT_COLORS[String(code||'').toUpperCase()];
+  let k = String(code||'').trim();
+  if(/^L[:\-_]/i.test(k)) k = 'L';
+  if(k==='CO' || k==='C/O') k = 'C/O';
+  const c = window.MP_SHIFT_COLORS[k] || window.MP_SHIFT_COLORS[k.toUpperCase()];
   if(c) return c;
   if(String(code||'').indexOf('+')>=0) return {bg:'#7c3aed',fg:'#fff'};
   return {bg:'#1e293b',fg:'#94a3b8'};
@@ -7062,16 +7065,58 @@ async function handleExcelFile(file){
           if(intId && intId!==empId) merged[intId]=shifts;
         });
         await fbSet('schedules/'+mk, merged);
+        try{ if(_cache && _cache.schedules) _cache.schedules[mk] = merged; }catch(e){}
         saved++; savedMonths.push(mk.replace('_','/'));
       }catch(e){ console.error('Save error',mk,e); }
     }
 
+    // CRITICAL: clear overrides for every uploaded emp+date so Excel values win
+    // (old auto-H overrides were hiding the correct D/N/G/O from schedule)
+    let clearedOv = 0;
+    try{
+      const ovClear = {};
+      const idToInternal = empIdToInternal;
+      const internalToCodes = {};
+      getEmps().forEach(e=>{
+        if(e.id) internalToCodes[e.id] = e.id;
+        if(e.empId) internalToCodes[String(e.empId).trim()] = e.id;
+      });
+      Object.entries(schedByMonth).forEach(([mk, byEmp])=>{
+        const parts = mk.split('_');
+        const year = parts[0];
+        const month = parts[1];
+        Object.entries(byEmp).forEach(([empKey, shifts])=>{
+          const intId = idToInternal[empKey] || internalToCodes[empKey] || empKey;
+          const arr = Array.isArray(shifts) ? shifts : [];
+          for(let dayIdx = 0; dayIdx < arr.length; dayIdx++){
+            if(arr[dayIdx] == null || arr[dayIdx] === '') continue;
+            const dateStr = year + '-' + month + '-' + String(dayIdx + 1).padStart(2,'0');
+            // Clear override for both emp code key and internal id key
+            [empKey, intId].filter(Boolean).forEach(id=>{
+              const k = id + '_' + dateStr;
+              ovClear[k] = null;
+            });
+          }
+        });
+      });
+      if(Object.keys(ovClear).length){
+        await fbUpdate('overrides', ovClear);
+        const oc = {...(getOverrides()||{})};
+        Object.keys(ovClear).forEach(k=>{ delete oc[k]; });
+        _cache.overrides = oc;
+        clearedOv = Object.keys(ovClear).length;
+      }
+    }catch(e){ console.warn('[upload clear overrides]', e); }
+
     const empIds=[...new Set(Object.values(schedByMonth).flatMap(m=>Object.keys(m)))];
     statusEl.innerHTML=`<span style="color:var(--green)">✅ <b>${formatName}</b><br>
       📅 ${saved} महीने save: ${savedMonths.join(', ')}<br>
-      👥 ${empIds.length} employees: ${empIds.slice(0,6).join(', ')}${empIds.length>6?'...':''}</span>`;
-    toast('✅ Shift schedule upload हो गया!');
-    renderSchedule();
+      👥 ${empIds.length} employees: ${empIds.slice(0,6).join(', ')}${empIds.length>6?'...':''}`
+      +(clearedOv?`<br>🧹 ${clearedOv} old overrides cleared (H no longer blocks Excel)`:'')
+      +`</span>`;
+    toast('✅ Shift schedule uploaded'+(clearedOv?' · old H overrides cleared':''));
+    try{ renderSchedule(); }catch(e){}
+    try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
   }catch(err){
     console.error('Excel parse error:',err);
     statusEl.innerHTML=`<span style="color:var(--lv)">❌ Error: ${err.message}</span>`;
@@ -7811,14 +7856,16 @@ function renderSchedule(){
             ? `data-empid="${emp.id}" data-empname="${emp.name}" data-date="${d}" data-origsh="${origSh}" style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="handleSchedCellClick(this,'${emp.id}','${emp.name}','${d}','${origSh}')"`
             : (['L','CO','C/O','OD','Ab','HLF'].includes(sh)
               ? `style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="showShiftInfo('${emp.id}','${emp.name.replace(/'/g,"\\'")}','${d}','${sh}')"`
-              : `style="${isT?'background:rgba(249,115,22,.05)':''}"`);          if(pending){
+              : `style="${isT?'background:rgba(249,115,22,.05)':''}"`);          const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
+          const _styleBase = `background:${_st.bg} !important;color:${_st.fg} !important;`;
+          if(pending){
             return `<td ${clickable} data-cellkey="${emp.id}_${d}" data-pending="${pendingKey}" data-orig-shift="${origSh}">
-              <span class="shc ${cellClass(sh)}" style="outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(sh)}</span>
+              <span class="shc ${cellClass(sh)}" style="${_styleBase}outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(sh)}</span>
               ${canEditSchedule()?`<div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`:''}
             </td>`;
           }
           return `<td ${clickable} data-cellkey="${emp.id}_${d}">
-            <span class="shc ${cellClass(sh)}" style="${isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''}">
+            <span class="shc ${cellClass(sh)}" style="${_styleBase}${isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''}">
               ${cellDisp(sh)}
             </span>
           </td>`;
