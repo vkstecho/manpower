@@ -654,7 +654,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.29';
+const APP_VERSION = '2.3.30';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -8387,33 +8387,48 @@ async function sendShiftSms(empId, date, newShift){
 // STICKY HEADER HEIGHT SYNC
 // ════════════════════════════════════════
 function syncStickyTop(){
-  const hdr=document.querySelector('.hdr');
-  if(!hdr) return;
-  const h=hdr.offsetHeight;
-  document.documentElement.style.setProperty('--hdr-height', h+'px');
-  // Also measure the sticky section-filter row (All/M-1/M-2 chips)
-  const stickyHdr=document.getElementById('schedStickyHdr');
-  const sh = stickyHdr ? stickyHdr.offsetHeight : 48;
-  document.documentElement.style.setProperty('--sched-sticky-h', sh+'px');
-  // Filter chips height so date row sticks just below them
-  try{
-    const filt = document.getElementById('schedFilter');
-    const sec = document.getElementById('schedFilterSecondary');
-    let fh = 0;
-    if(filt) fh += filt.offsetHeight;
-    if(sec && sec.style.display !== 'none') fh += sec.offsetHeight + 6;
-    document.documentElement.style.setProperty('--sched-filter-h', fh+'px');
-  }catch(e){}
   try{
     const hdr = document.querySelector('.hdr') || document.getElementById('appHdr');
-    if(hdr) document.documentElement.style.setProperty('--hdr-height', hdr.offsetHeight+'px');
+    const h = hdr ? hdr.offsetHeight : 56;
+    document.documentElement.style.setProperty('--hdr-height', h + 'px');
+
+    // Mobile bottom/top nav; desktop nav is hidden
     const nav = document.querySelector('.nav');
-    if(nav) document.documentElement.style.setProperty('--nav-height', nav.offsetHeight+'px');
-  }catch(e){}
-  // Apply directly to all th elements in schedule table for immediate effect
-  document.querySelectorAll('.sched-tbl th').forEach(th=>{
-    th.style.top = (h + sh) + 'px';
-  });
+    let navH = 0;
+    if(nav){
+      const st = window.getComputedStyle(nav);
+      if(st.display !== 'none' && st.visibility !== 'hidden') navH = nav.offsetHeight || 0;
+    }
+    document.documentElement.style.setProperty('--nav-height', navH + 'px');
+
+    // Learn bar (purple) is inside .hdr on most builds — already in h
+    // Sticky block = filters + month + date (single unit)
+    const stickyHdr = document.getElementById('schedStickyHdr');
+    const sh = stickyHdr ? stickyHdr.offsetHeight : 48;
+    document.documentElement.style.setProperty('--sched-sticky-h', sh + 'px');
+
+    // Desktop: only header; mobile: header + nav
+    const stickTop = h + navH;
+    document.documentElement.style.setProperty('--sched-stick-top', stickTop + 'px');
+
+    if(stickyHdr){
+      stickyHdr.style.position = 'sticky';
+      stickyHdr.style.top = stickTop + 'px';
+      stickyHdr.style.zIndex = '40';
+      stickyHdr.style.background = getComputedStyle(document.body).getPropertyValue('--bg2') || 'var(--bg2)';
+    }
+    // Nested date wrap must NOT be independently sticky (causes collapse)
+    const dateWrap = document.getElementById('schedDateHdrWrap');
+    if(dateWrap){
+      dateWrap.style.position = 'relative';
+      dateWrap.style.top = 'auto';
+      dateWrap.style.zIndex = '1';
+    }
+
+    document.querySelectorAll('.sched-tbl th').forEach(th=>{
+      th.style.top = stickTop + 'px';
+    });
+  }catch(e){ console.warn('[syncStickyTop]', e); }
 }
 let _schedResizeTimer = null;
 let _lastSchedDayCount = 0;
@@ -8891,18 +8906,18 @@ document.addEventListener('keydown', e=>{
 function _schedColWidth(){
   try{
     const w = window.innerWidth || 360;
-    if(w <= 640) return 26;   // mobile: slightly wider for D/N counts
+    if(w <= 640) return 28;   // mobile: +2px for readable D/N cells
     if(w <= 900) return 30;
     return 34;                // desktop
-  }catch(e){ return 26; }
+  }catch(e){ return 28; }
 }
 function _schedEcolWidth(){
   try{
     const w = window.innerWidth || 360;
-    if(w <= 640) return 70;
+    if(w <= 640) return 86;   // mobile: wider name column
     if(w <= 900) return 110;
     return 128;
-  }catch(e){ return 70; }
+  }catch(e){ return 86; }
 }
 /** How many date columns — mobile fixed; desktop fills available width (no right white gap) */
 function _schedDayCount(){
@@ -9260,18 +9275,18 @@ function renderSchedule(){
       s.textContent = `
         .sched-tbl { min-width:0 !important; table-layout:fixed !important; width:max-content !important; }
         .sched-tbl col.sched-ecol { width:72px; min-width:72px; max-width:72px; }
-        .sched-tbl col.sched-dcol { width:26px; min-width:26px; max-width:26px; }
+        .sched-tbl col.sched-dcol { width:28px; min-width:28px; max-width:28px; }
         .sched-tbl td { padding:2px 0 !important; box-sizing:border-box !important; }
         .sched-tbl td.ecol, .sched-tbl th.ecol {
-          min-width:70px !important; max-width:76px !important; width:70px !important;
-          padding:3px 2px !important; box-sizing:border-box !important;
+          min-width:86px !important; max-width:96px !important; width:86px !important;
+          padding:4px 4px !important; box-sizing:border-box !important;
         }
         .sched-tbl td:not(.ecol), .sched-tbl th:not(.ecol) {
-          width:26px !important; min-width:26px !important; max-width:26px !important;
+          width:28px !important; min-width:28px !important; max-width:28px !important;
           padding:2px 0 !important; box-sizing:border-box !important;
         }
         .sched-tbl .shc, .sched-tbl span.shc, .sched-tbl .shc.shc-sm {
-          width:20px !important; height:18px !important; min-width:20px !important;
+          width:22px !important; height:20px !important; min-width:22px !important;
           font-size:10px !important; border-radius:4px !important;
           margin:0 auto !important; display:inline-flex !important;
           align-items:center !important; justify-content:center !important;
@@ -9279,13 +9294,13 @@ function renderSchedule(){
         #schedDateHdr, #schedMonthHdr { box-sizing:border-box !important; }
         #schedDateHdr > div {
           flex:none !important;
-          width:26px !important; min-width:26px !important; max-width:26px !important;
+          width:28px !important; min-width:28px !important; max-width:28px !important;
           padding:3px 0 !important; margin:0 !important;
           box-sizing:border-box !important; overflow:hidden !important;
         }
         /* Today: same width — only inset highlight (no grow) */
         #schedDateHdr > div[data-today-col="1"] {
-          width:26px !important; min-width:26px !important; max-width:26px !important;
+          width:28px !important; min-width:28px !important; max-width:28px !important;
           background:rgba(249,115,22,.35) !important;
           border:none !important;
           box-shadow:inset 0 0 0 2px #f97316 !important;

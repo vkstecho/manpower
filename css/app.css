@@ -2149,11 +2149,14 @@ body.light .learn-hero{ background:linear-gradient(160deg,#1a0533,#0d1623,#080e1
   /* ── PWA install banner — hide on desktop ── */
   #pwaInstallBtn { display: none !important; }
 
-  /* ── Schedule sticky header ── */
-  .sched-sticky-hdr { 
-    left: 220px !important; 
-    right: 0 !important;
-    width: auto !important; 
+  /* ── Schedule sticky header (inside mainContent — do NOT set left:220) ── */
+  .sched-sticky-hdr {
+    left: auto !important;
+    right: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
   .sched-tbl-wrap .sched-dates-row {
     position: sticky;
@@ -3573,4 +3576,71 @@ html, body {
   .nav { min-height: 40px !important; padding-top: 2px !important; padding-bottom: 2px !important; }
   body { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
   #loginScreen { padding-top: 12px !important; }
+}
+
+
+/* v2.3.30 sticky date ribbon — single unit, never collapse on scroll */
+.sched-sticky-hdr {
+  position: sticky !important;
+  top: var(--sched-stick-top, calc(var(--hdr-height, 56px) + var(--nav-height, 0px))) !important;
+  z-index: 40 !important;
+  background: var(--bg2) !important;
+  padding-top: 6px !important;
+  padding-bottom: 0 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35) !important;
+  /* keep filters + month + dates together */
+}
+/* Date wrap is part of sticky parent — not independently sticky */
+#schedDateHdrWrap {
+  position: relative !important;
+  top: auto !important;
+  z-index: 1 !important;
+  background: var(--card2) !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}
+#schedHdrStack {
+  background: var(--card2);
+}
+#schedMonthHdr {
+  background: #0a1628 !important;
+}
+#schedDateHdr {
+  background: var(--card2) !important;
+}
+
+@media (max-width: 640px) {
+  .sched-tbl td.ecol {
+    min-width: 86px !important;
+    max-width: 96px !important;
+    width: 86px !important;
+    padding: 4px 4px !important;
+  }
+  .sched-tbl td:not(.ecol) {
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+  }
+  #schedDateHdr > div {
+    width: 28px !important;
+    min-width: 28px !important;
+    max-width: 28px !important;
+  }
+  .sched-tbl .shc, .sched-tbl span.shc {
+    width: 22px !important;
+    height: 20px !important;
+    min-width: 22px !important;
+    font-size: 10px !important;
+  }
+}
+
+@media (min-width: 900px) {
+  /* Sticky sits inside already-offset #mainContent */
+  .sched-sticky-hdr {
+    left: auto !important;
+    width: 100% !important;
+  }
+  #tab-schedule {
+    max-width: none !important; /* full content width for more date cols */
+  }
 }
