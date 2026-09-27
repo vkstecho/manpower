@@ -49,20 +49,25 @@ function isValidEmpId(id){
 
 // ── SECURITY: Setup admin hashes in Firebase (run once) ──
 async function initAdminAuth(){
+  // SECURITY: Never seed admin password hashes from the client.
+  // Set adminAuth/{user} = { h: sha256(user+":"+pass+":MP_ADMIN"), name } only via Firebase Console
+  // or a trusted admin Cloud Function — never from this app bundle.
   try{
     const existing = await fbGet('adminAuth');
-    if(existing) return; // Already set
-    // First time — store hashes
-    await fbSet('adminAuth', {
-      vivek: { h:'6e6e62f9c055e05728a73e7a79a820c819eb3ca969a534ac97625aac9207d1c6', name:'VIVEK' },
-      admin: { h:'2655d8f098a33e0c8019072c68588a5d6e3be958ed06dd7f59df48224bbacd5a', name:'Admin' }
-    });
-  }catch(e){}
+    if(!existing){
+      console.warn('[security] adminAuth missing in Firebase — admin login will fail until configured in Console');
+    }
+  }catch(e){ console.warn('[security] adminAuth check failed', e && e.message); }
 }
 
 // ── CONFIG ──
 const CFG = {
-  license:   { expiry: new Date(2026,11,31), warnDays:15, masterKey:'45edc2356764c728add613126ab4c53d14f9339a238b2393d56f84292d5ce319', extendKey:'5dfd85eda291bef92f908b4cfa61bb62283afdaa3a947a8688eb8dcb6c330e65', extendTo: new Date(2027,11,31) },
+  license:   {
+    // Client only has a soft fallback expiry. Real unlock hashes live in Firebase settings/license only.
+    expiry: new Date(2026,11,31),
+    warnDays: 15,
+    extendTo: new Date(2027,11,31)
+  },
   // SECURITY: Admin credentials checked ONLY via Firebase adminAuth — not hardcoded
   adminCreds:[], // Empty — all auth goes through Firebase
   supervisorInstructor: 'MOHIT',
@@ -605,7 +610,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3'; // Bump this to force re-seed
+const APP_VERSION = '2.3.20'; // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -2093,11 +2098,35 @@ function showExpiryWarning(daysLeft){
 // ════════════════════════════════════════
 // EXPIRY
 // ════════════════════════════════════════
+// License: unlock hashes are ONLY in Firebase settings/license (not in client bundle).
+// settings/license shape: { validTill: ISO, unlockHashes: { master: 'sha256...', extend: 'sha256...' }, extendTo: ISO }
+let _licenseFbCache = null;
+let _licenseFbCheckedAt = 0;
+
+async function _loadLicenseFromFirebase(force){
+  const now = Date.now();
+  if(!force && _licenseFbCache && (now - _licenseFbCheckedAt) < 60000) return _licenseFbCache;
+  try{
+    const lic = await fbGet('settings/license');
+    _licenseFbCache = lic || null;
+    _licenseFbCheckedAt = now;
+    return _licenseFbCache;
+  }catch(e){
+    console.warn('[license] Firebase read failed', e && e.message);
+    return _licenseFbCache; // last known
+  }
+}
+
 function checkLicense(){
+  // Sync path used at boot — uses local unlock flag + soft client expiry fallback.
+  // Async re-check runs in startApp via refreshLicenseFromServer().
   try{
     const unlock = localStorage.getItem('mp_license_unlock')||'';
-    if(unlock === CFG.license.masterKey || unlock === CFG.license.extendKey){
-      if(unlock === CFG.license.extendKey) CFG.license.expiry = CFG.license.extendTo;
+    const verified = localStorage.getItem('mp_license_verified')==='1';
+    if(unlock && verified){
+      // Previously verified against Firebase — allow offline until async refresh
+      const ext = localStorage.getItem('mp_license_extend')==='1';
+      if(ext) CFG.license.expiry = CFG.license.extendTo;
       return true;
     }
   }catch(e){}
@@ -2111,13 +2140,74 @@ function checkLicense(){
   }
   return true;
 }
+
+async function refreshLicenseFromServer(){
+  const lic = await _loadLicenseFromFirebase(true);
+  if(!lic) return checkLicense();
+  try{
+    if(lic.validTill){
+      const vt = new Date(lic.validTill);
+      if(!isNaN(vt.getTime())) CFG.license.expiry = vt;
+    }
+    if(lic.extendTo){
+      const et = new Date(lic.extendTo);
+      if(!isNaN(et.getTime())) CFG.license.extendTo = et;
+    }
+    const unlock = localStorage.getItem('mp_license_unlock')||'';
+    const hashes = lic.unlockHashes || {};
+    const masterH = hashes.master || hashes.masterKey || '';
+    const extendH = hashes.extend || hashes.extendKey || '';
+    if(unlock && (unlock === masterH || unlock === extendH)){
+      localStorage.setItem('mp_license_verified','1');
+      if(unlock === extendH){
+        localStorage.setItem('mp_license_extend','1');
+        CFG.license.expiry = CFG.license.extendTo;
+      }
+      const el=document.getElementById('expiryScreen');
+      if(el) el.classList.remove('show');
+      return true;
+    }
+    // Server validTill still in future → ok without unlock key
+    const now=new Date(); now.setHours(0,0,0,0);
+    const exp=new Date(CFG.license.expiry); exp.setHours(0,0,0,0);
+    if(exp >= now){
+      const el=document.getElementById('expiryScreen');
+      if(el) el.classList.remove('show');
+      return true;
+    }
+    const el=document.getElementById('expiryScreen');
+    if(el) el.classList.add('show');
+    return false;
+  }catch(e){
+    console.warn('[license] refresh error', e);
+    return checkLicense();
+  }
+}
+
 async function tryUnlock(){
   const k=(document.getElementById('unlockKey').value||'').trim();
   if(!k){ toast('❌ Key डालें'); return; }
   const kh = await hashPass(k);
-  if(kh===CFG.license.masterKey||kh===CFG.license.extendKey){
-    if(kh===CFG.license.extendKey) CFG.license.expiry=CFG.license.extendTo;
-    try{ localStorage.setItem('mp_license_unlock', kh); }catch(e){}
+  let lic = await _loadLicenseFromFirebase(true);
+  const hashes = (lic && lic.unlockHashes) || {};
+  const masterH = hashes.master || hashes.masterKey || '';
+  const extendH = hashes.extend || hashes.extendKey || '';
+  if(!masterH && !extendH){
+    toast('❌ License server config missing — Admin Firebase में settings/license सेट करें');
+    return;
+  }
+  if(kh===masterH || kh===extendH){
+    if(kh===extendH){
+      CFG.license.expiry = CFG.license.extendTo;
+      try{ localStorage.setItem('mp_license_extend','1'); }catch(e){}
+      if(lic && lic.extendTo){
+        try{ await fbUpdate('settings/license', { validTill: new Date(lic.extendTo).toISOString() }); }catch(e){}
+      }
+    }
+    try{
+      localStorage.setItem('mp_license_unlock', kh);
+      localStorage.setItem('mp_license_verified','1');
+    }catch(e){}
     const el=document.getElementById('expiryScreen');
     if(el) el.classList.remove('show');
     toast('✅ अनलॉक हो गया');
@@ -2215,13 +2305,21 @@ function showPendingBox(msgHtml){
       pb.style.cssText = 'display:flex;position:fixed;inset:0;z-index:600;background:linear-gradient(160deg,#070c15 0%,#0d1623 45%,#130a24 100%);flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;';
       document.body.appendChild(pb);
     }
-    if(msgHtml){
-      const inner = pb.querySelector('[data-pending-msg]') || pb;
-      // update message block if present
-      const box = pb.querySelector('div[style*="line-height"]');
-      if(box) box.innerHTML = msgHtml;
-    }
+    const defaultMsg = msgHtml || 'आपका registration / login <b>pending</b> है। Manager या Admin approve होने तक प्रतीक्षा करें।';
+    pb.innerHTML = `
+      <div style="font-size:48px;margin-bottom:12px">⏳</div>
+      <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:10px">Approval Pending</div>
+      <div data-pending-msg style="font-size:13px;color:#94a3b8;line-height:1.7;max-width:320px;margin-bottom:20px">${defaultMsg}</div>
+      <button type="button" onclick="hidePendingBox();showStep(2);"
+        style="width:min(280px,90%);padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.5);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
+        ← वापस जाएं / Retry Login
+      </button>
+      <button type="button" onclick="location.reload()"
+        style="width:min(280px,90%);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:transparent;color:#94a3b8;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
+        🔄 Page Refresh
+      </button>`;
     pb.style.display = 'flex';
+    try{ sessionStorage.setItem('mp_pending_login', String(Date.now())); }catch(e){}
   }catch(e){
     console.error('showPendingBox', e);
     try{ showStep('pending'); }catch(e2){}
@@ -2230,6 +2328,9 @@ function showPendingBox(msgHtml){
 function hidePendingBox(){
   const pb = document.getElementById('pendingBox');
   if(pb) pb.style.display = 'none';
+  try{ sessionStorage.removeItem('mp_pending_login'); }catch(e){}
+  const ls = document.getElementById('loginScreen');
+  if(ls){ ls.style.display='flex'; ls.classList.add('show'); }
   showStep(1);
 }
 
@@ -2878,27 +2979,15 @@ async function tryAdminLogin(){
     // ── STEP 1: Direct Firebase check (fast, reliable, was always working) ──
     try{
       const fbAuthData = await fbGet('adminAuth');
-      console.log('[adminLogin] Firebase adminAuth data:', fbAuthData ? 'found' : 'NULL');
-      if(fbAuthData && fbAuthData[u]){
-        console.log('[adminLogin] User entry found, hash match:', fbAuthData[u].h === passHash);
+            if(fbAuthData && fbAuthData[u]){
         if(fbAuthData[u].h === passHash){
           adminInfo = {name:fbAuthData[u].name||u.toUpperCase(), role:'Admin'};
         }
       }
     }catch(e){ console.warn('[adminLogin] Firebase read failed:', e.message); }
 
-    // ── EMERGENCY FALLBACK: Hardcoded check if Firebase read fails ──
-    if(!adminInfo){
-      const emergencyCreds = [
-        { u:'vivek', h:'6e6e62f9c055e05728a73e7a79a820c819eb3ca969a534ac97625aac9207d1c6', name:'VIVEK' },
-        { u:'admin', h:'2655d8f098a33e0c8019072c68588a5d6e3be958ed06dd7f59df48224bbacd5a', name:'Admin' }
-      ];
-      const localMatch = emergencyCreds.find(c=>c.u===u&&c.h===passHash);
-      if(localMatch){
-        console.log('[adminLogin] Emergency fallback matched');
-        adminInfo = {name:localMatch.name, role:'Admin'};
-      }
-    }
+    // SECURITY: No client-side emergency password fallback (hashes must not ship in the bundle).
+    // If Firebase is unreachable, admin login fails closed — use Console / network recovery.
 
     if(!adminInfo){
       recordFailedAttempt('admin');
@@ -3007,11 +3096,21 @@ async function proceedFromCode(){
         return;
       }
 
-      // ── OTP LOGIN: If employee has registered phone → send OTP automatically ──
+      // ── OTP LOGIN: phone on file — but prefer password if this device was recently verified ──
       let freshEmp = match;
       try{ const fe = await fbGet('employees/'+match.id); if(fe && fe.phone) freshEmp = fe; }catch(e){}
       if(freshEmp.phone && freshEmp.phone.length === 10){
         restoreBtn();
+        const savedPw = localStorage.getItem('mp_pw_'+match.id);
+        let verifiedAt = 0;
+        try{ verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10); }catch(e){}
+        const recentVerify = verifiedAt && (Date.now() - verifiedAt) < 30*24*60*60*1000; // 30 days
+        const phoneMatch = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'').endsWith(String(freshEmp.phone).slice(-10));
+        // Friction reduction: known device + password → password screen (skip OTP)
+        if(savedPw && recentVerify && phoneMatch){
+          showPasswordLoginScreen(freshEmp, deviceId);
+          return;
+        }
         showOTPLoginScreen(freshEmp, deviceId);
         return;
       }
@@ -3048,6 +3147,7 @@ async function proceedFromCode(){
 async function tryWorkerLogin(){ await proceedFromCode(); }
 
 let _loginApprovalKey=null;
+let _loginApprovalTimeout=null;
 let _loginApprovalPoller=null;
 
 function showLoginApprovalOverlay(emp, existingReg){
@@ -3209,6 +3309,18 @@ async function sendLoginApprovalRequest(emp, existingReg, phone, selfieUrl){
     try{ await notifyAdmin('\ud83d\udcf1 Login Request', emp.name+' ('+emp.empId+') ne device login request bheja'); }catch(e){}
     if(statusEl) statusEl.innerHTML='&#9203; Admin ko notification bhej di!<br><b style="color:#fff">Approval ka intezaar hai...</b><br><span style="color:#64748b;font-size:11px">Admin approve karne par automatically login hoga</span>';
     _loginApprovalPoller=setInterval(()=>checkLoginApproval(emp, existingReg, reqKey, deviceId), 3000);
+    try{ sessionStorage.setItem('mp_pending_login', String(Date.now())); }catch(e){}
+    // Auto-timeout after 10 minutes so user is never stuck forever
+    if(_loginApprovalTimeout) clearTimeout(_loginApprovalTimeout);
+    _loginApprovalTimeout = setTimeout(()=>{
+      if(_loginApprovalPoller){
+        clearInterval(_loginApprovalPoller); _loginApprovalPoller=null;
+        const statusEl=document.getElementById('laStatus');
+        const spinner=document.getElementById('laSpinner');
+        if(spinner) spinner.style.display='none';
+        if(statusEl) statusEl.innerHTML='⏳ Approval timeout (10 min)। <button onclick="cancelLoginRequest()" style="margin-top:8px;padding:8px 14px;border-radius:8px;border:1px solid #f97316;background:rgba(249,115,22,.15);color:#f97316;font-weight:700;cursor:pointer">वापस जाएं / Retry</button>';
+      }
+    }, 10*60*1000);
   }catch(err){
     if(statusEl) statusEl.innerHTML='&#10060; Error: '+err.message+'<br>दोबारा try करें।';
     console.error('sendLoginApprovalRequest:',err);
@@ -3221,9 +3333,13 @@ async function checkLoginApproval(emp, existingReg, reqKey, deviceId){
     if(!rec) return;
     if(rec.status==='approved'){
       clearInterval(_loginApprovalPoller); _loginApprovalPoller=null;
+      if(_loginApprovalTimeout){ clearTimeout(_loginApprovalTimeout); _loginApprovalTimeout=null; }
+      try{ sessionStorage.removeItem('mp_pending_login'); }catch(e){}
       doLoginAfterApproval(emp, existingReg, deviceId);
     } else if(rec.status==='rejected'){
       clearInterval(_loginApprovalPoller); _loginApprovalPoller=null;
+      if(_loginApprovalTimeout){ clearTimeout(_loginApprovalTimeout); _loginApprovalTimeout=null; }
+      try{ sessionStorage.removeItem('mp_pending_login'); }catch(e){}
       const statusEl=document.getElementById('laStatus');
       const spinner=document.getElementById('laSpinner');
       if(spinner) spinner.style.display='none';
@@ -3234,9 +3350,37 @@ async function checkLoginApproval(emp, existingReg, reqKey, deviceId){
 
 function cancelLoginRequest(){
   if(_loginApprovalPoller){ clearInterval(_loginApprovalPoller); _loginApprovalPoller=null; }
+  if(_loginApprovalTimeout){ clearTimeout(_loginApprovalTimeout); _loginApprovalTimeout=null; }
   if(_loginApprovalKey){ fbUpdate('loginRequests/'+_loginApprovalKey,{status:'cancelled'}).catch(()=>{}); _loginApprovalKey=null; }
-  const ov=document.getElementById('loginApprovalOverlay'); if(ov) ov.style.display='none';
+  try{ sessionStorage.removeItem('mp_pending_login'); }catch(e){}
+  const ov=document.getElementById('loginApprovalOverlay'); if(ov){ ov.style.display='none'; ov.remove(); }
+  const pb=document.getElementById('pendingBox'); if(pb) pb.style.display='none';
+  // Clear any stuck modal overlays from previous attempts
+  document.querySelectorAll('#loginApprovalOverlay, #otherDeviceOverlay, #mgrLoginApprovalOverlay').forEach(el=>{
+    try{ el.style.display='none'; }catch(e){}
+  });
   showStep(2);
+  toast('Login request रद्द — दोबारा try करें');
+}
+
+/** Clear stuck pending UI on boot if no active request */
+function recoverStuckPendingStates(){
+  try{
+    const pendingFlag = sessionStorage.getItem('mp_pending_login');
+    if(!pendingFlag){
+      const ov=document.getElementById('loginApprovalOverlay');
+      if(ov && ov.style.display!=='none' && !_loginApprovalKey){
+        ov.style.display='none';
+      }
+      return;
+    }
+    // Stale pending older than 30 min → clear
+    const ts = parseInt(pendingFlag, 10) || 0;
+    if(Date.now() - ts > 30*60*1000){
+      sessionStorage.removeItem('mp_pending_login');
+      cancelLoginRequest();
+    }
+  }catch(e){}
 }
 
 async function doLoginAfterApproval(emp, existingReg, deviceId){
@@ -6457,11 +6601,11 @@ function _goTabDirect(t){
   if(t==='home')         renderHome();
   if(t==='myshift')      renderMyShift();
   if(t==='todo')         renderTodo();
-  if(t==='schedule')     { schedOff=-5; _customRangeActive=false; renderSchedule(); setTimeout(syncStickyTop,100); }
-  if(t==='leave')        { renderLeaves(); renderResignations(); }
+  if(t==='schedule')     { schedOff=-5; _customRangeActive=false; renderSchedule(); setTimeout(syncStickyTop,100); setTimeout(syncStickyTop,400); }
+  if(t==='leave')        { try{ renderLeaves(); }catch(e){ console.warn('[leave]',e); } try{ renderResignations(); }catch(e){ console.warn('[resign]',e); } }
   if(t==='reports')      renderReports();
   if(t==='pending')      renderPending();
-  if(t==='team')         { renderTeam(); renderAdminTeamHierarchy(); }
+  if(t==='team')         { try{ renderTeam(); }catch(e){ console.warn('[team]',e); } try{ renderAdminTeamHierarchy(); }catch(e){ console.warn('[teamHier]',e); } }
   if(t==='instructions') renderInstructions();
   // Re-apply language so any newly-rendered elements get translated.
   // Run twice — once immediately, once after async renders settle.
@@ -22071,10 +22215,19 @@ function startApp(){
   try{
     initAdminAuth();
     check45DayLogout();
+    try{ recoverStuckPendingStates(); }catch(e){}
     // ── Always kill loading screen ──
     var ls=document.getElementById('loadingScreen');
     if(ls){ ls.style.cssText='display:none!important;opacity:0;pointer-events:none;visibility:hidden'; }
-    if(!checkLicense()){ return; }
+    if(!checkLicense()){
+      // Still re-validate against Firebase when online
+      refreshLicenseFromServer().then(ok=>{
+        if(ok){ try{ startApp(); }catch(e){} }
+      }).catch(()=>{});
+      return;
+    }
+    // Background refresh — may lock if server expiry moved
+    refreshLicenseFromServer().catch(()=>{});
 
     // ── If session exists, check fingerprint first ──
     if(loadSession() && SESSION.role){

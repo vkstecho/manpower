@@ -3,7 +3,7 @@
    - Never deletes glsmp-integrity (session integrity token) on activate
    - Precaches all tab partials for offline section viewing
 */
-const CACHE = 'metpower-v39';
+const CACHE = 'metpower-v40';
 const KEEP_CACHES = new Set([CACHE, 'glsmp-integrity']);
 const PRECACHE = [
   './',
@@ -12,6 +12,8 @@ const PRECACHE = [
   './js/app.js',
   './js/firebase-init.js',
   './js/polyfill.js',
+  './js/config.js',
+  './js/utils.js',
   './manifest.json',
   './vkslogo512.png',
   './icon-180.png',
