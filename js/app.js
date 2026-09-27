@@ -1,3 +1,4 @@
+window._schedEditMode = false;
 
 // ════════════════════════════════════════════════════
 //  MAN POWER — Multi-Industry Team & Shift Management
@@ -8594,14 +8595,43 @@ let _msDragStartCell = null;
 let _msLongPressTimer = null;
 
 // Each cell tap goes here first
+function setSchedEditMode(on){
+  window._schedEditMode = !!on;
+  const v = document.getElementById('schModeView');
+  const e = document.getElementById('schModeEdit');
+  const hint = document.getElementById('schedEditHint');
+  if(v) v.classList.toggle('on', !on);
+  if(e) e.classList.toggle('on', !!on);
+  if(hint) hint.style.display = on ? 'block' : 'none';
+  if(!on && typeof clearMultiSelect==='function'){ try{ clearMultiSelect(); }catch(x){} }
+  if(typeof renderSchedule==='function') renderSchedule();
+}
+function toggleSchedMoreMenu(){
+  const m = document.getElementById('schedMoreMenu');
+  if(!m) return;
+  m.style.display = m.style.display==='none' || !m.style.display ? 'block' : 'none';
+}
+function closeSchedMoreMenu(){
+  const m = document.getElementById('schedMoreMenu');
+  if(m) m.style.display = 'none';
+}
+try{ window.setSchedEditMode=setSchedEditMode; window.toggleSchedMoreMenu=toggleSchedMoreMenu; window.closeSchedMoreMenu=closeSchedMoreMenu; }catch(e){}
+
 function handleSchedCellClick(td, empId, empName, date, origSh){
   if(!canEditSchedule()) return; // workers cannot edit
+  if(!window._schedEditMode && !_msActive){
+    const sh = origSh || (td && td.getAttribute('data-origsh')) || '';
+    if(['L','CO','C/O','OD','Ab','HLF'].includes(sh) && typeof showShiftInfo==='function'){
+      showShiftInfo(empId, empName, date, sh);
+    } else {
+      try{ toast((typeof _lang!=='undefined'&&_lang==='en')?'Switch to Edit to change shifts':'शिफ्ट बदलने के लिए Edit मोड चुनें'); }catch(e){}
+    }
+    return;
+  }
   if(_msActive){
-    // In selection mode: tap toggles cell
     _msToggleCell(td, empId, date);
     return;
   }
-  // Normal mode: open single-cell shift picker
   editShiftCell(empId, empName, date, origSh);
 }
 
@@ -9456,6 +9486,19 @@ function renderSchedule(){
   const DISPLAY_ORDER = _buildSchedDisplayGroups(allEmps);
 
   // Build date cells for BOTH sticky header and table thead
+  // Fade columns after today with no roster data
+  const _emptyFutureCols = new Set();
+  try{
+    dates.forEach((d, di)=>{
+      if(d <= TODAY_STR) return;
+      let any = false;
+      for(const emp of allEmps){
+        const sh = getShift(emp, d);
+        if(sh && String(sh).trim()){ any = true; break; }
+      }
+      if(!any) _emptyFutureCols.add(di);
+    });
+  }catch(e){}
   const dateCellsHtml = dates.map(d=>{
     const dO=new Date(d);const isT=d===TODAY_STR;
     const bg=isT?'rgba(249,115,22,.18)':'var(--card2)';
@@ -9472,12 +9515,13 @@ function renderSchedule(){
     const _colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (_mob ? 26 : 34);
     dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
       const todayMark = c.isT ? ' data-today-col="1"' : '';
+      const emptyMark = _emptyFutureCols.has(i) ? ' sched-empty-col' : '';
       // FIXED equal width for every day (today included) — highlight via inset only
       const base = 'flex:none;box-sizing:border-box;width:'+_colW+'px;min-width:'+_colW+'px;max-width:'+_colW+'px;text-align:center;padding:3px 0;margin:0;overflow:hidden;';
       const todayStyle = c.isT
         ? base+'background:rgba(249,115,22,.32);box-shadow:inset 0 0 0 2px #f97316;border-radius:4px;'
         : base+'background:'+c.bg+';border-right:1px solid var(--border);';
-      return `<div data-date-col="${i}"${todayMark} style="${todayStyle}">
+      return `<div data-date-col="${i}" class="${emptyMark.trim()}"${todayMark} style="${todayStyle}">
         <div style="font-family:'Barlow Condensed';font-size:8px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
         <div style="font-family:'Barlow Condensed';font-size:12px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
       </div>`;
@@ -9516,7 +9560,7 @@ function renderSchedule(){
           const isRealloc=!!(getOverrides()[emp.id+'_'+d]&&getOverrides()[emp.id+'_'+d]!=='L');
           const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
           const _bw = _mob ? 22 : 28, _bh = _mob ? 20 : 24, _bfs = _mob ? 11 : 12;
-          const _todayCls = isT ? 'sched-today-col' : '';
+          const _todayCls = (isT ? 'sched-today-col' : '') + (_emptyFutureCols.has(dates.indexOf(d)) ? ' sched-empty-col' : '');
           const _todayBg = isT ? 'background:rgba(249,115,22,.16);box-shadow:inset 0 0 0 1.5px rgba(249,115,22,.7);' : '';
           const clickable = canEditSchedule()
             ? `class="${_todayCls}" data-empid="${emp.id}" data-empname="${emp.name}" data-date="${d}" data-origsh="${origSh}" style="cursor:pointer;${_todayBg}" onclick="handleSchedCellClick(this,'${emp.id}','${emp.name}','${d}','${origSh}')"`

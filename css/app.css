@@ -4040,3 +4040,85 @@ body.light .nav-more-panel { background: #fff; }
 body.light .nav-more-item { background: #f5f6f8; color: var(--text); }
 body.light .industry-hint { background: rgba(56,189,248,.1); }
 body.light .login-friendly-err { color: #9f1239; background: rgba(244,63,94,.08); }
+
+
+/* Schedule toolbar v2.4.1 */
+.sched-toolbar-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.sched-admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.sched-admin-toolbar .sched-admin-btn {
+  flex: 0 1 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 12px;
+}
+.sched-more-wrap { position: relative; }
+.sched-more-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  min-width: 160px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  z-index: 50;
+  padding: 6px;
+}
+.sched-more-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sched-more-menu button:hover { background: var(--card2); }
+.sched-edit-hint {
+  background: rgba(249,115,22,.12);
+  border: 1px solid rgba(249,115,22,.35);
+  color: #fdba74;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+/* Fade empty future columns */
+.sched-tbl td.sched-empty-col,
+#schedDateHdr > div.sched-empty-col {
+  opacity: 0.28;
+  filter: grayscale(0.35);
+}
+/* Tighter sticky header ↔ table alignment */
+#schedDateHdrWrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+#schedHdrStack {
+  width: max-content;
+}
+#tab-schedule .sched-wrap {
+  overflow-x: auto;
+}
+body.light .sched-edit-hint { color: #c2410c; }
