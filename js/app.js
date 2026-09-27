@@ -744,12 +744,57 @@ function myCompanyId(){
 function listAllCompanies(){
   const ids=new Set();
   const labels={};
-  (_cache.employees||[]).forEach(e=>{
-    const cid=_normCompanyId(e.companyId);
-    ids.add(cid);
-    if(!labels[cid]) labels[cid]=e.companyLabel||(cid==='gls'?'Man Power':cid.toUpperCase());
-  });
-  return Array.from(ids).map(cid=>({id:cid,label:labels[cid]||cid.toUpperCase()})).sort((a,b)=>a.label.localeCompare(b.label));
+  const counts={};
+  // Prefer manager-owned company names (live) over stale employee labels
+  try{
+    // mobileUsers may not be fully in _cache; employees carry managerId
+    (_cache.employees||[]).forEach(e=>{
+      const cid=_normCompanyId(e.companyId);
+      if(!cid || cid==='all') return;
+      ids.add(cid);
+      counts[cid]=(counts[cid]||0)+1;
+      const lbl = (e.companyLabel||e.company||'').trim();
+      // Prefer non-empty labels; if multiple, prefer the most common later
+      if(lbl){
+        if(!labels[cid]) labels[cid]=lbl;
+        // If this employee is a manager-designation, prefer their label
+        const des = String(e.designation||'').toLowerCase();
+        if(/manager|mgr/.test(des) && lbl) labels[cid]=lbl;
+      }
+    });
+  }catch(e){}
+  // Also scan SESSION if admin has company map
+  try{
+    if(SESSION && SESSION.companyId && SESSION.company){
+      const cid=_normCompanyId(SESSION.companyId);
+      ids.add(cid);
+      labels[cid]=SESSION.company;
+    }
+  }catch(e){}
+  return Array.from(ids).map(cid=>({
+    id:cid,
+    label: labels[cid] || (cid==='gls'?'Man Power':cid.toUpperCase())
+  })).sort((a,b)=>a.label.localeCompare(b.label));
+}
+
+/** When manager changes company name, update all team employees' companyLabel so Admin list stays in sync. */
+async function _syncCompanyLabelToTeam(newName){
+  const name = String(newName||'').trim();
+  if(!name) return 0;
+  const cid = (typeof myCompanyId==='function' ? myCompanyId() : null) || SESSION.companyId || '';
+  const mgrKey = SESSION.role==='manager' ? _normMobileKey(SESSION.mobile) : '';
+  let n=0;
+  const emps = (getEmps()||[]);
+  for(const e of emps){
+    try{
+      if(mgrKey && e.managerId && e.managerId!==mgrKey) continue;
+      if(cid && e.companyId && _normCompanyId(e.companyId)!==_normCompanyId(cid)) continue;
+      await fbUpdate('employees/'+e.id, { companyLabel: name, company: name });
+      e.companyLabel = name; e.company = name;
+      n++;
+    }catch(err){}
+  }
+  return n;
 }
 function renderCompanySwitcher(){
   const row=document.getElementById('companySwitchRow');
@@ -4568,6 +4613,39 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
   <div id="ss_minResps" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
 
+  <div style="font-size:12px;font-weight:800;color:#25D366;margin:18px 0 6px">💬 WhatsApp Message Templates</div>
+  <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.45">
+    Placeholders: <code>{name}</code> <code>{date}</code> <code>{dates}</code> <code>{changes}</code> <code>{manager}</code> <code>{gpMax}</code> <code>{gpCount}</code>
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--text)">
+    <input type="checkbox" ${d.waNotifyOnSave!==false?'checked':''} onchange="_shiftDraft.waNotifyOnSave=this.checked" style="width:16px;height:16px;accent-color:#25D366">
+    Send WhatsApp when schedule is saved
+  </label>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Shift change</label>
+    <textarea id="ss_waTemplate" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waShiftTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Leave (manager marks leave)</label>
+    <textarea id="ss_waLeave" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waLeaveTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Absenteeism (Ab)</label>
+    <textarea id="ss_waAbsent" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waAbsentTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Holiday</label>
+    <textarea id="ss_waHoliday" rows="3" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waHolidayTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Gate Pass (GP)</label>
+    <textarea id="ss_waGP" rows="3" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waGPTemplate||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <div class="field" style="margin-bottom:14px;max-width:140px">
+    <label style="font-size:11px;color:#94a3b8;font-weight:800">Max GP / month</label>
+    <input type="number" id="ss_gpMax" min="1" max="31" value="${d.gpMaxPerMonth||2}" class="inp-field" style="width:100%;text-align:center;font-weight:800">
+  </div>
+
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
     <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
@@ -5359,11 +5437,7 @@ async function showProfile(){
         <div><div class="pa-label">Team Leave Quota</div><div class="pa-sub">Yearly leave types for team</div></div>
         <div class="pa-arrow">›</div>
       </button>
-      <button type="button" class="profile-action" onclick="openHolidayListSettings()">
-        <div class="pa-icon" style="background:rgba(249,115,22,.12)">🎉</div>
-        <div><div class="pa-label">Planned Holidays</div><div class="pa-sub">Holiday list for team</div></div>
-        <div class="pa-arrow">›</div>
-      </button>`:''}
+`:''}
       ${(SESSION.role==='manager'||isMgr())?`<button type="button" class="profile-action" onclick="openChangeCompanyModal()">
         <div class="pa-icon" style="background:rgba(96,165,250,.12)">🏢</div>
         <div><div class="pa-label">${(_lang==='en')?'Change Company Name':'Company Name बदलें'}</div><div class="pa-sub">${(_lang==='en')?'Current: ':'वर्तमान: '}${SESSION.company||'—'}</div></div>
@@ -5453,13 +5527,16 @@ async function saveChangeCompanyName(){
     const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     if(!mob){ toast('❌ Mobile not found in session'); return; }
     await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
-    // Also update managers path if present
     try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
     SESSION.company = name;
     try{ SESSION.companyId = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name; }catch(e){ SESSION.companyId = name; }
     try{ saveSession(); }catch(e){}
-    toast(isEn?'✅ Company name updated':'✅ Company नाम update हो गया');
+    // Propagate new name to all team employee records so Admin company list is not stale
+    let synced = 0;
+    try{ if(typeof _syncCompanyLabelToTeam==='function') synced = await _syncCompanyLabelToTeam(name); }catch(e){}
+    toast(isEn?('✅ Company name updated'+(synced?' · '+synced+' team records':'')):('✅ Company नाम update'+(synced?' · '+synced+' team':'')));
     closeModal();
+    try{ if(typeof renderCompanySwitcher==='function') renderCompanySwitcher(); }catch(e){}
     try{ showProfile(); }catch(e){}
   }catch(e){
     console.error('[saveChangeCompanyName]', e);
@@ -14515,7 +14592,13 @@ try{ window._autoFetchIndiaHolidays = _autoFetchIndiaHolidays; }catch(e){}
 async function _saveHolidayListUI(){
   try{
     await saveHolidayList(_holidayDraft);
-    toast('✅ Holiday List save हो गई');
+    const dates = (_holidayDraft.items||[]).map(x=>x.date).filter(Boolean);
+    let n = 0;
+    if(dates.length && typeof applyHolidaysToTeam==='function'){
+      toast('⏳ Applying Holiday + C-Off for team…');
+      n = await applyHolidaysToTeam(dates);
+    }
+    toast('✅ Holiday List save · '+(n? (n+' C-Off granted') : 'saved'));
     closeModal();
   }catch(e){ toast('❌ Save failed: '+(e.message||e)); }
 }
@@ -14616,24 +14699,16 @@ async function _retrySaveAfterReauth(){
 async function _requestCompOff(emp, dateStr, reason){
   try{
     if(!emp || !emp.id || !dateStr) return;
-    const mgrKey = emp.managerId || (SESSION.role==='manager' ? _normMobileKey(SESSION.mobile) : '');
-    const payload = {
-      empId: emp.id, empName: emp.name||'', empCode: emp.empId||'',
-      type:'CO', leaveType:'C/O', from:dateStr, to:dateStr, days:1,
-      reason: reason||'Compensatory Off', status:'pending', autoGenerated:true,
-      managerId: mgrKey||'', requestedAt:new Date().toISOString(),
-      requestedBy: SESSION.name||'system'
-    };
-    await fbPush('leaves', payload);
-    if(mgrKey){
-      try{
-        await fbPush('userNotifications/'+mgrKey, {
-          type:'leave_request', title:'C-Off request — '+(emp.name||''),
-          body:(emp.name||'')+' · '+dateStr+' · '+(reason||'C-Off'),
-          read:false, at:new Date().toISOString()
-        });
-      }catch(e){}
-    }
+    // Deduplicate: skip if already have CO leave for same emp+date
+    try{
+      const existing = (getLeaves()||[]).find(l=>
+        (l.empId===emp.id || l.empId===emp.empId) &&
+        l.from===dateStr && (l.type==='CO' || /C-?Off|Comp/i.test(l.leaveType||''))
+      );
+      if(existing) return;
+    }catch(e){}
+    // Auto rules: grant APPROVED C-Off (balance +1) — do NOT create pending approval noise
+    await _grantApprovedCompOff(emp, dateStr, reason||'Compensatory Off');
   }catch(e){ console.warn('[requestCompOff]', e); }
 }
 async function _processAutoCompOffRules(savedEntries){
@@ -14682,11 +14757,19 @@ async function applyHolidaysToTeam(dates){
   const team = (getEmps()||[]).filter(e=>e.status!=='resigned'&&e.status!=='left');
   let n=0;
   const ovUpdates = {};
+  const WORK = new Set(['A','B','C','D','N','GP','G','1','2','OD']);
   for(const dateStr of dates){
     for(const emp of team){
+      // Mark calendar H for everyone
       ovUpdates[emp.id+'_'+dateStr] = 'H';
-      await _requestCompOff(emp, dateStr, 'Planned holiday '+dateStr+' — C-Off');
-      n++;
+      // If member was already on a working shift that day, grant APPROVED C-Off (+1 balance)
+      const prior = String(getShift(emp, dateStr)||'').toUpperCase();
+      const codes = (typeof parseShiftWorkCodes==='function') ? parseShiftWorkCodes(prior) : [prior];
+      const wasWorking = codes.some(c=>WORK.has(String(c).toUpperCase())) || WORK.has(prior);
+      if(wasWorking){
+        await _grantApprovedCompOff(emp, dateStr, 'Holiday — worked on '+prior+' · C-Off +1');
+        n++;
+      }
     }
   }
   if(Object.keys(ovUpdates).length){
@@ -14694,6 +14777,21 @@ async function applyHolidaysToTeam(dates){
     try{ _cache.overrides = {...(getOverrides()||{}), ...ovUpdates}; }catch(e){}
   }
   return n;
+}
+
+/** Grant approved C-Off (increases balance) — no pending approval / no manager notification. */
+async function _grantApprovedCompOff(emp, dateStr, reason){
+  try{
+    if(!emp || !emp.id || !dateStr) return;
+    const payload = {
+      empId: emp.id, empName: emp.name||'', empCode: emp.empId||'',
+      type:'CO', leaveType:'C/O', from:dateStr, to:dateStr, days:1,
+      reason: reason||'Compensatory Off', status:'approved', autoGenerated:true,
+      approvedAt: new Date().toISOString(), approvedBy: SESSION.name||'system',
+      requestedAt: new Date().toISOString()
+    };
+    await fbPush('leaves', payload);
+  }catch(e){ console.warn('[grantApprovedCompOff]', e); }
 }
 
 async function saveAllShiftChanges(){
@@ -15041,6 +15139,10 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
 async function openLeaveReasonModal(empId, empName, date, currentShift){
   const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
   // Leave types from Manager quota settings
+  const _labelForLq = (c)=>{
+    const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other'};
+    return map[c] || String(c).replace(/_/g,' ');
+  };
   let typeOpts = [
     {code:'CL', label:'Casual Leave (CL)'},
     {code:'SL', label:'Sick Leave (SL)'},
@@ -15049,12 +15151,23 @@ async function openLeaveReasonModal(empId, empName, date, currentShift){
     {code:'CO', label:'Comp Off (CO)'},
   ];
   try{
-    const k = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile||SESSION.managerId)||'default');
-    const q = await fbGet(k);
-    if(q && typeof q==='object'){
+    // Prefer current manager's quota key; also try SESSION.managerId for members
+    const keys = [];
+    try{ if(typeof myShiftConfigKey==='function' && myShiftConfigKey()) keys.push('leaveQuotas/'+myShiftConfigKey()); }catch(e){}
+    if(SESSION.mobile) keys.push('leaveQuotas/'+_normMobileKey(SESSION.mobile));
+    if(SESSION.managerId) keys.push('leaveQuotas/'+_normMobileKey(SESSION.managerId));
+    keys.push('leaveQuotas/default');
+    let q=null;
+    for(const k of keys){
+      try{ const r=await fbGet(k); if(r && typeof r==='object' && Object.keys(r).length){ q=r; break; } }catch(e){}
+    }
+    if(q){
       const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd']);
       const fromQ = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
-      if(fromQ.length) typeOpts = fromQ.map(c=>({code:c, label:c==='CL'?'Casual Leave (CL)':c==='SL'?'Sick Leave (SL)':c==='EL'?'Earned Leave (EL)':c==='CO'?'Comp Off (CO)':c}));
+      // Only show types with quota > 0, or all if manager set custom list
+      const positive = fromQ.filter(c=>Number(q[c])>0);
+      const use = positive.length ? positive : fromQ;
+      if(use.length) typeOpts = use.map(c=>({code:c, label:_labelForLq(c)}));
     }
   }catch(e){}
   const QUICK_REASONS = typeOpts; // used below as objects
@@ -15157,14 +15270,13 @@ function previewLeaveImg(input, previewId){
   reader.readAsDataURL(file);
 }
 
-function confirmLeaveWithReason(empId, empName, date, currentShift){
+async function confirmLeaveWithReason(empId, empName, date, currentShift){
   const reason=(document.getElementById('lrReasonText')||{}).value?.trim();
   if(!reason){
     const ta=document.getElementById('lrReasonText');
     if(ta){ ta.style.borderColor='var(--lv)'; ta.focus(); }
     toast('⚠️ कारण / Leave Type अनिवार्य है'); return;
   }
-  // Detect leave type code from reason or selected chip data
   let typeCode = (document.getElementById('lrTypeCode')?.value||'').trim().toUpperCase();
   if(!typeCode){
     const t = reason.toLowerCase();
@@ -15175,6 +15287,7 @@ function confirmLeaveWithReason(empId, empName, date, currentShift){
     else if(/casual|\bcl\b/.test(t)) typeCode='CL';
     else typeCode='CL';
   }
+  // Manager marks leave → APPROVED immediately (no pending approval notification)
   const leaveData={
     empId, empName,
     section: (getEmps().find(e=>e.id===empId)||{}).sec||'',
@@ -15183,14 +15296,47 @@ function confirmLeaveWithReason(empId, empName, date, currentShift){
     type: typeCode,
     status:'approved',
     appliedAt:new Date().toISOString(),
+    approvedAt:new Date().toISOString(),
     markedBy: SESSION.name||'Admin',
+    approvedBy: SESSION.name||'Admin',
     reallocations:[]
   };
   if(_leaveImgBase64) leaveData.attachment=_leaveImgBase64;
-  fbPush('leaves',leaveData).catch(e=>console.warn('leave push',e));
+  try{ await fbPush('leaves',leaveData); }catch(e){ console.warn('leave push',e); }
   _leaveImgBase64=null;
-  // Store as L:CL so balance can reduce the correct quota
-  stageSingleShiftChange(empId, empName, date, currentShift, 'L:'+typeCode, { leaveType: typeCode, reason });
+
+  // Write L to schedule immediately
+  const shiftVal = 'L:'+typeCode;
+  try{
+    await fbUpdate('overrides', { [empId+'_'+date]: shiftVal });
+    _cache.overrides = {...(getOverrides()||{}), [empId+'_'+date]: shiftVal};
+  }catch(e){
+    stageSingleShiftChange(empId, empName, date, currentShift, shiftVal, { leaveType: typeCode, reason });
+  }
+  closeModal();
+  try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+  try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
+
+  // WhatsApp leave message to member (no approval notify)
+  try{
+    const emp = (getEmps()||[]).find(e=>e.id===empId) || {};
+    const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
+    if(phone && phone.length===10){
+      const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+      const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
+      let tpl = cfg.waLeaveTemplate || def.waLeaveTemplate || '🏖️ *Man Power — Leave*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपकी *Leave* mark की गई है:\n{dates}\n\n_— {manager}_';
+      const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return date; }})();
+      const msg = tpl
+        .replace(/\{name\}/g, empName||'')
+        .replace(/\{date\}/g, fmtD)
+        .replace(/\{dates\}/g, fmtD+' · '+(reason||typeCode))
+        .replace(/\{manager\}/g, SESSION.name||'Manager');
+      if(typeof openWA==='function') openWA(phone, msg);
+      else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
+    } else {
+      toast('✅ Leave marked (no mobile for WhatsApp)');
+    }
+  }catch(e){ console.warn('[leave WA]', e); toast('✅ Leave marked'); }
 }
 
 function editShiftCell(empId, empName, date, currentShift){
