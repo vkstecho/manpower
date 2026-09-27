@@ -654,7 +654,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.26'; // Bump this to force re-seed
+const APP_VERSION = '2.3.27'; // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -4828,16 +4828,21 @@ async function _ensureWriteAuth(){
     else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function') await window._fbAuth.authStateReady();
   }catch(e){}
 
-  // Extra wait if device was verified before (IndexedDB restore can lag after deploy/SW update)
+  // Extra wait if this device already verified phone (IndexedDB restore lags after deploy/SW/close)
   try{
     const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
     const hadPhone = localStorage.getItem('mp_device_phone');
-    if(hadPhone && verifiedAt && (Date.now()-verifiedAt) < 30*24*3600*1000){
-      for(let i=0;i<8;i++){
+    const recentWrite = parseInt(localStorage.getItem('mp_write_auth_at')||'0',10);
+    const within30d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 30*24*3600*1000;
+    const within7dWrite = recentWrite && (Date.now()-recentWrite) < 7*24*3600*1000;
+    if(within30d || within7dWrite){
+      // Up to ~3s for Auth restore — avoid OTP popup on every app open
+      for(let i=0;i<20;i++){
         if(_hasElevatedFirebaseAuth()) break;
         await new Promise(r=>setTimeout(r, 150));
         try{
           if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
+          else if(window._fbAuth && window._fbAuth.authStateReady) await window._fbAuth.authStateReady();
         }catch(e){}
       }
     }
@@ -4848,16 +4853,19 @@ async function _ensureWriteAuth(){
     try{
       localStorage.setItem('mp_write_auth_at', String(Date.now()));
       sessionStorage.setItem('mp_write_auth','1');
+      const u = window._fbAuth && window._fbAuth.currentUser;
+      if(u && u.phoneNumber) localStorage.setItem('mp_device_phone', u.phoneNumber);
     }catch(e){}
     return true;
   }
 
-  // Same-session: if we just verified, give Firebase one more moment
+  // Same-session / recent verify: wait once more before showing OTP modal
   try{
-    if(sessionStorage.getItem('mp_write_auth')==='1'){
-      await new Promise(r=>setTimeout(r, 400));
+    if(sessionStorage.getItem('mp_write_auth')==='1' || localStorage.getItem('mp_device_phone')){
+      await new Promise(r=>setTimeout(r, 600));
       if(_hasElevatedFirebaseAuth()){
         await _syncAuthRoleNodes();
+        try{ localStorage.setItem('mp_write_auth_at', String(Date.now())); }catch(e){}
         return true;
       }
     }
@@ -8367,14 +8375,52 @@ function syncStickyTop(){
   const stickyHdr=document.getElementById('schedStickyHdr');
   const sh = stickyHdr ? stickyHdr.offsetHeight : 48;
   document.documentElement.style.setProperty('--sched-sticky-h', sh+'px');
+  // Filter chips height so date row sticks just below them
+  try{
+    const filt = document.getElementById('schedFilter');
+    const sec = document.getElementById('schedFilterSecondary');
+    let fh = 0;
+    if(filt) fh += filt.offsetHeight;
+    if(sec && sec.style.display !== 'none') fh += sec.offsetHeight + 6;
+    document.documentElement.style.setProperty('--sched-filter-h', fh+'px');
+  }catch(e){}
+  try{
+    const hdr = document.querySelector('.hdr') || document.getElementById('appHdr');
+    if(hdr) document.documentElement.style.setProperty('--hdr-height', hdr.offsetHeight+'px');
+    const nav = document.querySelector('.nav');
+    if(nav) document.documentElement.style.setProperty('--nav-height', nav.offsetHeight+'px');
+  }catch(e){}
   // Apply directly to all th elements in schedule table for immediate effect
   document.querySelectorAll('.sched-tbl th').forEach(th=>{
     th.style.top = (h + sh) + 'px';
   });
 }
-window.addEventListener('resize', ()=>{
+let _schedResizeTimer = null;
+let _lastSchedDayCount = 0;
+function _onSchedLayoutChange(){
   syncStickyTop();
-  setTimeout(()=>{ _alignSchedColumns(); syncStickyTop(); }, 100);
+  clearTimeout(_schedResizeTimer);
+  _schedResizeTimer = setTimeout(()=>{
+    try{
+      const n = (typeof _schedDayCount==='function') ? _schedDayCount() : 11;
+      const tab = document.getElementById('tab-schedule');
+      const onSched = tab && tab.classList.contains('on');
+      if(onSched && n !== _lastSchedDayCount && typeof renderSchedule==='function'){
+        _lastSchedDayCount = n;
+        renderSchedule();
+      } else {
+        _alignSchedColumns();
+        syncStickyTop();
+      }
+    }catch(e){
+      try{ _alignSchedColumns(); syncStickyTop(); }catch(x){}
+    }
+  }, 180);
+}
+window.addEventListener('resize', _onSchedLayoutChange);
+window.addEventListener('orientationchange', ()=>{
+  setTimeout(_onSchedLayoutChange, 250);
+  setTimeout(_onSchedLayoutChange, 600);
 });
 document.addEventListener('DOMContentLoaded', syncStickyTop);
 setTimeout(syncStickyTop, 500);
@@ -8804,6 +8850,23 @@ document.addEventListener('keydown', e=>{
   if(e.key==='Escape' && _msActive) clearMultiSelect();
 });
 
+
+/** How many date columns to show — mobile 11, landscape mobile 14, desktop 21+ */
+function _schedDayCount(){
+  try{
+    const w = window.innerWidth || 360;
+    const h = window.innerHeight || 640;
+    const landscape = w > h;
+    if(w <= 640){
+      // Mobile: 11 portrait, a bit more in landscape to fill width
+      return landscape ? 14 : 11;
+    }
+    if(w <= 900) return 17;
+    if(w <= 1200) return 21;
+    return 24;
+  }catch(e){ return 11; }
+}
+
 function moveW(n){
   const _d1=new Date(TODAY_STR+'T00:00:00'); _d1.setFullYear(_d1.getFullYear()-1);
   const _d2=new Date(TODAY_STR+'T00:00:00'); _d2.setFullYear(_d2.getFullYear()+1);
@@ -8859,7 +8922,7 @@ function renderScheduleLegend(emps, dates){
       dateList=[]; const d=new Date(_customDateFrom), e=new Date(_customDateTo); let cur=new Date(d);
       while(cur<=e){ dateList.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
     } else {
-      dateList=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+      dateList=Array.from({length:_schedDayCount()},(_,i)=>addDays(TODAY_STR,schedOff+i));
     }
   }
   const used = new Set();
@@ -9189,7 +9252,7 @@ function renderSchedule(){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:_schedDayCount()},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   // Disable/enable nav buttons at boundaries
   const prevBtn = document.querySelector('.nav-btn[onclick="moveW(-7)"]');
@@ -9206,6 +9269,7 @@ function renderSchedule(){
 
   // ── Build ordered display groups from active category (Section / Machine / Resp / Desig) ──
   try{ renderScheduleLegend(allEmps, dates); }catch(e){}
+  try{ _lastSchedDayCount = dates.length; }catch(e){}
   const DISPLAY_ORDER = _buildSchedDisplayGroups(allEmps);
 
   // Build date cells for BOTH sticky header and table thead
@@ -9255,10 +9319,10 @@ function renderSchedule(){
       tbody+=`<tr class="${isMe?'my-row':''}${isMain?' main-op-row':''}">
         <td class="ecol" title="${String(emp.name||'').replace(/"/g,'&quot;')} · ${emp.empId||''}"
           onclick="event.stopPropagation();showEmpNameFull('${String(emp.name||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}','${String(emp.empId||'').replace(/'/g,"\\'")}','${String(emp.sec||emp.mc||'').replace(/'/g,"\\'")}')">
-          <div class="emp-nm" style="${isMain?'font-weight:900;':''}">
-            ${isMain?'⭐ ':''}${emp.name}${isMe?' <span style="font-size:9px;color:var(--m1);background:var(--m1bg);padding:1px 4px;border-radius:3px">आप</span>':''}
+          <div class="emp-nm" style="${isMain?'font-weight:900;':''}" title="${String(emp.name||'').replace(/"/g,'&quot;')}">
+            ${isMain?'⭐ ':''}${emp.name}${isMe?' <span class="you-tag">आप</span>':''}
           </div>
-          <div class="emp-id">${emp.empId||emp.resp||''}</div>
+          <div class="emp-id">${emp.empId||''}</div>
         </td>
         ${dates.map(d=>{
           const pendingKey = emp.id+'__'+d;
@@ -9468,7 +9532,7 @@ function toggleTrendSection(which){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:_schedDayCount()},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   const allEmps = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length > 0);
   renderShiftTrends(allEmps, dates);
@@ -9669,7 +9733,7 @@ function sortTrends(col){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:_schedDayCount()},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   const allEmps = (
     getSchedFilteredEmps()
@@ -9685,7 +9749,7 @@ function setTrendBar(metric){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:_schedDayCount()},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   const allEmps = (
     getSchedFilteredEmps()

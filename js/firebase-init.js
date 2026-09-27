@@ -21,16 +21,37 @@
     const auth = getAuth(app);
     // Keep Phone OTP session across reloads (until explicit logout)
     try{ setPersistence(auth, browserLocalPersistence).catch(e=>console.warn('[fb] setPersistence', e)); }catch(e){}
+    // Resolve when first auth state is known (phone restore from IndexedDB)
+    let _authReadyResolve;
+    const _authReadyPromise = new Promise((res)=>{ _authReadyResolve = res; });
+    let _authReadyDone = false;
+    onAuthStateChanged(auth, (u)=>{
+      if(!_authReadyDone){ _authReadyDone = true; try{ _authReadyResolve(u); }catch(e){} }
+      try{
+        if(u && u.phoneNumber){
+          localStorage.setItem('mp_device_phone', u.phoneNumber);
+          localStorage.setItem('mp_device_uid', u.uid||'');
+          localStorage.setItem('mp_device_verified_at', String(Date.now()));
+        }
+      }catch(e){}
+    });
+    window._fbAuthStateReady = () => _authReadyPromise;
     const functions = getFunctions(app);
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
     const _fbStore = { db, ref, set, get, onValue, push, update, remove };
     window._fbAccess = async function(op, path, val){
       // Auto-reauthenticate if Firebase Auth expired (prevents rule denials)
       if(op !== 'get' && op !== 'onValue' && !auth.currentUser){
-        // Never create anonymous if this device already verified phone — wait for restore
+        // Wait for IndexedDB phone restore before creating anonymous (prevents OTP every open)
         let hadPhone = false;
         try{ hadPhone = !!(localStorage.getItem('mp_device_phone') || localStorage.getItem('mp_device_uid')); }catch(e){}
-        if(!hadPhone){
+        if(hadPhone){
+          try{
+            if(window._fbAuthStateReady) await window._fbAuthStateReady();
+            for(let i=0;i<12 && !auth.currentUser;i++) await new Promise(r=>setTimeout(r,120));
+          }catch(e){}
+        }
+        if(!auth.currentUser && !hadPhone){
           try{ await signInAnonymously(auth); }catch(e){ console.warn('[fbAccess] re-auth failed:', e.message); }
         }
       }

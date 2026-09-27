@@ -3465,3 +3465,82 @@ body.light span.shc.G {
     padding-right: 0 !important;
   }
 }
+
+
+/* v2.3.27 rotate + name + sticky */
+.sched-tbl td.ecol .emp-nm {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  max-width: 100%;
+  line-height: 1.15 !important;
+  font-size: 12px !important;
+}
+.sched-tbl td.ecol .emp-id {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 9px !important;
+  line-height: 1.1 !important;
+  opacity: 0.85;
+  margin-top: 1px !important;
+}
+.sched-tbl td.ecol .you-tag {
+  font-size: 8px !important;
+  color: var(--m1);
+  background: var(--m1bg);
+  padding: 0 3px;
+  border-radius: 3px;
+  margin-left: 2px;
+}
+.sched-tbl td.ecol {
+  vertical-align: middle !important;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+.sched-tbl td:not(.ecol) {
+  vertical-align: middle !important;
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}
+/* Sticky month + date row while scrolling the page */
+#schedDateHdrWrap {
+  position: sticky !important;
+  top: calc(var(--hdr-height, 56px) + var(--nav-height, 48px) + var(--sched-filter-h, 0px)) !important;
+  z-index: 12 !important;
+  background: var(--card2) !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+}
+.sched-sticky-hdr {
+  position: sticky !important;
+  top: calc(var(--hdr-height, 56px) + var(--nav-height, 48px)) !important;
+  z-index: 14 !important;
+  background: var(--bg2) !important;
+}
+@media (max-width: 640px) {
+  .sched-tbl td.ecol {
+    min-width: 64px !important;
+    max-width: 76px !important;
+    width: 70px !important;
+    padding: 3px 2px !important;
+  }
+  .sched-tbl td.ecol .emp-nm { font-size: 11px !important; }
+  .sched-tbl td.ecol .emp-id { font-size: 8px !important; }
+  /* Landscape phone: use width better */
+  @media (orientation: landscape) {
+    .hdr { padding-top: 4px !important; padding-bottom: 4px !important; }
+    .nav { min-height: 40px !important; }
+    .sched-tbl td.ecol { max-width: 90px !important; min-width: 72px !important; }
+    .sched-admin-row { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)) !important; }
+    #tab-schedule { padding-bottom: 24px; }
+  }
+}
+/* Desktop: more columns already via JS; reduce right empty feel */
+@media (min-width: 900px) {
+  .sched-wrap, #schedDateHdrWrap {
+    max-width: 100%;
+  }
+  .sched-tbl {
+    width: max-content !important;
+  }
+}
