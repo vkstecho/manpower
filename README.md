@@ -1,9 +1,27 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.0)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.1)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+
+## What's new in 2.4.1
+
+### Modal / mobile fixes
+- Profile sheet scrolls correctly (`modal-scroll-body`).
+- Edit Profile: scroll body + sticky Save/Cancel.
+- Shift Settings rows wrap on narrow phones (no right-side crop).
+- CSS fallback: modals without scroll-body still scroll.
+
+### Shift Settings
+- Save no longer requires legacy Metalliser/Slitter lists (multi-industry).
+- Clearer bilingual title and save toast.
+
+### Profile polish
+- Bilingual labels; formatted dates & Indian salary grouping; phone spacing.
+- Weekly Off select with Hindi day names; date inputs accept DD/MM and ISO.
+
+---
 ## What’s new in 2.4.0
 
 ### Branding & scope

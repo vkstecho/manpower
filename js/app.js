@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.0';
+const APP_VERSION = '2.4.1';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -5479,7 +5479,7 @@ function _renderShiftSettingsModal(){
   if(d.gpMaxPerMonth==null) d.gpMaxPerMonth = 2;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">⚙️ M/c &amp; Shift Setting</div>
+  <div class="modal-title">⚙️ ${_lang==='en'?'Shift & Min Staff':'शिफ्ट व मिन स्टाफ़'}</div>
   <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">
     ${isAdmin()?'Company: <b style="color:var(--text)">'+(SESSION.viewCompanyId||'').toUpperCase()+'</b>':'For your own team'}
   </div>
@@ -5521,7 +5521,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 
 function _renderShiftTimingRows(){
   return _shiftDraft.shifts.map((s,i)=>`
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto Schedule + legend + counts + shift picker">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
           onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
@@ -5610,9 +5610,10 @@ function _removeMachine(field,idx){
 }
 
 async function _saveShiftSettings(){
-  if(!_shiftDraft.metallisers.length && !_shiftDraft.slitters.length){
-    toast('⚠️ कम से कम एक Machine जोड़ें'); return;
-  }
+  // v2.4.1: multi-industry — do not require legacy metallisers/slitters lists
+  // Min staff comes from Team Excel sections/machines via minByField
+  if(!_shiftDraft.metallisers) _shiftDraft.metallisers = [];
+  if(!_shiftDraft.slitters) _shiftDraft.slitters = [];
   for(const s of _shiftDraft.shifts){
     if(!s.code||!s.label){ toast('⚠️ सभी Shift की Code और नाम भरें'); return; }
   }
@@ -5674,7 +5675,7 @@ async function _saveShiftSettings(){
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
     closeModal();
-    toast('✅ M/c & Shift Setting saved');
+    toast(_lang==='en'?'✅ Shift settings saved':'✅ शिफ्ट सेटिंग सेव हो गई');
   }
 }
 
@@ -5691,8 +5692,19 @@ function openEditProfileModal(){
   const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
   const emp = myEmp() || {};
   const esc = (s)=> String(s==null?'':s).replace(/"/g,'&quot;');
+  const toDateInput = (v)=>{
+    if(!v) return '';
+    const s = String(v).trim();
+    if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
+    if(m) return m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0');
+    const d = new Date(s);
+    if(!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+    return '';
+  };
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">✏️ ${isEn?'My Profile':'मेरी Profile'}</div>
+    <div class="modal-scroll-body">
     <div style="text-align:center;margin-bottom:16px">
       <div id="profilePhotoPreview" style="width:96px;height:96px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;overflow:hidden;border:3px solid rgba(249,115,22,.4)">
         ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}
@@ -5704,14 +5716,14 @@ function openEditProfileModal(){
     <div class="field"><label>${isEn?'Name':'नाम'}</label>
       <input class="inp-field" id="profileNameInput" value="${esc(SESSION.name||emp.name||'')}" maxlength="60"></div>
     <div class="field"><label>${isEn?'Date of Birth':'जन्म तिथि (DOB)'}</label>
-      <input class="inp-field" type="date" id="profileDobInput" value="${esc(emp.dob||'')}"></div>
+      <input class="inp-field" type="date" id="profileDobInput" value="${esc(toDateInput(emp.dob||''))}"></div>
     <div class="field"><label>${isEn?'Date of Joining':'जॉइनिंग डेट'}</label>
-      <input class="inp-field" type="date" id="profileDojInput" value="${esc(emp.joiningDate||emp.doj||'')}"></div>
+      <input class="inp-field" type="date" id="profileDojInput" value="${esc(toDateInput(emp.joiningDate||emp.doj||''))}"></div>
     <div class="field"><label>${isEn?'Salary (monthly)':'सैलरी (मासिक)'}</label>
       <input class="inp-field" type="number" id="profileSalaryInput" value="${esc(emp.salary||emp.monthlySalary||'')}" placeholder="₹"></div>
     <div class="field"><label>${isEn?'Weekly Off':'वीकली ऑफ'}</label>
       <select class="inp-field" id="profileWoffInput">
-        ${['','SUN','MON','TUE','WED','THU','FRI','SAT'].map(d=>`<option value="${d}" ${(emp.woff||'')===d?'selected':''}>${d||'—'}</option>`).join('')}
+        ${[{v:'',l:'—'},{v:'SUN',l:isEn?'Sunday':'रवि (SUN)'},{v:'MON',l:isEn?'Monday':'सोम (MON)'},{v:'TUE',l:isEn?'Tuesday':'मंगल (TUE)'},{v:'WED',l:isEn?'Wednesday':'बुध (WED)'},{v:'THU',l:isEn?'Thursday':'गुरु (THU)'},{v:'FRI',l:isEn?'Friday':'शुक्र (FRI)'},{v:'SAT',l:isEn?'Saturday':'शनि (SAT)'}].map(d=>`<option value="${d.v}" ${(emp.woff||'')===d.v?'selected':''}>${d.l}</option>`).join('')}
       </select></div>
     <div class="field"><label>${isEn?'Designation':'पद'}</label>
       <input class="inp-field" id="profileDesigInput" value="${esc(emp.designation||'')}" maxlength="40"></div>
@@ -5728,8 +5740,11 @@ function openEditProfileModal(){
         ? 'Details from Manager are shown here. Changes notify your Manager.'
         : 'Manager द्वारा भरी जानकारी यहाँ दिखती है। बदलाव पर Manager को notification जाएगी।'}
     </div>
+    </div>
+    <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="saveProfileEdits()">💾 ${isEn?'Save & Notify Manager':'सेव + Manager को सूचित करें'}</button>
-    <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+    <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>
+    </div>`);
 }
 
 function onProfilePhotoPicked(input){
@@ -6198,7 +6213,7 @@ async function showProfile(){
   const e=myEmp();
   if(isAdmin()){
     openModal(`<div class="modal-handle"></div>
-    <div style="padding:10px 0">
+    <div class="modal-scroll-body" style="padding:10px 0">
       <div style="text-align:center;margin-bottom:18px">
         <div style="font-size:44px;margin-bottom:8px">🛡️</div>
         <div style="font-size:18px;font-weight:900;color:#fff">${SESSION.name}</div>
@@ -6285,30 +6300,30 @@ async function showProfile(){
     const secLabel = empRec ? (secName(empRec.sec) || empRec.sec) : '';
     const roleLabel = isMgr()?'🏅 Manager':isSupervisor()?'👁️ Supervisor':'👤 User';
     openModal(`<div class="modal-handle"></div>
-    <div style="text-align:center;padding:10px 0">
+    <div class="modal-scroll-body" style="text-align:center;padding:10px 0">
       <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:#fff;font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img src="${SESSION.photoUrl}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
       <div style="font-size:20px;font-weight:900;color:#fff">${SESSION.name}</div>
-      <div style="font-size:12px;color:var(--muted2);margin-top:4px">${(SESSION.role==='manager'||SESSION.role==='member')?('📱 '+(SESSION.mobile||'—')):(SESSION.empId||'—')+' · '+secLabel}</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px">${(SESSION.role==='manager'||SESSION.role==='member')?(function(){ const s=String(SESSION.mobile||'').replace(/\s/g,''); if(s.startsWith('+91')&&s.length>=13) return '📱 +91 '+s.slice(3,8)+' '+s.slice(8); if(s.length===10) return '📱 +91 '+s.slice(0,5)+' '+s.slice(5); return '📱 '+(SESSION.mobile||'—'); })():(SESSION.empId||'—')+' · '+secLabel}</div>
       <div style="margin-top:6px"><span style="background:rgba(249,115,22,.15);color:#f97316;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:800">${roleLabel}</span></div>
       ${(function(){
         const er = empRec||{};
         const rows = [
-          ['Emp Code', er.empId||er.code||SESSION.empId||'—'],
-          ['DOB', er.dob||'—'],
-          ['Date of Joining', er.joiningDate||er.doj||'—'],
-          ['Salary', (er.salary!=null&&er.salary!=='')?('₹ '+er.salary):(er.monthlySalary!=null?('₹ '+er.monthlySalary):'—')],
-          ['Weekly Off', er.woff||'—'],
-          ['Designation', er.designation||'—'],
-          ['Section', secLabel||er.sec||'—'],
+          [(_lang==='en')?'Emp Code':'Emp Code', er.empId||er.code||SESSION.empId||'—'],
+          [(_lang==='en')?'DOB':'जन्म तिथि', (function(){ const v=er.dob; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{day:'2-digit',month:'short',year:'numeric'}); })()],
+          [(_lang==='en')?'Date of Joining':'जॉइनिंग', (function(){ const v=er.joiningDate||er.doj; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{day:'2-digit',month:'short',year:'numeric'}); })()],
+          [(_lang==='en')?'Salary':'सैलरी', (function(){ const n=er.salary??er.monthlySalary; if(n==null||n==='')return '—'; const num=Number(String(n).replace(/[^\d.]/g,'')); return isNaN(num)?('₹ '+n):('₹ '+num.toLocaleString('en-IN')); })()],
+          [(_lang==='en')?'Weekly Off':'वीकली ऑफ', er.woff||'—'],
+          [(_lang==='en')?'Designation':'पद', er.designation||'—'],
+          [(_lang==='en')?'Section':'सेक्शन', secLabel||er.sec||'—'],
         ];
         return '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left">'
-          +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">MY DETAILS</div>'
+          +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(_lang==='en'?'MY DETAILS':'मेरी जानकारी')+'</div>'
           +rows.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px"><span style="color:var(--muted2)">'+k+'</span><span style="color:var(--text);font-weight:700">'+v+'</span></div>').join('')
           +'</div>';
       })()}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openLeaveBalanceModal()">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">🏖️</div>
-        <div><div class="pa-label">${(_lang==='en')?'Leave Balance':'Leave Balance'}</div><div class="pa-sub">${(_lang==='en')?'All leave types & remaining':'सभी प्रकार की छुट्टियाँ'}</div></div>
+        <div><div class="pa-label">${(_lang==='en')?'Leave Balance':'छुट्टी बैलेंस'}</div><div class="pa-sub">${(_lang==='en')?'All leave types & remaining':'सभी प्रकार की छुट्टियाँ व शेष'}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openEditProfileModal()">
@@ -6318,12 +6333,12 @@ async function showProfile(){
       </button>`:''}
 
       <div style="background:var(--panel);border:1.5px solid ${daysLeft<=7?color:'var(--border2)'};border-radius:14px;padding:16px;margin:16px 0;text-align:left">
-        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">APP ACCESS VALIDITY</div>
+        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${(_lang==='en')?'APP ACCESS VALIDITY':'ऐप एक्सेस वैधता'}</div>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:28px">${icon}</div>
           <div>
             <div style="font-size:22px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif">${msg}</div>
-            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">Re-verification: ${expiryStr}</div>`:''}
+            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${(_lang==='en')?'Valid till: ':'वैध तक: '}${expiryStr}</div>`:''}
           </div>
         </div>
       </div>
