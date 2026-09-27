@@ -9580,8 +9580,8 @@ function renderSchedule(){
   const dateCellsHtml = dates.map(d=>{
     const dO=new Date(d);const isT=d===TODAY_STR;
     const bg=isT?'rgba(249,115,22,.18)':'var(--card2)';
-    const col=isT?'var(--m1)':'var(--text)';
-    const colSub=isT?'var(--m1)':'var(--muted2)';
+    const col=isT?'#ffffff':'#f8fafc';
+    const colSub=isT?'#ffedd5':'#cbd5e1';
     return {isT, bg, col, colSub, day:DAYS_EN[dO.getDay()], date:dO.getDate(), month:dO.getMonth(), year:dO.getFullYear()};
   });
 
@@ -9612,7 +9612,7 @@ function renderSchedule(){
   const monthThs = _monthGroups.map(g=>{
     const color = MONTH_COLORS_H[g.month % 12];
     const label = MONTHS_SHORT_H[g.month]+' '+String(g.year).slice(2);
-    return `<th class="sched-month-th" colspan="${g.span}" style="background:#0a1628;color:${color};font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:900;letter-spacing:.5px;text-align:center;padding:4px 2px;border-right:1px solid rgba(255,255,255,.08);position:sticky;top:0;z-index:5">${label}</th>`;
+    return `<th class="sched-month-th" colspan="${g.span}" style="background:#0a1628;color:${color};font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:900;letter-spacing:.5px;text-align:center;padding:4px 2px;border-right:1px solid rgba(255,255,255,.1)">${label}</th>`;
   }).join('');
 
   const dateThs = dateCellsHtml.map((c,i)=>{
@@ -9620,19 +9620,19 @@ function renderSchedule(){
     const todayCls = c.isT ? ' sched-today-col' : '';
     const bg = c.isT ? 'rgba(249,115,22,.32)' : '#1c2d42';
     const shadow = c.isT ? 'box-shadow:inset 0 0 0 2px #f97316;' : '';
-    return `<th class="sched-date-th${todayCls}${emptyCls}" data-date-col="${i}" style="width:${_colWH}px;min-width:${_colWH}px;max-width:${_colWH}px;box-sizing:border-box;text-align:center;padding:3px 0;background:${bg};${shadow}position:sticky;top:24px;z-index:5;border-right:1px solid rgba(255,255,255,.06)">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:8px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
+    return `<th class="sched-date-th${todayCls}${emptyCls}" data-date-col="${i}" style="width:${_colWH}px;min-width:${_colWH}px;max-width:${_colWH}px;box-sizing:border-box;text-align:center;padding:4px 0;background:${bg};${shadow}border-right:1px solid rgba(255,255,255,.08)">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:800;color:${c.colSub};line-height:1.1">${c.day}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:900;color:${c.col};line-height:1.15">${c.date}</div>
     </th>`;
   }).join('');
 
   let thead = `<thead class="sched-thead-sticky">
     <tr class="sched-month-row">
-      <th class="ecol sched-month-th" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#0a1628;position:sticky;left:0;top:0;z-index:6"></th>
+      <th class="ecol sched-month-th" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#0a1628"></th>
       ${monthThs}
     </tr>
     <tr class="sched-date-row">
-      <th class="ecol" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#111d2e;position:sticky;left:0;top:24px;z-index:6;box-shadow:3px 0 8px rgba(0,0,0,.5)"></th>
+      <th class="ecol" style="width:${_ecolH}px;min-width:${_ecolH}px;max-width:${_ecolH}px;background:#1e293b;box-shadow:3px 0 8px rgba(0,0,0,.5)"></th>
       ${dateThs}
     </tr>
   </thead>`;

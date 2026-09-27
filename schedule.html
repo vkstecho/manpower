@@ -41,12 +41,9 @@
       <div class="chip" onclick="setSchedSec('CAT:designation',this)">Designation</div>
     </div>
     <div class="chips" id="schedFilterSecondary" style="display:none;margin-top:6px;flex-wrap:wrap;gap:6px"></div>
-    <!-- Sticky date row that scrolls in sync with table -->
-    <div id="schedDateHdrWrap" style="overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;margin:0;padding:0">
-      <div id="schedHdrStack" style="display:flex;flex-direction:column;min-width:580px">
-        <div id="schedMonthHdr" style="display:flex;background:#0a1628;border-top:1px solid var(--border2);border-bottom:1px solid var(--border)"></div>
-        <div id="schedDateHdr" style="display:flex;background:var(--card2);border-bottom:2px solid var(--border2)"></div>
-      </div>
+    <!-- External date header disabled — dates are in table thead -->
+    <div id="schedDateHdrWrap" style="display:none!important">
+      <div id="schedHdrStack"><div id="schedMonthHdr"></div><div id="schedDateHdr"></div></div>
     </div>
   </div><!-- end sched-sticky-hdr -->
   <div class="sched-wrap" id="schedWrap"><table class="sched-tbl" id="schedTbl"></table></div>
