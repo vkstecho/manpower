@@ -654,7 +654,27 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.27'; // Bump this to force re-seed
+const APP_VERSION = '2.3.29';
+
+/** Allow phone rotate — unlock any portrait lock from old PWA manifest */
+function _unlockOrientation(){
+  try{
+    if(screen.orientation && typeof screen.orientation.unlock === 'function'){
+      screen.orientation.unlock();
+    }
+  }catch(e){}
+  try{
+    if(typeof screen.unlockOrientation === 'function') screen.unlockOrientation();
+  }catch(e){}
+  try{
+    if(typeof screen.unlockOrientationWebkit === 'function') screen.unlockOrientationWebkit();
+  }catch(e){}
+}
+try{ _unlockOrientation(); }catch(e){}
+document.addEventListener('DOMContentLoaded', function(){ try{ _unlockOrientation(); }catch(e){} });
+window.addEventListener('load', function(){ try{ _unlockOrientation(); }catch(e){} });
+
+ // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -8419,9 +8439,25 @@ function _onSchedLayoutChange(){
 }
 window.addEventListener('resize', _onSchedLayoutChange);
 window.addEventListener('orientationchange', ()=>{
-  setTimeout(_onSchedLayoutChange, 250);
-  setTimeout(_onSchedLayoutChange, 600);
+  try{ _unlockOrientation(); }catch(e){}
+  setTimeout(_onSchedLayoutChange, 100);
+  setTimeout(_onSchedLayoutChange, 300);
+  setTimeout(_onSchedLayoutChange, 700);
+  // Force visual viewport reflow on Android Chrome / PWA
+  setTimeout(()=>{
+    try{
+      document.documentElement.style.width = '100%';
+      window.dispatchEvent(new Event('resize'));
+    }catch(e){}
+  }, 400);
 });
+// Some Android PWAs only fire resize, not orientationchange
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', ()=>{
+    clearTimeout(window._vvTimer);
+    window._vvTimer = setTimeout(()=>{ try{ _onSchedLayoutChange(); }catch(e){} }, 200);
+  });
+}
 document.addEventListener('DOMContentLoaded', syncStickyTop);
 setTimeout(syncStickyTop, 500);
 // ════════════════════════════════════════
@@ -8852,18 +8888,42 @@ document.addEventListener('keydown', e=>{
 
 
 /** How many date columns to show — mobile 11, landscape mobile 14, desktop 21+ */
+function _schedColWidth(){
+  try{
+    const w = window.innerWidth || 360;
+    if(w <= 640) return 26;   // mobile: slightly wider for D/N counts
+    if(w <= 900) return 30;
+    return 34;                // desktop
+  }catch(e){ return 26; }
+}
+function _schedEcolWidth(){
+  try{
+    const w = window.innerWidth || 360;
+    if(w <= 640) return 70;
+    if(w <= 900) return 110;
+    return 128;
+  }catch(e){ return 70; }
+}
+/** How many date columns — mobile fixed; desktop fills available width (no right white gap) */
 function _schedDayCount(){
   try{
     const w = window.innerWidth || 360;
     const h = window.innerHeight || 640;
     const landscape = w > h;
     if(w <= 640){
-      // Mobile: 11 portrait, a bit more in landscape to fill width
-      return landscape ? 14 : 11;
+      // Mobile: 11 portrait / 13 landscape — wider cells still fit with scroll
+      return landscape ? 13 : 11;
     }
-    if(w <= 900) return 17;
-    if(w <= 1200) return 21;
-    return 24;
+    // Desktop / laptop: compute from content width so table fills the pane
+    const sidebar = (w >= 900) ? 220 : 0;
+    const pad = 48;
+    const ecol = _schedEcolWidth();
+    const colW = _schedColWidth();
+    const avail = Math.max(400, w - sidebar - pad - ecol);
+    let n = Math.floor(avail / colW);
+    // Keep a sensible range
+    n = Math.max(18, Math.min(36, n));
+    return n;
   }catch(e){ return 11; }
 }
 
@@ -9088,9 +9148,8 @@ function _alignSchedColumns(){
     if(!tbl || !dateHdr) return;
 
     const mob = window.innerWidth <= 640;
-    // Desktop uses wider date cols so header digits fit without drift
-    const colW = mob ? 22 : 32;
-    const ecolTarget = mob ? 72 : 128;
+    const colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (mob ? 26 : 34);
+    const ecolTarget = (typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (mob ? 70 : 128);
 
     const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
     const n = hdrCells.length;
@@ -9201,32 +9260,32 @@ function renderSchedule(){
       s.textContent = `
         .sched-tbl { min-width:0 !important; table-layout:fixed !important; width:max-content !important; }
         .sched-tbl col.sched-ecol { width:72px; min-width:72px; max-width:72px; }
-        .sched-tbl col.sched-dcol { width:22px; min-width:22px; max-width:22px; }
+        .sched-tbl col.sched-dcol { width:26px; min-width:26px; max-width:26px; }
         .sched-tbl td { padding:2px 0 !important; box-sizing:border-box !important; }
         .sched-tbl td.ecol, .sched-tbl th.ecol {
-          min-width:72px !important; max-width:72px !important; width:72px !important;
-          padding:3px 3px !important; box-sizing:border-box !important;
+          min-width:70px !important; max-width:76px !important; width:70px !important;
+          padding:3px 2px !important; box-sizing:border-box !important;
         }
         .sched-tbl td:not(.ecol), .sched-tbl th:not(.ecol) {
-          width:22px !important; min-width:22px !important; max-width:22px !important;
+          width:26px !important; min-width:26px !important; max-width:26px !important;
           padding:2px 0 !important; box-sizing:border-box !important;
         }
         .sched-tbl .shc, .sched-tbl span.shc, .sched-tbl .shc.shc-sm {
-          width:18px !important; height:16px !important; min-width:18px !important;
-          font-size:9px !important; border-radius:3px !important;
+          width:20px !important; height:18px !important; min-width:20px !important;
+          font-size:10px !important; border-radius:4px !important;
           margin:0 auto !important; display:inline-flex !important;
           align-items:center !important; justify-content:center !important;
         }
         #schedDateHdr, #schedMonthHdr { box-sizing:border-box !important; }
         #schedDateHdr > div {
           flex:none !important;
-          width:22px !important; min-width:22px !important; max-width:22px !important;
+          width:26px !important; min-width:26px !important; max-width:26px !important;
           padding:3px 0 !important; margin:0 !important;
           box-sizing:border-box !important; overflow:hidden !important;
         }
         /* Today: same width — only inset highlight (no grow) */
         #schedDateHdr > div[data-today-col="1"] {
-          width:22px !important; min-width:22px !important; max-width:22px !important;
+          width:26px !important; min-width:26px !important; max-width:26px !important;
           background:rgba(249,115,22,.35) !important;
           border:none !important;
           box-shadow:inset 0 0 0 2px #f97316 !important;
@@ -9286,7 +9345,7 @@ function renderSchedule(){
   const dateHdr = document.getElementById('schedDateHdr');
   if(dateHdr){
     const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
-    const _colW = _mob ? 22 : 32;
+    const _colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (_mob ? 26 : 34);
     dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
       const todayMark = c.isT ? ' data-today-col="1"' : '';
       // FIXED equal width for every day (today included) — highlight via inset only
@@ -9431,11 +9490,11 @@ function renderSchedule(){
       _alignSchedColumns();
       {
         const mob = window.innerWidth <= 640;
-        const colW = mob ? 22 : 32;
+        const colW = (typeof _schedColWidth==='function') ? _schedColWidth() : (mob ? 26 : 34);
         const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
         const ecolWidth = (firstDataRow && firstDataRow.cells[0])
           ? firstDataRow.cells[0].getBoundingClientRect().width
-          : (mob ? 72 : 128);
+          : ((typeof _schedEcolWidth==='function') ? _schedEcolWidth() : (mob ? 70 : 128));
         const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
         const totalDateW = hdrCells.length * colW;
 

@@ -3400,20 +3400,24 @@ body.light span.shc.G {
 }
 @media (max-width: 640px) {
   #schedDateHdr > div {
-    width: 22px !important;
-    min-width: 22px !important;
-    max-width: 22px !important;
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
   }
   .sched-tbl td:not(.ecol) {
-    width: 22px !important;
-    min-width: 22px !important;
-    max-width: 22px !important;
+    width: 26px !important;
+    min-width: 26px !important;
+    max-width: 26px !important;
     box-sizing: border-box !important;
   }
   .sched-tbl td.ecol {
-    width: 72px !important;
-    min-width: 72px !important;
-    max-width: 72px !important;
+    width: 70px !important;
+    min-width: 70px !important;
+    max-width: 76px !important;
+  }
+  /* Summary row numbers more readable */
+  .sched-tbl tr td:not(.ecol) {
+    font-size: 11px !important;
   }
 }
 
@@ -3429,32 +3433,32 @@ body.light span.shc.G {
 @media (min-width: 641px) {
   .sched-tbl { table-layout: fixed !important; }
   .sched-tbl col.sched-ecol { width: 128px; }
-  .sched-tbl col.sched-dcol { width: 32px; }
+  .sched-tbl col.sched-dcol { width: 34px; }
   .sched-tbl td.ecol, .sched-tbl th.ecol {
     width: 128px !important;
     min-width: 128px !important;
     max-width: 160px !important;
   }
   .sched-tbl td:not(.ecol), .sched-tbl th:not(.ecol) {
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     box-sizing: border-box !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
   }
   #schedDateHdr > div {
     flex: none !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     box-sizing: border-box !important;
     margin: 0 !important;
   }
   #schedDateHdr > div[data-today-col="1"] {
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
+    width: 34px !important;
+    min-width: 34px !important;
+    max-width: 34px !important;
     box-shadow: inset 0 0 0 2px #f97316 !important;
     border: none !important;
   }
@@ -3543,4 +3547,30 @@ body.light span.shc.G {
   .sched-tbl {
     width: max-content !important;
   }
+}
+
+
+/* v2.3.28 col fill — desktop table can grow with more days */
+@media (min-width: 900px) {
+  #tab-schedule .sched-wrap {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .sched-tbl {
+    width: max-content !important;
+    min-width: 100%;
+  }
+}
+
+
+/* v2.3.29 rotate unlock — never force portrait layout */
+html, body {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+@media screen and (orientation: landscape) and (max-height: 500px) {
+  .hdr { min-height: 44px !important; padding: 4px 10px !important; }
+  .nav { min-height: 40px !important; padding-top: 2px !important; padding-bottom: 2px !important; }
+  body { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
+  #loginScreen { padding-top: 12px !important; }
 }
