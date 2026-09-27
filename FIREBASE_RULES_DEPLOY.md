@@ -18,9 +18,8 @@
 
 Default root remains **deny**.
 
-## Admin phones (still in rules for compatibility)
-- `+918929397949`
-- `+918929394920`
+## Admin phone (hardcoded in rules)
+- `+918929397949` (8929397949) — sole admin login number
 
 Also accepted: `/admins/{uid} === true` and approved managers via `/managers/{uid}` or `mobileUsers` role=manager + status=approved.
 

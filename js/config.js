@@ -20,8 +20,8 @@
       O: 'साप्ताहिक छुट्टी', L: 'लीव', G: 'जनरल', 'C/O': 'Comp Off'
     },
     contactVivek: '+918168771239',
-    contactAdmin: '+918929394920',
-    hardAdminPhones: ['+918929397949', '+918929394920', '8929397949', '8929394920'],
+    contactAdmin: '+918929397949',
+    hardAdminPhones: ['+918929397949', '8929397949'],
     managerInviteCode: 'METMGR'
   };
 })(typeof window !== 'undefined' ? window : globalThis);

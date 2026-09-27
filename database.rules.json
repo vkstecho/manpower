@@ -5,168 +5,168 @@
     "admins": {
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null && (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920')"
+        ".write": "auth != null && (auth.token.phone_number === '+918929397949')"
       }
     },
     "managers": {
       "$uid": {
         ".read": "auth != null",
-        ".write": "auth != null && (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920' || root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && newData.val() === true && auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))) || (auth.uid === $uid && root.child('managers').child(auth.uid).val() === true))"
+        ".write": "auth != null && (auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true || (auth.uid === $uid && newData.val() === true && auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))) || (auth.uid === $uid && root.child('managers').child(auth.uid).val() === true))"
       }
     },
     "mobileUsers": {
       ".read": "auth != null",
       "$phone": {
-        ".write": "auth != null && ((!data.exists() && (auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && ((newData.child('role').val() === 'manager' && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved')) || (newData.child('role').val() === 'member' && newData.child('status').val() === 'pending'))) || ((auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && data.exists() && newData.child('role').val() === data.child('role').val() && ((data.child('role').val() === 'manager' && (newData.child('status').val() === 'approved' || newData.child('status').val() === data.child('status').val())) || (data.child('role').val() === 'member' && newData.child('status').val() === data.child('status').val()))) || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || (root.child('managers').child(auth.uid).val() === true && data.child('role').val() === 'member' && newData.child('role').val() === 'member'))"
+        ".write": "auth != null && ((!data.exists() && (auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && ((newData.child('role').val() === 'manager' && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved')) || (newData.child('role').val() === 'member' && newData.child('status').val() === 'pending'))) || ((auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && data.exists() && newData.child('role').val() === data.child('role').val() && ((data.child('role').val() === 'manager' && (newData.child('status').val() === 'approved' || newData.child('status').val() === data.child('status').val())) || (data.child('role').val() === 'member' && newData.child('status').val() === data.child('status').val()))) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || (root.child('managers').child(auth.uid).val() === true && data.child('role').val() === 'member' && newData.child('role').val() === 'member'))"
       }
     },
     "employees": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "schedules": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "overrides": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "shiftConfigs": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "settings": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))",
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))",
       "license": {
         ".read": "auth != null",
-        ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+        ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
       }
     },
     "todos": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "instructions": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "userApprovals": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "leaves": {
       ".read": "auth != null",
       "$lid": {
-        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && newData.child('status').val() === 'pending') || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && newData.child('status').val() === 'pending') || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
       }
     },
     "reports": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "attendance": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "deviceApprovals": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "deviceChangeRequests": {
       ".read": "auth != null",
       "$rid": {
-        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null) || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
       }
     },
     "userNotifications": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (auth.uid === $uid || auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920' || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true)"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true)"
       }
     },
     "loginRequests": {
       ".read": "auth != null",
       "$rid": {
-        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && (newData.child('status').val() === 'pending' || !newData.child('status').exists())) || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && (newData.child('status').val() === 'pending' || !newData.child('status').exists())) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
       }
     },
     "regRequests": {
       ".read": "auth != null",
       "$rid": {
-        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && (newData.child('status').val() === 'pending' || !newData.child('status').exists())) || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null && (newData.child('status').val() === 'pending' || !newData.child('status').exists())) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
       }
     },
     "learnRequests": {
       ".read": "auth != null",
       "$rid": {
-        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null) || (auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true)"
+        ".write": "auth != null && ((!data.exists() && auth.token.phone_number != null) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true)"
       }
     },
     "adminNotifications": {
-      ".read": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".read": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)",
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "adminAuth": {
       ".read": false,
       ".write": false
     },
     "adminLogs": {
-      ".read": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".read": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)",
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "users": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && (auth.uid === $uid || auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920' || root.child('admins').child(auth.uid).val() === true)"
+        ".write": "auth != null && (auth.uid === $uid || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true)"
       }
     },
     "companies": {
       ".read": "auth != null",
       "$cid": {
-        ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+        ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
       }
     },
     "appVersion": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "aboutContent": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "learnContent": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "learnPrices": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "learnButtons": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "supskillAnalysis": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "supskillDowntime": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "supskillVideoLinks": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true)"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
     },
     "holidayLists": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     },
     "leaveQuotas": {
       ".read": "auth != null",
-      ".write": "auth != null && ((auth.token.phone_number === '+918929397949' || auth.token.phone_number === '+918929394920') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
+      ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))"
     }
   }
 }

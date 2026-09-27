@@ -56,9 +56,9 @@ const CFG = {
   shiftLabels: { D:'दिन (7AM-7PM)', N:'रात (7PM-7AM)', A:'A Shift', B:'B Shift', C:'C Shift', O:'साप्ताहिक छुट्टी', L:'लीव', G:'जनरल', 'C/O':'Comp Off' },
   // ── Contact numbers (update here, applies everywhere) ──
   contactVivek:  '+918168771239',   // Manager VIVEK — device approvals, access extensions
-  contactAdmin:  '+918929394920',   // Admin — login approvals
+  contactAdmin:  '+918929397949',   // Admin — login approvals
   // Phone numbers that must always log in as Admin via OTP (10-digit or +91 form)
-  hardAdminPhones: ['+918929397949', '+918929394920', '8929397949', '8929394920'],
+  hardAdminPhones: ['+918929397949', '8929397949'],
   // Manager self-registration invite code (not admin approval — spam gate only)
   // Can also override via Firebase settings/managerInviteCode
   managerInviteCode: 'METMGR',
@@ -2450,14 +2450,20 @@ async function _sendOTP(isResend){
   // Skip this gate on explicit resend or when force-OTP flag is set
   if(!isResend && !window._forceOtpAfterMgrWait){
     try{
-      const userData = await fbGet('mobileUsers/'+mobile);
-      if(userData && userData.status==='approved' &&
-         (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
-        if(userData.validTill && new Date(userData.validTill)<new Date()){
-          // expired — fall through to OTP / normal handling
-        } else {
-          showManagerLoginApproval(userData, mobile, fullPhone);
-          return;
+      // Hard-admin phones always use OTP / admin path — never "ask Manager"
+      const _isHard = (typeof _isHardAdminPhone==='function')
+        ? _isHardAdminPhone(mobile)
+        : ['8929397949'].includes(String(mobile||'').replace(/\D/g,'').slice(-10));
+      if(!_isHard){
+        const userData = await fbGet('mobileUsers/'+mobile);
+        if(userData && userData.status==='approved' &&
+           (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
+          if(userData.validTill && new Date(userData.validTill)<new Date()){
+            // expired — fall through to OTP / normal handling
+          } else {
+            showManagerLoginApproval(userData, mobile, fullPhone);
+            return;
+          }
         }
       }
     }catch(e){ console.warn('[login] mgr-approval check', e); }
