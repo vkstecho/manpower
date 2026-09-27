@@ -6706,20 +6706,72 @@ window.MP_SHIFT_COLORS = {
   Ab:{bg:'#7f1d1d',fg:'#fca5a5'}
 };
 
+
+/** Force D/N/G badge colours identical on Home + Schedule (overrides any theme drift) */
+function _forceShiftBadgeColors(){
+  if(document.getElementById('mpShiftColorLock')) return;
+  const s = document.createElement('style');
+  s.id = 'mpShiftColorLock';
+  s.textContent = `
+    /* FONT colours locked to match Schedule exactly */
+    .shc.D, .shc.shc-sm.D, .hm-chip .shc.D, .hm-chip-meta .shc.D, .hm-chips .shc.D,
+    .sched-tbl .shc.D, .ms-day-sh.shc.D, span.shc.D {
+      background: #f59e0b !important;
+      color: #000000 !important;
+      -webkit-text-fill-color: #000000 !important;
+    }
+    .shc.N, .shc.shc-sm.N, .hm-chip .shc.N, .hm-chip-meta .shc.N, .hm-chips .shc.N,
+    .sched-tbl .shc.N, .ms-day-sh.shc.N, span.shc.N {
+      background: #4f46e5 !important;
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
+    }
+    .shc.G, .shc.shc-sm.G, .hm-chip .shc.G, .hm-chip-meta .shc.G, .hm-chips .shc.G,
+    .sched-tbl .shc.G, .ms-day-sh.shc.G, span.shc.G {
+      background: #0284c7 !important;
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
+    }
+    .hm-shift-badge.D, .hm-shift-badge.D .hm-shift-letter, .hm-shift-badge.D .hm-shift-word {
+      background: #f59e0b !important; color: #000000 !important; -webkit-text-fill-color: #000000 !important;
+    }
+    .hm-shift-badge.N, .hm-shift-badge.N .hm-shift-letter, .hm-shift-badge.N .hm-shift-word {
+      background: #4f46e5 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+    }
+    .hm-shift-badge.G, .hm-shift-badge.G .hm-shift-letter, .hm-shift-badge.G .hm-shift-word {
+      background: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+    }
+    /* Prevent parent .hm-chip-meta muted colour from leaking onto badge letters */
+    .hm-chip-meta .shc.D, .hm-chips .shc.D { -webkit-text-fill-color: #000000 !important; color: #000000 !important; }
+    .hm-chip-meta .shc.N, .hm-chips .shc.N { -webkit-text-fill-color: #ffffff !important; color: #ffffff !important; }
+    .hm-chip-meta .shc.G, .hm-chips .shc.G { -webkit-text-fill-color: #ffffff !important; color: #ffffff !important; }
+  `;
+  document.head.appendChild(s);
+}
+try{ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', _forceShiftBadgeColors); else _forceShiftBadgeColors(); }catch(e){}
+
+
 /** One badge HTML for Home + Schedule + My Shift — identical colours always */
 function mpShiftBadgeHtml(code, opts){
   opts = opts || {};
   const disp = (typeof cellDisp==='function' ? cellDisp(code) : code) || '';
   const st = (typeof mpShiftStyle==='function') ? mpShiftStyle(disp||code) : {bg:'#475569',fg:'#fff'};
   const cls = (typeof cellClass==='function' ? cellClass(code) : '') || '';
-  const w = opts.w || 26;
-  const h = opts.h || 22;
-  const fs = opts.fs || 12;
+  const w = opts.w || 28;
+  const h = opts.h || 24;
+  const fs = opts.fs || 13;
   const extra = opts.extraStyle || '';
-  return '<span class="shc shc-sm '+cls+'" style="background:'+st.bg+' !important;color:'+st.fg+' !important;'+
-    'width:'+w+'px;height:'+h+'px;min-width:'+w+'px;font-size:'+fs+'px;border-radius:6px;'+
+  // Font colour MUST match Schedule: D=#000 black, N/G=#fff white (never inherit parent muted colour)
+  return '<span class="shc shc-sm '+cls+'" data-shift="'+String(cls).replace(/"/g,'')+'" style="'+
+    'background:'+st.bg+' !important;'+
+    'color:'+st.fg+' !important;'+
+    '-webkit-text-fill-color:'+st.fg+' !important;'+
+    'width:'+w+'px;height:'+h+'px;min-width:'+w+'px;'+
+    'font-size:'+fs+'px;border-radius:7px;'+
     'display:inline-flex;align-items:center;justify-content:center;font-weight:900;'+
-    'font-family:\'Barlow Condensed\',sans-serif;line-height:1;box-sizing:border-box;'+extra+'">'+
+    'font-family:\'Barlow Condensed\',sans-serif;line-height:1;box-sizing:border-box;'+
+    'border:1px solid rgba(0,0,0,.12);box-shadow:0 1px 2px rgba(0,0,0,.18);'+
+    extra+'">'+
     String(disp).replace(/</g,'&lt;')+'</span>';
 }
 
@@ -6813,6 +6865,7 @@ function isManPowerCompanyUser(){ return isAdmin() || SESSION.company === 'Man P
 // HOME / OVERVIEW
 // ════════════════════════════════════════
 async function renderHome(){
+  try{ if(typeof _forceShiftBadgeColors==='function') _forceShiftBadgeColors(); }catch(e){}
   if(typeof isPendingMember==='function' && isPendingMember()){
     try{
       const roster = document.getElementById('homeRoster');
@@ -6957,7 +7010,7 @@ async function renderHome(){
     const badge=isMain?'<span class="hm-chip-badge-main">MAIN</span>'
                :isSup?'<span class="hm-chip-badge-sup">SUP</span>':'';
     const _st = (typeof mpShiftStyle==='function') ? mpShiftStyle(cellDisp(sh)||sh) : {bg:'#475569',fg:'#fff'};
-    const shLabel = sh ? mpShiftBadgeHtml(sh, {w:26,h:22,fs:12,extraStyle:'margin-left:6px;'}) : '';
+    const shLabel = sh ? mpShiftBadgeHtml(sh, {w:28,h:24,fs:13,extraStyle:'margin-left:6px;'}) : '';
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${emp.name}</div>
       <div class="hm-chip-meta">
@@ -8399,7 +8452,7 @@ function renderSchedule(){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:16},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   // Disable/enable nav buttons at boundaries
   const prevBtn = document.querySelector('.nav-btn[onclick="moveW(-7)"]');
@@ -8464,11 +8517,16 @@ function renderSchedule(){
   // Initial render with flex — will be corrected to exact pixel widths after table renders
   const dateHdr = document.getElementById('schedDateHdr');
   if(dateHdr){
-    dateHdr.innerHTML = dateCellsHtml.map((c,i)=>`
-      <div data-date-col="${i}" style="flex:1;min-width:32px;max-width:44px;text-align:center;padding:5px 3px;background:${c.bg};border-right:1px solid var(--border)">
+    dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
+      const todayMark = c.isT ? ' data-today-col="1"' : '';
+      const todayStyle = c.isT
+        ? 'flex:1;min-width:28px;max-width:36px;text-align:center;padding:5px 2px;background:rgba(249,115,22,.32);border:2px solid #f97316;border-radius:8px;box-shadow:0 0 10px rgba(249,115,22,.45);margin:0 1px;'
+        : 'flex:1;min-width:22px;max-width:30px;text-align:center;padding:4px 1px;background:'+c.bg+';border-right:1px solid var(--border)';
+      return `<div data-date-col="${i}"${todayMark} style="${todayStyle}">
         <div style="font-family:'Barlow Condensed';font-size:8px;font-weight:800;color:${c.colSub}">${c.day}</div>
-        <div style="font-family:'Barlow Condensed';font-size:13px;font-weight:900;color:${c.col}">${c.date}</div>
-      </div>`).join('');
+        <div style="font-family:'Barlow Condensed';font-size:${c.isT?'14':'12'}px;font-weight:900;color:${c.col}">${c.date}</div>
+      </div>`;
+    }).join('');
   }
 
   // thead is now hidden (date row shown in sticky header above)
@@ -8501,20 +8559,25 @@ function renderSchedule(){
           const origSh = getShift(emp,d);
           const isT=d===TODAY_STR;
           const isRealloc=!!(getOverrides()[emp.id+'_'+d]&&getOverrides()[emp.id+'_'+d]!=='L');
+          const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
+          const _bw = _mob ? 22 : 28, _bh = _mob ? 20 : 24, _bfs = _mob ? 11 : 12;
+          const _todayCls = isT ? 'sched-today-col' : '';
+          const _todayBg = isT ? 'background:rgba(249,115,22,.16);box-shadow:inset 0 0 0 1.5px rgba(249,115,22,.7);' : '';
           const clickable = canEditSchedule()
-            ? `data-empid="${emp.id}" data-empname="${emp.name}" data-date="${d}" data-origsh="${origSh}" style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="handleSchedCellClick(this,'${emp.id}','${emp.name}','${d}','${origSh}')"`
+            ? `class="${_todayCls}" data-empid="${emp.id}" data-empname="${emp.name}" data-date="${d}" data-origsh="${origSh}" style="cursor:pointer;${_todayBg}" onclick="handleSchedCellClick(this,'${emp.id}','${emp.name}','${d}','${origSh}')"`
             : (['L','CO','C/O','OD','Ab','HLF'].includes(sh)
-              ? `style="cursor:pointer;${isT?'background:rgba(249,115,22,.05)':''}" onclick="showShiftInfo('${emp.id}','${emp.name.replace(/'/g,"\\'")}','${d}','${sh}')"`
-              : `style="${isT?'background:rgba(249,115,22,.05)':''}"`);          if(pending){
+              ? `class="${_todayCls}" style="cursor:pointer;${_todayBg}" onclick="showShiftInfo('${emp.id}','${emp.name.replace(/'/g,"\'")}','${d}','${sh}')"`
+              : `class="${_todayCls}" style="${_todayBg}"`);
+          if(pending){
             return `<td ${clickable} data-cellkey="${emp.id}_${d}" data-pending="${pendingKey}" data-orig-shift="${origSh}">
-              ${mpShiftBadgeHtml(sh,{w:28,h:24,fs:12,extraStyle:'outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)'})}
+              ${mpShiftBadgeHtml(sh,{w:_bw,h:_bh,fs:_bfs,extraStyle:'outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)'})}
               ${canEditSchedule()?`<div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`:''}
             </td>`;
           }
           return `<td ${clickable} data-cellkey="${emp.id}_${d}">
-            ${mpShiftBadgeHtml(sh,{w:28,h:24,fs:12,extraStyle:isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''})}
+            ${mpShiftBadgeHtml(sh,{w:_bw,h:_bh,fs:_bfs,extraStyle:isRealloc?'outline:2px solid rgba(163,230,53,.5);border-radius:4px;':''})}
           </td>`;
-        }).join('')}
+                }).join('')}
       </tr>`;
     });
   });
@@ -8834,7 +8897,7 @@ function sortTrends(col){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:16},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   const allEmps = (
     getSchedFilteredEmps()
@@ -8850,7 +8913,7 @@ function setTrendBar(metric){
     dates=[]; let cur=new Date(d);
     while(cur<=e){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:16},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:17},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
   const allEmps = (
     getSchedFilteredEmps()

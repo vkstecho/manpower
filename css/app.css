@@ -59,7 +59,7 @@ body.light #compOffModal button { color:#e2e8f0 !important; }
 body.light .big-btn{color:#1a1a2e;}
 body.light .badge{border-color:rgba(0,0,0,.1);}
 body.light .dsbox{background:#e8eaef;}
-body.light .dsbox-date{color:#1a1a2e !important;}
+body.light .dsbox-date{color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
 body.light .sched-sticky-hdr{background:#f0f2f5;}
 body.light #schedDateHdr>div{background:#e8eaef !important;}
 body.light .leg span:last-child{color:#5a6579;}
@@ -86,7 +86,7 @@ body.light .ltype-btn .ltype-label,
 body.light .hdr-right .user-chip .pa-label { color: var(--text); }
 /* ── Light mode: login screen tap-cards (company selector) ── */
 body.light .tap-card { background:#ffffff; border-color:rgba(0,0,0,.12); }
-body.light .tap-card-lbl { color:#1a1a2e !important; font-weight:900; }
+body.light .tap-card-lbl { color:#000000 !important;-webkit-text-fill-color:#000000 !important; font-weight:900; }
 body.light .tap-card-sub { color:#5a6579 !important; }
 body.light .tap-card.selected { background:rgba(249,115,22,.08); border-color:#f97316; }
 body.light .tap-card.selected .tap-card-lbl { color:#c2410c !important; }
@@ -117,7 +117,7 @@ body.light .cb-qtext,
 body.light .plan-name,
 body.light .inst-title,
 body.light .ai-chat-title,
-body.light .profile-action .pa-label { color:#1a1a2e !important; -webkit-text-fill-color:#1a1a2e !important; }
+body.light .profile-action .pa-label { color:#000000 !important;-webkit-text-fill-color:#000000 !important; -webkit-text-fill-color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
 body.light .ltb-sub,
 body.light .cb-answer-text b,
 body.light .tc-ptext b { color:#374151 !important; }
@@ -295,7 +295,7 @@ body.light .emergency-num { color:#c2410c !important; }
 .hm-shift-badge.O .hm-shift-word{ color:#fff !important; }
 .hm-shift-badge.D{ background:#f59e0b !important; }
 .hm-shift-badge.D .hm-shift-letter,
-.hm-shift-badge.D .hm-shift-word{ color:#1a1a2e !important; }
+.hm-shift-badge.D .hm-shift-word{ color:#000000 !important; -webkit-text-fill-color:#000000 !important; }
 .hm-shift-badge.N{ background:#4f46e5 !important; }
 .hm-shift-badge.N .hm-shift-letter,
 .hm-shift-badge.N .hm-shift-word{ color:#fff !important; }
@@ -490,8 +490,8 @@ body.light #homeRoster .hm-chip-name,
 body.light #homeRoster .hm-group-title,
 body.light #homeShiftCalendar .hm-day-num,
 body.light #homeShiftCalendar .hm-today-shift{
-  color:#1a1a2e !important;
-  -webkit-text-fill-color:#1a1a2e !important;
+  color:#000000 !important;-webkit-text-fill-color:#000000 !important;
+  -webkit-text-fill-color:#000000 !important;-webkit-text-fill-color:#000000 !important;
 }
 body.light #homeRoster .hm-chip-meta,
 body.light #homeRoster .hm-empty,
@@ -501,6 +501,43 @@ body.light #homeShiftCalendar .hm-today-sub,
 body.light #homeShiftCalendar .hm-mates-meta{
   color:#5a6579 !important;
   -webkit-text-fill-color:#5a6579 !important;
+}
+/* CRITICAL: badge letters inside hm-chip-meta must NOT inherit the gray above.
+   Schedule uses D=#000 black, N/G=#fff white — Home must match exactly. */
+body.light #homeRoster .hm-chip-meta .shc.D,
+body.light #homeRoster .hm-chips .shc.D,
+body.light #homeRoster .shc.D {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+body.light #homeRoster .hm-chip-meta .shc.N,
+body.light #homeRoster .hm-chips .shc.N,
+body.light #homeRoster .shc.N {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.light #homeRoster .hm-chip-meta .shc.G,
+body.light #homeRoster .hm-chips .shc.G,
+body.light #homeRoster .shc.G {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.light #homeRoster .hm-chip-meta .shc.O,
+body.light #homeRoster .shc.O {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.light #homeRoster .hm-chip-meta .shc.L,
+body.light #homeRoster .shc.L {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.light #homeRoster .hm-chip-meta .shc.CO,
+body.light #homeRoster .hm-chip-meta .shc.GP,
+body.light #homeRoster .shc.CO,
+body.light #homeRoster .shc.GP {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
 }
 
 /* ── Light mode: inline style overrides via attribute selectors ── */
@@ -518,7 +555,7 @@ body.light .submit-btn,
 body.light .action-primary,
 body.light .chip.on { color:#fff !important; }
 /* ── Light mode: user chip name in header ── */
-body.light .user-chip div[style*="font-size:19px"] { color:#1a1a2e !important; }
+body.light .user-chip div[style*="font-size:19px"] { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
 /* Keep modals dark-themed text legible on light panel bg */
 body.light .field label { color: var(--muted2); }
 /* Schedule week label & section labels on light header */
@@ -534,9 +571,9 @@ body.light .sched-tbl td.ecol[style*="color:#f43f5e"] { background: var(--card2)
 body.light .toast { background:#1a1a2e !important; color:#ffffff !important; }
 body.light .payment-input { color:var(--text) !important; -webkit-text-fill-color:var(--text) !important; }
 body.light .inp-field { color:var(--text) !important; -webkit-text-fill-color:var(--text) !important; }
-body.light .page-title { color:#1a1a2e !important; }
-body.light .learn-title { color:#1a1a2e !important; }
-body.light .learn-back { color:#1a1a2e !important; }
+body.light .page-title { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
+body.light .learn-title { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
+body.light .learn-back { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
 body.light .learn-top-btn-login { color:var(--text) !important; }
 body.light .todo-img-preview-del { /* keep colored bg */ }
 body.light .checked { /* checklist item - keep bg color */ }
@@ -1226,7 +1263,7 @@ body.light .shc.O,body.light .ms-day-sh.shc.O{background:#475569 !important;colo
 .emp-nm{font-size:12px;font-weight:700;color:#fff;overflow:visible;text-overflow:unset;white-space:normal;max-width:none;display:block;line-height:1.25;word-break:break-word;hyphens:auto;}
 .emp-nm.emp-nm-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis;white-space:normal;max-width:180px;}
 /* Light mode: dark text everywhere EXCEPT inside schedule table (ecol has dark bg always) */
-body.light .emp-nm{color:#1a1a2e !important;-webkit-text-fill-color:#1a1a2e !important;}
+body.light .emp-nm{color:#000000 !important;-webkit-text-fill-color:#000000 !important;-webkit-text-fill-color:#000000 !important;-webkit-text-fill-color:#000000 !important;}
 /* Schedule ecol keeps dark background in light mode — so emp-nm stays white */
 body.light .sched-tbl td.ecol{background:#0d1623 !important;}
 body.light .sched-tbl tr:hover td.ecol{background:#162336 !important;}
@@ -2205,23 +2242,38 @@ body.light .learn-hero{ background:linear-gradient(160deg,#1a0533,#0d1623,#080e1
   /* Badges */
   .badge { font-size: 11px !important; padding: 3px 10px !important; }
 
-  /* Shift cells */
-  .shc { font-size: 16px !important; width: 38px !important; height: 34px !important; }
-  .shc.CO, .shc.GP, .shc.H, .shc.HLF, .shc.Ab { font-size: 11px !important; }
+  /* Shift cells — compact so ~16-17 day columns fit on phone */
+  .shc { font-size: 11px !important; width: 22px !important; height: 20px !important; border-radius: 5px !important; }
+  .shc.CO, .shc.GP, .shc.H, .shc.HLF, .shc.Ab { font-size: 8px !important; }
+  .sched-tbl .shc, .sched-tbl span.shc {
+    font-size: 11px !important; width: 22px !important; height: 20px !important;
+    min-width: 22px !important; border-radius: 5px !important;
+  }
 
-  /* Schedule */
-  .sched-tbl td.ecol { min-width: 118px !important; max-width: 160px !important; }
-  .emp-nm { font-size: 11px !important; max-width: 150px !important; white-space: normal !important; line-height: 1.2 !important;
+  /* Schedule — tight columns */
+  .sched-tbl { min-width: 0 !important; font-size: 11px !important; }
+  .sched-tbl td { padding: 3px 1px !important; }
+  .sched-tbl td.ecol { min-width: 72px !important; max-width: 84px !important; padding: 4px 4px !important; cursor: pointer; }
+  .sched-tbl th.ecol { min-width: 72px !important; max-width: 84px !important; padding-left: 4px !important; }
+  .emp-nm { font-size: 10px !important; max-width: 76px !important; white-space: normal !important; line-height: 1.15 !important;
     display: -webkit-box !important; -webkit-box-orient: vertical !important; -webkit-line-clamp: 2 !important;
     overflow: hidden !important; text-overflow: ellipsis !important; }
-  .emp-id { font-size: 8px !important; }
-  /* Tap name cell → full name (see showEmpNameFull) */
-  .sched-tbl td.ecol { cursor: pointer; }
-  .sched-lbl { font-size: 15px !important; }
-  .sec-row-lbl { font-size: 11px !important; }
-  .sched-tbl td.ecol { min-width: 100px !important; max-width: 115px !important; padding: 5px 6px !important; }
-  .sched-tbl th.ecol { min-width: 100px !important; padding-left: 6px !important; }
-  .emp-nm { font-size: 10px !important; max-width: 108px !important; }
+  .emp-id { font-size: 7px !important; }
+  .sched-lbl { font-size: 13px !important; }
+  .sec-row-lbl { font-size: 10px !important; }
+
+  /* Today column highlight (header + cells) */
+  .sched-tbl td.sched-today-col,
+  .sched-tbl th.sched-today-col {
+    background: rgba(249, 115, 22, 0.18) !important;
+    box-shadow: inset 0 0 0 2px rgba(249, 115, 22, 0.65) !important;
+  }
+  #schedDateHdr [data-today-col="1"] {
+    background: rgba(249, 115, 22, 0.28) !important;
+    border: 2px solid #f97316 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 10px rgba(249, 115, 22, 0.45);
+  }
 
   /* Filter chips */
   .chip { font-size: 13px !important; padding: 9px 14px !important; min-height: 38px !important; }
@@ -3161,3 +3213,126 @@ span.shc.G, .sched-tbl .shc.G {
 .hm-chip-meta .shc.D, .hm-chips .shc.D { background: #f59e0b !important; color: #000 !important; }
 .hm-chip-meta .shc.N, .hm-chips .shc.N { background: #4f46e5 !important; color: #fff !important; }
 .hm-chip-meta .shc.G, .hm-chips .shc.G { background: #0284c7 !important; color: #fff !important; }
+
+
+/* === FONT COLOUR LOCK: Home letters = Schedule letters === */
+/* Schedule uses: D text = #000 black | N text = #fff white | G text = #fff white */
+.hm-chip-meta .shc.D,
+.hm-chips .shc.D,
+.hm-chip .shc.D,
+.hm-chip .shc.shc-sm.D,
+span.shc.D {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+.hm-chip-meta .shc.N,
+.hm-chips .shc.N,
+.hm-chip .shc.N,
+.hm-chip .shc.shc-sm.N,
+span.shc.N {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.hm-chip-meta .shc.G,
+.hm-chips .shc.G,
+.hm-chip .shc.G,
+.hm-chip .shc.shc-sm.G,
+span.shc.G {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+/* Light mode must not recolour badge letters */
+body.light .hm-chip-meta .shc.D,
+body.light .hm-chips .shc.D,
+body.light .hm-chip .shc.D,
+body.light span.shc.D {
+  color: #000000 !important;
+  -webkit-text-fill-color: #000000 !important;
+}
+body.light .hm-chip-meta .shc.N,
+body.light .hm-chips .shc.N,
+body.light .hm-chip .shc.N,
+body.light span.shc.N {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+body.light .hm-chip-meta .shc.G,
+body.light .hm-chips .shc.G,
+body.light .hm-chip .shc.G,
+body.light span.shc.G {
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+/* Parent meta colour must NOT cascade into badge */
+.hm-chip-meta .shc {
+  /* reset inheritance — specific rules above set real colour */
+}
+
+
+/* === MOBILE SCHEDULE DENSITY: fit ~16-17 day columns === */
+@media (max-width: 640px) {
+  .sched-tbl {
+    min-width: 0 !important;
+    width: max-content !important;
+  }
+  .sched-tbl td {
+    padding: 3px 1px !important;
+  }
+  .sched-tbl td.ecol,
+  .sched-tbl th.ecol {
+    min-width: 72px !important;
+    max-width: 88px !important;
+    padding: 4px 5px !important;
+  }
+  .sched-tbl .shc,
+  .sched-tbl span.shc,
+  .sched-tbl .shc.shc-sm {
+    width: 22px !important;
+    height: 20px !important;
+    min-width: 22px !important;
+    font-size: 11px !important;
+    border-radius: 5px !important;
+  }
+  .sched-tbl .shc.CO,
+  .sched-tbl .shc.GP,
+  .sched-tbl .shc.H,
+  .sched-tbl .shc.HLF,
+  .sched-tbl .shc.Ab {
+    font-size: 8px !important;
+  }
+  #schedDateHdr > div {
+    min-width: 22px !important;
+    max-width: 28px !important;
+    padding: 4px 1px !important;
+  }
+  #schedDateHdr > div[data-today-col="1"] {
+    min-width: 26px !important;
+    max-width: 32px !important;
+    background: rgba(249, 115, 22, 0.32) !important;
+    border: 2px solid #f97316 !important;
+    border-radius: 8px !important;
+    box-shadow: 0 0 8px rgba(249, 115, 22, 0.5);
+  }
+  .sched-tbl td.sched-today-col {
+    background: rgba(249, 115, 22, 0.16) !important;
+    box-shadow: inset 0 0 0 1.5px rgba(249, 115, 22, 0.7) !important;
+  }
+}
+@media (max-width: 400px) {
+  .sched-tbl td.ecol,
+  .sched-tbl th.ecol {
+    min-width: 64px !important;
+    max-width: 76px !important;
+  }
+  .sched-tbl .shc,
+  .sched-tbl span.shc {
+    width: 20px !important;
+    height: 18px !important;
+    min-width: 20px !important;
+    font-size: 10px !important;
+  }
+  #schedDateHdr > div {
+    min-width: 20px !important;
+    max-width: 26px !important;
+  }
+}
