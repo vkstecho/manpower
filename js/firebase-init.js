@@ -1,7 +1,7 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
   import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
 
@@ -19,13 +19,20 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
     const auth = getAuth(app);
+    // Keep Phone OTP session across reloads (until explicit logout)
+    try{ setPersistence(auth, browserLocalPersistence).catch(e=>console.warn('[fb] setPersistence', e)); }catch(e){}
     const functions = getFunctions(app);
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
     const _fbStore = { db, ref, set, get, onValue, push, update, remove };
     window._fbAccess = async function(op, path, val){
       // Auto-reauthenticate if Firebase Auth expired (prevents rule denials)
       if(op !== 'get' && op !== 'onValue' && !auth.currentUser){
-        try{ await signInAnonymously(auth); }catch(e){ console.warn('[fbAccess] re-auth failed:', e.message); }
+        // Never create anonymous if this device already verified phone — wait for restore
+        let hadPhone = false;
+        try{ hadPhone = !!(localStorage.getItem('mp_device_phone') || localStorage.getItem('mp_device_uid')); }catch(e){}
+        if(!hadPhone){
+          try{ await signInAnonymously(auth); }catch(e){ console.warn('[fbAccess] re-auth failed:', e.message); }
+        }
       }
       
       const _sessionCheck = ()=>{
@@ -52,7 +59,14 @@
     window._fbRecaptchaVerifierClass = RecaptchaVerifier;
     window._fbSignInWithPhoneNumber = signInWithPhoneNumber;
     window._fbSignInWithToken = (token) => signInWithCustomToken(auth, token);
-    window._fbSignInAnon = () => signInAnonymously(auth);
+    window._fbSignInAnon = async () => {
+      try{
+        const u = auth.currentUser;
+        if(u && u.phoneNumber){ console.log('[fb] skip anon — phone session active'); return u; }
+        if(u && !u.isAnonymous && u.uid){ return u; }
+      }catch(e){}
+      return signInAnonymously(auth);
+    };
     window._fbSignOut = () => signOut(auth);
     // ── Phone OTP Auth ──
     window._fbSendOTP = async function(phoneNumber){

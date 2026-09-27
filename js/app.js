@@ -4056,10 +4056,17 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     throw new Error('Invalid phone number');
   }
 
-  // Stale signed-in session often causes auth/internal-error on phone login
+  // Only sign out anonymous/stale sessions — keep existing phone auth for same number
   try{
-    if(window._fbAuth && window._fbAuth.currentUser && window._fbSignOut){
-      await window._fbSignOut();
+    const cu = window._fbAuth && window._fbAuth.currentUser;
+    if(cu){
+      const curPhone = (cu.phoneNumber||'').replace(/\D/g,'').slice(-10);
+      const wantPhone = phone.replace(/\D/g,'').slice(-10);
+      if(cu.phoneNumber && curPhone && wantPhone && curPhone === wantPhone){
+        console.log('[otp] already phone-authed as', curPhone, '— skip signOut');
+      } else if(cu.isAnonymous || (cu.phoneNumber && curPhone !== wantPhone)){
+        if(window._fbSignOut) await window._fbSignOut();
+      }
     }
   }catch(e){ console.warn('[otp] signOut before phone', e); }
 
@@ -4604,10 +4611,41 @@ async function _ensureWriteAuth(){
     else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function') await window._fbAuth.authStateReady();
   }catch(e){}
 
+  // Extra wait if device was verified before (IndexedDB restore can lag after deploy/SW update)
+  try{
+    const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
+    const hadPhone = localStorage.getItem('mp_device_phone');
+    if(hadPhone && verifiedAt && (Date.now()-verifiedAt) < 30*24*3600*1000){
+      for(let i=0;i<8;i++){
+        if(_hasElevatedFirebaseAuth()) break;
+        await new Promise(r=>setTimeout(r, 150));
+        try{
+          if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
+        }catch(e){}
+      }
+    }
+  }catch(e){}
+
   if(_hasElevatedFirebaseAuth()){
     await _syncAuthRoleNodes();
+    try{
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      sessionStorage.setItem('mp_write_auth','1');
+    }catch(e){}
     return true;
   }
+
+  // Same-session: if we just verified, give Firebase one more moment
+  try{
+    if(sessionStorage.getItem('mp_write_auth')==='1'){
+      await new Promise(r=>setTimeout(r, 400));
+      if(_hasElevatedFirebaseAuth()){
+        await _syncAuthRoleNodes();
+        return true;
+      }
+    }
+  }catch(e){}
+
   // Manager/member with known mobile → OTP only if Phone auth truly missing
   const mob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
   if((isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
@@ -4749,10 +4787,16 @@ async function launchApp(){
       }catch(e){}
       console.log('[launchApp] Phone auth restored for', cu.phoneNumber);
     } else if(window._fbAuth && !cu && SESSION.role){
-      // Only anonymous if truly no restored user
-      await window._fbSignInAnon();
+      // Only anonymous if this device never did phone verify
+      let hadPhone = false;
+      try{ hadPhone = !!(localStorage.getItem('mp_device_phone')); }catch(e){}
+      if(!hadPhone){
+        await window._fbSignInAnon();
+      } else {
+        console.warn('[launchApp] Waiting for phone auth restore — skip anon');
+      }
     } else if(cu && cu.isAnonymous && localStorage.getItem('mp_device_phone')){
-      // Had phone before but lost — will prompt OTP on next write only
+      // Had phone before but lost — will prompt OTP on next write only (do NOT stay on anon forever)
       console.warn('[launchApp] Phone session lost; device flag still set');
     }
   }catch(e){ console.warn('[launchApp] Firebase auth restore:', e.message); }
@@ -6638,23 +6682,41 @@ function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
   const d=new Date(dateStr+'T12:00:00');
   const monthKey = dateStr.substring(0,7).replace('-','_');
+  const dayIdx = d.getDate()-1;
+  function rowVal(row){
+    if(row == null) return null;
+    // Array or Firebase object {0:'D',1:'N',...}
+    if(Array.isArray(row)) return row[dayIdx];
+    if(typeof row === 'object'){
+      const v = row[dayIdx] != null ? row[dayIdx] : row[String(dayIdx)];
+      return v;
+    }
+    return null;
+  }
   function fbLookup(sched){
     if(!sched) return null;
-    if(sched[emp.id]) return sched[emp.id];
-    if(emp.empId && sched[emp.empId]) return sched[emp.empId];
+    if(emp.id && sched[emp.id] != null) return sched[emp.id];
+    if(emp.empId && sched[String(emp.empId).trim()] != null) return sched[String(emp.empId).trim()];
+    // loose match on emp code without leading zeros difference
+    if(emp.empId){
+      const code = String(emp.empId).trim().replace(/^0+/,'');
+      for(const k of Object.keys(sched)){
+        if(String(k).replace(/^0+/,'') === code) return sched[k];
+      }
+    }
     return null;
   }
   const fbSched = getSchedules()[monthKey];
   const fbRow = fbLookup(fbSched);
-  if(fbRow){
-    const val = fbRow[d.getDate()-1];
-    if(val === null || val === undefined) return '';
+  if(fbRow != null){
+    const val = rowVal(fbRow);
+    if(val === null || val === undefined || val === '') return '';
     return val;
   }
   if(typeof EXCEL_SCHEDULES!=='undefined' && EXCEL_SCHEDULES[monthKey]){
     const exRow = fbLookup(EXCEL_SCHEDULES[monthKey]);
-    if(exRow){
-      const val = exRow[d.getDate()-1];
+    if(exRow != null){
+      const val = rowVal(exRow);
       if(val === '' || val === null || val === undefined) return '';
       return val;
     }
@@ -7629,6 +7691,7 @@ async function handleExcelFile(file){
         });
         if(headerRowIdx >= 0){
           formatName = 'Flat Team+Schedule (Name / Emp ID / Section + dates)';
+          console.log('[Excel upload] date columns found:', Object.keys(dayColMap).length, dayColMap);
           const header = rows[headerRowIdx] || [];
           const norm = (s)=> String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
           let empCodeCol = -1, nameCol = -1;
@@ -7638,21 +7701,48 @@ async function handleExcelFile(file){
             const n = norm(cell);
             if(n==='name') nameCol = ci;
             if(/^(emp id|e code|emp code|code|emp id)$/.test(n) || n==='empid') empCodeCol = ci;
-            // 01-Jul-25, 1-Jul-2025, 01/07/2025, 2025-07-01
-            let m = String(cell||'').trim().match(/^(\d{1,2})[-/ .](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .](\d{2,4})$/i);
-            if(m){
-              let year = parseInt(m[3],10); if(year < 100) year += 2000;
-              const month = MONTH_ABBR[m[2].toLowerCase().slice(0,3)];
-              const day = parseInt(m[1],10);
-              if(month && day) dayColMap[ci] = { year, month, day };
-              return;
+            // Resolve date columns: Date objects, Excel serials, many string formats
+            let dObj = null;
+            if(cell instanceof Date && !isNaN(cell.getTime())){
+              dObj = cell;
+            } else if(typeof cell === 'number' && cell > 30000 && cell < 80000){
+              // Excel serial date
+              dObj = new Date(Math.round((cell - 25569) * 86400 * 1000));
+            } else {
+              const s = String(cell||'').trim();
+              if(!s || /^(name|emp|section|machine|mobile|designation|salary|joining|birth|weekly|responsib)/i.test(s)) return;
+              // 01-Jul-25 / 02-Oct-26 / 1 Oct 2026
+              let m = s.match(/^(\d{1,2})[-/ .](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .](\d{2,4})$/i);
+              if(m){
+                let year = parseInt(m[3],10); if(year < 100) year += 2000;
+                const month = MONTH_ABBR[m[2].toLowerCase().slice(0,3)];
+                const day = parseInt(m[1],10);
+                if(month && day) dayColMap[ci] = { year, month, day };
+                return;
+              }
+              // 2025-07-01
+              m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+              if(m){ dayColMap[ci] = { year:+m[1], month:+m[2], day:+m[3] }; return; }
+              // 01-10-2026 or 01/10/2026 (prefer DD-MM-YYYY when day>12 or Indian style)
+              m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+              if(m){
+                let year = parseInt(m[3],10); if(year < 100) year += 2000;
+                let a = parseInt(m[1],10), b = parseInt(m[2],10);
+                let day, month;
+                if(a > 12){ day = a; month = b; }           // 13-10-2026 → day 13
+                else if(b > 12){ day = b; month = a; }      // 10-13-2026 → US style
+                else { day = a; month = b; }                // default DD-MM (India)
+                if(month>=1 && month<=12 && day>=1 && day<=31) dayColMap[ci] = { year, month, day };
+                return;
+              }
+              // Locale date strings e.g. "Thu Oct 01 2026 ..."
+              const tryD = new Date(s);
+              if(!isNaN(tryD.getTime()) && tryD.getFullYear()>=2020 && tryD.getFullYear()<=2035){
+                dObj = tryD;
+              }
             }
-            m = String(cell||'').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
-            if(m){ dayColMap[ci] = { year:+m[1], month:+m[2], day:+m[3] }; return; }
-            m = String(cell||'').trim().match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
-            if(m){
-              let year = parseInt(m[3],10); if(year < 100) year += 2000;
-              dayColMap[ci] = { year, month: parseInt(m[2],10), day: parseInt(m[1],10) };
+            if(dObj){
+              dayColMap[ci] = { year: dObj.getFullYear(), month: dObj.getMonth()+1, day: dObj.getDate() };
             }
           });
           if(empCodeCol < 0){
@@ -7730,24 +7820,60 @@ async function handleExcelFile(file){
 
     statusEl.innerHTML=`<span style="color:var(--day)">⏳ Firebase में ${months.length} महीने save हो रहे हैं...</span>`;
     let saved=0;
+    const saveErrors=[];
     // Build empId→internalId map for cross-saving
     const empIdToInternal={};
-    getEmps().forEach(e=>{ if(e.empId) empIdToInternal[e.empId.trim()]=e.id; });
+    getEmps().forEach(e=>{ if(e.empId) empIdToInternal[String(e.empId).trim()]=e.id; });
+
+    // Ensure write auth before schedule saves
+    try{
+      if(typeof _ensureWriteAuth==='function'){
+        const okAuth = await _ensureWriteAuth();
+        if(!okAuth){
+          statusEl.innerHTML='<span style="color:var(--lv)">❌ Phone OTP verify करें — फिर Upload दोबारा करें</span>';
+          toast('❌ Write auth missing — OTP verify करें');
+          return;
+        }
+      }
+    }catch(e){ console.warn('[upload auth]', e); }
 
     for(const mk of months){
       try{
         const existing=(getSchedules()[mk]||{});
         const merged={...existing};
         Object.entries(schedByMonth[mk]).forEach(([empId,shifts])=>{
-          merged[empId]=shifts; // save by empId (30000426)
-          // Also save by internal id (e15) so getShift finds it immediately
-          const intId=empIdToInternal[empId];
-          if(intId && intId!==empId) merged[intId]=shifts;
+          // Store as plain array of strings (Firebase RTDB friendly)
+          const arr = Array.isArray(shifts) ? shifts.map(x => (x==null?'':String(x))) : [];
+          merged[empId]=arr;
+          const intId=empIdToInternal[empId] || empIdToInternal[String(empId).trim()];
+          if(intId && intId!==empId) merged[intId]=arr;
         });
-        await fbSet('schedules/'+mk, merged);
-        try{ if(_cache && _cache.schedules) _cache.schedules[mk] = merged; }catch(e){}
+        // Prefer full month set; if fails try per-employee updates
+        try{
+          await fbSet('schedules/'+mk, merged);
+        }catch(e1){
+          console.warn('[upload] fbSet failed, trying per-emp', mk, e1&&e1.message);
+          for(const [empId, arr] of Object.entries(merged)){
+            try{ await fbSet('schedules/'+mk+'/'+empId, arr); }catch(e2){ throw e2; }
+          }
+        }
+        try{
+          if(!_cache.schedules) _cache.schedules = {};
+          _cache.schedules[mk] = merged;
+        }catch(e){}
         saved++; savedMonths.push(mk.replace('_','/'));
-      }catch(e){ console.error('Save error',mk,e); }
+      }catch(e){
+        console.error('Save error',mk,e);
+        saveErrors.push(mk+': '+(e&&e.message?e.message:String(e)));
+      }
+    }
+
+    if(saved===0){
+      statusEl.innerHTML=`<span style="color:var(--lv)">❌ Schedule Firebase में save नहीं हुआ (0 महीने)<br>
+        <span style="font-size:12px;color:var(--muted2)">Parsed months: ${months.join(', ')||'none'} · employees: ${Object.keys(schedByMonth[months[0]]||{}).length}<br>
+        ${saveErrors.slice(0,3).join('<br>')||'Permission / network error — Console देखें'}</span></span>`;
+      toast('❌ Schedule save failed — overrides NOT cleared');
+      return; // DO NOT clear overrides if schedule did not save
     }
 
     // CRITICAL: clear overrides for every uploaded emp+date so Excel values win
@@ -7793,6 +7919,7 @@ async function handleExcelFile(file){
       📅 ${saved} महीने save: ${savedMonths.join(', ')}<br>
       👥 ${empIds.length} employees: ${empIds.slice(0,6).join(', ')}${empIds.length>6?'...':''}`
       +(clearedOv?`<br>🧹 ${clearedOv} old overrides cleared (H no longer blocks Excel)`:'')
+      +(saveErrors.length?`<br><span style="color:var(--lv)">⚠️ Some months failed: ${saveErrors.slice(0,2).join('; ')}</span>`:'')
       +`</span>`;
     
     // Cancel approved leaves on days where Excel has a non-L duty (so L does not stick)
