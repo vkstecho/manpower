@@ -6663,36 +6663,59 @@ function getBaseShift(emp, dateStr){
   return '';
 }
 
+function _normalizeOverrideShift(val){
+  if(val == null || val === '') return '';
+  const s = String(val).trim();
+  // Leave stored as "L:EL", "L:CL", "L:Emergency" etc. → treat as Leave
+  if(/^L([:\-_].*)?$/i.test(s)) return 'L';
+  if(/^C\/?O$/i.test(s) || /^CO$/i.test(s)) return 'C/O';
+  if(/^HOLIDAY$/i.test(s)) return 'H';
+  return s;
+}
+
+/** Resolve shift for emp on dateStr.
+ * Priority: 1) overrides (Firebase)  2) approved leave  3) Excel/base schedule
+ * Override ALWAYS wins — including L — so Manager mark Leave is visible on schedule.
+ */
 function getShift(emp, dateStr){
-  const ov=getOverrides(); const ok=emp.id+'_'+dateStr;
-  const base = getBaseShift(emp, dateStr);
-  const b = String(base||'').trim().toUpperCase();
-  // Duty codes from uploaded Excel/schedule
-  const isDuty = b && !['L','H','HOLIDAY','AB','ABSENT',''].includes(b) && b.indexOf('L:')!==0;
-  const ovVal = ov[ok];
-  if(ovVal != null && ovVal !== ''){
-    const o = String(ovVal).toUpperCase();
-    // Stale H or L override must not hide real uploaded roster
-    if((o==='H' || o==='HOLIDAY' || o==='L' || o.indexOf('L:')===0) && isDuty){
-      return base;
-    }
-    return ovVal;
-  }
-  if(emp.empId){
-    const ok2 = emp.empId+'_'+dateStr;
-    if(ov[ok2]!=null && ov[ok2]!==''){
-      const o = String(ov[ok2]).toUpperCase();
-      if((o==='H' || o==='HOLIDAY' || o==='L' || o.indexOf('L:')===0) && isDuty) return base;
-      return ov[ok2];
+  if(!emp || !dateStr) return '';
+  const ov = getOverrides() || {};
+  const keys = [];
+  if(emp.id) keys.push(emp.id+'_'+dateStr);
+  if(emp.empId) keys.push(String(emp.empId)+'_'+dateStr);
+  // Also try SESSION-style and string id variants
+  if(emp._key) keys.push(emp._key+'_'+dateStr);
+
+  for(const k of keys){
+    if(ov[k] != null && ov[k] !== ''){
+      return _normalizeOverrideShift(ov[k]);
     }
   }
-  // Leave record: only if schedule has no explicit duty for that day
-  const onLeave=getLeaves().find(l=>l.status==='approved'&&l.empId===emp.id&&l.from<=dateStr&&l.to>=dateStr);
-  if(onLeave){
-    if(isDuty) return base; // Excel upload wins over old leave on that date
-    return 'L';
-  }
-  return base;
+  // Scan all override keys ending with _dateStr matching this emp (id or empCode)
+  try{
+    const suffix = '_'+dateStr;
+    const idSet = new Set([String(emp.id||''), String(emp.empId||''), String(emp._key||'')].filter(Boolean));
+    for(const [k,v] of Object.entries(ov)){
+      if(!k || !k.endsWith(suffix) || v==null || v==='') continue;
+      const prefix = k.slice(0, -suffix.length);
+      if(idSet.has(prefix)) return _normalizeOverrideShift(v);
+    }
+  }catch(e){}
+
+  // 2) Approved leave (match emp.id OR emp.empId — leaves were saved with either)
+  try{
+    const leaves = (typeof getLeaves==='function' ? getLeaves() : []) || [];
+    const idSet = new Set([String(emp.id||''), String(emp.empId||'')].filter(Boolean));
+    const onLeave = leaves.find(l=>{
+      if(!l || l.status!=='approved') return false;
+      if(!idSet.has(String(l.empId||'')) && !idSet.has(String(l.empObjId||''))) return false;
+      return l.from<=dateStr && l.to>=dateStr;
+    });
+    if(onLeave) return 'L';
+  }catch(e){}
+
+  // 3) Base uploaded Excel / Firebase schedules
+  return getBaseShift(emp, dateStr) || '';
 }
 
 /** Single source of truth — schedule, My Shift, picker */
@@ -6766,7 +6789,7 @@ function mpShiftBadgeHtml(code, opts){
     'background:'+st.bg+' !important;'+
     'color:'+st.fg+' !important;'+
     '-webkit-text-fill-color:'+st.fg+' !important;'+
-    'width:'+w+'px;height:'+h+'px;min-width:'+w+'px;'+
+    'width:'+w+'px !important;height:'+h+'px !important;min-width:'+w+'px !important;'+
     'font-size:'+fs+'px;border-radius:7px;'+
     'display:inline-flex;align-items:center;justify-content:center;font-weight:900;'+
     'font-family:\'Barlow Condensed\',sans-serif;line-height:1;box-sizing:border-box;'+
@@ -6785,7 +6808,7 @@ function mpShiftStyle(code){
   return {bg:'#1e293b',fg:'#94a3b8'};
 }
 
-function cellClass(s){ if(!s) return 'blank'; if(String(s).indexOf('+')>=0 || (parseShiftWorkCodes(s).length>1)) return 'G'; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||'O'; }
+function cellClass(s){ if(!s) return 'blank'; const raw=String(s).trim(); if(/^L([:\-_].*)?$/i.test(raw)) return 'L'; if(raw.indexOf('+')>=0 || (parseShiftWorkCodes(raw).length>1)) return 'G'; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'}; return m[raw]||m[raw.toUpperCase()]||'O'; }
 
 /** Show full employee name when schedule column truncates on small screens */
 function showEmpNameFull(name, empId, sec){
@@ -6808,7 +6831,7 @@ function showEmpNameFull(name, empId, sec){
   }catch(e){}
 }
 
-function cellDisp(s){  if(!s) return ''; if(String(s).indexOf('+')>=0) return String(s); const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'½','H':'H','Ab':'Ab','OD':'OD'}; return m[s]||s||''; }
+function cellDisp(s){  if(!s) return ''; const raw=String(s).trim(); if(/^L([:\-_].*)?$/i.test(raw)) return 'L'; if(raw.indexOf('+')>=0) return raw; const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'½','H':'H','Ab':'Ab','OD':'OD'}; return m[raw]||m[raw.toUpperCase()]||raw||''; }
 /** Short word for shift code — Home calendar labels (EN/HI) */
 function shiftWord(s){
   if(!s) return '';
@@ -8439,6 +8462,36 @@ function renderScheduleLegend(){
 }
 
 function renderSchedule(){
+  // Force compact mobile layout every render (CSS alone was not enough on some phones)
+  try{
+    if(window.innerWidth <= 640){
+      let s = document.getElementById('mpMobileSchedLock');
+      if(!s){ s=document.createElement('style'); s.id='mpMobileSchedLock'; document.head.appendChild(s); }
+      s.textContent = `
+        .sched-tbl { min-width:0 !important; table-layout:fixed !important; }
+        .sched-tbl td { padding:2px 0 !important; }
+        .sched-tbl td.ecol, .sched-tbl th.ecol {
+          min-width:68px !important; max-width:78px !important; width:72px !important;
+          padding:3px 3px !important;
+        }
+        .sched-tbl .shc, .sched-tbl span.shc, .sched-tbl .shc.shc-sm {
+          width:20px !important; height:18px !important; min-width:20px !important;
+          font-size:10px !important; border-radius:4px !important;
+        }
+        #schedDateHdr > div { min-width:20px !important; max-width:26px !important; padding:3px 0 !important; }
+        #schedDateHdr > div[data-today-col="1"] {
+          min-width:24px !important; max-width:30px !important;
+          background:rgba(249,115,22,.35) !important;
+          border:2px solid #f97316 !important; border-radius:8px !important;
+          box-shadow:0 0 10px rgba(249,115,22,.55) !important;
+        }
+        .sched-tbl td.sched-today-col {
+          background:rgba(249,115,22,.20) !important;
+          box-shadow:inset 0 0 0 2px rgba(249,115,22,.75) !important;
+        }
+      `;
+    }
+  }catch(e){}
   _renderSchedFilterChips(schedSec);
   renderScheduleLegend();
   const _d1=new Date(TODAY_STR+'T00:00:00'); _d1.setFullYear(_d1.getFullYear()-1);
@@ -9393,7 +9446,16 @@ async function approveLeave(leaveKey, leave, suggestions){
 
   // Mark leave in overrides
   (typeof dateRange==='function' ? dateRange(leave.from,leave.to) : [leave.from]).forEach(d=>{
-    if(d) ovUpdates[leave.empId+'_'+d]='L';
+    if(!d) return;
+    ovUpdates[leave.empId+'_'+d]='L';
+    // Dual-key: also write under Firebase id / empCode so getShift always finds it
+    try{
+      const empObj = (getEmps()||[]).find(e=>e.id===leave.empId || e.empId===leave.empId);
+      if(empObj){
+        if(empObj.id) ovUpdates[empObj.id+'_'+d]='L';
+        if(empObj.empId) ovUpdates[empObj.empId+'_'+d]='L';
+      }
+    }catch(e){}
   });
 
   // Apply supervisor suggestions
@@ -16261,11 +16323,19 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   try{ await fbPush('leaves',leaveData); }catch(e){ console.warn('leave push',e); }
   _leaveImgBase64=null;
 
-  // Write L to schedule immediately
-  const shiftVal = 'L:'+typeCode;
+  // Write L to schedule immediately (plain 'L' so cell always shows Leave red badge)
+  const shiftVal = 'L';
+  const ovPayload = { [empId+'_'+date]: shiftVal };
+  // Also key by empCode if available (Excel rows sometimes keyed by code)
   try{
-    await fbUpdate('overrides', { [empId+'_'+date]: shiftVal });
-    _cache.overrides = {...(getOverrides()||{}), [empId+'_'+date]: shiftVal};
+    const empObj = (getEmps()||[]).find(e=>e.id===empId);
+    if(empObj && empObj.empId && String(empObj.empId)!==String(empId)){
+      ovPayload[empObj.empId+'_'+date] = shiftVal;
+    }
+  }catch(e){}
+  try{
+    await fbUpdate('overrides', ovPayload);
+    _cache.overrides = {...(getOverrides()||{}), ...ovPayload};
   }catch(e){
     stageSingleShiftChange(empId, empName, date, currentShift, shiftVal, { leaveType: typeCode, reason });
   }

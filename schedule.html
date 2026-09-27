@@ -1,38 +1,32 @@
 <!-- ── SCHEDULE ── -->
 <div class="tab" id="tab-schedule">
-  <!-- Date nav + custom range on one row -->
-  <div class="sched-nav" id="schedNavRow">
-    <button class="nav-btn" onclick="moveW(-7)" aria-label="Previous">‹</button>
+  <div class="sched-nav">
+    <button class="nav-btn" onclick="moveW(-7)">‹</button>
     <div class="sched-lbl" id="schedLbl"></div>
-    <button class="nav-btn" onclick="moveW(7)" aria-label="Next">›</button>
-    <button type="button" id="customRangeBtn" onclick="openCustomRange()" class="sched-date-btn" title="Pick custom dates" aria-label="Pick custom dates">🗓️</button>
-    <button type="button" id="resetRangeBtn" onclick="resetCustomRange()" class="sched-date-btn reset" style="display:none" title="Reset range">✕</button>
+    <button class="nav-btn" onclick="moveW(7)">›</button>
   </div>
-
-  <!-- Admin actions: Create primary · Multi/Reorder · More (Print/Excel on mobile) -->
+  <!-- Admin-only action row (shown via JS) -->
   <div class="sched-admin-row" id="schedAdminRow" style="display:none">
-    <button id="schedBuildBtn" onclick="openScheduleBuilder()" class="sched-admin-btn green primary">📋 Schedule बनाएं</button>
-    <button id="msToggleBtn" onclick="toggleSelectMode()" class="sched-admin-btn toggle-btn" style="border-color:rgba(167,139,250,.4);color:#a78bfa;background:rgba(167,139,250,.06)">☑️ Multi-Select</button>
+    <button id="schedBuildBtn" onclick="openScheduleBuilder()" class="sched-admin-btn green">📋 Schedule बनाएं</button>
+    <button id="printBtn" onclick="printSched()" class="sched-admin-btn">🖨️ प्रिंट</button>
+    <button id="excelBtn" onclick="exportSchedExcel()" class="sched-admin-btn" style="border-color:rgba(34,197,94,.5);color:#22c55e;background:rgba(34,197,94,.07)">📊 Excel</button>
+    <button id="msToggleBtn" onclick="toggleSelectMode()" class="sched-admin-btn" style="border-color:rgba(167,139,250,.4);color:#a78bfa;background:rgba(167,139,250,.06)">☑️ Multi-Select</button>
     <button id="empReorderBtn" onclick="openEmpReorderPanel()" class="sched-admin-btn" style="border-color:rgba(168,85,247,.4);color:#c084fc;background:rgba(168,85,247,.08)">↕️ क्रम बदलें</button>
-    <button id="printBtn" onclick="printSched()" class="sched-admin-btn sched-secondary-action">🖨️ प्रिंट</button>
-    <button id="excelBtn" onclick="exportSchedExcel()" class="sched-admin-btn sched-secondary-action" style="border-color:rgba(34,197,94,.5);color:#22c55e;background:rgba(34,197,94,.07)">📥 Download Excel</button>
-    <button id="uploadSchedBtn" onclick="openExcelUpload()" class="sched-admin-btn sched-secondary-action" style="border-color:rgba(249,115,22,.55);color:#f97316;background:rgba(249,115,22,.08)">📤 Upload Schedule</button>
-    <div class="sched-more-wrap" id="schedMoreWrap">
-      <button type="button" id="schedMoreBtn" class="sched-admin-btn" onclick="toggleSchedMoreMenu()" aria-expanded="false">⋯</button>
-      <div id="schedMoreMenu" class="sched-more-menu" style="display:none" role="menu">
-        <button type="button" role="menuitem" onclick="printSched();toggleSchedMoreMenu(false)">🖨️ Print</button>
-        <button type="button" role="menuitem" onclick="exportSchedExcel();toggleSchedMoreMenu(false)">📥 Download Excel</button>
-        <button type="button" role="menuitem" onclick="openExcelUpload();toggleSchedMoreMenu(false)">📤 Upload Schedule</button>
-      </div>
-    </div>
   </div>
-
+  <!-- Custom date range row -->
+  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+    <button id="customRangeBtn" onclick="openCustomRange()" class="act-btn edit" style="flex:1;padding:10px 8px;border-radius:10px;font-size:13px;min-height:40px">🗓️ कस्टम तारीख चुनें</button>
+    <button id="resetRangeBtn" onclick="resetCustomRange()" style="display:none;padding:10px 12px;border-radius:10px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:13px;cursor:pointer;min-height:40px">✕ Reset</button>
+  </div>
   <div class="sched-sticky-hdr" id="schedStickyHdr">
-    <!-- Primary filters -->
-    <div class="chips chips-primary" id="schedFilter"></div>
-    <!-- Machine-level filters (secondary) -->
-    <div class="chips chips-secondary" id="schedFilterSecondary" style="display:none"></div>
-    <!-- Sticky date row -->
+    <div class="chips" id="schedFilter">
+    <div class="chip on" onclick="setSchedSec('ALL',this)" data-i18n-all>सभी</div>
+    <div class="chip" onclick="setSchedSec('M12',this)">M-1&2</div>
+    <div class="chip" onclick="setSchedSec('S12',this)">S-1&2</div>
+    <div class="chip" onclick="setSchedSec('SUP',this)">Supervisor</div>
+    <div class="chip" onclick="setSchedSec('MGR',this)">Manager</div>
+  </div>
+    <!-- Sticky date row that scrolls in sync with table -->
     <div id="schedDateHdrWrap" style="overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;margin:0 -16px;padding:0 16px">
       <div id="schedHdrStack" style="display:flex;flex-direction:column;min-width:580px">
         <div id="schedMonthHdr" style="display:flex;background:#0a1628;border-top:1px solid var(--border2);border-bottom:1px solid var(--border)"></div>
@@ -41,28 +35,37 @@
     </div>
   </div><!-- end sched-sticky-hdr -->
   <div class="sched-wrap" id="schedWrap"><table class="sched-tbl" id="schedTbl"></table></div>
+  <!-- Day strip + legend shown below table -->
   <div style="margin-top:10px">
     <div class="legend" id="schedLegend"></div>
   </div>
 
-  <div id="shiftTrendsSection" style="margin-top:16px"></div>
+  <!-- ══ SHIFT TRENDS SECTION ══ -->
+  <div id="shiftTrendsSection" style="margin-top:16px">
+    <!-- Rendered by renderShiftTrends() after renderSchedule() -->
+  </div>
 
+  <!-- ══ MULTI-CELL SELECT BAR ══ -->
   <div id="multiSelectBar">
     <span class="ms-count" id="msCount">0 cells</span>
-    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
-      <button class="ms-btn" style="background:#1e3a5f;color:#93c5fd" onclick="applyMultiShift('D')">D</button>
-      <button class="ms-btn" style="background:#3b0764;color:#d8b4fe" onclick="applyMultiShift('N')">N</button>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center">
+      <button class="ms-btn" style="background:#f59e0b;color:#000" onclick="applyMultiShift('D')">D</button>
+      <button class="ms-btn" style="background:#4f46e5;color:#fff" onclick="applyMultiShift('N')">N</button>
+      <button class="ms-btn" style="background:#16a34a;color:#fff" onclick="applyMultiShift('A')">A</button>
+      <button class="ms-btn" style="background:#db2777;color:#fff" onclick="applyMultiShift('B')">B</button>
+      <button class="ms-btn" style="background:#0891b2;color:#fff" onclick="applyMultiShift('C')">C</button>
       <button class="ms-btn" style="background:#334155;color:#94a3b8" onclick="applyMultiShift('O')">O</button>
       <button class="ms-btn" style="background:#be123c;color:#fda4af" onclick="applyMultiShift('L')">L</button>
       <button class="ms-btn" style="background:#0c4a6e;color:#7dd3fc" onclick="applyMultiShift('G')">G</button>
-      <button class="ms-btn" style="background:#713f12;color:#fde68a;font-size:10px" onclick="applyMultiShift('C/O')">CO</button>
+      <button class="ms-btn" style="background:#713f12;color:#fde68a" onclick="applyMultiShift('C/O')" style="font-size:10px">CO</button>
       <button class="ms-btn" style="background:#f97316;color:#fff" onclick="applyMultiShift('HLF')">½</button>
-      <button class="ms-btn" style="background:#7f1d1d;color:#fca5a5;font-size:10px" onclick="applyMultiShift('Ab')">Ab</button>
+      <button class="ms-btn" style="background:#7f1d1d;color:#fca5a5" onclick="applyMultiShift('Ab')" style="font-size:10px">Ab</button>
       <button class="ms-btn" style="background:#ea580c;color:#fff" onclick="applyMultiShift('H')">H</button>
     </div>
-    <button class="ms-cancel" onclick="clearMultiSelect()">✕ Cancel</button>
+    <button class="ms-cancel" onclick="clearMultiSelect()">✕ रद्द करें · Cancel</button>
   </div>
 
+  <!-- ══ PENDING CHANGES SAVE BAR ══ -->
   <div id="schedSaveBar" style="display:none;position:sticky;bottom:0;left:0;right:0;
     background:linear-gradient(135deg,#0d2a1a,#0a1f14);
     border-top:2px solid rgba(34,197,94,.4);
@@ -70,20 +73,22 @@
     box-shadow:0 -6px 24px rgba(0,0,0,.5);z-index:95">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
       <div>
-        <div style="font-size:14px;font-weight:900;color:var(--green)" id="saveBarTitle">📝 Unsaved changes</div>
+        <div style="font-size:14px;font-weight:900;color:var(--green)" id="saveBarTitle">📝 बदलाव pending हैं</div>
         <div style="font-size:11px;color:var(--muted2);margin-top:2px" id="saveBarSub"></div>
       </div>
       <button onclick="discardAllShiftChanges()" style="padding:7px 12px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:12px;font-weight:700;cursor:pointer">
-        ✕ Discard
+        ✕ रद्द करें
       </button>
     </div>
+    <!-- Pending changes list -->
     <div id="saveBarList" style="max-height:120px;overflow-y:auto;margin-bottom:12px;display:flex;flex-direction:column;gap:6px"></div>
+    <!-- Save button -->
     <button onclick="saveAllShiftChanges()" style="width:100%;padding:16px;border-radius:13px;border:none;
       background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;
       font-family:'Noto Sans Devanagari',sans-serif;font-size:17px;font-weight:900;
       cursor:pointer;box-shadow:0 4px 20px rgba(34,197,94,.4);
       display:flex;align-items:center;justify-content:center;gap:10px">
-      💾 Save
+      💾 Save करें
     </button>
   </div>
 </div>

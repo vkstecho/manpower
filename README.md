@@ -1,13 +1,11 @@
-# Man Power — Manpower Management System
+# MET Power — Manpower Management System
 
-Man Power app (Firebase + PWA). Hosted at **manpower.vkstech.com**.
+GLS Polyfilms metalliser department app (Firebase + PWA-ready).
 
-GitHub repo: **manpower**
-
-## Folder structure (upload as repo root)
+## Folder structure (upload these to GitHub)
 
 ```
-manpower/
+met-power/
 ├── index.html           # App shell (login, header, home, modals)
 ├── schedule.html        # Schedule tab partial
 ├── myshift.html         # My Shift tab partial
@@ -18,40 +16,48 @@ manpower/
 ├── team.html            # Team tab partial
 ├── instructions.html    # Instructions tab partial
 ├── css/
-│   └── app.css
+│   └── app.css          # All styles
 ├── js/
-│   ├── app.js
-│   ├── firebase-init.js # Firebase + Google Analytics
-│   └── polyfill.js
-├── manifest.json
-├── sw.js
-├── icon-*.png
+│   ├── app.js           # Main application logic
+│   ├── firebase-init.js # Firebase SDK init
+│   └── polyfill.js      # Small browser polyfills
+├── .gitignore
 └── README.md
 ```
 
-## Domain
+## How sections work
 
-- Production: `https://manpower.vkstech.com`
-- Firebase project (backend): `metpowervks` (unchanged)
-- Analytics measurement ID: `G-DK6JFY33ED`
+`index.html` loads the other `*.html` files at runtime via `fetch` and injects them into `#mainContent`.  
+Keep all HTML files in the **same folder** (repo root).
 
 ## Run locally
 
 ```bash
+# any static server
 python3 -m http.server 8080
 # open http://localhost:8080
 ```
 
-Do **not** open `index.html` as `file://`.
+Do **not** open `index.html` as `file://` — section loading will fail.
 
-## GitHub upload
+## Assets you still need to add
 
-1. Create repo **manpower** (or use existing).
-2. Upload this folder contents as the **repo root**.
-3. Point domain **manpower.vkstech.com** to GitHub Pages / Firebase Hosting / Cloudflare Pages as you prefer.
-4. In Firebase Console → Authentication → Settings → Authorized domains: add `manpower.vkstech.com`.
+Copy from your existing deploy (same names, same folder):
+
+- `manifest.json`
+- `sw.js` (service worker)
+- `MP-logo.svg`
+- `icon-192.png`
+- `icon-180.png`
+- `vkslogo512.png` (if used)
 
 ## Firebase
 
-Config lives in `js/firebase-init.js` (includes `measurementId` for Google Analytics).  
-Admin login logs `admin_login` and `login` events to Analytics.
+Config lives in `js/firebase-init.js`.  
+Project: `metpowervks` (Asia Southeast RTDB).
+
+## GitHub upload
+
+1. Create a new repo on GitHub (e.g. `met-power`).
+2. Upload this entire `met-power` folder contents as the repo root.
+3. Enable GitHub Pages (Settings → Pages → Deploy from `main` / root) **or** host on Firebase Hosting / Netlify / Cloudflare Pages.
