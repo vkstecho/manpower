@@ -3686,29 +3686,56 @@ async function fallbackOtherDeviceOTP(){
   }
 }
 
-/** Logged-in member/manager: show approve buttons for device transfer requests */
+/** Logged-in member/manager: show approve buttons for device transfer + login approval requests */
 async function renderDeviceTransferRequests(){
   const host = document.getElementById('deviceTransferRequests');
   if(!host) return;
-  if(!SESSION || !SESSION.empObjId){ host.innerHTML=''; return; }
+  if(!SESSION || !(SESSION.empObjId || SESSION.mobile || SESSION.uid)){ host.innerHTML=''; return; }
   try{
     const data = await fbGet('loginRequests') || {};
-    const mine = Object.entries(data).filter(([k,v])=>
-      v && v.status==='pending' && v.type==='device_transfer' &&
-      (v.empObjId===SESSION.empObjId || v.empId===SESSION.empId)
-    );
+    const mid = SESSION.empObjId || SESSION.uid || '';
+    const myEmpId = SESSION.empId || '';
+    const myCompany = (SESSION.company||'').toLowerCase();
+    const mine = Object.entries(data).filter(([k,v])=>{
+      if(!v || v.status!=='pending') return false;
+      if(v.type==='device_transfer'){
+        return v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId;
+      }
+      // Manager sees team member login approvals here as a backup (also in adminOnlyPendingBlock)
+      if(v.type==='manager_login_approval' && (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || typeof isAdmin==='function' && isAdmin())){
+        if(!v.managerId) return true;
+        if(v.managerId===mid || v.managerId===SESSION.uid || v.managerId===SESSION.empObjId) return true;
+        if(v.company && myCompany && String(v.company).toLowerCase()===myCompany) return true;
+        return false;
+      }
+      return false;
+    });
     if(!mine.length){ host.innerHTML=''; host.style.display='none'; return; }
     host.style.display='block';
-    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#f97316;margin:10px 0 8px">📱 Device login requests</div>` +
-      mine.map(([k,v])=>`
-        <div class="card" style="margin-bottom:8px;border-color:rgba(249,115,22,.35)">
-          <div class="card-name">New device wants to login</div>
-          <div class="card-sub">${v.requestedAt?new Date(v.requestedAt).toLocaleString('en-IN'):''}</div>
+    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#f97316;margin:10px 0 8px">📱 Login / Device requests</div>` +
+      mine.map(([k,v])=>{
+        const isMgrAppr = v.type==='manager_login_approval';
+        const name = (v.empName||v.phone||'Member').replace(/</g,'');
+        const sub = isMgrAppr
+          ? ('Member login approval'+(v.phone?' · 📱 '+String(v.phone).replace(/</g,''):''))
+          : ('New device wants to login');
+        const approveFn = isMgrAppr
+          ? `approveManagerLoginRequest('${k}')`
+          : `approveDeviceTransfer('${k}','${v.deviceId||''}')`;
+        const rejectFn = isMgrAppr
+          ? `rejectManagerLoginRequest('${k}')`
+          : `rejectDeviceTransfer('${k}')`;
+        return `
+        <div class="card" style="margin-bottom:8px;border-left:3px solid #f97316;border-color:rgba(249,115,22,.35)">
+          <div class="card-name">${name}</div>
+          <div class="card-sub">${sub}</div>
+          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
           <div class="action-row" style="margin-top:8px;display:flex;gap:8px">
-            <button class="act-btn approve" onclick="approveDeviceTransfer('${k}','${v.deviceId}')">✅ Approve (no OTP)</button>
-            <button class="act-btn reject" onclick="rejectDeviceTransfer('${k}')">❌ Reject</button>
+            <button class="act-btn approve" onclick="${approveFn}">✅ Approve</button>
+            <button class="act-btn reject" onclick="${rejectFn}">❌ Reject</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
   }catch(e){ host.innerHTML=''; }
 }
 
@@ -6867,7 +6894,7 @@ async function renderHome(){
     return false;
   };
   const onDuty = sh => isWorking(sh) || sh==='D' || sh==='N' || sh==='G' || sh==='GP';
-  const isDay  = sh => sh==='D' || sh==='G' || sh==='GP';
+  const isDay  = sh => sh==='D';
   const isNight= sh => sh==='N';
 
   const metEmps  = emps.filter(isMet);
@@ -10319,9 +10346,15 @@ async function submitImpInfo(){
 // ════════════════════════════════════════
 function renderPendingDevices(){
   const adminBlock=document.getElementById('adminOnlyPendingBlock');
-  if(adminBlock) adminBlock.style.display=isAdmin()?'block':'none';
+  // Managers must see Login Requests (member + device approvals). Only pure members hide this block.
+  if(adminBlock) adminBlock.style.display=(isAdmin() || isMgr()) ? 'block' : 'none';
   setTimeout(renderMyTeamApprovals,100);
-  if(!isAdmin()) return; // rest of this function only populates Admin-only sections
+  if(!isAdmin()){
+    // Managers still need device-change list empty / skip admin-only deviceChangeRequests
+    const el = document.getElementById('pendingDevices');
+    if(el && isMgr()) el.innerHTML='';
+    return;
+  }
   setTimeout(renderManagerApprovals,100);
   const el = document.getElementById('pendingDevices');
   if(!el) return;
@@ -10628,10 +10661,10 @@ function renderPending(){
   // ── Login Requests (Admin/Manager) — includes manager_login_approval for team members ──
   if(isAdminOrMgr()){
     const lrEl = document.getElementById('pendingLoginRequests');
-    // Show pending block for managers too when they have team login requests
+    // Show pending block for managers + admins (login requests live here)
     try{
       const adminBlock = document.getElementById('adminOnlyPendingBlock');
-      if(adminBlock && isMgr() && !isAdmin()) adminBlock.style.display='block';
+      if(adminBlock && (isAdmin() || isMgr())) adminBlock.style.display='block';
     }catch(e){}
     fbGet('loginRequests').then(data=>{
       let reqs = data ? Object.entries(data).filter(([k,v])=>v && v.status==='pending') : [];
