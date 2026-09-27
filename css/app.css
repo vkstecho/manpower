@@ -3416,3 +3416,52 @@ body.light span.shc.G {
     max-width: 72px !important;
   }
 }
+
+
+/* v2.3.25 schedule align + strip */
+#customRangeRow { margin-bottom: 8px; }
+#customRangeBtn {
+  flex: 0 1 auto !important;
+  width: auto !important;
+  max-width: 100%;
+}
+/* Desktop: lock date columns to match header */
+@media (min-width: 641px) {
+  .sched-tbl { table-layout: fixed !important; }
+  .sched-tbl col.sched-ecol { width: 128px; }
+  .sched-tbl col.sched-dcol { width: 32px; }
+  .sched-tbl td.ecol, .sched-tbl th.ecol {
+    width: 128px !important;
+    min-width: 128px !important;
+    max-width: 160px !important;
+  }
+  .sched-tbl td:not(.ecol), .sched-tbl th:not(.ecol) {
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    box-sizing: border-box !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  #schedDateHdr > div {
+    flex: none !important;
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+  }
+  #schedDateHdr > div[data-today-col="1"] {
+    width: 32px !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    box-shadow: inset 0 0 0 2px #f97316 !important;
+    border: none !important;
+  }
+  #schedDateHdrWrap, #schedWrap {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+}

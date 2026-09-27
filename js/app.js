@@ -491,6 +491,50 @@ let TODAY_DATE = new Date();
 /** Open WhatsApp WITHOUT navigating away from the app (never use location.href).
  *  Same-tab navigation was causing black screen after Manager registration / OTP.
  */
+
+// ── WA App-link footer (Admin-configured only) ──
+let _waAppLinkCache = null;
+async function _loadWaAppLinkSettings(){
+  try{
+    const s = await fbGet('settings/waAppLink');
+    _waAppLinkCache = s || null;
+    return _waAppLinkCache;
+  }catch(e){ return _waAppLinkCache; }
+}
+function _getWaAppLinkSettingsSync(){
+  // Prefer live cache; fallback defaults
+  const s = _waAppLinkCache || {};
+  const enabled = s.enabled !== false;
+  const text = (s.text && String(s.text).trim()) || 'Check Complete Shift';
+  let url = (s.url && String(s.url).trim()) || '';
+  if(!url){
+    try{ url = (window.location.origin + window.location.pathname).replace(/\/$/,'') || window.location.href.split('?')[0].split('#')[0]; }catch(e){ url = ''; }
+  }
+  return { enabled, text, url };
+}
+function _appendWaAppLink(msg){
+  try{
+    const { enabled, text, url } = _getWaAppLinkSettingsSync();
+    if(!enabled || !url) return msg || '';
+    const body = String(msg||'').replace(/\s+$/,'');
+    // Avoid double-append
+    if(body.includes(url)) return body;
+    return body + '\n\n📱 *' + text + '*\n' + url;
+  }catch(e){ return msg || ''; }
+}
+/** True if this employee is the logged-in user (no self-notify) */
+function _isSelfEmployee(emp){
+  if(!emp) return false;
+  try{
+    if(SESSION.empObjId && emp.id && SESSION.empObjId === emp.id) return true;
+    if(SESSION.empId && emp.empId && String(SESSION.empId)===String(emp.empId)) return true;
+    const mine = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    const theirs = _normMobileKey(emp.phone||emp.mobile||'');
+    if(mine && theirs && mine.length>=10 && mine === theirs) return true;
+  }catch(e){}
+  return false;
+}
+
 function openWA(phone, text){
   const ph = String(phone||'').replace(/\D/g,'');
   if(!ph) return;
@@ -610,7 +654,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.3.24'; // Bump this to force re-seed
+const APP_VERSION = '2.3.26'; // Bump this to force re-seed
 
 async function initData(){
   // ══ PERFORMANCE: staged RTDB load (this app uses Realtime Database, not Firestore) ══
@@ -1060,22 +1104,30 @@ function getSchedFilteredEmps(){
   if(String(schedSec).startsWith('SEC:')){
     const v=String(schedSec).slice(4);
     const nv=_normSecKey(v);
+    const nl=_normLabelKey(v);
     return all.filter(e=>{
       const sec = getEmpSection(e);
-      return sec===v || _normSecKey(sec)===nv || String(e.sec||'')===v || _normSecKey(e.sec)===nv;
+      return sec===v || _normSecKey(sec)===nv || _normLabelKey(sec)===nl
+        || String(e.sec||'')===v || _normSecKey(e.sec)===nv || _normLabelKey(e.sec)===nl;
     });
   }
   if(String(schedSec).startsWith('MC:')){
     const v=String(schedSec).slice(3);
-    return all.filter(e=>String(e.mc||e.machine||'')===v || _normSecKey(e.mc||e.machine)===_normSecKey(v));
+    const nl=_normLabelKey(v);
+    return all.filter(e=>{
+      const m=String(e.mc||e.machine||getEmpMachine(e)||'');
+      return m===v || _normSecKey(m)===_normSecKey(v) || _normLabelKey(m)===nl;
+    });
   }
   if(String(schedSec).startsWith('RESP:')){
     const v=String(schedSec).slice(5);
-    return all.filter(e=>String(e.resp||e.responsibility||'')===v);
+    const nl=_normLabelKey(v);
+    return all.filter(e=>_normLabelKey(e.resp||e.responsibility||'')===nl);
   }
   if(String(schedSec).startsWith('DESIG:')){
     const v=String(schedSec).slice(6);
-    return all.filter(e=>String(e.designation||'')===v);
+    const nl=_normLabelKey(v);
+    return all.filter(e=>_normLabelKey(e.designation||'')===nl);
   }
   // Legacy exact sec match + old group codes
   if(schedSec==='M12') return all.filter(e=>e.sec==='M1'||e.sec==='M2');
@@ -1129,19 +1181,40 @@ function getEmpResp(e){
   return String(e.resp||e.responsibility||'').trim();
 }
 
+function _normLabelKey(s){
+  return String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+/** Prefer nicer display label when duplicates differ only by case */
+function _preferLabel(a, b){
+  if(!a) return b||'';
+  if(!b) return a;
+  // Prefer mixed-case / Title-like over all-lower
+  const score = (s)=>{
+    let sc = 0;
+    if(/[A-Z]/.test(s)) sc += 2;
+    if(s.length > 0 && s[0]===s[0].toUpperCase()) sc += 1;
+    if(s !== s.toLowerCase() && s !== s.toUpperCase()) sc += 2;
+    return sc;
+  };
+  return score(a) >= score(b) ? a : b;
+}
 function _teamFieldValues(field){
-  const set=new Set();
+  // Case-insensitive unique: "Sr. Team Member" and "Sr. team member" → one chip
+  const map = new Map(); // lowerKey -> display label
   (getEmps()||[]).forEach(e=>{
     let v='';
     if(field==='section'){
       v=getEmpSection(e);
-      if(v && _isMachineLikeValue(v)) v=''; // never list machines as sections
+      if(v && _isMachineLikeValue(v)) v='';
     } else if(field==='machine') v=getEmpMachine(e);
     else if(field==='responsibility') v=getEmpResp(e);
     else if(field==='designation') v=String(e.designation||'').trim();
-    if(v) set.add(v);
+    v = String(v||'').trim();
+    if(!v) return;
+    const k = _normLabelKey(v);
+    map.set(k, _preferLabel(map.get(k), v));
   });
-  return Array.from(set).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+  return Array.from(map.values()).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
 }
 
 function _normSecKey(s){ return (s||'').toString().toUpperCase().replace(/[^A-Z0-9]/g,''); }
@@ -1440,7 +1513,7 @@ function applyLang(){
     'empUploadBtn':        {hi:'📤 Shift Upload',         en:'📤 Shift Upload'},
     'empUploadWizardBtn':  {hi:'👤 Emp Upload',           en:'👤 Emp Upload'},
     'empReorderBtn':       {hi:'↕️ क्रम बदलें',         en:'↕️ Reorder'},
-    'customRangeBtn':      {hi:'🗓️', en:'🗓️'},  // icon-only; full label via title/aria
+    'customRangeBtn':      {hi:'🗓️ कस्टम तारीख', en:'🗓️ Custom dates'},
   };
   Object.entries(schedBtnMap).forEach(([id,txt])=>{
     const el = document.getElementById(id);
@@ -5264,6 +5337,8 @@ function updateSyncTime(){
 let _shiftDraft=null;
 
 async function openShiftSettings(){
+  try{ await _loadWaAppLinkSettings(); }catch(e){}
+
   if(isAdmin() && (!SESSION.viewCompanyId || SESSION.viewCompanyId==='ALL')){
     toast('⚠️ पहले header से एक Company चुनें');
     return;
@@ -5402,6 +5477,32 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <label style="font-size:11px;color:#94a3b8;font-weight:800">Max GP / month</label>
     <input type="number" id="ss_gpMax" min="1" max="31" value="${d.gpMaxPerMonth||2}" class="inp-field" style="width:100%;text-align:center;font-weight:800">
   </div>
+
+  ${isAdmin() ? `
+  <div style="margin:16px 0 8px;padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.35);background:rgba(249,115,22,.06)">
+    <div style="font-size:12px;font-weight:900;color:#f97316;margin-bottom:6px">🔗 App Link on WhatsApp (Admin only)</div>
+    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.45">Har shift WhatsApp message ke neeche ye line add hogi. Sirf Admin edit kar sakta hai.</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text)">
+      <input type="checkbox" id="ss_waAppLinkOn" ${((_waAppLinkCache&&_waAppLinkCache.enabled)!==false)?'checked':''} style="width:16px;height:16px;accent-color:#f97316">
+      Append app link on every shift WhatsApp
+    </label>
+    <div class="field" style="margin-bottom:8px">
+      <label style="font-size:11px;color:#94a3b8;font-weight:800">Link text</label>
+      <input type="text" id="ss_waAppLinkText" class="inp-field" style="width:100%"
+        value="${escHtml((_waAppLinkCache&&_waAppLinkCache.text)||'Check Complete Shift')}"
+        placeholder="Check Complete Shift">
+    </div>
+    <div class="field" style="margin-bottom:0">
+      <label style="font-size:11px;color:#94a3b8;font-weight:800">App URL</label>
+      <input type="url" id="ss_waAppLinkUrl" class="inp-field" style="width:100%"
+        value="${escHtml((_waAppLinkCache&&_waAppLinkCache.url)||'')}"
+        placeholder="https://your-app-url/">
+      <div style="font-size:10px;color:#64748b;margin-top:4px">Khali chhodo to current site URL use hogi</div>
+    </div>
+  </div>` : `
+  <div style="margin:12px 0;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);font-size:11px;color:#94a3b8;line-height:1.5">
+    📱 WhatsApp messages me App link auto-add hoti hai (Admin configure karta hai).
+  </div>`}
 
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
@@ -5542,6 +5643,23 @@ async function _saveShiftSettings(){
   if(!_shiftDraft.waCOffTemplate) _shiftDraft.waCOffTemplate = _def.waCOffTemplate;
   if(!_shiftDraft.gpMaxPerMonth) _shiftDraft.gpMaxPerMonth = 2;
   if(!_shiftDraft.minBySec) _shiftDraft.minBySec = {};
+  // Admin-only: persist WA app-link footer settings
+  if(typeof isAdmin==='function' && isAdmin()){
+    try{
+      const onEl = document.getElementById('ss_waAppLinkOn');
+      const tEl = document.getElementById('ss_waAppLinkText');
+      const uEl = document.getElementById('ss_waAppLinkUrl');
+      if(onEl || tEl || uEl){
+        const payload = {
+          enabled: onEl ? !!onEl.checked : true,
+          text: (tEl && tEl.value.trim()) || 'Check Complete Shift',
+          url: (uEl && uEl.value.trim()) || ''
+        };
+        await fbSet('settings/waAppLink', payload);
+        _waAppLinkCache = payload;
+      }
+    }catch(e){ console.warn('[waAppLink] save', e); }
+  }
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
     closeModal();
@@ -8822,20 +8940,34 @@ function _buildSchedDisplayGroups(allEmps){
     designation: isEn ? 'DESIGNATION' : 'DESIGNATION'
   }[mode] || mode.toUpperCase();
 
-  // Collect unique values present in the already-filtered roster
-  const valSet = new Set();
+  // Collect unique values (case-insensitive) present in the already-filtered roster
+  const valMap = new Map();
   (allEmps||[]).forEach(e=>{
     const v = _empGroupKey(e, mode);
-    if(v) valSet.add(v);
+    if(!v) return;
+    const k = _normLabelKey(v);
+    valMap.set(k, _preferLabel(valMap.get(k), v));
   });
-  let vals = Array.from(valSet).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+  let vals = Array.from(valMap.values()).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
 
   // If a specific sub-filter is active, keep only that value as the group header
   const s = String(schedSec||'');
-  if(s.startsWith('SEC:')) vals = vals.filter(v=>v===s.slice(4) || _normSecKey(v)===_normSecKey(s.slice(4)));
-  if(s.startsWith('MC:')) vals = vals.filter(v=>v===s.slice(3) || _normSecKey(v)===_normSecKey(s.slice(3)));
-  if(s.startsWith('RESP:')) vals = vals.filter(v=>v===s.slice(5));
-  if(s.startsWith('DESIG:')) vals = vals.filter(v=>v===s.slice(6));
+  if(s.startsWith('SEC:')){
+    const nl=_normLabelKey(s.slice(4));
+    vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(4)));
+  }
+  if(s.startsWith('MC:')){
+    const nl=_normLabelKey(s.slice(3));
+    vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(3)));
+  }
+  if(s.startsWith('RESP:')){
+    const nl=_normLabelKey(s.slice(5));
+    vals = vals.filter(v=>_normLabelKey(v)===nl);
+  }
+  if(s.startsWith('DESIG:')){
+    const nl=_normLabelKey(s.slice(6));
+    vals = vals.filter(v=>_normLabelKey(v)===nl);
+  }
 
   const groups = [];
   if(!vals.length){
@@ -8855,9 +8987,9 @@ function _buildSchedDisplayGroups(allEmps){
         filter: e => {
           const k = _empGroupKey(e, mode);
           if(mode==='section' || mode==='machine'){
-            return k===val || _normSecKey(k)===_normSecKey(val);
+            return k===val || _normSecKey(k)===_normSecKey(val) || _normLabelKey(k)===_normLabelKey(val);
           }
-          return k===val;
+          return _normLabelKey(k)===_normLabelKey(val);
         },
         sort: (a,b) => (a.name||'').localeCompare(b.name||'')
       });
@@ -8893,11 +9025,27 @@ function _alignSchedColumns(){
     if(!tbl || !dateHdr) return;
 
     const mob = window.innerWidth <= 640;
-    const colW = mob ? 22 : 28;
-    const ecolTarget = mob ? 72 : 110;
+    // Desktop uses wider date cols so header digits fit without drift
+    const colW = mob ? 22 : 32;
+    const ecolTarget = mob ? 72 : 128;
 
-    // Force equal width on every date header cell
     const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
+    const n = hdrCells.length;
+    if(!n) return;
+
+    // Install / refresh <colgroup> so table-layout:fixed is reliable
+    let cg = tbl.querySelector('colgroup');
+    if(!cg){
+      cg = document.createElement('colgroup');
+      tbl.insertBefore(cg, tbl.firstChild);
+    }
+    cg.innerHTML = '<col class="sched-ecol" style="width:'+ecolTarget+'px">' +
+      Array.from({length:n}).map(()=>'<col class="sched-dcol" style="width:'+colW+'px">').join('');
+
+    tbl.style.tableLayout = 'fixed';
+    tbl.style.width = (ecolTarget + n * colW) + 'px';
+    tbl.style.minWidth = (ecolTarget + n * colW) + 'px';
+
     hdrCells.forEach(hc=>{
       hc.style.flex = 'none';
       hc.style.boxSizing = 'border-box';
@@ -8909,18 +9057,16 @@ function _alignSchedColumns(){
       hc.style.paddingRight = '0';
     });
 
-    // Force equal width on every data cell (skip ecol)
     tbl.querySelectorAll('tbody tr').forEach(tr=>{
       if(tr.classList.contains('sec-row')) return;
       const tds = tr.querySelectorAll('td');
       tds.forEach((td, i)=>{
+        td.style.boxSizing = 'border-box';
         if(i === 0){
-          td.style.boxSizing = 'border-box';
           td.style.width = ecolTarget + 'px';
           td.style.minWidth = ecolTarget + 'px';
           td.style.maxWidth = ecolTarget + 'px';
         } else {
-          td.style.boxSizing = 'border-box';
           td.style.width = colW + 'px';
           td.style.minWidth = colW + 'px';
           td.style.maxWidth = colW + 'px';
@@ -8930,46 +9076,53 @@ function _alignSchedColumns(){
       });
     });
 
-    // Measure sticky name column after forcing sizes
+    // Measure actual sticky ecol (borders/shadow can add px)
     const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
     let ecolWidth = ecolTarget;
     if(firstDataRow && firstDataRow.cells[0]){
-      ecolWidth = firstDataRow.cells[0].getBoundingClientRect().width || ecolTarget;
+      ecolWidth = Math.round(firstDataRow.cells[0].getBoundingClientRect().width) || ecolTarget;
     }
 
-    const n = hdrCells.length;
-    const totalDateW = n * colW;
+    // Measure first date cell to lock header to same width
+    let measuredColW = colW;
+    if(firstDataRow && firstDataRow.cells[1]){
+      measuredColW = Math.round(firstDataRow.cells[1].getBoundingClientRect().width) || colW;
+    }
+    hdrCells.forEach(hc=>{
+      hc.style.width = measuredColW + 'px';
+      hc.style.minWidth = measuredColW + 'px';
+      hc.style.maxWidth = measuredColW + 'px';
+    });
+
+    const totalDateW = n * measuredColW;
+    const totalW = ecolWidth + totalDateW;
+
+    dateHdr.style.boxSizing = 'border-box';
     dateHdr.style.paddingLeft = ecolWidth + 'px';
-    dateHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
-    dateHdr.style.width = (ecolWidth + totalDateW) + 'px';
+    dateHdr.style.minWidth = totalW + 'px';
+    dateHdr.style.width = totalW + 'px';
 
     if(monthHdr){
+      monthHdr.style.boxSizing = 'border-box';
       monthHdr.style.paddingLeft = ecolWidth + 'px';
-      monthHdr.style.minWidth = (ecolWidth + totalDateW) + 'px';
-      // Rebuild month segments with exact colW multiples if children exist
-      const kids = monthHdr.children;
-      if(kids && kids.length){
-        // leave existing content; widths were set at build time — refresh total only
-      }
+      monthHdr.style.minWidth = totalW + 'px';
+      monthHdr.style.width = totalW + 'px';
     }
     if(hdrStack){
-      hdrStack.style.minWidth = (ecolWidth + totalDateW) + 'px';
-      hdrStack.style.width = (ecolWidth + totalDateW) + 'px';
+      hdrStack.style.minWidth = totalW + 'px';
+      hdrStack.style.width = totalW + 'px';
     }
 
-    // Match horizontal gutter: remove header-only side padding drift
+    // Zero out gutter drift between header scroll and table scroll
     if(hdrWrap){
-      hdrWrap.style.marginLeft = '0';
-      hdrWrap.style.marginRight = '0';
-      hdrWrap.style.paddingLeft = '0';
-      hdrWrap.style.paddingRight = '0';
+      hdrWrap.style.margin = '0';
+      hdrWrap.style.padding = '0';
     }
     if(wrap){
-      wrap.style.marginLeft = '0';
-      wrap.style.marginRight = '0';
+      wrap.style.margin = '0';
+      wrap.style.padding = '0';
     }
 
-    // Keep scroll positions in sync
     if(wrap && hdrWrap){
       hdrWrap.scrollLeft = wrap.scrollLeft;
     }
@@ -9069,7 +9222,7 @@ function renderSchedule(){
   const dateHdr = document.getElementById('schedDateHdr');
   if(dateHdr){
     const _mob = (typeof window!=='undefined' && window.innerWidth<=640);
-    const _colW = _mob ? 22 : 28;
+    const _colW = _mob ? 22 : 32;
     dateHdr.innerHTML = dateCellsHtml.map((c,i)=>{
       const todayMark = c.isT ? ' data-today-col="1"' : '';
       // FIXED equal width for every day (today included) — highlight via inset only
@@ -9214,11 +9367,11 @@ function renderSchedule(){
       _alignSchedColumns();
       {
         const mob = window.innerWidth <= 640;
-        const colW = mob ? 22 : 28;
+        const colW = mob ? 22 : 32;
         const firstDataRow = tbl.querySelector('tbody tr:not(.sec-row)');
         const ecolWidth = (firstDataRow && firstDataRow.cells[0])
           ? firstDataRow.cells[0].getBoundingClientRect().width
-          : (mob ? 72 : 110);
+          : (mob ? 72 : 128);
         const hdrCells = dateHdr.querySelectorAll('[data-date-col]');
         const totalDateW = hdrCells.length * colW;
 
@@ -9276,7 +9429,7 @@ function renderSchedule(){
       // Scroll to today column using fixed column width
       const todayIdx = dates.indexOf(TODAY_STR);
       if(todayIdx > 0){
-        const colW = window.innerWidth <= 640 ? 22 : 28;
+        const colW = window.innerWidth <= 640 ? 22 : 32;
         const ecolW = window.innerWidth <= 640 ? 72 : 110;
         wrap.scrollLeft = Math.max(0, (todayIdx * colW) - colW * 2);
         const hdrWrap2 = document.getElementById('schedDateHdrWrap');
@@ -10089,6 +10242,8 @@ async function approveLeave(leaveKey, leave, suggestions){
         });
       }
       waMsg += `\nकोई सवाल हो तो Supervisor से मिलें।\n_— Man Power System_`;
+      if(typeof _appendWaAppLink==='function') waMsg = _appendWaAppLink(waMsg);
+      if(typeof _appendWaAppLink==='function') waMsg = _appendWaAppLink(waMsg);
       setTimeout(()=>{ openWA(emp.phone, waMsg); }, 400);
     }
   }catch(waErr){ console.warn('[Leave WA] error:', waErr); }
@@ -16315,6 +16470,8 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
             .replace(/\{coffDate\}/g, fmtD)
             .replace(/\{reason\}/g, reason||'C-Off')
             .replace(/\{manager\}/g, SESSION.name||'Manager');
+          if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) return;
+          if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
           openWA(phone, msg);
         }
         return;
@@ -16346,6 +16503,8 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
             .replace(/\{coffDate\}/g, fmtD)
             .replace(/\{reason\}/g, reason||'C-Off')
             .replace(/\{manager\}/g, SESSION.name||'Manager');
+          if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) return;
+          if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
           openWA(phone, msg);
         }
       }catch(e){ console.warn('[coff WA]', e); }
@@ -16404,30 +16563,8 @@ async function saveAllShiftChanges(){
     const newCache = {...(getOverrides()||{}), ...updates};
     _cache.overrides = newCache;
 
-    // C/O on schedule = USING one C-Off day (balance −1 via calendar). Send WA with date.
-    try{
-      for(const e of savedEntries){
-        const sh = String(e.newShift||'');
-        if(sh!=='C/O' && sh!=='CO') continue;
-        const emp = (getEmps()||[]).find(x=>x.id===e.empId);
-        if(!emp) continue;
-        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-        if(phone && phone.length===10 && typeof openWA==='function'){
-          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-          let tpl = cfg.waCOffTemplate || def.waCOffTemplate ||
-            '🔄 *Man Power — C-Off*\n\nनमस्ते *{name}*,\n\nआपका *C-Off* निम्न तिथि पर mark किया गया है।\n📅 *C-Off Date:* {coffDate}\n_— {manager}_';
-          const fmtD = (()=>{ try{ return new Date(e.date+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(ex){ return e.date; }})();
-          const msg = tpl
-            .replace(/\{name\}/g, emp.name||'')
-            .replace(/\{date\}/g, fmtD)
-            .replace(/\{coffDate\}/g, fmtD)
-            .replace(/\{reason\}/g, 'C-Off taken')
-            .replace(/\{manager\}/g, SESSION.name||'Manager');
-          openWA(phone, msg);
-        }
-      }
-    }catch(e){ console.warn('[coff WA batch]', e); }
+    // C/O WhatsApp handled in unified waQueue (all shift types including C/O)
+
 
     // Restore button and re-render
     restoreBtn();
@@ -16438,12 +16575,10 @@ async function saveAllShiftChanges(){
 
     try{ await _processAutoCompOffRules(savedEntries); }catch(e){ console.warn(e); }
 
-    // Manager/Admin changing schedule themselves → no approval, no member notifications
-    if(isMgr() || isAdmin() || SESSION.role==='manager' || SESSION.role==='admin'){
-      return;
-    }
+    // ── WhatsApp + in-app notifications for ALL schedule saves (Manager/Admin included) ──
+    // Skip only: member editing their OWN row, or waNotifyOnSave=false
+    try{ await _loadWaAppLinkSettings(); }catch(e){}
 
-    // ── Notifications only when non-manager (e.g. delegated editor) saves ──
     const byEmp = {};
     for(const e of savedEntries){
       if(!byEmp[e.empId]) byEmp[e.empId] = [];
@@ -16495,7 +16630,8 @@ async function saveAllShiftChanges(){
           inAppCount++;
         }catch(ne){ console.warn('[in-app notif]', ne); }
 
-        // ── WhatsApp (only if phone + enabled in Shift Settings) ──
+        // ── WhatsApp (only if phone + enabled; never notify self) ──
+        if(_isSelfEmployee(emp)) continue;
         const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
         if(_waCfg.waNotifyOnSave === false) continue;
         if(phone.length !== 10) continue;
@@ -16583,6 +16719,7 @@ async function saveAllShiftChanges(){
           msgLines = tpl || (`🔔 *Shift Update*\n\n${emp.name}\n${changeLines}`);
         }
 
+        msgLines = _appendWaAppLink(msgLines);
         waQueue.push({ emp: {...emp, phone}, msgLines, changes });
       }catch(ne){ console.warn('notify error:', ne); }
     }
@@ -16690,7 +16827,7 @@ function _sendWASequential(queue, index){
   };
 
   document.getElementById('_waSendBtn').addEventListener('click', () => {
-    openWA(emp.phone, msgLines); // Direct user gesture → always works
+    openWA(emp.phone, (typeof _appendWaAppLink==='function'?_appendWaAppLink(msgLines):msgLines)); // gesture
     cleanup();
     if(index + 1 < queue.length){
       setTimeout(() => _sendWASequential(queue, index + 1), 400);
@@ -22467,6 +22604,7 @@ async function checkFingerprintOnStart(){
 
 function startApp(){
   try{
+    try{ _loadWaAppLinkSettings(); }catch(e){}
     initAdminAuth();
     check45DayLogout();
     try{ recoverStuckPendingStates(); }catch(e){}

@@ -14,10 +14,11 @@
     <button id="msToggleBtn" onclick="toggleSelectMode()" class="sched-admin-btn" style="border-color:rgba(167,139,250,.4);color:#a78bfa;background:rgba(167,139,250,.06)">☑️ Multi-Select</button>
     <button id="empReorderBtn" onclick="openEmpReorderPanel()" class="sched-admin-btn" style="border-color:rgba(168,85,247,.4);color:#c084fc;background:rgba(168,85,247,.08)">↕️ क्रम बदलें</button>
   </div>
-  <!-- Custom date range row -->
-  <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
-    <button id="customRangeBtn" onclick="openCustomRange()" class="act-btn edit" style="flex:1;padding:10px 8px;border-radius:10px;font-size:13px;min-height:40px">🗓️ कस्टम तारीख चुनें</button>
-    <button id="resetRangeBtn" onclick="resetCustomRange()" style="display:none;padding:10px 12px;border-radius:10px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:13px;cursor:pointer;min-height:40px">✕ Reset</button>
+  <!-- Custom date range — compact, no empty full-width strip -->
+  <div id="customRangeRow" style="display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">
+    <button id="customRangeBtn" onclick="openCustomRange()" class="act-btn edit" title="Custom date range"
+      style="flex:0 1 auto;padding:8px 12px;border-radius:10px;font-size:12px;min-height:36px;font-weight:700">🗓️ कस्टम तारीख</button>
+    <button id="resetRangeBtn" onclick="resetCustomRange()" style="display:none;padding:8px 12px;border-radius:10px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:12px;cursor:pointer;min-height:36px;font-weight:700">✕ Reset</button>
   </div>
   <div class="sched-sticky-hdr" id="schedStickyHdr">
     <div class="chips" id="schedFilter">
