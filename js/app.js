@@ -5479,35 +5479,26 @@ function _renderShiftSettingsModal(){
   if(d.gpMaxPerMonth==null) d.gpMaxPerMonth = 2;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">⚙️ Shift & Machine Settings</div>
+  <div class="modal-title">⚙️ Shift Settings</div>
   <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">
-    ${isAdmin()?'Company: <b style="color:var(--text)">'+(SESSION.viewCompanyId||'').toUpperCase()+'</b>':'आपकी अपनी Team के लिए'}
+    ${isAdmin()?'Company: <b style="color:var(--text)">'+(SESSION.viewCompanyId||'').toUpperCase()+'</b>':'For your own team'}
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#f97316;margin:4px 0 6px">⏰ Shifts — Auto Schedule के लिए</div>
+  <div style="font-size:12px;font-weight:800;color:#f97316;margin:4px 0 6px">⏰ Shifts — for Auto Schedule</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
     ✅ टिक = <b>Auto बनाएं</b> में ये shifts rotate होंगी (जैसे सिर्फ D+N, या सिर्फ A+B+C)।<br>
     सभी codes (D/N/A/B/C) schedule पर manually select हो सकते हैं — timing यहाँ से आती है।
   </div>
   <div id="ss_shiftTimings">${_renderShiftTimingRows()}</div>
-
-  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:16px 0 6px">👁 Hide shifts from Schedule</div>
-  <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.45">Hidden codes disappear from <b>bottom legend</b>, daily count rows, and shift picker. Untick a shift above (A/B/C) to disable it completely.</div>
-  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);cursor:pointer">
-      <input type="checkbox" ${d.hideSummaryDN?'checked':''} onchange="_shiftDraft.hideSummaryDN=this.checked" style="width:18px;height:18px;accent-color:#f59e0b">
-      <span style="font-size:13px;font-weight:700;color:var(--text)">Hide <b style="color:#f59e0b">D</b> &amp; <b style="color:#818cf8">N</b> (counts + legend + picker)</span>
-    </label>
-    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);cursor:pointer">
-      <input type="checkbox" ${d.hideSummaryABC?'checked':''} onchange="_shiftDraft.hideSummaryABC=this.checked" style="width:18px;height:18px;accent-color:#16a34a">
-      <span style="font-size:13px;font-weight:700;color:var(--text)">Hide <b style="color:#16a34a">A</b> / <b style="color:#db2777">B</b> / <b style="color:#0891b2">C</b> (counts + legend + picker)</span>
-    </label>
+  <div style="font-size:11px;color:#64748b;margin:8px 0 14px;line-height:1.45">
+    ✅ Ticked shifts only → legend, daily counts, Auto Schedule, and shift picker.<br>
+    Unticked codes are hidden everywhere on Schedule.
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:16px 0 6px">📉 Minimum Staff — from your Team Excel</div>
+  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 6px">📉 Minimum Staff — from your Team Excel</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
-    Schedule red / ⚠️ uses <b>only these values</b> (not the old Met/Slit table).<br>
-    Values come from <b>Section / Machine / Responsibility</b> on your uploaded team. Empty → upload Excel in Team tab first.
+    Schedule red / ⚠️ uses <b>these values</b> when headcount is low.<br>
+    From <b>Section / Machine / Responsibility</b> on Team Excel. Empty → upload team Excel first.
   </div>
   <div style="margin-bottom:12px;max-width:160px">
     <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter)</div>
@@ -5518,71 +5509,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:11px;font-weight:800;color:#38bdf8;margin:8px 0 6px">Machines</div>
   <div id="ss_minMachines" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('machine')}</div>
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
-  <div id="ss_minResps" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
-
-  <div style="font-size:12px;font-weight:800;color:#25D366;margin:18px 0 6px">💬 WhatsApp Message Templates</div>
-  <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.45">
-    Placeholders: <code>{name}</code> <code>{date}</code> <code>{dates}</code> <code>{changes}</code> <code>{manager}</code> <code>{gpMax}</code> <code>{gpCount}</code>
-  </div>
-  <label style="display:flex;align-items:center;gap:8px;margin-bottom:10px;font-size:12px;font-weight:700;color:var(--text)">
-    <input type="checkbox" ${d.waNotifyOnSave!==false?'checked':''} onchange="_shiftDraft.waNotifyOnSave=this.checked" style="width:16px;height:16px;accent-color:#25D366">
-    Send WhatsApp when schedule is saved
-  </label>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Shift change</label>
-    <textarea id="ss_waTemplate" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waShiftTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Leave (manager marks leave)</label>
-    <textarea id="ss_waLeave" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waLeaveTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Absenteeism (Ab)</label>
-    <textarea id="ss_waAbsent" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waAbsentTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Holiday</label>
-    <textarea id="ss_waHoliday" rows="3" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waHolidayTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">C-Off (Compensatory Off)</label>
-    <div style="font-size:10px;color:#64748b;margin-bottom:4px">Placeholders: {name} {date} {coffDate} {reason} {manager}</div>
-    <textarea id="ss_waCOff" rows="4" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waCOffTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:10px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Gate Pass (GP)</label>
-    <textarea id="ss_waGP" rows="3" class="inp-field" style="width:100%;font-size:12px;font-family:inherit;line-height:1.4">${(d.waGPTemplate||'').replace(/</g,'&lt;')}</textarea>
-  </div>
-  <div class="field" style="margin-bottom:14px;max-width:140px">
-    <label style="font-size:11px;color:#94a3b8;font-weight:800">Max GP / month</label>
-    <input type="number" id="ss_gpMax" min="1" max="31" value="${d.gpMaxPerMonth||2}" class="inp-field" style="width:100%;text-align:center;font-weight:800">
-  </div>
-
-  ${isAdmin() ? `
-  <div style="margin:16px 0 8px;padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.35);background:rgba(249,115,22,.06)">
-    <div style="font-size:12px;font-weight:900;color:#f97316;margin-bottom:6px">🔗 App Link on WhatsApp (Admin only)</div>
-    <div style="font-size:11px;color:#94a3b8;margin-bottom:10px;line-height:1.45">Har shift WhatsApp message ke neeche ye line add hogi. Sirf Admin edit kar sakta hai.</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px;font-weight:700;color:var(--text)">
-      <input type="checkbox" id="ss_waAppLinkOn" ${((_waAppLinkCache&&_waAppLinkCache.enabled)!==false)?'checked':''} style="width:16px;height:16px;accent-color:#f97316">
-      Append app link on every shift WhatsApp
-    </label>
-    <div class="field" style="margin-bottom:8px">
-      <label style="font-size:11px;color:#94a3b8;font-weight:800">Link text</label>
-      <input type="text" id="ss_waAppLinkText" class="inp-field" style="width:100%"
-        value="${escHtml((_waAppLinkCache&&_waAppLinkCache.text)||'Check Complete Shift')}"
-        placeholder="Check Complete Shift">
-    </div>
-    <div class="field" style="margin-bottom:0">
-      <label style="font-size:11px;color:#94a3b8;font-weight:800">App URL</label>
-      <input type="url" id="ss_waAppLinkUrl" class="inp-field" style="width:100%"
-        value="${escHtml((_waAppLinkCache&&_waAppLinkCache.url)||'')}"
-        placeholder="https://your-app-url/">
-      <div style="font-size:10px;color:#64748b;margin-top:4px">Khali chhodo to current site URL use hogi</div>
-    </div>
-  </div>` : `
-  <div style="margin:12px 0;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);font-size:11px;color:#94a3b8;line-height:1.5">
-    📱 WhatsApp messages me App link auto-add hoti hai (Admin configure karta hai).
-  </div>`}
+  <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
 
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
@@ -5593,7 +5520,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 function _renderShiftTimingRows(){
   return _shiftDraft.shifts.map((s,i)=>`
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="Auto schedule में use करें">
+      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto Schedule + legend + counts + shift picker">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
           onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
         <span style="width:28px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;font-family:'Barlow Condensed',sans-serif"
@@ -5694,8 +5621,10 @@ async function _saveShiftSettings(){
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
   _shiftDraft.minSup = Number(_shiftDraft.minSup)||0;
-  _shiftDraft.hideSummaryDN = !!_shiftDraft.hideSummaryDN;
-  _shiftDraft.hideSummaryABC = !!_shiftDraft.hideSummaryABC;
+  // Derive legacy hide flags from ticks (compat); display uses active only
+  const _act = (c)=> (_shiftDraft.shifts||[]).some(s=>String(s.code).toUpperCase()===c && s.active!==false);
+  _shiftDraft.hideSummaryDN = !_act('D') && !_act('N');
+  _shiftDraft.hideSummaryABC = !_act('A') && !_act('B') && !_act('C');
   _shiftDraft.waNotifyOnSave = _shiftDraft.waNotifyOnSave !== false;
   try{
     const ta = document.getElementById('ss_waTemplate');
@@ -6398,7 +6327,7 @@ async function showProfile(){
       </div>
       ${isMgr()?`<button type="button" class="profile-action" onclick="openShiftSettings()">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">⚙️</div>
-        <div><div class="pa-label">Shift & Machine Settings</div><div class="pa-sub">${(_lang==='en')?'Shifts & min staff by Section/Machine':'Shifts & Section/Machine minimums'}</div></div>
+        <div><div class="pa-label">Shift Settings</div><div class="pa-sub">${(_lang==='en')?'Shifts & min staff by Section/Machine':'Shifts & Section/Machine minimums'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
@@ -6799,7 +6728,7 @@ function _goTabDirect(t){
   if(t==='home')         renderHome();
   if(t==='myshift')      renderMyShift();
   if(t==='todo')         renderTodo();
-  if(t==='schedule')     { schedOff=-5; _customRangeActive=false; renderSchedule(); setTimeout(syncStickyTop,100); setTimeout(syncStickyTop,400); }
+  if(t==='schedule')     { schedOff=(typeof _schedDefaultOff==='function'?_schedDefaultOff():-5); _customRangeActive=false; renderSchedule(); setTimeout(syncStickyTop,100); setTimeout(syncStickyTop,400); }
   if(t==='leave')        { try{ renderLeaves(); }catch(e){ console.warn('[leave]',e); } try{ renderResignations(); }catch(e){ console.warn('[resign]',e); } }
   if(t==='reports')      renderReports();
   if(t==='pending')      renderPending();
@@ -8789,8 +8718,8 @@ function clearMultiSelect(){
 function _updateMultiSelectShiftButtons(){
   try{
     const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : {}) || {};
-    const hideABC = !!cfg.hideSummaryABC;
-    const hideDN = !!cfg.hideSummaryDN;
+    const hideABC = false; // controlled by shift active ticks only
+    const hideDN = false;
     document.querySelectorAll('#multiSelectBar .ms-shift-abc').forEach(btn=>{
       btn.style.display = hideABC ? 'none' : '';
     });
@@ -9058,27 +8987,29 @@ function _schedEcolWidth(){
     return 128;
   }catch(e){ return 86; }
 }
-/** How many date columns — mobile fixed; desktop fills available width (no right white gap) */
-function _schedDayCount(){
+/** How many date columns.
+ *  Mobile:  5 days back + today + 15 upcoming = 21
+ *  Laptop:  5 days back + today + 30 upcoming = 36
+ */
+function _schedBackDays(){ return 5; }
+function _schedAheadDays(){
   try{
     const w = window.innerWidth || 360;
-    const h = window.innerHeight || 640;
-    const landscape = w > h;
-    if(w <= 640){
-      // Mobile: 11 portrait / 13 landscape — wider cells still fit with scroll
-      return landscape ? 13 : 11;
-    }
-    // Desktop / laptop: compute from content width so table fills the pane
-    const sidebar = (w >= 900) ? 220 : 0;
-    const pad = 48;
-    const ecol = _schedEcolWidth();
-    const colW = _schedColWidth();
-    const avail = Math.max(400, w - sidebar - pad - ecol);
-    let n = Math.floor(avail / colW);
-    // Keep a sensible range
-    n = Math.max(18, Math.min(36, n));
-    return n;
-  }catch(e){ return 11; }
+    // phones / small tablets
+    if(w <= 768) return 15;
+    // laptop / desktop
+    return 30;
+  }catch(e){ return 15; }
+}
+function _schedDayCount(){
+  try{
+    // total columns = back + today + ahead
+    return _schedBackDays() + 1 + _schedAheadDays();
+  }catch(e){ return 21; }
+}
+function _schedDefaultOff(){
+  // start window this many days before today
+  return -_schedBackDays();
 }
 
 function moveW(n){
@@ -9088,7 +9019,8 @@ function moveW(n){
   const SCHED_MAX=_d2.toISOString().split('T')[0];
   const proposed = schedOff + n;
   const firstDay = addDays(TODAY_STR, proposed);
-  const lastDay  = addDays(TODAY_STR, proposed + 14);
+  const _span = (typeof _schedDayCount==='function' ? _schedDayCount() : 21) - 1;
+  const lastDay  = addDays(TODAY_STR, proposed + _span);
   // Block if entire window is outside valid range
   if(lastDay < SCHED_MIN) return;
   if(firstDay > SCHED_MAX) return;
@@ -9121,10 +9053,8 @@ function renderScheduleLegend(emps, dates){
   // Hide inactive shifts + Profile "hide D/N" / "hide A/B/C" from bottom legend too
   cfgShifts = cfgShifts.filter(s=>{
     if(!s || !s.code) return false;
+    // Only ticked (active) shifts appear in legend / counts / picker
     if(s.active === false) return false;
-    const code = String(s.code).toUpperCase();
-    if(cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
-    if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
     return true;
   });
 
@@ -9690,12 +9620,12 @@ function renderSchedule(){
   const summaryStyles = 'font-family:Barlow Condensed,sans-serif;font-weight:900;font-size:13px;text-align:center;padding:4px 2px;';
   const _cfgFull = getShiftConfigSync();
   let _cfgShiftsForSummary = _discoverAllShiftCodes(allEmps, _cfgFull.shifts||[{code:'D',label:'Day'},{code:'N',label:'Night'}]);
-  if(_cfgFull.hideSummaryDN){
-    _cfgShiftsForSummary = _cfgShiftsForSummary.filter(s=>!['D','N'].includes(String(s.code||s).toUpperCase()));
-  }
-  if(_cfgFull.hideSummaryABC){
-    _cfgShiftsForSummary = _cfgShiftsForSummary.filter(s=>!['A','B','C'].includes(String(s.code||s).toUpperCase()));
-  }
+  // Only active (ticked) shifts in summary count rows
+  _cfgShiftsForSummary = _cfgShiftsForSummary.filter(s=>{
+    const code = String((s && s.code)!=null ? s.code : s).toUpperCase();
+    const full = (_cfgFull.shifts||[]).find(x=>String(x.code||'').toUpperCase()===code);
+    return !full || full.active !== false;
+  });
   const _shiftRowColorMap={
     D:{clr:'#f59e0b',bg:'rgba(245,158,11,.06)',icon:'☀️'},
     N:{clr:'#4f46e5',bg:'rgba(79,70,229,.06)',icon:'🌙'},
@@ -9880,10 +9810,8 @@ function renderShiftTrends(emps, dates){
   // Respect profile hide D/N and hide A/B/C
   cfgShifts = cfgShifts.filter(s=>{
     if(!s || !s.code) return false;
+    // Only ticked (active) shifts appear in legend / counts / picker
     if(s.active === false) return false;
-    const code = String(s.code).toUpperCase();
-    if(cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
-    if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
     return true;
   });
   const shiftColClasses = ['td-d','td-n','td-g'];
@@ -9974,8 +9902,10 @@ function renderShiftTrends(emps, dates){
   ];
   BAR_METRICS = BAR_METRICS.filter(m=>{
     const code = m.key;
-    if(cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
-    if(cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
+    if(['D','N','A','B','C'].includes(code)){
+      const sh = (cfg.shifts||[]).find(s=>String(s.code||'').toUpperCase()===code);
+      if(sh && sh.active===false) return false;
+    }
     if((totals[code]||0) === 0) return false;
     return true;
   });
@@ -17530,13 +17460,16 @@ function editShiftCell(empId, empName, date, currentShift){
   const _stdCodes = ['D','N','A','B','C'].filter(code=>{
     const s = _cfgByCode[code];
     // Profile "Hide D&N" / "Hide A/B/C" controls picker visibility
-    if(_cfg.hideSummaryDN && (code==='D'||code==='N')) return false;
-    if(_cfg.hideSummaryABC && (code==='A'||code==='B'||code==='C')) return false;
+    // ticked shifts only — inactive already filtered above
     // Explicit inactive in shift timing list
     if(s && s.active === false) return false;
     // If code exists in config as active, or no entry (show all non-hidden)
     return true;
   });
+  const _isShiftActive = (code)=>{
+    const s = _cfgByCode[code];
+    return !s || s.active !== false;
+  };
   const _dblAll = [
     {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff', need:['D','N']},
     {v:'A+B', label:'Double: A + B', bg:'#7c3aed', color:'#fff', need:['A','B']},
@@ -18984,7 +18917,7 @@ async function _execPrint(){
     dates=[];let cur=new Date(d);
     while(cur<=e){dates.push(cur.toISOString().split('T')[0]);cur.setDate(cur.getDate()+1);}
   } else {
-    dates=Array.from({length:15},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:(typeof _schedDayCount==='function'?_schedDayCount():21)},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
 
   const allEmps = getEmps().filter(e=>e.status!=='resigned');
@@ -19062,8 +18995,6 @@ async function _execPrint(){
   let LI=[{bg:'#f59e0b',c:'#000',t:'D = Day',code:'D'},{bg:'#4f46e5',c:'#fff',t:'N = Night',code:'N'},{bg:'#16a34a',c:'#fff',t:'A = A Shift',code:'A'},{bg:'#db2777',c:'#fff',t:'B = B Shift',code:'B'},{bg:'#0891b2',c:'#fff',t:'C = C Shift',code:'C'},{bg:'#dcfce7',c:'#16a34a',t:'O = Weekly Off'},{bg:'#fee2e2',c:'#dc2626',t:'L = Leave'},{bg:'#ede9fe',c:'#7c3aed',t:'C/O = Comp Off'},{bg:'#e0f2fe',c:'#0369a1',t:'G = General'},{bg:'#ffedd5',c:'#c2410c',t:'H = Holiday'},{bg:'#ccfbf1',c:'#0d9488',t:'OD = Other Dept'},{bg:'#ede9fe',c:'#6d28d9',t:'GP = Gate Pass'},{bg:'#fed7aa',c:'#c2410c',t:'½ = Half Day'},{bg:'#fecaca',c:'#991b1b',t:'Ab = Absent'}];
   LI = LI.filter(i=>{
     if(!i.code) return true;
-    if(_pcfg.hideSummaryDN && (i.code==='D'||i.code==='N')) return false;
-    if(_pcfg.hideSummaryABC && (i.code==='A'||i.code==='B'||i.code==='C')) return false;
     const sh = (_pcfg.shifts||[]).find(s=>String(s.code).toUpperCase()===i.code);
     if(sh && sh.active===false) return false;
     return true;
@@ -19179,7 +19110,7 @@ async function exportSchedExcel(){
     dates=[]; let cur=new Date(d);
     while(cur<=e2){ dates.push(cur.toISOString().split('T')[0]); cur.setDate(cur.getDate()+1); }
   } else {
-    dates=Array.from({length:15},(_,i)=>addDays(TODAY_STR,schedOff+i));
+    dates=Array.from({length:(typeof _schedDayCount==='function'?_schedDayCount():21)},(_,i)=>addDays(TODAY_STR,schedOff+i));
   }
 
   const allEmps = getEmps().filter(e=>e.status!=='resigned' && e.status!=='left');

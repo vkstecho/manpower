@@ -3940,3 +3940,20 @@ body.light .nav-more-item { background: #f5f6f8; color: var(--text); }
   text-transform: uppercase;
   margin: 18px 0 8px;
 }
+
+
+/* SHIFT SETTINGS MODAL SCROLL — avoid crop on short phones */
+.overlay.open .modal {
+  max-height: min(90dvh, 90vh) !important;
+  overflow-y: auto !important;
+  padding-bottom: 0 !important;
+}
+.modal-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  margin-top: 16px;
+  padding: 12px 0 max(20px, env(safe-area-inset-bottom, 12px));
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+}
