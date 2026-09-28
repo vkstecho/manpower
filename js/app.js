@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.57';
+const APP_VERSION = '2.4.65';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -4325,28 +4325,55 @@ async function showManagerLoginApproval(userData, mobile10, fullPhone){
 
   let ov = document.getElementById('mgrLoginApprovalOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='mgrLoginApprovalOverlay'; document.body.appendChild(ov); }
-  // Always prefer CURRENT employee record by mobile — never show stale mobileUsers name
+  // Prefer CURRENT employee from Firebase by mobile (login screen has no in-memory roster yet)
   let liveName = '';
+  let liveEmp = null;
   try{
     const mob = (typeof _normMobileKey==='function') ? _normMobileKey(mobile10||fullPhone||'') : String(mobile10||'').replace(/\D/g,'').slice(-10);
-    const all = (typeof getEmps==='function' ? getEmps() : []) || [];
-    const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
-    let match = active.find(e => (typeof _normMobileKey==='function' ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)) === mob);
-    if(!match) match = all.find(e => (typeof _normMobileKey==='function' ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)) === mob);
-    if(match && match.name) liveName = match.name;
-    // Sync mobileUsers if stale
-    if(liveName && userData && userData.name && liveName !== userData.name){
-      userData.name = liveName;
-      try{
-        if(typeof _syncMobileUserToCurrentEmployee==='function'){
-          _syncMobileUserToCurrentEmployee(mob, userData, { via:'login_without_otp_screen' });
-        } else if(typeof fbUpdate==='function' && mob){
-          fbUpdate('mobileUsers/'+mob, { name: liveName, nameSyncedAt: new Date().toISOString() }).catch(()=>{});
-        }
-      }catch(e){}
+    if(typeof _resolveEmpByMobile==='function'){
+      liveEmp = await _resolveEmpByMobile(mob);
     }
-  }catch(e){}
-  const name = (liveName || userData.name || 'Member').replace(/</g,'');
+    if(liveEmp && liveEmp.name) liveName = String(liveEmp.name).trim();
+    // Also scan employees node directly if still empty
+    if(!liveName && typeof fbGet==='function' && mob){
+      try{
+        const snap = await fbGet('employees');
+        if(snap && typeof snap==='object'){
+          for(const [k,v] of Object.entries(snap)){
+            if(!v) continue;
+            const p = (typeof _normMobileKey==='function') ? _normMobileKey(v.phone||v.mobile||'') : String(v.phone||v.mobile||'').replace(/\D/g,'').slice(-10);
+            if(p === mob && v.name && v.status!=='resigned' && v.status!=='left' && v.status!=='removed'){
+              liveName = String(v.name).trim();
+              liveEmp = {...v, id:v.id||k};
+              break;
+            }
+          }
+        }
+      }catch(e2){}
+    }
+    if(liveName && userData){
+      const stale = String(userData.name||'').trim();
+      if(stale !== liveName){
+        userData.name = liveName;
+        if(liveEmp){
+          userData.empId = liveEmp.empId || userData.empId;
+          userData.empObjId = liveEmp.id || userData.empObjId;
+        }
+        try{
+          if(typeof fbUpdate==='function' && mob){
+            await fbUpdate('mobileUsers/'+mob, {
+              name: liveName,
+              empId: (liveEmp && liveEmp.empId) || userData.empId || null,
+              empObjId: (liveEmp && liveEmp.id) || userData.empObjId || null,
+              nameSyncedAt: new Date().toISOString(),
+              nameSyncedVia: 'login_without_otp'
+            });
+          }
+        }catch(e3){ console.warn('[login name sync]', e3); }
+      }
+    }
+  }catch(e){ console.warn('[login live name]', e); }
+  const name = (liveName || (userData && userData.name) || 'Member').replace(/</g,'');
   try{ if(userData) userData.name = name; }catch(e){}
   ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   ov.innerHTML=`
@@ -6985,7 +7012,23 @@ function updateHeaderProfile(){
     }
     // Role label (short, works in all languages)
     const rt = document.getElementById('roleTag');
-    if(rt && !rt.textContent){ /* role set by launchApp */ }
+    if(rt){
+      let role = 'USER';
+      try{
+        if(typeof isAdmin==='function' && isAdmin()) role = 'ADMIN';
+        else if(typeof isMgr==='function' && isMgr()) role = 'MGR';
+        else if(SESSION.role==='manager') role = 'MGR';
+        else if(SESSION.role==='supervisor') role = 'SUP';
+        else if(SESSION.role==='member' || SESSION.role==='worker') role = 'MEMBER';
+        else if(SESSION.role==='guest') role = 'GUEST';
+      }catch(e){}
+      rt.textContent = role;
+      rt.className = 'role-tag '+(role==='ADMIN'?'admin': role==='MGR'?'admin':'user');
+    }
+    try{
+      const chip = document.querySelector('.user-chip.user-chip-profile');
+      if(chip){ chip.style.display='flex'; chip.style.visibility='visible'; chip.style.opacity='1'; }
+    }catch(e){}
   }catch(e){ console.warn('[updateHeaderProfile]', e); }
 }
 
@@ -8604,6 +8647,7 @@ function _discoverAllShiftCodes(allEmps, cfgShifts){
 /** Base roster shift from schedule/Excel only — ignores overrides (used for holiday duty check). */
 function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
+  try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
   const d=new Date(dateStr+'T12:00:00');
   const monthKey = dateStr.substring(0,7).replace('-','_');
   const dayIdx = d.getDate()-1;
@@ -8714,7 +8758,12 @@ function getShift(emp, dateStr){
     }
   }catch(e){}
 
-  // 3) Base uploaded Excel / Firebase schedules
+  // 3) Before joining date → no shift (blank, not Off)
+  try{
+    if(_isBeforeJoining(emp, dateStr)) return '';
+  }catch(e){}
+
+  // 4) Base uploaded Excel / Firebase schedules
   return getBaseShift(emp, dateStr) || '';
 }
 
@@ -8876,17 +8925,170 @@ function getShiftTimingStripHtml(){
 }
 
 
-// ── Get joining date: first non-blank shift in EXCEL_SCHEDULES ──
+// ── Joining date (YYYY-MM-DD) from employee record ──
 function getJoiningDate(emp){
-  // Read directly from employee's joiningDate field stored in Firebase
-  return emp.joiningDate || null;
+  if(!emp) return null;
+  const raw = emp.joiningDate || emp.doj || emp.joinDate || emp.dateOfJoining || '';
+  if(!raw) return null;
+  try{
+    if(/^\d{4}-\d{2}-\d{2}/.test(String(raw))) return String(raw).slice(0,10);
+    const d = new Date(raw);
+    if(isNaN(d.getTime())) return null;
+    // local date parts avoid UTC shift
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    if(y < 1990 || y > 2100) return null;
+    return y+'-'+m+'-'+day;
+  }catch(e){ return null; }
 }
+
+/** True if calendar date is strictly before employee joining date */
+function _isBeforeJoining(emp, dateStr){
+  const jd = getJoiningDate(emp);
+  if(!jd || !dateStr) return false;
+  return String(dateStr).slice(0,10) < jd;
+}
+
+/**
+ * Clear schedule cells before joining date (and optionally blank out bogus continuous empties).
+ * Mutates array in place; returns number of cells cleared.
+ */
+function _sanitizeShiftRow(arr, emp, year, month){
+  if(!Array.isArray(arr) && !(arr && typeof arr==='object')) return 0;
+  let cleared = 0;
+  const jd = getJoiningDate(emp);
+  const days = (year && month) ? new Date(year, month, 0).getDate() : (Array.isArray(arr)?arr.length:31);
+  for(let i=0;i<days;i++){
+    const key = Array.isArray(arr) ? i : String(i);
+    const val = arr[key];
+    if(val == null || val === '') continue;
+    if(jd && year && month){
+      const ds = year+'-'+String(month).padStart(2,'0')+'-'+String(i+1).padStart(2,'0');
+      if(ds < jd){
+        if(Array.isArray(arr)) arr[i] = '';
+        else arr[key] = '';
+        cleared++;
+      }
+    }
+  }
+  return cleared;
+}
+
+/** Run joining-date cleanup across all cached month schedules; optionally persist */
+async function sanitizeSchedulesBeforeJoining(opts){
+  opts = opts || {};
+  const emps = (typeof getEmps==='function'?getEmps():[]) || [];
+  const byId = {};
+  emps.forEach(e=>{
+    if(!e) return;
+    if(e.id) byId[e.id] = e;
+    if(e.empId) byId[String(e.empId)] = e;
+  });
+  const scheds = (typeof getSchedules==='function'?getSchedules():null) || _cache.schedules || {};
+  let total = 0;
+  Object.keys(scheds).forEach(mk=>{
+    const m = String(mk).match(/(\d{4})[_-](\d{1,2})/);
+    if(!m) return;
+    const year = +m[1], month = +m[2];
+    const monthObj = scheds[mk];
+    if(!monthObj || typeof monthObj!=='object') return;
+    Object.keys(monthObj).forEach(empKey=>{
+      const emp = byId[empKey] || byId[String(empKey)] || emps.find(e=>e.id===empKey||String(e.empId)===String(empKey));
+      if(!emp || !getJoiningDate(emp)) return;
+      const row = monthObj[empKey];
+      total += _sanitizeShiftRow(row, emp, year, month);
+    });
+  });
+  // Also sanitize hardcoded EXCEL_SCHEDULES in memory
+  try{
+    if(typeof EXCEL_SCHEDULES!=='undefined'){
+      Object.keys(EXCEL_SCHEDULES).forEach(mk=>{
+        const m = String(mk).match(/(\d{4})[_-](\d{1,2})/);
+        if(!m) return;
+        const year = +m[1], month = +m[2];
+        const monthObj = EXCEL_SCHEDULES[mk];
+        Object.keys(monthObj||{}).forEach(empKey=>{
+          const emp = byId[empKey] || emps.find(e=>e.id===empKey||String(e.empId)===String(empKey));
+          if(!emp || !getJoiningDate(emp)) return;
+          total += _sanitizeShiftRow(monthObj[empKey], emp, year, month);
+        });
+      });
+    }
+  }catch(e){}
+  if(opts.persist && total > 0 && typeof fbSet==='function'){
+    try{
+      // persist each month key under schedules path used by app
+      const root = (_cache && _cache._schedulesPath) || 'schedules';
+      for(const mk of Object.keys(scheds)){
+        try{ await fbSet(root+'/'+mk, scheds[mk]); }catch(e){}
+      }
+    }catch(e){ console.warn('[sanitize persist]', e); }
+  }
+  return total;
+}
+
 function isWorking(s){ return ['D','N','G','GP'].includes(s); }
 function isManPowerCompanyUser(){ return isAdmin() || SESSION.company === 'Man Power' || SESSION.company === '' || !SESSION.company || SESSION.approved === true; }
 
 // ════════════════════════════════════════
 // HOME / OVERVIEW
 // ════════════════════════════════════════
+
+
+/** Normalize shift code for counting */
+function _normShiftCode(sh){
+  if(sh == null || sh === '') return '';
+  let s = String(sh).trim();
+  if(!s) return '';
+  const u = s.toUpperCase();
+  if(u==='CO' || u==='C-OFF' || u==='COFF' || u==='C\\/O') return 'C/O';
+  if(u==='AB' || u==='ABSENT' || /अनुपस्थित/i.test(s)) return 'Ab';
+  if(u==='WO' || u==='W-OFF' || u==='WOFF' || u==='OFF') return 'O';
+  if(u==='HALF' || u==='1/2' || u==='½') return 'HLF';
+  if(u==='GENERAL') return 'G';
+  if(u==='HOLIDAY') return 'H';
+  // keep original casing for known mixed codes
+  if(s==='C/O' || s==='Ab' || s==='HLF') return s;
+  return u.length<=4 ? (s==='Ab'?'Ab':u) : u;
+}
+
+/** Status / special codes shown in schedule summary under Leave */
+function _scheduleStatusLegendDefs(){
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  return [
+    {code:'L',   label: en?'Leave':'Leave',       icon:'🏖️', clr:'#f43f5e', bg:'rgba(244,63,94,.06)'},
+    {code:'O',   label: en?'Weekly Off':'W-Off',   icon:'😴', clr:'#64748b', bg:'rgba(100,116,139,.08)'},
+    {code:'C/O', label: en?'C-Off':'C-Off',        icon:'🔄', clr:'#92400e', bg:'rgba(146,64,14,.08)'},
+    {code:'H',   label: en?'Holiday':'Holiday',    icon:'🎉', clr:'#ea580c', bg:'rgba(234,88,12,.08)'},
+    {code:'Ab',  label: en?'Absent':'Absent',      icon:'🚫', clr:'#991b1b', bg:'rgba(153,27,27,.1)'},
+    {code:'GP',  label: en?'Gate Pass':'Gate Pass',icon:'🪪', clr:'#9333ea', bg:'rgba(147,51,234,.08)'},
+    {code:'OD',  label: en?'Other Dept':'Other Dept', icon:'🏢', clr:'#0d9488', bg:'rgba(13,148,136,.08)'},
+    {code:'HLF', label: en?'Half Day':'Half Day',  icon:'½',  clr:'#c2410c', bg:'rgba(194,65,12,.08)'},
+    {code:'G',   label: en?'General':'General',    icon:'⚙️', clr:'#0284c7', bg:'rgba(2,132,199,.08)'},
+  ];
+}
+
+/** Count employees per shift code for one date. Returns {code: count} */
+function _countShiftCodesForDate(emps, dateStr){
+  const counts = {};
+  (emps||[]).forEach(e=>{
+    try{
+      let sh = (typeof getShift==='function') ? getShift(e, dateStr) : '';
+      sh = _normShiftCode(sh);
+      if(!sh) return;
+      counts[sh] = (counts[sh]||0) + 1;
+    }catch(err){}
+  });
+  return counts;
+}
+
+function _shiftCodeMatches(cellSh, code){
+  const a = _normShiftCode(cellSh);
+  const b = _normShiftCode(code);
+  if(!a || !b) return false;
+  if(a === b) return true;
+  if(typeof shiftCountsToward==='function' && shiftCountsToward(cellSh, code)) return true;
+  return false;
+}
 
 function _homeTodaySummaryHtml(){
   try{
@@ -8900,51 +9102,47 @@ function _homeTodaySummaryHtml(){
       }
     }catch(e){ ymd = new Date().toISOString().slice(0,10); }
 
-    // Classify each employee from schedule (getShift) for TODAY
-    let wOff = 0, onLeave = 0, holiday = 0, cOff = 0, absent = 0;
-    emps.forEach(e=>{
-      try{
-        const raw = String((typeof getShift==='function' ? getShift(e, ymd) : '')||'').trim();
-        const sh = raw.toUpperCase();
-        // Weekly Off — O / WO / W-OFF / OFF (not C/O)
-        if(sh==='O' || sh==='WO' || sh==='W-OFF' || sh==='WOFF' || sh==='OFF' || /^W[\s\-_]?OFF$/i.test(raw)){
-          wOff++; return;
-        }
-        // Leave
-        if(sh==='L' || /^L([:\-_].*)?$/i.test(raw)){
-          onLeave++; return;
-        }
-        // Holiday
-        if(sh==='H' || sh==='HOLIDAY' || /^H([:\-_].*)?$/i.test(raw)){
-          holiday++; return;
-        }
-        // Comp Off
-        if(sh==='C/O' || sh==='C\\/O' || sh==='CO' || sh==='C-OFF' || sh==='COFF' || /^C\/?O$/i.test(raw)){
-          cOff++; return;
-        }
-        // Absent
-        if(sh==='AB' || /^AB\b/i.test(raw) || /^ABSENT/i.test(raw) || /अनुपस्थित/i.test(raw)){
-          absent++; return;
-        }
-      }catch(err){}
+    const counts = _countShiftCodesForDate(emps, ymd);
+    const total = emps.length;
+    const en = (typeof _lang!=='undefined' && _lang!=='hi');
+
+    // Preferred display order
+    const order = ['D','N','G','A','B','C','O','L','C/O','H','Ab','GP','OD','HLF'];
+    const labels = {
+      D: en?'on D Shift':'D शिफ्ट', N: en?'on N Shift':'N शिफ्ट', G: en?'on G Shift':'G शिफ्ट',
+      A: en?'on A Shift':'A शिफ्ट', B: en?'on B Shift':'B शिफ्ट', C: en?'on C Shift':'C शिफ्ट',
+      O: en?'on W-Off':'W-Off', L: en?'On Leave':'Leave', 'C/O': en?'on C-Off':'C-Off',
+      H: en?'on Holiday':'Holiday', Ab: en?'Absent':'Absent', GP: en?'Gate Pass':'GP',
+      OD: en?'Other Dept':'OD', HLF: en?'Half Day':'Half'
+    };
+    const colors = {
+      D:'#f59e0b', N:'#4f46e5', G:'#0284c7', A:'#16a34a', B:'#db2777', C:'#0891b2',
+      O:'#64748b', L:'#f43f5e', 'C/O':'#92400e', H:'#ea580c', Ab:'#991b1b', GP:'#9333ea', OD:'#0d9488', HLF:'#c2410c'
+    };
+
+    // Collect non-zero codes (known order first, then any extras)
+    const seen = new Set();
+    const cards = [];
+    order.forEach(code=>{
+      const n = counts[code] || 0;
+      if(n <= 0) return;
+      seen.add(code);
+      cards.push({code, n, label: labels[code]||code, color: colors[code]||'#64748b'});
+    });
+    Object.keys(counts).forEach(code=>{
+      if(seen.has(code) || !counts[code]) return;
+      cards.push({code, n: counts[code], label: code, color:'#64748b'});
     });
 
-    // On duty = Total − Absent − Leave − Holiday − C-Off − W-Off
-    // (W-Off excluded too — not working that day; shown in middle card)
-    const total = emps.length;
-    const present = Math.max(0, total - absent - onLeave - holiday - cOff - wOff);
-
-    const lblDuty = (typeof L==='function') ? L('ड्यूटी पर','On duty') : 'On duty';
-    // e.g. "2 on W off" — number is in the big value; label is "on W off"
-    const lblWoff = (typeof L==='function') ? L('W-Off पर','on W off') : 'on W off';
-    const lblAbsent = (typeof L==='function') ? L('अनुपस्थित','Absentees') : 'Absentees';
-
-    return `<div class="today-summary" aria-label="Today summary">
-      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${present}</div><div class="today-summary-lbl">${lblDuty}</div></div>
-      <div class="today-summary-card"><div class="today-summary-val" style="color:#38bdf8">${wOff}</div><div class="today-summary-lbl">${lblWoff}</div></div>
-      <div class="today-summary-card"><div class="today-summary-val" style="color:#f97316">${absent}</div><div class="today-summary-lbl">${lblAbsent}</div></div>
-    </div>`;
-  }catch(e){ return ''; }
+    const lblTotal = en ? 'Total Man' : 'कुल';
+    let html = `<div class="today-summary today-summary-split" aria-label="Today shift split">
+      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${total}</div><div class="today-summary-lbl">${lblTotal}</div></div>`;
+    cards.forEach(c=>{
+      html += `<div class="today-summary-card"><div class="today-summary-val" style="color:${c.color}">${c.n}</div><div class="today-summary-lbl">${c.label}</div></div>`;
+    });
+    html += `</div>`;
+    return html;
+  }catch(e){ console.warn('[home summary]', e); return ''; }
 }
 
 
@@ -9025,10 +9223,29 @@ async function renderHome(){
   const nE  =emps.filter(e=>getShift(e,TODAY_STR)==='N').length;
   const lvE =emps.filter(e=>getShift(e,TODAY_STR)==='L').length;
 
-  document.getElementById('homeStats').innerHTML=`
-    <div class="stat-card"><div class="stat-val" style="color:#f59e0b">${dayE}</div><div class="stat-lbl" id="dayStatLbl">${en?'Day Shift':'दिन शिफ्ट'}</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:#4f46e5">${nE}</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
-    <div class="stat-card"><div class="stat-val" style="color:var(--lv)">${lvE}</div><div class="stat-lbl" id="leaveStatLbl">${en?'On Leave':'छुट्टी पर'}</div></div>`;
+  try{
+    const hs = document.getElementById('homeStats');
+    if(hs){
+      // Same shift-split as top summary (non-zero only + Total)
+      const counts = _countShiftCodesForDate(emps, TODAY_STR);
+      const totalN = emps.length;
+      const order = ['D','N','G','A','B','C','O','L','C/O','H','Ab','GP','OD','HLF'];
+      const labels = {D:en?'D Shift':'D',N:en?'N Shift':'N',G:en?'G Shift':'G',A:'A',B:'B',C:'C',O:en?'W-Off':'W-Off',L:en?'Leave':'Leave','C/O':'C-Off',H:en?'Holiday':'H',Ab:en?'Absent':'Ab',GP:'GP',OD:'OD',HLF:en?'Half':'½'};
+      const colors = {D:'#f59e0b',N:'#818cf8',G:'#0284c7',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#64748b',L:'var(--lv)','C/O':'#92400e',H:'#ea580c',Ab:'#f97316',GP:'#9333ea',OD:'#0d9488',HLF:'#c2410c'};
+      let h = `<div class="stat-card"><div class="stat-val" style="color:var(--green)">${totalN}</div><div class="stat-lbl">${en?'Total Man':'कुल'}</div></div>`;
+      order.forEach(code=>{
+        const n = counts[code]||0;
+        if(n<=0) return;
+        h += `<div class="stat-card"><div class="stat-val" style="color:${colors[code]||'#64748b'}">${n}</div><div class="stat-lbl">${labels[code]||code}</div></div>`;
+      });
+      Object.keys(counts).forEach(code=>{
+        if(order.includes(code) || !counts[code]) return;
+        h += `<div class="stat-card"><div class="stat-val">${counts[code]}</div><div class="stat-lbl">${code}</div></div>`;
+      });
+      hs.innerHTML = h;
+    }
+  }catch(e){ console.warn('[homeStats]', e); }
+
 
   const isMet = e => { const sec=getEmpSection(e); return /metalliser/i.test(sec) || (SEC[e.sec]||{}).type==='metalliser' || ['M1','M2','MET'].includes(String(e.sec||'').toUpperCase()); };
   const isSlit= e => { const sec=getEmpSection(e); return /slitter/i.test(sec) || (SEC[e.sec]||{}).type==='slitter' || ['S1','S2','SLIT'].includes(String(e.sec||'').toUpperCase()); };
@@ -9975,7 +10192,7 @@ async function handleExcelFile(file){
       // Normalize shift values
       const SH_NORM = {'C/O':'C/O','CO':'C/O','COFF':'C/O','C-OFF':'C/O',
                        'GP':'GP','HLF':'HLF','HALF':'HLF','H':'H','AB':'Ab','ABSENT':'Ab',
-                       'OD':'OD','G':'G','GENERAL':'G','SL':'L','A':'Ab'};
+                       'OD':'OD','G':'G','GENERAL':'G','SL':'L','A':'A'};  // A = A-shift (not Absent)
 
       // Parse employee rows (row index 3 onwards)
       for(let r=3; r<rows.length; r++){
@@ -11484,6 +11701,13 @@ function _alignSchedColumns(){
 
 
 function renderSchedule(){
+  try{
+    if(!window._schedJoinSanitized && typeof sanitizeSchedulesBeforeJoining==='function'){
+      window._schedJoinSanitized = true;
+      sanitizeSchedulesBeforeJoining({persist:false});
+    }
+  }catch(e){}
+
   // Force compact mobile layout every render (CSS alone was not enough on some phones)
   try{
     if(window.innerWidth <= 640){
@@ -11710,12 +11934,14 @@ function renderSchedule(){
     {clr:'#db2777',bg:'rgba(219,39,119,.08)',icon:'🅱️'},
     {clr:'#0891b2',bg:'rgba(8,145,178,.08)',icon:'©️'},
   ];
+  let _workRowIdx = 0;
   _cfgShiftsForSummary.forEach((s,i)=>{
+    const dayCounts = dates.map(d => allEmps.filter(e=>shiftCountsToward(getShift(e,d), s.code)).length);
+    if(!dayCounts.some(n => n > 0)) return; // hide zero rows
     const colorSet=_shiftRowColorMap[String(s.code||"").toUpperCase()]||_shiftRowColors[i%_shiftRowColors.length];
-    tbody += `<tr${i===0?' style="border-top:2px solid var(--border2)"':''}>
+    tbody += `<tr${_workRowIdx===0?' style="border-top:2px solid var(--border2)"':''}>
       <td class="ecol" style="font-size:10px;font-weight:800;color:${colorSet.clr};padding:4px 6px;white-space:nowrap">${colorSet.icon} ${s.label||s.code}</td>
-      ${dates.map(d => {
-        const cnt = allEmps.filter(e=>shiftCountsToward(getShift(e,d), s.code)).length;
+      ${dayCounts.map(cnt => {
         const warn = _thresh > 0 && cnt < _thresh;
         const bg = warn ? 'rgba(244,63,94,.18)' : colorSet.bg;
         const clr = warn ? '#f43f5e' : colorSet.clr;
@@ -11723,22 +11949,44 @@ function renderSchedule(){
         return `<td style="${summaryStyles}color:${clr};background:${bg};${extra}">${cnt||'—'}${warn?'⚠️':''}</td>`;
       }).join('')}
     </tr>`;
+    _workRowIdx++;
   });
-  tbody += `<tr>
-    <td class="ecol" style="font-size:10px;font-weight:800;color:#f43f5e;padding:4px 6px;white-space:nowrap">🏖️ Leave</td>
-    ${dates.map(d => {
-      const cnt = allEmps.filter(e=>{const s=getShift(e,d);return s==='L'||s==='Ab';}).length;
-      return `<td style="${summaryStyles}color:#f43f5e;background:rgba(244,63,94,.06)">${cnt||'—'}</td>`;
-    }).join('')}
-  </tr>`;
+  // Status / special codes (Leave, Off, C-Off, H, Ab, GP, OD, …) — hide row if all days are 0
+  const _statusDefs = (typeof _scheduleStatusLegendDefs==='function') ? _scheduleStatusLegendDefs() : [];
+  // Avoid duplicating work-shift codes already listed above (D/N/A/B/C/G if active)
+  const _workCodesShown = new Set(_cfgShiftsForSummary.map(s=>String(s.code||'').toUpperCase()));
+  _statusDefs.forEach(def=>{
+    const code = def.code;
+    if(_workCodesShown.has(String(code).toUpperCase()) && code!=='G') return; // G may appear in both — allow status row only if not in work list
+    if(_workCodesShown.has(String(code).toUpperCase())) return;
+    const dayCounts = dates.map(d => allEmps.filter(e => _shiftCodeMatches(getShift(e,d), code)).length);
+    const any = dayCounts.some(n => n > 0);
+    if(!any) return; // zero entire row → hide
+    tbody += `<tr>
+      <td class="ecol" style="font-size:10px;font-weight:800;color:${def.clr};padding:4px 6px;white-space:nowrap">${def.icon||''} ${def.label}</td>
+      ${dayCounts.map(cnt => `<td style="${summaryStyles}color:${def.clr};background:${def.bg}">${cnt||'—'}</td>`).join('')}
+    </tr>`;
+  });
 
-  // Total Manpower = roster size of currently filtered section (All / Metalliser / Slitter / …)
-  const _totalMP = allEmps.length;
+  // Total = sum of all shift/status counts that day (not just roster size)
+  const _allSummaryCodes = [
+    ..._cfgShiftsForSummary.map(s=>s.code),
+    ..._statusDefs.map(d=>d.code).filter(c => !_workCodesShown.has(String(c).toUpperCase()))
+  ];
   tbody += `<tr style="border-top:1.5px solid var(--border2)">
     <td class="ecol" style="font-size:10px;font-weight:900;color:#22c55e;padding:5px 6px;white-space:nowrap;background:rgba(34,197,94,.08)">👥 Total</td>
     ${dates.map(d => {
-      // Same roster total for the filtered view (section headcount)
-      return `<td style="${summaryStyles}color:#22c55e;background:rgba(34,197,94,.08);font-size:14px">${_totalMP||'—'}</td>`;
+      let sum = 0;
+      _allSummaryCodes.forEach(code=>{
+        sum += allEmps.filter(e => _shiftCodeMatches(getShift(e,d), code)).length;
+      });
+      // Also include any other codes present that day not in list
+      const counted = new Set(_allSummaryCodes.map(c=>_normShiftCode(c)));
+      allEmps.forEach(e=>{
+        const sh = _normShiftCode(getShift(e,d));
+        if(sh && !counted.has(sh)){ sum++; counted.add(sh+'_extra_'+sum); }
+      });
+      return `<td style="${summaryStyles}color:#22c55e;background:rgba(34,197,94,.08);font-size:14px">${sum||'—'}</td>`;
     }).join('')}
   </tr>`;
 
@@ -13582,8 +13830,8 @@ function renderReports(){
             <span style="font-size:11px;color:var(--muted2)">📅 ${fmtDate(r.date)}</span>
             <span style="font-size:11px;color:var(--muted2)">📝 ${r.reportedByName||'Quality Dept'}</span>
           </div>
-          ${(r.photoUrl||r.photo) ? `<div style="margin-top:8px;border-radius:10px;overflow:hidden;cursor:pointer" onclick="viewReportPhoto(this)">
-            <img src="${r.photoUrl||r.photo}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block" loading="lazy">
+          ${(r.photoUrl||r.photo) ? `<div class="rpt-photo-wrap" style="margin-top:10px;border-radius:12px;overflow:hidden;cursor:pointer;border:1px solid var(--border2);background:rgba(0,0,0,.15)" onclick="viewReportPhoto(this)">
+            <img class="rpt-photo" src="${r.photoUrl||r.photo}" alt="Report photo" style="width:100%;height:auto;max-height:none;object-fit:contain;display:block;border-radius:12px" loading="lazy">
           </div>` : ''}
         </div>
       </div>
@@ -13808,15 +14056,82 @@ async function submitReport(){
   }
 }
 
+let _rptPhotoOpen = false;
+let _rptPhotoScrollY = 0;
+
 function viewReportPhoto(el){
-  const img = el.querySelector('img');
-  if(!img) return;
-  openModal(`<div class="modal-handle"></div>
-    <div style="text-align:center;padding:10px 0">
-      <img src="${img.src}" style="width:100%;border-radius:10px;max-height:70vh;object-fit:contain">
-    </div>
-    <button class="cancel-btn" onclick="closeModal()">बंद करें</button>`);
+  try{
+    const img = (el && el.tagName === 'IMG') ? el : (el && el.querySelector ? el.querySelector('img') : null);
+    if(!img || !img.src) return;
+    openReportPhotoFullscreen(img.src);
+  }catch(e){ console.warn('[viewReportPhoto]', e); }
 }
+
+function openReportPhotoFullscreen(src){
+  if(!src) return;
+  // Remember scroll position so Back restores same place
+  _rptPhotoScrollY = window.scrollY || window.pageYOffset || 0;
+  let layer = document.getElementById('rptPhotoFs');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'rptPhotoFs';
+    layer.className = 'rpt-photo-fs';
+    layer.innerHTML = `
+      <button type="button" class="rpt-photo-fs-close" aria-label="Close" onclick="closeReportPhotoFullscreen()">✕</button>
+      <img class="rpt-photo-fs-img" alt="Full photo">
+      <div class="rpt-photo-fs-hint">Tap image or ✕ · or press Back</div>`;
+    // Tap backdrop (not img) closes
+    layer.addEventListener('click', (ev)=>{
+      if(ev.target === layer || ev.target.classList.contains('rpt-photo-fs-hint')) closeReportPhotoFullscreen();
+    });
+    document.body.appendChild(layer);
+  }
+  const fsImg = layer.querySelector('.rpt-photo-fs-img');
+  if(fsImg){
+    fsImg.src = src;
+    fsImg.onclick = (e)=>{ e.stopPropagation(); closeReportPhotoFullscreen(); };
+  }
+  layer.classList.add('open');
+  document.body.classList.add('rpt-photo-fs-lock');
+  _rptPhotoOpen = true;
+  // Push history so phone Back closes lightbox and stays on Reports
+  try{
+    if(!history.state || !history.state.rptPhoto){
+      history.pushState({ rptPhoto: true }, '');
+    }
+  }catch(e){}
+}
+
+function closeReportPhotoFullscreen(){
+  const layer = document.getElementById('rptPhotoFs');
+  if(layer) layer.classList.remove('open');
+  document.body.classList.remove('rpt-photo-fs-lock');
+  const wasOpen = _rptPhotoOpen;
+  _rptPhotoOpen = false;
+  // Restore scroll
+  try{ window.scrollTo(0, _rptPhotoScrollY || 0); }catch(e){}
+  // If we pushed history and user closed via ✕, go back one step without leaving page
+  try{
+    if(wasOpen && history.state && history.state.rptPhoto){
+      history.back();
+    }
+  }catch(e){}
+}
+
+// Phone Back while fullscreen photo is open
+if(typeof window !== 'undefined' && !window._rptPhotoPopBound){
+  window._rptPhotoPopBound = true;
+  window.addEventListener('popstate', function(){
+    if(_rptPhotoOpen){
+      const layer = document.getElementById('rptPhotoFs');
+      if(layer) layer.classList.remove('open');
+      document.body.classList.remove('rpt-photo-fs-lock');
+      _rptPhotoOpen = false;
+      try{ window.scrollTo(0, _rptPhotoScrollY || 0); }catch(e){}
+    }
+  });
+}
+
 async function actReport(key, status){
   if(!canManageReports() && !isAdmin()){ toast('❌ Report permission नहीं है'); return; }
   await fbUpdate(`reports/${key}`,{status,actionAt:new Date().toISOString(),actionBy:SESSION.name});
@@ -14184,27 +14499,45 @@ function confirmDeleteManagerWithTeam(mgrKey, mgrName, memberCount){
 }
 
 async function deleteManagerWithTeam(mgrKey, mgrName){
-  if(!isAdmin()) return;
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
   try{
     toast('⏳ Deleting…');
+    if(typeof _ensureWriteAuth==='function') await _ensureWriteAuth();
     const data = await fbGet('mobileUsers') || {};
     const mk = (typeof _normMobileKey==='function') ? _normMobileKey(mgrKey) : String(mgrKey||'').replace(/\D/g,'').slice(-10);
-    const toDelete = [];
+    let mgrRec = data[mgrKey] || data[mk] || null;
+    if(!mgrRec){
+      const hit = Object.entries(data).find(([k])=> ((typeof _normMobileKey==='function')?_normMobileKey(k):k)===mk);
+      if(hit) mgrRec = hit[1];
+    }
+    const mgrMob = (typeof _normMobileKey==='function')
+      ? _normMobileKey((mgrRec && (mgrRec.mobile||mgrRec.phone)) || mk)
+      : mk;
+    const toDelete = new Set();
     Object.entries(data).forEach(([k,v])=>{
       if(!v) return;
       const keyN = (typeof _normMobileKey==='function') ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10);
-      if(keyN === mk || k === mgrKey){ toDelete.push(k); return; }
-      if(v.role==='member'){
-        const mid = (typeof _normMobileKey==='function') ? _normMobileKey(v.managerId) : String(v.managerId||'').replace(/\D/g,'').slice(-10);
-        if(mid === mk || v.managerId === mgrKey) toDelete.push(k);
-      }
+      if(keyN===mk || keyN===mgrMob || k===mgrKey){ toDelete.add(k); return; }
+      const mid = (typeof _normMobileKey==='function')
+        ? _normMobileKey(v.managerId||v.managerMobile||v.mgrId||'')
+        : String(v.managerId||'').replace(/\D/g,'').slice(-10);
+      if(mid && (mid===mk || mid===mgrMob)) toDelete.add(k);
     });
+    let ok=0, fail=0;
     for(const k of toDelete){
-      try{ await fbSet('mobileUsers/'+k, null); }catch(e){
-        try{ await fbUpdate('mobileUsers/'+k, { status:'removed', removedAt: new Date().toISOString(), removedBy: SESSION.name||'admin' }); }catch(e2){}
+      try{
+        if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+k);
+        else await fbSet('mobileUsers/'+k, null);
+        ok++;
+      }catch(e){
+        try{
+          await fbUpdate('mobileUsers/'+k, { status:'removed', role:'removed', removedAt:new Date().toISOString(), removedBy:SESSION.name||'admin' });
+          ok++;
+        }catch(e2){ fail++; }
       }
     }
-    toast('✅ '+(mgrName||'Manager')+' + team removed ('+toDelete.length+')');
+    if(ok) toast('✅ '+(mgrName||'Manager')+' + team removed ('+ok+')'+(fail?(' · '+fail+' failed'):''));
+    else toast('❌ Delete failed — check Firebase rules');
     try{ renderAdminTeamHierarchy(); }catch(e){}
   }catch(err){
     console.error(err);
@@ -14219,104 +14552,123 @@ function renderAdminTeamHierarchy(){
   if(!isAdmin()){ block.style.display='none'; return; }
   block.style.display='block';
   fbGet('mobileUsers').then(data=>{
-    if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई registered Manager नहीं</div>'; return; }
+    if(!data){
+      el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+((typeof L==='function')?L('कोई registered Manager नहीं','No registered managers'):'No registered managers')+'</div>';
+      return;
+    }
     try{ _cache.mobileUsers = data; }catch(e){}
-    // Always start from full list — do NOT pre-filter members by company (they may have blank/different casing)
     const allRaw = Object.entries(data);
     const viewCid = SESSION.viewCompanyId || 'ALL';
     const mgrKeyNorm = (k)=> (typeof _normMobileKey==='function' ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10));
 
-    // Managers: match company case-insensitively (empty company still shows when filter is ALL only)
     const managers = allRaw.filter(([k,v])=>{
-      if(v.role!=='manager' || v.status==='rejected') return false;
+      if(!v || v.role!=='manager' || v.status==='rejected' || v.status==='removed') return false;
       if(!viewCid || viewCid==='ALL') return true;
       const n = _normCompanyId(v.company);
       const vcid = _normCompanyId(viewCid);
-      // Manager must belong to selected company (or have no company set but we still show if name soft-match)
       return n === vcid || n === 'default';
     });
     const managerKeys = new Set(managers.map(([k])=>mgrKeyNorm(k)));
-    // Also keep original keys for display
     const managerKeySet = new Set(managers.map(([k])=>k));
 
-    // Uncategorised: members not linked to a visible manager
     const uncategorised = allRaw.filter(([k,v])=>{
-      if(v.role!=='member' || v.status==='rejected') return false;
-      if(!_companyMatchesView(v.company, viewCid)) return false;
-      const mk = mgrKeyNorm(v.managerId);
-      if(!v.managerId) return true;
+      if(!v || v.status==='rejected' || v.status==='removed') return false;
+      const role = String(v.role||'').toLowerCase();
+      if(role==='manager' || role==='admin') return false;
+      if(viewCid && viewCid!=='ALL' && !_companyMatchesView(v.company, viewCid)) return false;
+      const mk = mgrKeyNorm(v.managerId || v.managerMobile || '');
+      if(!v.managerId && !v.managerMobile) return true;
       return !managerKeys.has(mk) && !managerKeySet.has(v.managerId);
     });
 
     if(!managers.length && !uncategorised.length){
-      el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+((typeof L==='function')?L('कोई registered Manager/Member नहीं','No registered Manager/Member'):'No registered Manager/Member')+'</div>'; return;
+      el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+((typeof L==='function')?L('कोई registered Manager/Member नहीं','No registered Manager/Member'):'No registered Manager/Member')+'</div>';
+      return;
     }
 
-    let html=managers.map(([mgrKey,mgr])=>{
+    let html = managers.map(([mgrKey,mgr])=>{
       const mk = mgrKeyNorm(mgrKey);
-      // Members under this manager by mobile key (normalized) — company filter is soft
-      const members=allRaw.filter(([k,v])=>{
-        if(v.role!=='member' || v.status==='rejected') return false;
-        const mid = mgrKeyNorm(v.managerId);
-        if(!(mid === mk || v.managerId === mgrKey)) return false;
-        return _companyMatchesView(v.company, viewCid);
+      const mgrMob = mgrKeyNorm(mgr.mobile || mgr.phone || mk);
+      const members = allRaw.filter(([k,v])=>{
+        if(!v || v.status==='rejected' || v.status==='removed') return false;
+        const role = String(v.role||'').toLowerCase();
+        if(role==='manager' || role==='admin') return false;
+        const mid = mgrKeyNorm(v.managerId || v.managerMobile || v.mgrId || '');
+        const linked = (mid && (mid === mk || mid === mgrMob))
+          || (v.managerId && (String(v.managerId)===String(mgrKey) || mgrKeyNorm(v.managerId)===mk));
+        if(!linked) return false;
+        if(viewCid && viewCid!=='ALL'){
+          const mc = _normCompanyId(v.company||'');
+          if(mc && mc!=='default' && mc !== _normCompanyId(viewCid)) return false;
+        }
+        return true;
       });
-            const statusBadge=_mobileStatusBadge(mgr);
+      const statusBadge = _mobileStatusBadge(mgr);
       const noMemLbl = (typeof L==='function') ? L('इस Manager के अंतर्गत कोई Member नहीं','No members under this Manager') : 'No members under this Manager';
-      const membersHtml=members.length?members.map(([memKey,mem])=>`
-          <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700;color:var(--text)">&#128100; ${mem.name}</div>
-              <div style="font-size:11px;color:#64748b">📱 ${mem.mobile}</div>
+      const membersHtml = members.length ? members.map(([memKey,mem])=>`
+          <div class="adm-mem-row" style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${String(mem.name||'').replace(/</g,'')}</div>
+              <div style="font-size:11px;color:#64748b">📱 ${mem.mobile||mem.phone||memKey}</div>
             </div>
             ${_mobileStatusBadge(mem)}
             ${_mobileActionButtons(memKey,mem.name,mem.status)}
-          </div>`).join(''):
-        `<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`;
-      const foldId = 'admMgrFold_'+String(mgrKey).replace(/[^a-zA-Z0-9]/g,'_');
-      const expLbl = (typeof L==='function') ? L('📅 All members expiry','📅 All members expiry') : '📅 All members expiry';
+          </div>`).join('')
+        : `<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`;
+      const expLbl = (typeof L==='function') ? L('📅 Expiry (team)','📅 Expiry (team)') : '📅 Expiry (team)';
       const delLbl = (typeof L==='function') ? L('🗑️ Delete Manager + Team','🗑️ Delete Manager + Team') : '🗑️ Delete Manager + Team';
       const memCountLbl = (typeof L==='function') ? L('members','members') : 'members';
+      const safeName = String(mgr.name||'').replace(/'/g,"\\'").replace(/</g,'');
+      const safeKey = String(mgrKey).replace(/'/g,"\\'");
       return `
-      <div class="card team-fold" data-open="0" style="margin-bottom:12px;padding:0;overflow:hidden">
-        <div class="team-fold-hdr" style="padding:12px;background:rgba(249,115,22,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none"
-          onclick="if(!event.target.closest('button')){ const b=this.parentElement; const body=b.querySelector('.team-fold-body'); const chev=this.querySelector('.team-fold-chev'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'block'; if(chev)chev.textContent=open?'▶':'▼'; b.setAttribute('data-open',open?'0':'1'); }">
-          <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px">▶</span>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:900;color:var(--text)">👔 ${mgr.name} <span style="font-size:10px;color:#64748b;font-weight:600">(${members.length} ${memCountLbl})</span></div>
-            <div style="font-size:11px;color:#64748b">📱 ${mgr.mobile} &nbsp;·&nbsp; 🏢 ${mgr.company||'—'}</div>
+      <div class="card adm-mgr-card team-fold" data-open="0" style="margin-bottom:12px;padding:0;overflow:hidden">
+        <div class="team-fold-hdr" style="padding:12px;background:rgba(249,115,22,.06);cursor:pointer;user-select:none"
+          onclick="if(!event.target.closest('button,a,input')){ const b=this.parentElement; const body=b.querySelector('.team-fold-body'); const chev=this.querySelector('.team-fold-chev'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'block'; if(chev)chev.textContent=open?'▶':'▼'; b.setAttribute('data-open',open?'0':'1'); }">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px;line-height:22px">▶</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:900;color:var(--text);line-height:1.25">👔 ${safeName}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--m1,#f97316);margin-top:2px">${members.length} ${memCountLbl}</div>
+              <div style="font-size:11px;color:#64748b;margin-top:3px;word-break:break-all">📱 ${mgr.mobile||mgr.phone||mgrKey}</div>
+              <div style="font-size:11px;color:#64748b">🏢 ${mgr.company||'—'}</div>
+            </div>
+            <div style="flex-shrink:0">${statusBadge}</div>
           </div>
-          ${statusBadge}
-          ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}
-          ${members.length?`<button type="button" onclick="event.stopPropagation();openAdminSetExpiryModal('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\\'")}',true)" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer;white-space:nowrap">${expLbl}</button>`:''}
-          <button type="button" onclick="event.stopPropagation();confirmDeleteManagerWithTeam('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\\'")}',${members.length})" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#f43f5e;font-weight:800;cursor:pointer;white-space:nowrap">${delLbl}</button>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" onclick="event.stopPropagation()">
+            ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}
+            ${members.length?`<button type="button" onclick="event.stopPropagation();openAdminSetExpiryModal('${safeKey}','${safeName}',true)" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer">${expLbl}</button>`:''}
+            <button type="button" onclick="event.stopPropagation();confirmDeleteManagerWithTeam('${safeKey}','${safeName}',${members.length})" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.5);background:rgba(244,63,94,.14);color:#f43f5e;font-weight:800;cursor:pointer;position:relative;z-index:2">${delLbl}</button>
+          </div>
         </div>
         <div class="team-fold-body" style="display:none">${membersHtml}</div>
       </div>`;
     }).join('');
 
-    // ── Uncategorised Members: no Manager, or their Manager was removed/rejected ──
     if(uncategorised.length){
-      html+=`
+      html += `
       <div style="font-size:12px;font-weight:800;color:#f97316;letter-spacing:.5px;margin:18px 0 8px">
-        &#10067; UNCATEGORISED MEMBERS <span style="color:#64748b;font-weight:600">(${uncategorised.length})</span>
+        ❓ UNCATEGORISED <span style="color:#64748b;font-weight:600">(${uncategorised.length})</span>
       </div>
       <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden;border-color:rgba(249,115,22,.3)">
         ${uncategorised.map(([memKey,mem])=>`
-          <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px">
-            <div style="flex:1;min-width:0">
-              <div style="font-size:13px;font-weight:700;color:var(--text)">&#128100; ${mem.name}</div>
-              <div style="font-size:11px;color:#64748b">📱 ${mem.mobile} &nbsp;·&nbsp; 🏢 ${mem.company||'—'}</div>
+          <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${String(mem.name||'').replace(/</g,'')}</div>
+              <div style="font-size:11px;color:#64748b">📱 ${mem.mobile||mem.phone||memKey} · 🏢 ${mem.company||'—'}</div>
             </div>
             ${_mobileStatusBadge(mem)}
             ${_mobileActionButtons(memKey,mem.name,mem.status)}
-          </div>`).join('').replace('border-top:1px solid var(--border2);','')}
+          </div>`).join('')}
       </div>`;
     }
 
-    el.innerHTML=html;
+    el.innerHTML = html;
+  }).catch(err=>{
+    console.error('[renderAdminTeamHierarchy]', err);
+    el.innerHTML = '<div class="empty-text" style="padding:12px;color:#f43f5e">Failed to load managers</div>';
   });
 }
+
 
 function _mobileStatusBadge(u){
   const map={approved:['#22c55e','Active'],revoked:['#f43f5e','Revoked'],pending:['#f97316','Pending']};
@@ -14796,14 +15148,32 @@ function renderTeam(search=''){
         <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">📊 Excel से Team Import</button>
       </div>${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">🗑️ सभी Members Delete करें (OTP verify)</button>`:''}` : '';
 
-  // Active employees only — those in the shift schedule (have ms array)
-  let list = getEmps().filter(e => e.status !== 'resigned' && e.status !== 'left' && Array.isArray(e.ms) && e.ms.length > 0);
+  // Active employees (not resigned/left). When searching, do NOT require ms[] so name/mobile/code matches still show.
+  const q = String(search||'').trim().toLowerCase();
+  const qDigits = q.replace(/\D/g,'');
+  let list = getEmps().filter(e => {
+    if(!e) return false;
+    if(e.status === 'resigned' || e.status === 'left' || e.status === 'left_team' || e.status === 'removed') return false;
+    // Without search: prefer members present on schedule (ms array); still include those without ms
+    return true;
+  });
   const totalAll = list.length;
-  if(_teamSec !== 'ALL') list = list.filter(e => {
+  // Section chip filter only when NOT searching (search should find anyone in team)
+  if(!q && _teamSec !== 'ALL') list = list.filter(e => {
     const sec = (typeof getEmpSection==='function') ? getEmpSection(e) : (e.section||e.sec||'');
     return sec === _teamSec || e.sec === _teamSec || e.section === _teamSec;
   });
-  if(search) list = list.filter(e => e.name.toLowerCase().includes(search.toLowerCase()) || (e.empId||'').includes(search));
+  if(q){
+    list = list.filter(e => {
+      const name = String(e.name||'').toLowerCase();
+      const code = String(e.empId||e.empCode||'').toLowerCase();
+      const phone = String(e.phone||e.mobile||'').replace(/\D/g,'');
+      if(name.includes(q)) return true;
+      if(code.includes(q)) return true;
+      if(qDigits.length >= 3 && phone.includes(qDigits)) return true;
+      return false;
+    });
+  }
 
   // Show total count
   const totalLabel = _teamSec === 'ALL' 
@@ -14846,9 +15216,10 @@ function renderTeam(search=''){
     if(!membersCount) return;
     const s = (typeof getSectionMeta==='function') ? getSectionMeta(sec) : {icon:'👤', color:'#94a3b8', bg:'rgba(148,163,184,.1)', hi:sec};
     const secLabel = (s && (s.label||s.hi)) ? (s.label||s.hi) : sec;
-    html += `<div class="team-fold" data-open="0" style="margin-bottom:10px;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:var(--panel)">
+    const _searchOpen = !!q;
+    html += `<div class="team-fold" data-open="${_searchOpen?'1':'0'}" style="margin-bottom:10px;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:var(--panel)">
       <div class="team-fold-hdr" onclick="_toggleTeamFold(this)" style="display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;background:rgba(255,255,255,.02)">
-        <span class="team-fold-chev" style="font-size:11px;color:var(--muted2);width:14px">▶</span>
+        <span class="team-fold-chev" style="font-size:11px;color:var(--muted2);width:14px">${_searchOpen?'▼':'▶'}</span>
         <span style="font-size:16px">${s.icon||'👤'}</span>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:900;color:var(--text)">${secLabel}</div>
@@ -14856,7 +15227,7 @@ function renderTeam(search=''){
         </div>
         <span style="font-size:12px;font-weight:800;color:${s.color||'#94a3b8'}">${membersCount}</span>
       </div>
-      <div class="team-fold-body" style="display:none;padding:6px 8px 10px">`;
+      <div class="team-fold-body" style="display:${(typeof q!=='undefined' && q)?'block':'none'};padding:6px 8px 10px">`;
 
     const respKeys = Array.from(rMap.keys()).sort((a,b)=>{
       if(a==='—') return 1;
@@ -14866,14 +15237,14 @@ function renderTeam(search=''){
     respKeys.forEach(resp=>{
       const subMembers = rMap.get(resp) || [];
       if(!subMembers.length) return;
-      html += `<div class="team-fold" data-open="0" style="margin:6px 0;border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+      html += `<div class="team-fold" data-open="${(typeof q!=='undefined' && q)?'1':'0'}" style="margin:6px 0;border:1px solid var(--border2);border-radius:10px;overflow:hidden">
         <div class="team-fold-hdr" onclick="_toggleTeamFold(this)" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;background:rgba(148,163,184,.06)">
-          <span class="team-fold-chev" style="font-size:10px;color:var(--muted2);width:12px">▶</span>
+          <span class="team-fold-chev" style="font-size:10px;color:var(--muted2);width:12px">${(typeof q!=='undefined' && q)?'▼':'▶'}</span>
           <span style="font-size:12px">🎯</span>
           <div style="flex:1;font-size:12px;font-weight:800;color:var(--text)">${resp}</div>
           <span style="font-size:11px;font-weight:800;color:var(--muted2)">${subMembers.length}</span>
         </div>
-        <div class="team-fold-body" style="display:none;padding:6px">
+        <div class="team-fold-body" style="display:${(typeof q!=='undefined' && q)?'block':'none'};padding:6px">
           ${_renderTeamMemberCards(subMembers, s)}
         </div>
       </div>`;
@@ -16423,6 +16794,20 @@ async function confirmBulkImportTeam(){
 
   // Save schedules (supports up to 2+ years of daily columns across many months)
   let monthsSaved=0;
+  // Clear cells before each employee's joining date
+  try{
+    const empsAll = (typeof getEmps==='function'?getEmps():[])||[];
+    Object.keys(schedByMonth).forEach(mk=>{
+      const mm = String(mk).match(/(\d{4})[_-](\d{1,2})/);
+      if(!mm) return;
+      const year=+mm[1], month=+mm[2];
+      const block = schedByMonth[mk];
+      Object.keys(block).forEach(empCode=>{
+        const emp = empsAll.find(e=>String(e.empId)===String(empCode)||String(e.id)===String(empCode));
+        if(emp) _sanitizeShiftRow(block[empCode], emp, year, month);
+      });
+    });
+  }catch(e){ console.warn('[excel join sanitize]', e); }
   const monthKeys = Object.keys(schedByMonth).sort();
   for(const mk of monthKeys){
     try{
@@ -16515,51 +16900,121 @@ function _buildSecOptions(selectedSec){
  * Machine dropdown — ONLY machines from manager Profile (Shift & Machine Settings).
  * Display: M-1, M-2, Metalliser, S-1, S-2, Slitter (no hardcoded S-3/S-4, no M1+M-1 duplicates).
  */
-function _buildMachineOptions(selectedMc){
-  const cfg=getShiftConfigSync();
-  const ordered = [];
+
+/** Unique values from roster (Excel-uploaded employees) for a field */
+function _rosterFieldList(field){
+  try{
+    if(typeof _teamFieldValues==='function'){
+      return (_teamFieldValues(field)||[]).filter(Boolean);
+    }
+  }catch(e){}
+  return [];
+}
+
+function _fallbackFieldList(field){
+  if(field==='designation')
+    return ['Operator','Ass. Operator','Team Member','Sr. Team Member','Jr. Team Member','Trainee','Engineer','Jr. Engineer','Officer','Supervisor','Sr. Supervisor','Manager','Shift Engineer','Admin'];
+  if(field==='responsibility')
+    return ['Operation','Assistant','Trainee','Engineer','Manager','Setup','5S','P,Q,M','Quality','Maintenance'];
+  if(field==='machine')
+    return ['M-1','M-2','S-1','S-2','S.I.'];
+  return [];
+}
+
+function _buildDynamicFieldOptions(field, selected){
   const seen = new Set();
-  const add = (label) => {
-    const L = _normalizeMachineLabel(label);
-    if(!L || seen.has(L)) return;
-    seen.add(L);
-    ordered.push(L);
+  const ordered = [];
+  const add = (v)=>{
+    const s = String(v||'').trim();
+    if(!s) return;
+    const k = s.toLowerCase();
+    if(seen.has(k)) return;
+    seen.add(k);
+    ordered.push(s);
   };
-  const mets = (cfg.metallisers||[]).map(m=>String(m||'').trim()).filter(Boolean);
-  const slits = (cfg.slitters||[]).map(s=>String(s||'').trim()).filter(Boolean);
-  mets.forEach(m=>add(m));
-  if(mets.length) add('Metalliser');
-  slits.forEach(s=>add(s));
-  if(slits.length) add('Slitter');
-  // Supervisor / Engineer machine only if no machines at all (still allow assigning eng staff)
-  if(!ordered.length){
-    add('M-1'); add('M-2'); add('Metalliser'); add('S-1'); add('S-2'); add('Slitter');
+  (_rosterFieldList(field)||[]).forEach(add);
+  (_fallbackFieldList(field)||[]).forEach(add);
+  if(selected){
+    const sel = String(selected).trim();
+    if(sel && !seen.has(sel.toLowerCase())){
+      ordered.unshift(sel);
+      seen.add(sel.toLowerCase());
+    }
   }
-  // Always allow S.I. for engineers/supervisors (not fake S-3/S-4)
-  add('S.I.');
-  // If editing and current value not in list, keep it selectable
-  if(selectedMc){
-    const cur = _normalizeMachineLabel(selectedMc) || selectedMc;
-    if(cur && !seen.has(cur)){ ordered.unshift(cur); seen.add(cur); }
+  ordered.sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  const otherLbl = en ? 'Others (type manually)' : 'अन्य (खुद लिखें)';
+  let html = `<option value="">— ${en?'Select':'चुनें'} —</option>`;
+  ordered.forEach(v=>{
+    const sel = selected && String(selected).trim().toLowerCase()===v.toLowerCase() ? ' selected' : '';
+    html += `<option value="${String(v).replace(/"/g,'&quot;')}"${sel}>${v}</option>`;
+  });
+  html += `<option value="__OTHER__">${otherLbl}</option>`;
+  return html;
+}
+
+function _onDynFieldChange(selectId, otherWrapId){
+  try{
+    const sel = document.getElementById(selectId);
+    const wrap = document.getElementById(otherWrapId);
+    if(!sel || !wrap) return;
+    const isOther = sel.value === '__OTHER__';
+    wrap.style.display = isOther ? 'block' : 'none';
+    if(isOther){
+      const inp = wrap.querySelector('input');
+      if(inp) inp.focus();
+    }
+  }catch(e){}
+}
+
+function _resolveDynField(selectId, otherInputId){
+  const sel = document.getElementById(selectId);
+  if(!sel) return '';
+  const v = String(sel.value||'').trim();
+  if(v === '__OTHER__'){
+    const inp = document.getElementById(otherInputId);
+    return String((inp && inp.value)||'').trim();
   }
-  return ordered.map(m=>{
-    const sel = selectedMc && (_normalizeMachineLabel(selectedMc)===m || selectedMc===m) ? ' selected' : '';
-    return `<option value="${m}"${sel}>${m}</option>`;
-  }).join('');
+  return v;
+}
+
+function _dynFieldHtml(field, selectId, otherInputId, otherWrapId, selected, required){
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  const labels = {
+    section: en?'Section':'सेक्शन',
+    machine: en?'Machine':'मशीन',
+    responsibility: en?'Responsibility':'ज़िम्मेदारी',
+    designation: en?'Designation':'पद'
+  };
+  const placeholders = {
+    section: en?'Type section name':'सेक्शन लिखें',
+    machine: en?'Type machine name':'मशीन लिखें',
+    responsibility: en?'Type responsibility':'ज़िम्मेदारी लिखें',
+    designation: en?'Type designation':'पद लिखें'
+  };
+  const opts = _buildDynamicFieldOptions(field, selected);
+  const req = required ? ' <span style="color:var(--lv)">*</span>' : '';
+  return `<div class="field">
+    <label>${labels[field]||field}${req}</label>
+    <select class="inp-field" id="${selectId}" onchange="_onDynFieldChange('${selectId}','${otherWrapId}')">${opts}</select>
+    <div id="${otherWrapId}" style="display:none;margin-top:6px">
+      <input class="inp-field" id="${otherInputId}" placeholder="${placeholders[field]||''}" maxlength="60">
+    </div>
+  </div>`;
+}
+
+function _buildMachineOptions(selectedMc){
+  return _buildDynamicFieldOptions('machine', selectedMc);
 }
 function _buildDesignationOptions(selected){
-  const list=['Operator','Ass. Operator','Team Member','Sr. Team Member','Jr. Team Member','Trainee','Engineer','Jr. Engineer','Officer','Supervisor','Sr. Supervisor','Manager','Shift Engineer','Admin'];
-  return list.map(r=>`<option value="${r}"${selected===r?' selected':''}>${r}</option>`).join('');
+  return _buildDynamicFieldOptions('designation', selected);
 }
 function _buildRespOptions(selected){
-  const list=['Operation','Assistant','Trainee','Engineer','Manager','Setup','5S','P,Q,M','Quality','Maintenance'];
-  return list.map(r=>`<option value="${r}"${selected===r?' selected':''}>${r}</option>`).join('');
+  return _buildDynamicFieldOptions('responsibility', selected);
 }
+
 function openAddEmpForm(){
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
-  const mcOpts=_buildMachineOptions(null);
-  const desigOpts=_buildDesignationOptions('Team Member');
-  const respOpts=_buildRespOptions('Operation');
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">👤 ${typeof t==='function'?t('नया कर्मचारी'):'New Employee'}</div>
   <div class="grid2">
@@ -16567,20 +17022,18 @@ function openAddEmpForm(){
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ne_code" placeholder="30000XXX"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${L('सेक्शन','Section')} <span style="color:var(--lv)">*</span></label>
-      <input class="inp-field" id="ne_section" placeholder="${L('जैसे: Line-1 / Warehouse / ICU','e.g. Line-1 / Warehouse / ICU')}" maxlength="40" oninput="this.value=this.value.trimStart()">
-    </div>
-    <div class="field"><label>Designation</label><select id="ne_designation">${desigOpts}</select></div>
+    ${_dynFieldHtml('section','ne_section','ne_section_other','ne_section_other_wrap','',true)}
+    ${_dynFieldHtml('designation','ne_designation','ne_desig_other','ne_desig_other_wrap','Team Member',false)}
   </div>
   <div class="grid2">
-    <div class="field"><label>${typeof t==='function'?t('मशीन'):'Machine'}</label><select id="ne_mc">${mcOpts}</select></div>
-    <div class="field"><label>${typeof t==='function'?t('ज़िम्मेदारी'):'Responsibility'}</label><select id="ne_resp">${respOpts}</select></div>
+    ${_dynFieldHtml('machine','ne_mc','ne_mc_other','ne_mc_other_wrap','',false)}
+    ${_dynFieldHtml('responsibility','ne_resp','ne_resp_other','ne_resp_other_wrap','Operation',false)}
   </div>
   <div class="grid2">
     <div class="field"><label>Week Off</label>
-      <select id="ne_woff"><option>MON</option><option>TUE</option><option>WED</option><option>THU</option><option>FRI</option><option>SAT</option><option selected>SUN</option></select>
+      <select id="ne_woff" class="inp-field"><option>MON</option><option>TUE</option><option>WED</option><option>THU</option><option>FRI</option><option>SAT</option><option selected>SUN</option></select>
     </div>
-    <div class="field"><label>📱 ${typeof t==='function'?t('मोबाइल नंबर'):'Mobile'} (SMS)</label><input class="inp-field" id="ne_phone" placeholder="10-digit number" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>
+    <div class="field"><label>📱 ${typeof t==='function'?t('मोबाइल नंबर'):'Mobile'} (SMS)</label><input class="inp-field" id="ne_phone" placeholder="10-digit number" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
   </div>
   <div class="grid2">
     <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ne_joining" type="date"></div>
@@ -16595,17 +17048,16 @@ function openAddEmpForm(){
 async function addEmployee(){
   const name=document.getElementById('ne_name').value.trim().toUpperCase();
   const code=document.getElementById('ne_code').value.trim();
-  const mc=document.getElementById('ne_mc').value.trim();
-  const resp=document.getElementById('ne_resp').value.trim();
+  const mc=_resolveDynField('ne_mc','ne_mc_other');
+  const resp=_resolveDynField('ne_resp','ne_resp_other');
   const woff=document.getElementById('ne_woff').value;
   const phone=document.getElementById('ne_phone').value.trim();
-  const designation=document.getElementById('ne_designation')?.value||'';
+  const designation=_resolveDynField('ne_designation','ne_desig_other');
   const joiningDate=document.getElementById('ne_joining')?.value?.trim()||'';
   const dob=document.getElementById('ne_dob')?.value?.trim()||'';
   const salaryRaw=document.getElementById('ne_salary')?.value?.trim();
-  const sectionRaw=(document.getElementById('ne_section')?.value||'').trim();
-  // Prefer explicit Section; fallback to machine mapping only if empty
-  const sec = sectionRaw || _secFromMachine(mc, designation) || mc || 'General';
+  const sectionRaw=_resolveDynField('ne_section','ne_section_other');
+  const sec = sectionRaw || (typeof _secFromMachine==='function' ? _secFromMachine(mc, designation) : '') || mc || 'General';
   if(!name||!code){ toast('नाम और कोड जरूरी है'); return; }
   if(!sectionRaw){ toast(L('⚠️ Section जरूरी है','⚠️ Section is required')); return; }
   if(!mc){ toast(L('⚠️ मशीन चुनें','⚠️ Select a Machine')); return; }
@@ -16649,12 +17101,8 @@ async function addEmployee(){
 function openEditEmpForm(empId){
   const e=getEmps().find(x=>x.id===empId); if(!e) return;
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
-  const mcOpts=_buildMachineOptions(e.mc||'');
-  const desigOpts=_buildDesignationOptions(e.designation||'');
-  const respOpts=_buildRespOptions(e.resp||'');
-  let respExtra='';
-  if(e.resp && !respOpts.includes(`value="${e.resp}"`)) respExtra=`<option value="${e.resp}" selected>${e.resp}</option>`;
   const statusSel = ['active','resigned'].map(s=>`<option value="${s}"${(e.status||'active')===s?' selected':''}>${s}</option>`).join('');
+  const curSec = (e.section||e.sec||'');
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">✏️ ${L('संपादित करें','Edit')} ${e.name}</div>
   <div class="grid2">
@@ -16662,16 +17110,14 @@ function openEditEmpForm(empId){
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ee_code" value="${e.empId||''}"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${L('सेक्शन','Section')}</label>
-      <input class="inp-field" id="ee_sec" value="${(e.section||e.sec||'').replace(/"/g,'&quot;')}" maxlength="40" placeholder="${L('जैसे: Line-1 / Warehouse','e.g. Line-1 / Warehouse')}">
-    </div>
-    <div class="field"><label>Designation</label><select id="ee_designation">${desigOpts}</select></div>
+    ${_dynFieldHtml('section','ee_sec','ee_sec_other','ee_sec_other_wrap',curSec,false)}
+    ${_dynFieldHtml('designation','ee_designation','ee_desig_other','ee_desig_other_wrap',e.designation||'',false)}
   </div>
   <div class="grid2">
-    <div class="field"><label>${L('मशीन','Machine')}</label><select id="ee_mc">${mcOpts}</select></div>
-    <div class="field"><label>${L('ज़िम्मेदारी','Responsibility')}</label><select id="ee_resp">${respExtra}${respOpts}</select></div>
+    ${_dynFieldHtml('machine','ee_mc','ee_mc_other','ee_mc_other_wrap',e.mc||'',false)}
+    ${_dynFieldHtml('responsibility','ee_resp','ee_resp_other','ee_resp_other_wrap',e.resp||'',false)}
   </div>
-  <div class="grid2">
+<div class="grid2">
     <div class="field"><label>Week Off</label>
       <select id="ee_woff">${['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d=>`<option${(e.woff||'SUN')===d?' selected':''}>${d}</option>`).join('')}</select>
     </div>
@@ -16761,8 +17207,8 @@ async function saveEmployee(empId){
     return !!(el && el.checked);
   };
 
-  const mcVal = val('ee_mc');
-  const desigVal = val('ee_designation');
+  const mcVal = _resolveDynField('ee_mc','ee_mc_other') || val('ee_mc');
+  const desigVal = _resolveDynField('ee_designation','ee_desig_other') || val('ee_designation');
   let phoneVal = val('ee_phone').replace(/\D/g,'').slice(-10);
   // Manager cannot change their own login mobile
   if(e && isManagerSelfRecord(e)){
@@ -16771,14 +17217,15 @@ async function saveEmployee(empId){
   const nameVal = val('ee_name').toUpperCase();
   if(!nameVal){ toast('⚠️ Name required'); return; }
 
-  const secVal = document.getElementById('ee_sec') ? val('ee_sec') : ((e&&(e.section||e.sec)) || '');
+  const secVal = _resolveDynField('ee_sec','ee_sec_other') || (document.getElementById('ee_sec') ? val('ee_sec') : ((e&&(e.section||e.sec)) || ''));
+  const respVal = _resolveDynField('ee_resp','ee_resp_other') || val('ee_resp');
   const update = {
     name:        nameVal,
     empId:       val('ee_code'),
     mc:          mcVal,
     sec:         secVal,
     section:     secVal,
-    resp:        val('ee_resp'),
+    resp:        respVal,
     woff:        val('ee_woff') || 'SUN',
     status:      val('ee_status') || 'active',
     phone:       phoneVal,
@@ -16915,81 +17362,134 @@ async function saveEmployee(empId){
 }
 
 function confirmDelEmp(id, name){
+  if(!isAdmin() && !isMgr()){ toast('❌ Admin/Manager only'); return; }
+  const safeName = String(name||'').replace(/</g,'').replace(/'/g,"\'");
+  const safeId = String(id||'').replace(/'/g,"\'");
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
   openModal(`<div class="modal-handle"></div>
   <div style="text-align:center;padding:6px 0 10px">
     <div style="font-size:36px;margin-bottom:10px">🚪</div>
-    <div class="modal-title">${name} को टीम से हटाएं?</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:16px">यह कर्मचारी "Left Members" सूची में चला जाएगा — डेटा सुरक्षित रहेगा।</div>
+    <div class="modal-title">${en?('Remove '+safeName+' from team?'):(safeName+' को टीम से हटाएं?')}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:16px">${en?'Member moves to Left Members — data is kept.':'यह कर्मचारी "Left Members" सूची में चला जाएगा — डेटा सुरक्षित रहेगा।'}</div>
     <div class="field" style="text-align:left">
-      <label>जाने का कारण</label>
+      <label>${en?'Reason for leaving':'जाने का कारण'}</label>
       <select class="inp-field" id="exitReasonSel" onchange="document.getElementById('exitReasonOther').style.display=this.value==='other'?'block':'none'">
-        <option value="resigned">🚶 खुद छोड़ा (Resigned)</option>
-        <option value="terminated">❌ हटाया गया (Terminated)</option>
-        <option value="contract_end">📋 Contract समाप्त</option>
+        <option value="resigned">🚶 ${en?'Resigned':'खुद छोड़ा (Resigned)'}</option>
+        <option value="terminated">❌ ${en?'Terminated':'हटाया गया (Terminated)'}</option>
+        <option value="contract_end">📋 ${en?'Contract ended':'Contract समाप्त'}</option>
         <option value="retired">🏖️ Retired</option>
-        <option value="other">✏️ अन्य कारण</option>
+        <option value="other">✏️ ${en?'Other':'अन्य कारण'}</option>
       </select>
     </div>
     <div class="field" id="exitReasonOther" style="text-align:left;display:none">
-      <label>कारण लिखें</label>
-      <input class="inp-field" id="exitReasonText" placeholder="कारण लिखें...">
+      <label>${en?'Type reason':'कारण लिखें'}</label>
+      <input class="inp-field" id="exitReasonText" placeholder="${en?'Reason…':'कारण लिखें...'}">
     </div>
-    <button class="big-btn red" onclick="archiveEmployee('${id}','${name}')">✅ हाँ, हटाएं</button>
-    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
+    <button class="big-btn red" onclick="archiveEmployee('${safeId}','${safeName}')">✅ ${en?'Yes, Delete':'हाँ, हटाएं'}</button>
+    <button class="cancel-btn" onclick="closeModal()">${en?'Cancel':'रद्द करें'}</button>
   </div>`);
 }
 
 async function archiveEmployee(id, name){
+  if(!isAdmin() && !isMgr()){ toast('❌ Admin/Manager only'); return; }
   const reasonSel = document.getElementById('exitReasonSel');
   const reasonOther = document.getElementById('exitReasonText');
-  const reason = reasonSel ? (reasonSel.value === 'other' ? (reasonOther?.value||'अन्य') : reasonSel.value) : 'resigned';
+  const reason = reasonSel ? (reasonSel.value === 'other' ? ((reasonOther && reasonOther.value) || 'Other') : reasonSel.value) : 'resigned';
 
-  // Get full employee data before deleting
-  const empData = getEmps().find(e => e.id === id) || {};
+  let empData = (typeof getEmps==='function' ? getEmps() : []).find(e => e && e.id === id)
+    || ((_cache.employees||[]).find(e => e && e.id === id))
+    || {};
+  if(!empData.id){ empData = Object.assign({}, empData, { id, name: name || empData.name || '' }); }
 
-  // Archive to leftEmployees
-  await fbSet('leftEmployees/' + id, {
-    ...empData,
-    id,
-    leftAt: new Date().toISOString(),
-    leftReason: reason,
-    archivedAt: Date.now()
-  });
-
-  // Remove from active employees
-  await fbRemove('employees/' + id);
-
-  // Clear mobileUsers identity so next login does not show this old name
   try{
-    await _unlinkMobileUserOnLeave({ ...empData, id, status: reason||'removed', phone: empData.phone||empData.mobile });
-  }catch(e){}
-  try{
-    const mob = _normMobileKey(empData.phone||empData.mobile||'');
-    if(mob){
-      await fbUpdate('mobileUsers/'+mob, {
-        name: '',
-        empId: null,
-        empCode: null,
-        empObjId: null,
-        employeeId: null,
-        status: 'left_team',
-        leftAt: new Date().toISOString(),
-        leftReason: reason||'removed'
-      });
+    toast('⏳ Removing…');
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){
+        toast((typeof L==='function')?L('❌ इस device पर Phone verify करें','❌ Verify phone on this device first'):'❌ Verify phone first');
+        return;
+      }
     }
-  }catch(e){}
-  try{
-    await fbUpdate('deviceApprovals/'+id, {
-      empName: (name||'')+' (left)',
-      validTill: new Date(0).toISOString(),
-      leftAt: new Date().toISOString()
-    });
-  }catch(e){}
 
-  closeModal();
-  toast('🚪 ' + name + ' Left Members में चले गए');
-  renderTeam();
-  renderLeftMembers();
+    // Archive copy
+    try{
+      await fbSet('leftEmployees/' + id, {
+        ...empData,
+        id,
+        name: empData.name || name || '',
+        leftAt: new Date().toISOString(),
+        leftReason: reason,
+        archivedAt: Date.now(),
+        removedBy: SESSION.name || SESSION.mobile || 'manager'
+      });
+    }catch(archErr){ console.warn('[archive] leftEmployees', archErr); }
+
+    // Remove active record (or soft-delete)
+    try{
+      if(typeof fbRemove==='function') await fbRemove('employees/' + id);
+      else await fbSet('employees/' + id, null);
+    }catch(remErr){
+      console.warn('[archive] hard remove failed → soft', remErr);
+      try{
+        await fbUpdate('employees/' + id, {
+          status: 'resigned',
+          leftAt: new Date().toISOString(),
+          leftReason: reason,
+          removedBy: SESSION.name || SESSION.mobile || 'manager',
+          active: false
+        });
+      }catch(softErr){
+        toast('❌ Delete failed: '+(softErr.message||softErr));
+        return;
+      }
+    }
+
+    // Local cache
+    try{
+      if(Array.isArray(_cache.employees)){
+        _cache.employees = _cache.employees.filter(e => e && e.id !== id);
+      }
+    }catch(e){}
+
+    // Clear mobileUsers identity so next login does not show this old name
+    try{
+      if(typeof _unlinkMobileUserOnLeave==='function'){
+        await _unlinkMobileUserOnLeave({ ...empData, id, status: reason||'removed', phone: empData.phone||empData.mobile });
+      }
+    }catch(e){}
+    try{
+      const mob = (typeof _normMobileKey==='function')
+        ? _normMobileKey(empData.phone||empData.mobile||'')
+        : String(empData.phone||empData.mobile||'').replace(/\D/g,'').slice(-10);
+      if(mob && mob.length===10){
+        await fbUpdate('mobileUsers/'+mob, {
+          name: '',
+          empId: null,
+          empCode: null,
+          empObjId: null,
+          employeeId: null,
+          status: 'left_team',
+          leftAt: new Date().toISOString(),
+          leftReason: reason||'removed'
+        });
+      }
+    }catch(e){}
+    try{
+      await fbUpdate('deviceApprovals/'+id, {
+        empName: (name||empData.name||'')+' (left)',
+        validTill: new Date(0).toISOString(),
+        leftAt: new Date().toISOString()
+      });
+    }catch(e){}
+
+    closeModal();
+    toast('🚪 ' + (name||empData.name||'') + ' → Left Members');
+    try{ renderTeam(document.querySelector('#teamSearch, input[oninput*=renderTeam]')?.value || ''); }catch(e){ try{ renderTeam(); }catch(e2){} }
+    try{ renderLeftMembers(); }catch(e){}
+  }catch(err){
+    console.error('[archiveEmployee]', err);
+    toast('❌ Delete failed: '+(err.message||err));
+  }
 }
 
 async function delEmployee(id){
@@ -20088,6 +20588,17 @@ async function saveAllShiftChanges(opts){
 
     const savedEntries = [...entries];
 
+    // OD → other shift: remove OD report records for that emp+date
+    try{
+      for(const e of savedEntries){
+        const wasOD = String(e.currentShift||'').toUpperCase() === 'OD';
+        const nowOD = String(e.newShift||'').toUpperCase() === 'OD';
+        if(wasOD && !nowOD){
+          await _removeODRecordsForEmpDate(e.empId, e.date);
+        }
+      }
+    }catch(odErr){ console.warn('[save] OD cleanup', odErr); }
+
     // Ensure phone-auth (not anonymous) before write — may open OTP modal, no full logout
     const okAuth = await _ensureWriteAuth();
     if(!okAuth){
@@ -21013,6 +21524,60 @@ function openODDetails(empId, empName, odDate, currentShift){
   },100);
 }
 
+
+/**
+ * Remove OD report records for an employee on a given date.
+ * Called when schedule cell is changed away from OD.
+ */
+async function _removeODRecordsForEmpDate(empId, date){
+  if(!empId || !date) return 0;
+  try{
+    const all = await fbGet('reports');
+    if(!all || typeof all !== 'object') return 0;
+    const emp = (typeof getEmps==='function' ? getEmps() : []).find(e=>e && e.id===empId);
+    const code = emp ? String(emp.empId||emp.empCode||'') : '';
+    const dateKey = String(date).slice(0,10);
+    const targets = [];
+    Object.entries(all).forEach(([k, r])=>{
+      if(!r || r.type !== 'od') return;
+      if(r.status === 'removed') return;
+      const sameEmp = r.empId === empId
+        || (code && (String(r.empCode||'') === code || String(r.empId||'') === code))
+        || (r.odKey && r.odKey === empId + '_' + dateKey);
+      if(!sameEmp) return;
+      const rd = String(r.date||'').slice(0,10);
+      if(rd === dateKey) targets.push(k);
+    });
+    let n = 0;
+    for(const k of targets){
+      try{
+        if(typeof fbRemove==='function') await fbRemove('reports/'+k);
+        else await fbSet('reports/'+k, null);
+        n++;
+      }catch(e){
+        try{
+          await fbUpdate('reports/'+k, {
+            status:'removed',
+            removedAt: new Date().toISOString(),
+            removedReason:'schedule_changed_from_OD'
+          });
+          n++;
+        }catch(e2){ console.warn('[OD remove]', k, e2); }
+      }
+    }
+    try{
+      if(_cache && _cache.reports && typeof _cache.reports==='object'){
+        targets.forEach(k=>{ try{ delete _cache.reports[k]; }catch(e){} });
+      }
+    }catch(e){}
+    if(n) console.log('[OD] removed', n, 'record(s) for', empId, dateKey);
+    return n;
+  }catch(err){
+    console.warn('[removeODRecords]', err);
+    return 0;
+  }
+}
+
 async function submitOD(empId, empName, date, currentShift){
   const deptSel = document.getElementById('odDept').value;
   const customDept = (document.getElementById('odCustomDept')?.value||'').trim();
@@ -21026,6 +21591,7 @@ async function submitOD(empId, empName, date, currentShift){
     await fbPush('reports', {
       type: 'od',
       empId, empName, date,
+      odKey: empId + '_' + date,
       toDept, reason,
       markedBy: SESSION.name||'Admin',
       markedAt: new Date().toISOString(),
@@ -21385,6 +21951,14 @@ async function applyShiftChange(){ /* unused — replaced by stageSingleShiftCha
 async function resetShiftOverride(empId, date){
   closeModal();
   try{
+    // If current override/display was OD, drop OD report for that day
+    try{
+      const emp = (typeof getEmps==='function'?getEmps():[]).find(e=>e&&e.id===empId);
+      const cur = emp && typeof getShift==='function' ? getShift(emp, date) : '';
+      if(String(cur||'').toUpperCase()==='OD' && typeof _removeODRecordsForEmpDate==='function'){
+        await _removeODRecordsForEmpDate(empId, date);
+      }
+    }catch(e){}
     const existing = {...getOverrides()};
     delete existing[empId+'_'+date];
     await fbSet('overrides', existing);
@@ -21689,7 +22263,7 @@ async function loadScheduleBuilder(){
       <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:1;min-width:98px">
         <div style="display:flex;align-items:center;gap:4px">
           <button type="button" class="sb-row-cp" data-row="${rowIdx}" onclick="event.stopPropagation();_sbRowBtnClick(${rowIdx})"
-            title="Copy/Paste row" style="flex-shrink:0;width:18px;height:18px;line-height:16px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:9px;font-weight:900;cursor:pointer">C</button>
+            title="C = Copy row · P = Paste row" style="flex-shrink:0;width:22px;height:28px;line-height:26px;padding:0;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:10px;font-weight:900;cursor:pointer">C</button>
           <div style="min-width:0">
             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s.color||'#fff'};margin-right:3px"></span>${emp.name.split(' ')[0]}
             ${emp.woff?`<span style="font-size:8px;color:#f97316;font-weight:600;display:block;margin-top:1px">${emp.woff} off</span>`:''}
@@ -21709,15 +22283,15 @@ async function loadScheduleBuilder(){
     <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="modal-title" style="margin:0">📅 ${rangeLabel}</div>
-        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← बदलें</button>
+        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
-        <div id="sbCellLegend" style="font-size:11px;color:var(--muted2);flex:1">🖱️ Drag करके Cells चुनें · Double-tap करके Copy/Select करें</div>
+        <div id="sbCellLegend" style="font-size:11px;color:var(--muted2);flex:1">${(typeof L==='function')?L('🖱️ Drag करके Cells चुनें · Double-tap करके Copy/Select करें','🖱️ Drag to select cells · Double-tap to copy/select'):'🖱️ Drag to select · Double-tap to copy'}</div>
         <button onclick="autoGenSchedule('${monthKey}')"
           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
           color:#fff;font-size:12px;font-weight:800;padding:8px 14px;cursor:pointer;white-space:nowrap;
           display:flex;align-items:center;gap:5px;font-family:inherit">
-          🤖 Auto बनाएं
+          🤖 ${(typeof L==='function')?L('Auto बनाएं','Auto Generate'):'Auto Generate'}
         </button>
       </div>
     </div>
@@ -21729,14 +22303,14 @@ async function loadScheduleBuilder(){
         ${headerDays}
       </div>
     </div>
-    <div id="sbBodyScroll" style="overflow-x:auto;margin-bottom:14px;border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px">
+    <div id="sbBodyScroll" style="flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px">
       <table style="border-collapse:collapse;width:max-content;min-width:100%">
         <tbody id="sb_tbody">${rows}</tbody>
       </table>
     </div>
-    <div id="sbSaveBar">
-      <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 Save करें</button>
-      <button class="cancel-btn" style="flex:1" onclick="closeModal()">रद्द करें</button>
+    <div id="sbFooterBar" style="display:flex;gap:10px">
+      <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save करें','Save'):'Save'}</button>
+      <button class="cancel-btn" style="flex:1" onclick="closeModal()">${(typeof L==='function')?L('रद्द करें','Cancel'):'Cancel'}</button>
     </div>`);
   try{ _sbLockLandscape(true); }catch(e){}
   setTimeout(initSBSelection, 50);
@@ -21912,30 +22486,36 @@ function _sbShowToolbar(){
   if(!bar) return;
   if(!_sbSelectedCells.length){ bar.innerHTML=''; bar.style.display='none'; setTimeout(_sbPositionStickyTableHeader,10); return; }
   const activeCodes = (typeof _sbActiveShiftCodes==='function') ? _sbActiveShiftCodes() : ['D','N'];
+  const clearLbl = (typeof L==='function')?L('✖ साफ','✖ Clear'):'✖ Clear';
   const values=[
     ...activeCodes.map(c=>({v:c,l:c})),
     {v:'O',l:'O'},{v:'L',l:'L'},
     {v:'G',l:'G'},{v:'C/O',l:'CO'},{v:'H',l:'H'},{v:'OD',l:'OD'},
-    {v:'HLF',l:'½'},{v:'Ab',l:'Ab'},{v:'',l:'✖ साफ'}
+    {v:'HLF',l:'½'},{v:'Ab',l:'Ab'},{v:'',l:clearLbl}
   ];
+  const selLbl = (typeof L==='function')
+    ? L(_sbSelectedCells.length+' Cell चुने गए', _sbSelectedCells.length+' cells selected')
+    : (_sbSelectedCells.length+' cells selected');
+  const fillLbl = (typeof L==='function')?L('Tap to fill:','Tap to fill:'):'Tap to fill:';
   bar.style.display='block';
   bar.innerHTML=`
-    <div style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:10px;padding:10px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">
-        <span style="font-size:12px;font-weight:800;color:var(--text)">${_sbSelectedCells.length} Cell चुने गए</span>
-        <div style="display:flex;gap:6px">
-          <button onclick="_sbCopySelection()" style="background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Copy</button>
-          ${_sbClipboard?`<button onclick="_sbPasteSelection()" style="background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.3);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">📥 Paste (${_sbClipboard.rows}×${_sbClipboard.cols})</button>`:''}
-          <button onclick="_sbClearSelectionOnly()" style="background:none;color:#64748b;border:1px solid var(--border2);border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer">✕</button>
+    <div class="sb-sel-bar" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.3);border-radius:10px;padding:6px 8px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:800;color:var(--text)">${selLbl}</span>
+        <div style="display:flex;gap:5px;align-items:center">
+          <button type="button" onclick="_sbCopySelection()" style="background:rgba(34,197,94,.12);color:#22c55e;border:1px solid rgba(34,197,94,.3);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer">📋 Copy</button>
+          ${_sbClipboard?`<button type="button" onclick="_sbPasteSelection()" style="background:rgba(96,165,250,.12);color:#60a5fa;border:1px solid rgba(96,165,250,.3);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer">📥 Paste (${_sbClipboard.rows}×${_sbClipboard.cols})</button>`:''}
+          <button type="button" onclick="_sbClearSelectionOnly()" style="background:none;color:#64748b;border:1px solid var(--border2);border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer">✕</button>
         </div>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-bottom:6px">यहाँ tap करके सीधे भरें:</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        ${values.map(o=>`<button onclick="_sbFillSelection('${o.v}')" style="min-width:34px;padding:6px 8px;border-radius:6px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:11px;font-weight:800;cursor:pointer">${o.l}</button>`).join('')}
+      <div style="font-size:9px;color:#64748b;margin:4px 0 2px">${fillLbl}</div>
+      <div class="sb-fill-chips" style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;flex-wrap:nowrap">
+        ${values.map(o=>`<button type="button" onclick="_sbFillSelection('${o.v}')" style="flex-shrink:0;min-width:32px;padding:5px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:11px;font-weight:800;cursor:pointer">${o.l}</button>`).join('')}
       </div>
     </div>`;
   setTimeout(_sbPositionStickyTableHeader,10);
 }
+
 
 function _sbFillSelection(val){
   _sbSelectedCells.forEach(cell=>_sbSetCellValue(cell,val));
@@ -22004,14 +22584,20 @@ function _sbCopyEntireRow(rowIdx){
 
 /** Paste clipboard into entire target row (from first day) */
 function _sbPasteEntireRow(rowIdx){
-  if(!_sbClipboard || !_sbClipboard.grid){ toast('⚠️ पहले कोई Row/Cells Copy करें'); return; }
+  if(!_sbClipboard || !_sbClipboard.grid){ toast((typeof L==='function')?L('⚠️ पहले कोई Row/Cells Copy करें','⚠️ Copy a row/cells first'):'⚠️ Copy first'); return; }
+  const srcRow = _sbClipboard.grid[0] || [];
+  const srcHasData = srcRow.some(v => v && String(v).trim());
+  if(!srcHasData){
+    const ok = confirm((typeof L==='function')
+      ? L('Copied row खाली है — फिर भी paste करें? (मौजूदा shifts हट सकते हैं)','Copied row is empty — paste anyway? (may clear existing shifts)')
+      : 'Copied row is empty — paste anyway?');
+    if(!ok) return;
+  }
   const cells = [...document.querySelectorAll('#sb_tbody .shc[data-row="'+rowIdx+'"][data-isleave="0"]')];
   if(!cells.length) return;
   cells.sort((a,b)=> (+a.dataset.day) - (+b.dataset.day));
-  const srcRows = _sbClipboard.rows || _sbClipboard.grid.length;
-  const srcCols = _sbClipboard.cols || (_sbClipboard.grid[0]||[]).length;
+  const srcCols = _sbClipboard.cols || (_sbClipboard.grid[0]||[]).length || srcRow.length;
   // If clipboard is multi-row, paste only first row of clipboard into this employee row
-  const srcRow = _sbClipboard.grid[0] || [];
   cells.forEach((cell, i)=>{
     const srcVal = srcRow[i % srcCols] != null ? srcRow[i % srcCols] : '';
     _sbSetCellValue(cell, srcVal);
@@ -22024,13 +22610,19 @@ function _sbPasteEntireRow(rowIdx){
 }
 
 function _sbRowBtnClick(rowIdx){
-  rowIdx = +rowIdx;
-  // If we already copied a row and this is a different row → Paste
-  if(_sbClipboard && _sbClipboard.source==='row' && _sbClipboard.sourceRow != null && +_sbClipboard.sourceRow !== rowIdx){
+  // Already source? second tap clears clipboard
+  if(_sbClipboard && _sbClipboard.source==='row' && +_sbClipboard.sourceRow === +rowIdx){
+    _sbClipboard = null;
+    _sbRefreshRowColButtons();
+    try{ toast((typeof L==='function')?L('Clipboard साफ़','Clipboard cleared'):'Clipboard cleared'); }catch(e){}
+    return;
+  }
+  // Another row already copied → paste into this row
+  if(_sbClipboard && _sbClipboard.source==='row' && _sbClipboard.sourceRow != null && +_sbClipboard.sourceRow !== +rowIdx){
     _sbPasteEntireRow(rowIdx);
     return;
   }
-  // Same row again or fresh → Copy
+  // Default: copy this row
   _sbCopyEntireRow(rowIdx);
 }
 
@@ -22067,8 +22659,13 @@ function _sbPasteEntireCol(dayIdx){
 }
 
 function _sbColBtnClick(dayIdx){
-  dayIdx = +dayIdx;
-  if(_sbClipboard && _sbClipboard.source==='col' && _sbClipboard.sourceCol != null && +_sbClipboard.sourceCol !== dayIdx){
+  if(_sbClipboard && _sbClipboard.source==='col' && +_sbClipboard.sourceCol === +dayIdx){
+    _sbClipboard = null;
+    _sbRefreshRowColButtons();
+    try{ toast((typeof L==='function')?L('Clipboard साफ़','Clipboard cleared'):'Clipboard cleared'); }catch(e){}
+    return;
+  }
+  if(_sbClipboard && _sbClipboard.source==='col' && _sbClipboard.sourceCol != null && +_sbClipboard.sourceCol !== +dayIdx){
     _sbPasteEntireCol(dayIdx);
     return;
   }
@@ -22396,10 +22993,12 @@ async function saveScheduleBuilder(monthKey){
   const merged = {...existing};
   const emps = getEmps().filter(e => e.status !== 'resigned');
 
+  const odRemovals = []; // {empId, date} when cell was OD and is no longer
   emps.forEach(emp => {
     const cells = Array.from(sbTbody.querySelectorAll(`[data-empid="${emp.id}"]`));
     if(!cells.length) return;
     // Start from existing full-month array (or blank)
+    const prevArr = Array.isArray(merged[emp.id]) ? merged[emp.id].slice() : [];
     const arr = Array.isArray(merged[emp.id])
       ? merged[emp.id].slice()
       : new Array(daysInMonth).fill('');
@@ -22408,13 +23007,23 @@ async function saveScheduleBuilder(monthKey){
     cells.forEach(c => {
       const dayIdx = parseInt(c.dataset.day, 10);
       if(!isNaN(dayIdx) && dayIdx >= 0 && dayIdx < daysInMonth){
-        arr[dayIdx] = c.dataset.val || 'O';
+        const newVal = (c.dataset.val || '').trim(); // blank stays blank — do NOT default to O
+        const oldVal = String(prevArr[dayIdx] || '').trim().toUpperCase();
+        if(oldVal === 'OD' && newVal.toUpperCase() !== 'OD'){
+          const ds = yr + '-' + String(mo).padStart(2,'0') + '-' + String(dayIdx+1).padStart(2,'0');
+          odRemovals.push({ empId: emp.id, date: ds });
+        }
+        arr[dayIdx] = newVal;
       }
     });
     merged[emp.id] = arr;
   });
   
   try{
+    // Remove OD report records for cells no longer OD
+    for(const item of odRemovals){
+      try{ await _removeODRecordsForEmpDate(item.empId, item.date); }catch(e){}
+    }
     await fbSet('schedules/' + monthKey.replace('-','_'), merged);
     const from = window._sbDayFrom || 1;
     const to = window._sbDayTo || daysInMonth;

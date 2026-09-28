@@ -5,7 +5,7 @@
   <div id="teamListArea">
   <div id="adminTeamHierarchyBlock" style="display:none">
     <div style="font-size:12px;font-weight:800;color:#22c55e;letter-spacing:.5px;margin:0 0 8px">
-      &#127959;&#65039; MANAGERS &amp; उनकी TEAMS (Mobile Registration)
+      🏗️ Managers &amp; Teams (Mobile Registration)
     </div>
     <div id="adminTeamHierarchySection"><div class="empty-text" style="padding:12px;font-size:12px">Loading...</div></div>
     <div style="font-size:12px;font-weight:800;color:#94a3b8;letter-spacing:.5px;margin:20px 0 10px;padding-top:14px;border-top:1px solid var(--border2)">
@@ -15,7 +15,7 @@
   <div id="teamAddBtn"></div>
   <div class="search-box">
     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke-width="2" stroke-linecap="round"/></svg>
-    <input type="text" placeholder="नाम या कोड से खोजें..." oninput="renderTeam(this.value)">
+    <input type="text" id="teamSearchInp" placeholder="Search name, mobile or emp code…" oninput="renderTeam(this.value)">
   </div>
   <div class="chips" id="teamFilter">
     <div class="chip on" onclick="setTeamSec('ALL',this)" data-i18n-all>सभी</div>
