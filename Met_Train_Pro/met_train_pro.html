@@ -4,27 +4,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <meta name="theme-color" content="#111111">
+<script>
+(function(){try{var t=localStorage.getItem('mt_theme')||'dark';
+document.documentElement.setAttribute('data-theme',t);
+if(t==='light')document.documentElement.classList.add('mt-preload-light');
+}catch(e){}})();
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="Met Train PRO — Vacuum Metallisation Training Platform for metalliser operators. Hindi-first industrial training.">
 <title>Met Train PRO v7 — Industry Metalliser Training</title>
-<link rel="icon" type="image/svg+xml" href="Met_Train_Pro/assets/favicon.svg">
-<link rel="apple-touch-icon" href="Met_Train_Pro/assets/logo-icon.svg">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="apple-touch-icon" href="assets/logo-icon.svg">
 <link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWV0IFRyYWluIFBSTyIsInNob3J0X25hbWUiOiJNZXRUcmFpbiIsInN0YXJ0X3VybCI6Ii4iLCJkaXNwbGF5Ijoic3RhbmRhbG9uZSIsImJhY2tncm91bmRfY29sb3IiOiIjMTExMTExIiwidGhlbWVfY29sb3IiOiIjMjVkMzY2IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbCw8c3ZnIHhtbG5zPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zycgd2lkdGg9JzE5Micgdmlld0JveD0nMCAwIDE5MiAxOTInPjxyZWN0IHdpZHRoPScxOTInIGhlaWdodD0nMTkyJyByeD0nMzInIGZpbGw9JyMyNWQzNjYnLz48dGV4dCB4PSc5NicgeT0nMTE2JyB0ZXh0LWFuY2hvcj0nbWlkZGxlJyBmb250LXNpemU9JzY0JyBmb250LWZhbWlseT0nc2Fucy1zZXJpZicgZm9udC13ZWlnaHQ9JzkwMCcgZmlsbD0nI2ZmZic+TVQ8L3RleHQ+PC9zdmc+Iiwic2l6ZXMiOiIxOTJ4MTkyIiwidHlwZSI6ImltYWdlL3N2Zyt4bWwifV19">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Mukta:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<link rel="stylesheet" href="Met_Train_Pro/css/styles.css">
+<link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 <div id="topbar">
   <!-- Back button: shown when NOT on landing, always leftmost -->
-  <button id="tb-back-btn" onclick="backToLanding()" style="display:none;background:rgba(37,211,102,.08);border:1.5px solid rgba(37,211,102,.35);border-radius:9px;padding:7px 15px;color:#25d366;font-size:13px;font-weight:800;cursor:pointer;font-family:'Mukta','Hind',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:.01em">← वापस</button>
+  <button type="button" id="tb-back-btn" class="tb-back-btn" onclick="backToLanding()" style="display:none;border-radius:9px;padding:7px 15px;font-size:13px;cursor:pointer;font-family:'Mukta','Hind',sans-serif;white-space:nowrap;flex-shrink:0;letter-spacing:.01em" aria-label="Back">← वापस</button>
 
   <!-- Logo: shown on landing only -->
   <div class="tb-logo" id="tbLogo" style="cursor:default">
-    <div class="tb-hex" style="padding:0;overflow:hidden;background:transparent;box-shadow:none"><img src="Met_Train_Pro/assets/logo-icon.svg" alt="MT" width="38" height="38" style="display:block;border-radius:11px"></div>
+    <div class="tb-hex" style="padding:0;overflow:hidden;background:transparent;box-shadow:none"><img src="assets/logo-icon.svg" alt="MT" width="38" height="38" style="display:block;border-radius:11px"></div>
     <div><div class="tb-name">Met Train <span>PRO</span></div><div class="tb-sub">मेटलाइज़र फ्लोर ट्रेनिंग</div></div>
   </div>
 
@@ -34,13 +40,17 @@
     <div id="tb-page-title" style="font-size:14px;font-weight:700;color:var(--txt);font-family:'Mukta','Hind',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
   </div>
 
-  <div class="tb-langs" id="tb-langs-wrap">
-    <button class="lb on" onclick="setLang('hi')">हिं</button>
-    <button class="lb" onclick="setLang('en')">EN</button>
-    <button class="lb" onclick="setLang('or')">ଓ</button>
-    <button class="lb" onclick="setLang('ta')">த</button>
-    <button class="lb" onclick="setLang('te')">తె</button>
-    <button class="lb" onclick="setLang('th')">ไท</button>
+  <button type="button" id="tb-theme-btn" onclick="toggleTheme()" title="Light mode" aria-label="Light mode">☀️</button>
+  <div class="tb-locale" id="tb-locale-wrap">
+    <select id="tb-country" class="tb-country" onchange="setCountry(this.value)" aria-label="Country" title="Country">
+      <option value="IN">🇮🇳 India</option>
+      <option value="GULF">🌴 Gulf</option>
+      <option value="CN">🇨🇳 China</option>
+      <option value="EU">🇪🇺 Europe</option>
+      <option value="AM">🌎 Americas</option>
+      <option value="SEA">🌏 SE Asia</option>
+    </select>
+    <div class="tb-langs" id="tb-langs-wrap" role="group" aria-label="Language"></div>
   </div>
 </div>
   <div id="body">
@@ -118,16 +128,17 @@
 
 
 <!-- Met Train PRO modules (folder: Met_Train_Pro/) -->
-<script src="Met_Train_Pro/js/config.js"></script>
-<script src="Met_Train_Pro/js/core.js"></script>
-<script src="Met_Train_Pro/js/defects.js"></script>
-<script src="Met_Train_Pro/js/sops.js"></script>
-<script src="Met_Train_Pro/js/process.js"></script>
-<script src="Met_Train_Pro/js/quiz_check.js"></script>
-<script src="Met_Train_Pro/js/ai.js"></script>
-<script src="Met_Train_Pro/js/extras.js"></script>
-<script src="Met_Train_Pro/js/manuals.js"></script>
-<script src="Met_Train_Pro/js/ai_kb_extra.js"></script>
+<script src="js/i18n_locale.js"></script>
+<script src="js/config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/defects.js"></script>
+<script src="js/sops.js"></script>
+<script src="js/process.js"></script>
+<script src="js/quiz_check.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/extras.js"></script>
+<script src="js/manuals.js"></script>
+<script src="js/ai_kb_extra.js"></script>
 
 
 <script>

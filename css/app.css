@@ -573,7 +573,7 @@ body.light .payment-input { color:var(--text) !important; -webkit-text-fill-colo
 body.light .inp-field { color:var(--text) !important; -webkit-text-fill-color:var(--text) !important; }
 body.light .page-title { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
 body.light .learn-title { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
-body.light .learn-back { color:#000000 !important;-webkit-text-fill-color:#000000 !important; }
+body.light .learn-back { color:#ffffff !important;-webkit-text-fill-color:#ffffff !important; }
 body.light .learn-top-btn-login { color:var(--text) !important; }
 body.light .todo-img-preview-del { /* keep colored bg */ }
 body.light .checked { /* checklist item - keep bg color */ }
@@ -1027,7 +1027,7 @@ body.light #learnMainButtons .lc-sub{color:rgba(255,255,255,.8) !important;-webk
 body.light #learnMainButtons .lc-arrow{opacity:.9 !important;}
 /* Learn screen on light mode: keep all text white since bg is dark */
 body.light .learn-screen .learn-title { color:#fff !important; -webkit-text-fill-color:#fff !important; }
-body.light .learn-screen .learn-back  { color:#fff !important; }
+body.light .learn-screen .learn-back  { color:#fff !important;-webkit-text-fill-color:#fff !important; background:rgba(15,23,42,.8)!important; border:2px solid rgba(251,146,60,.9)!important; }
 body.light .learn-screen [style*="color:var(--text)"] { color:#fff !important; -webkit-text-fill-color:#fff !important; }
 /* ══ NAV — stays visible while scrolling schedule ══ */
 .nav{
@@ -1601,8 +1601,22 @@ body.light .learn-hero{ background:linear-gradient(160deg,#1a0533,#0d1623,#080e1
   padding:30px 20px 24px;text-align:center;border-bottom:1px solid rgba(168,85,247,.2);
   position:relative;
 }
-.learn-back{position:absolute;top:16px;left:16px;width:36px;height:36px;border-radius:9px;
-  background:rgba(255,255,255,.1);border:none;color:#fff;font-size:18px;cursor:pointer;}
+.learn-back{
+  position:absolute;top:14px;left:14px;z-index:5;
+  min-width:44px;min-height:44px;width:44px;height:44px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(15,23,42,.75)!important;
+  border:2px solid rgba(251,146,60,.85)!important;
+  color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;
+  font-size:22px;font-weight:900;line-height:1;cursor:pointer;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);
+  backdrop-filter:blur(6px);
+}
+.learn-back:hover,.learn-back:active{
+  background:rgba(249,115,22,.95)!important;
+  border-color:#fb923c!important;
+  color:#fff!important;
+}
 .learn-logo{font-family:'Barlow Condensed',sans-serif;font-size:44px;font-weight:900;
   background:linear-gradient(135deg,#a855f7,#f97316,#38bdf8);
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1;}

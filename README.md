@@ -1,9 +1,18 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.17)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.18)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+## What's new in 2.4.18
+
+### Met Train PRO path + Learn & Grow back button
+- Loads Met Train from **`Met_Train_Pro/met_train_pro.html`** (folder deploy).
+- Learn & Grow **← back** button: larger, orange border, high-contrast white arrow (works in light mode).
+- Met Train overlay **← वापस** same high-visibility style.
+- Met Train asset paths are relative inside the folder.
+
+---
 ## What's new in 2.4.17
 
 ### Per-template ON/OFF in Shift Settings

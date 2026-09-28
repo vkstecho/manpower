@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.17';
+const APP_VERSION = '2.4.24';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -1698,9 +1698,11 @@ function updateThemeIcon(){
 initTheme();
 
 // ══════════════════════════════════════════
-// LANGUAGE TOGGLE (Hindi ↔ English)
+// LANGUAGE + COUNTRY (shared with Met Train: mp_country, mp_lang)
+// Default: India → Hindi
 // ══════════════════════════════════════════
 let _lang = localStorage.getItem('mp_lang') || 'hi';
+let _country = localStorage.getItem('mp_country') || 'IN';
 
 
 function shareApp(){
@@ -1721,18 +1723,76 @@ function shareApp(){
     }
   }
 }
+function openLocalePicker(){
+  const countries = (typeof MT_COUNTRY_ORDER!=='undefined') ? MT_COUNTRY_ORDER : ['IN','GULF','CN','EU','AM','SEA'];
+  const locales = (typeof MT_LOCALES!=='undefined') ? MT_LOCALES : {
+    IN:{name:'India',flag:'🇮🇳',langs:[{code:'hi',label:'हिं',title:'हिन्दी'},{code:'en',label:'EN',title:'English'}]}
+  };
+  let cHtml = countries.map(c=>{
+    const L = locales[c]; if(!L) return '';
+    const on = (_country===c) ? 'border:2px solid #f97316;background:rgba(249,115,22,.12)' : 'border:1px solid var(--border2);background:var(--card)';
+    return `<button type="button" onclick="selectCountry('${c}')" style="padding:10px 8px;border-radius:12px;cursor:pointer;font-family:inherit;text-align:center;${on}">
+      <div style="font-size:20px">${L.flag||''}</div>
+      <div style="font-size:11px;font-weight:800;color:var(--text);margin-top:4px">${L.name||c}</div>
+    </button>`;
+  }).join('');
+  const langs = (locales[_country]&&locales[_country].langs) ? locales[_country].langs : [{code:'hi',label:'हिं',title:'हिन्दी'},{code:'en',label:'EN',title:'English'}];
+  let lHtml = langs.map(L=>{
+    const on = (_lang===L.code) ? 'border:2px solid #25d366;background:rgba(37,211,102,.15)' : 'border:1px solid var(--border2);background:var(--card)';
+    return `<button type="button" onclick="selectLang('${L.code}')" style="padding:10px 12px;border-radius:12px;cursor:pointer;font-family:inherit;${on}">
+      <div style="font-size:16px;font-weight:900;color:var(--text)">${L.label}</div>
+      <div style="font-size:10px;color:var(--muted2)">${L.title}</div>
+    </button>`;
+  }).join('');
+  openModal(`
+  <div class="modal-title">🌐 Country & Language</div>
+  <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Default: <b>India</b> → Hindi / English. Same preference is used in Met Train PRO.</div>
+  <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">1. Country</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">${cHtml}</div>
+  <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">2. Language</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${lHtml}</div>
+  <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.4">Full UI: <b>Hindi</b> or <b>English</b> only. Any other language selection uses <b>English</b> words (no mixed text).</div>
+  <div class="modal-sticky-actions">
+    <button class="submit-btn" onclick="closeModal()">✅ Done</button>
+  </div>`);
+}
+function selectCountry(c){
+  _country = c || 'IN';
+  try{ localStorage.setItem('mp_country', _country); }catch(e){}
+  const locales = (typeof MT_LOCALES!=='undefined') ? MT_LOCALES : {};
+  const langs = (locales[_country]&&locales[_country].langs) ? locales[_country].langs : [];
+  if(!langs.some(x=>x.code===_lang)){
+    _lang = (langs[0]&&langs[0].code) || 'en';
+    try{ localStorage.setItem('mp_lang', _lang); }catch(e){}
+  }
+  applyLang();
+  openLocalePicker();
+}
+function selectLang(code){
+  _lang = code || 'hi';
+  try{ localStorage.setItem('mp_lang', _lang); }catch(e){}
+  applyLang();
+  try{ buildNav().then(()=>{ goTab(_currentTab); }); }catch(e){}
+  openLocalePicker();
+  toast('🌐 '+String(_lang).toUpperCase()+' · '+(_country||'IN'));
+}
 function toggleLang(){
   _lang = (_lang === 'hi') ? 'en' : 'hi';
-  localStorage.setItem('mp_lang', _lang);
+  try{ localStorage.setItem('mp_lang', _lang); }catch(e){}
   applyLang();
   buildNav().then(()=>{ goTab(_currentTab); });
 }
 
 function applyLang(){
-  const isEn = _lang === 'en';
+  // Man Power full string tables: Hindi vs English. Non-hi → English chrome.
+  const isEn = (_lang !== 'hi');
   // Toggle button label
   const btn = document.getElementById('langToggleBtn');
-  if(btn) btn.textContent = isEn ? 'हि' : 'EN';
+  if(btn){
+    const flag = ({IN:'🇮🇳',GULF:'🌴',CN:'🇨🇳',EU:'🇪🇺',AM:'🌎',SEA:'🌏'})[_country]||'🌐';
+    btn.textContent = flag+(_lang==='hi'?' हिं':' '+String(_lang).toUpperCase().slice(0,2));
+    btn.title = 'Country / Language';
+  }
 
   // Header brand
   const brand = document.querySelector('.hdr-brand');
@@ -20866,7 +20926,7 @@ function openLearnSection(section){
     if(fr){
       fr.style.display='none';
       if(loader) loader.style.display='flex';
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='met_train_pro.html'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='Met_Train_Pro/met_train_pro.html'; },100); },50);
     }
   } else if(section === 'supskill'){
     supSkillView.style.display='flex';

@@ -413,12 +413,12 @@ window.addEventListener('appinstalled', function () {
       <div class="hdr-brand"><span>MP</span> Man Power</div>
     </div>
     <div class="hdr-right">
-      <div id="langToggleBtn" onclick="toggleLang()" title="हिंदी / English" aria-label="Language"
+      <div id="langToggleBtn" onclick="openLocalePicker()" title="Country / Language" aria-label="Language"
         style="display:flex;align-items:center;justify-content:center;
-               width:38px;height:38px;border-radius:10px;cursor:pointer;
-               background:var(--card2);border:1px solid var(--border2);font-size:13px;
+               min-width:38px;height:38px;padding:0 8px;border-radius:10px;cursor:pointer;
+               background:var(--card2);border:1px solid var(--border2);font-size:12px;
                font-weight:900;font-family:'Barlow Condensed',sans-serif;color:var(--text)">
-        EN
+        🌐
       </div>
       <div id="shareAppBtn" onclick="shareApp()" title="Share App" aria-label="Share app"
         style="display:flex;align-items:center;justify-content:center;
@@ -526,7 +526,7 @@ window.addEventListener('appinstalled', function () {
 <div id="learnScreen" class="learn-screen">
   <!-- HERO -->
   <div class="learn-hero" style="padding-bottom:20px">
-    <button class="learn-back" onclick="closeLearnScreen()">←</button>
+    <button type="button" class="learn-back" onclick="closeLearnScreen()" aria-label="Back" title="Back">←</button>
     <div class="learn-logo" style="font-size:36px;letter-spacing:4px">सीखें & Grow करें</div>
     <div class="learn-title" style="font-size:17px">🚀 Man Power Skill Development Platform</div>
     <div class="learn-sub" style="font-size:11px;margin-top:3px">Real Skills · Real Growth · By Professionals, For Professionals</div>
@@ -632,7 +632,8 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ MET TRAIN PRO IFRAME VIEW ════ -->
   <div id="learnMetTrainView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
-      <button onclick="closeLearnSection()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button type="button" onclick="closeLearnSection()" aria-label="Back"
+        style="background:rgba(249,115,22,.2);border:2px solid rgba(251,146,60,.85);border-radius:10px;padding:8px 14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.35)">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px">⚙️</span>
         <div>
@@ -1322,7 +1323,8 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/app.js?v=257"></script>
+<script src="js/i18n_locale.js"></script>
+<script src="js/app.js?v=258"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

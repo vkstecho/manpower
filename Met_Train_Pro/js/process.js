@@ -5,10 +5,13 @@
 function rSAP(pg){
   if(MODE!=='free'){pg.innerHTML=Lock();return;}
   pg.innerHTML=
-    '<div class="ph"><div class="ph-code">मॉड्यूल 5 — आंतरिक — SAP प्रविष्टि</div>'
-    +'<div class="ph-title">SAP प्रविष्टि एवं <span>रिकॉर्ड</span></div>'
-    +'<div class="ph-desc">Met Jumbo (COR1+ZPP_METJUMBO (plant SAP T-code)) और Slitting (ZPP_SLIT) के लिए Step-by-Step SAP प्रोडक्शन एंट्री।</div>'
-    +'<div class="tags"><span class="tag a">मुक्त / Free</span><span class="tag c">ZPP_METJUMBO (plant SAP T-code)</span><span class="tag g">ZPP_SLIT</span></div></div>'
+    phHeader(
+      'मॉड्यूल 5 — SAP Entry','SAP Entry एवं <span>Records</span>','Met Jumbo (COR1 + ZPP_METJUMBO) और Slitting (ZPP_SLIT) — step-by-step SAP production entry।',
+      'Module 5 — SAP Entry','SAP Entry & <span>Records</span>','Step-by-step SAP production entry for Met Jumbo (COR1 + ZPP_METJUMBO) and Slitting (ZPP_SLIT).'
+    )
+    +(LANG==='hi'
+      ? '<div class="tags"><span class="tag a">Free</span><span class="tag c">ZPP_METJUMBO</span><span class="tag g">ZPP_SLIT</span></div>'
+      : '<div class="tags"><span class="tag a">Free</span><span class="tag c">ZPP_METJUMBO</span><span class="tag g">ZPP_SLIT</span></div>')
     +Al('i','💻','Login: POLY_MATEL_E | System: PROD | Plant: 3001 | Controlling Area: 3000 | Semi-Finished: 3SF-G… | Finished: 3FG-G…')
     +Tabs(['Met Jumbo (COR1 + ZPP_METJUMBO (plant SAP T-code))','Slitting (ZPP_SLIT)','Quick Reference'],[
       Al('i','📋','प्रवाह: COR1 (Order बनाएं) → ZPP_METJUMBO (plant SAP T-code) (डेटा भरें) → Ctrl+S')
@@ -63,10 +66,11 @@ function rSAP(pg){
 function rMaint(pg){
   if(MODE!=='free'){pg.innerHTML=Lock();return;}
   pg.innerHTML=
-    '<div class="ph"><div class="ph-code">मॉड्यूल 6 — आंतरिक — निवारक रखरखाव</div>'
-    +'<div class="ph-title">निवारक <span>रखरखाव (PM)</span></div>'
-    +'<div class="ph-desc">Metalliser-1 और Metalliser-2 के लिए दैनिक, साप्ताहिक, मासिक और त्रैमासिक PM अनुसूची। फॉर्मेट: MET F-07/08/09/10/11।</div>'
-    +'<div class="tags"><span class="tag a">मुक्त / Free</span><span class="tag c">MET F-07 to F-11</span></div></div>'
+    phHeader(
+      'मॉड्यूल 6 — Maintenance (PM)','Preventive <span>Maintenance (PM)</span>','Metalliser-1 और Metalliser-2 — daily, weekly, monthly, quarterly PM. Format: MET F-07/08/09/10/11।',
+      'Module 6 — Maintenance (PM)','Preventive <span>Maintenance (PM)</span>','Daily, weekly, monthly and quarterly PM for Metalliser-1 and Metalliser-2. Formats: MET F-07/08/09/10/11.'
+    )
+    +'<div class="tags"><span class="tag a">Free</span><span class="tag c">MET F-07 to F-11</span></div>'
     +Tabs(['दैनिक (F-07)','साप्ताहिक (F-08)','मासिक (F-09)','त्रैमासिक/वार्षिक'],[
       Al('i','📋','हर Shift — Process Team ज़िम्मेदार। MET F-07 में सभी बिंदु दर्ज करें।')
       +'<ul class="steps">'
@@ -115,19 +119,20 @@ function rMaint(pg){
       +'</ul>'
     ]);
 }
-</script>
 
-<script>
 // ══════════════════════════════════════════════════════
 // GENERAL MET — HINDI
 // ══════════════════════════════════════════════════════
 function rGenMet(pg){
   if(!window._proUnlocked){pg.innerHTML='<div style="padding:20px">'+GENLock()+'</div>';return;}
   pg.innerHTML=
-    '<div class="ph"><div class="ph-code">🔥 धाकड़ ज्ञान — वैक्युम मेटलाइज़ेशन तकनीक</div>'
-    +'<div class="ph-title">वैक्युम <span>मेटलाइज़ेशन</span></div>'
-    +'<div class="ph-desc">वैक्युम मेटलाइज़ेशन का उद्योग-मानक ज्ञान — किसी भी प्लांट के ऑपरेटर, प्रशिक्षु या इंजीनियर के लिए।</div>'
-    +'<div class="tags"><span class="tag a">धाकड़ ज्ञान</span><span class="tag g">उद्योग मानक</span></div></div>'
+    phHeader(
+      '🔥 धाकड़ ज्ञान — Vacuum Metallisation','Vacuum <span>Metallisation</span>','Vacuum metallisation का industry-standard knowledge — operators, trainees और engineers के लिए।',
+      '🔥 Dhakad Gyaan — Vacuum Metallisation','Vacuum <span>Metallisation</span>','Industry-standard knowledge of vacuum metallisation — for operators, trainees and engineers.'
+    )
+    +(LANG==='hi'
+      ? '<div class="tags"><span class="tag a">धाकड़ ज्ञान</span><span class="tag g">Industry Standard</span></div>'
+      : '<div class="tags"><span class="tag a">Dhakad Gyaan</span><span class="tag g">Industry Standard</span></div>')
     +CB('📖','वैक्युम मेटलाइज़ेशन क्या है?','PVD प्रक्रिया',
       '<ul class="steps">'
       +S(1,'वैक्युम मेटलाइज़ेशन एक Physical Vapour Deposition (PVD) प्रक्रिया है जो Plastic Films (PET, BOPP, CPP) पर पतली Aluminium परत चढ़ाती है।')
@@ -161,10 +166,13 @@ function rGenMet(pg){
 function rGenSlit(pg){
   if(!window._proUnlocked){pg.innerHTML='<div style="padding:20px">'+GENLock()+'</div>';return;}
   pg.innerHTML=
-    '<div class="ph"><div class="ph-code">🔥 धाकड़ ज्ञान — स्लिटिंग तकनीक</div>'
-    +'<div class="ph-title">स्लिटिंग <span>तकनीक</span></div>'
-    +'<div class="ph-desc">स्लिटिंग मशीनों, ब्लेड प्रकार, Tension नियंत्रण और गुणवत्ता पर उद्योग ज्ञान।</div>'
-    +'<div class="tags"><span class="tag c">सामान्य</span><span class="tag g">उद्योग मानक</span></div></div>'
+    phHeader(
+      '🔥 धाकड़ ज्ञान — Slitting','Slitting <span>Technique</span>','Slitting का industry knowledge — operators और engineers के लिए।',
+      '🔥 Dhakad Gyaan — Slitting','Slitting <span>Technique</span>','Industry knowledge of film slitting — for operators and engineers.'
+    )
+    +(LANG==='hi'
+      ? '<div class="tags"><span class="tag a">धाकड़ ज्ञान</span><span class="tag g">Industry Standard</span></div>'
+      : '<div class="tags"><span class="tag a">Dhakad Gyaan</span><span class="tag g">Industry Standard</span></div>')
     +CB('📖','फिल्म स्लिटिंग क्या है?','उद्योग ज्ञान',
       '<ul class="steps">'
       +S(1,'Film Slitting एक चौड़े "Jumbo" या "Master" Roll को कस्टमर ऑर्डर की विशिष्ट चौड़ाई के संकरे रोल में काटती है।')
@@ -188,9 +196,7 @@ function rGenSlit(pg){
       +'<tr><td class="tv r">चौड़ाई भिन्नता</td><td>Blade Setting खिसकना</td><td>Blade Position रीसेट, मजबूती से Lock करें</td></tr>'
       +'</tbody></table>');
 }
-</script>
 
-<script>
 // ══════════════════════════════════════════════════════
 // TERMS — HINDI
 // ══════════════════════════════════════════════════════
