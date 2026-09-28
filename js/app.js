@@ -1009,6 +1009,11 @@ function _defaultShiftConfig(){
     waCOffTemplate: '🔄 *Man Power — C-Off*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *Compensatory Off (C-Off)* दिया गया है।\n\n📅 *C-Off Date:* {coffDate}\n📝 *कारण:* {reason}\n\nयह आपकी approved C-Off balance में जोड़ दिया गया है।\n_— {manager}_',
     gpMaxPerMonth: 2,
     waNotifyOnSave: true,
+    // Member → Manager WhatsApp (after member Save). In-app notifications always on.
+    waMemberLeaveToMgrEnabled: true,
+    waMemberShiftToMgrEnabled: true,
+    waMemberLeaveToMgrTemplate: '🏖️ *Leave Request*\n\n*Employee:* {name}\n*Dates:* {dates}\n*Type:* {leaveType}\n*Reason:* {reason}\n*Days:* {days}\n\nPlease open Man Power → Pending to Approve/Reject.\n_— sent via Man Power_',
+    waMemberShiftToMgrTemplate: '📅 *Shift Change Request*\n\n*Employee:* {name}\n*Date:* {date}\n*From:* {currentShift}\n*To:* {newShift}\n\nPlease open Man Power → Pending to Approve/Reject.\n_— sent via Man Power_',
     metallisers: ['M1','M2'],
     slitters: ['S1','S2'],
     updatedAt: null
@@ -1119,6 +1124,171 @@ function getShiftConfigSync(){
   if(key && _shiftConfigCache[key]) return _shiftConfigCache[key];
   return _defaultShiftConfig();
 }
+
+/** Resolve manager phone (10 digit) from managerId / empObjId / mobileUsers */
+async function _resolveManagerPhone(managerId){
+  const mid = String(managerId||'').trim();
+  if(!mid) return '';
+  const norm = (p)=> String(p||'').replace(/\D/g,'').slice(-10);
+  try{
+    const emp = (typeof getEmps==='function'?getEmps():[]).find(e=>e && (e.id===mid || e.empId===mid || e.empObjId===mid));
+    if(emp){
+      const ph = norm(emp.phone||emp.mobile);
+      if(ph.length===10) return ph;
+    }
+  }catch(e){}
+  try{
+    const rec = await fbGet('employees/'+mid);
+    if(rec){
+      const ph = norm(rec.phone||rec.mobile);
+      if(ph.length===10) return ph;
+    }
+  }catch(e){}
+  try{
+    const allMu = await fbGet('mobileUsers') || {};
+    for(const [mobKey, u] of Object.entries(allMu)){
+      if(!u || u.role!=='manager') continue;
+      if(u.empObjId===mid || u.employeeId===mid || mobKey===_normMobileKey(mid) ||
+         _normMobileKey(u.mobile||'')===_normMobileKey(mid) || String(u.uid||'')===mid){
+        const ph = norm(u.mobile||mobKey);
+        if(ph.length===10) return ph;
+      }
+    }
+  }catch(e){}
+  // managerId might already be a phone
+  const asPh = norm(mid);
+  if(asPh.length===10) return asPh;
+  return '';
+}
+
+/** Load manager's shift config (for member: try mgr keys). Falls back to defaults. */
+async function _loadMgrShiftCfgForMember(managerId){
+  const def = (typeof _defaultShiftConfig==='function') ? _defaultShiftConfig() : {};
+  const keys = [];
+  try{
+    if(typeof myShiftConfigKey==='function'){
+      const k = myShiftConfigKey();
+      if(k) keys.push(k);
+    }
+  }catch(e){}
+  if(managerId){
+    keys.push('mgr:'+managerId);
+    try{ keys.push('mgr:'+_normMobileKey(managerId)); }catch(e){}
+  }
+  for(const key of keys){
+    if(!key) continue;
+    try{
+      const safe = String(key).replace(/[:.#$\[\]]/g,'_');
+      const rec = await fbGet('shiftConfigs/'+safe);
+      if(rec && typeof rec==='object') return {...def, ...rec};
+    }catch(e){}
+  }
+  try{
+    const sync = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : null;
+    if(sync) return {...def, ...sync};
+  }catch(e){}
+  return def;
+}
+
+/**
+ * After member leave/shift request: in-app always; WhatsApp to manager if template enabled.
+ * type: 'leave' | 'shift'
+ */
+async function _notifyMappedManagerAfterMemberAction(type, payload){
+  payload = payload || {};
+  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const managerId = payload.managerId || SESSION.managerId || (myEmp()&&myEmp().managerId) || '';
+  if(!managerId){
+    console.warn('[member→mgr] no managerId');
+    return;
+  }
+
+  // In-app always (unless already sent by caller)
+  if(!payload.skipInApp){
+    try{
+      const notif = {
+        type: type==='leave' ? 'leave_request' : 'shift_change_request',
+        title: type==='leave'
+          ? (isEn ? '🏖️ Leave request' : '🏖️ छुट्टी आवेदन')
+          : (isEn ? '📅 Shift change request' : '📅 Shift बदलने का अनुरोध'),
+        body: payload.notifBody || payload.name || '',
+        read: false,
+        at: new Date().toISOString(),
+        managerId: String(managerId),
+        empObjId: payload.empObjId || SESSION.empObjId || '',
+        reqKey: payload.reqKey || ''
+      };
+      const targets = new Set([String(managerId)]);
+      try{
+        const allMu = await fbGet('mobileUsers') || {};
+        Object.entries(allMu).forEach(([mobKey, u])=>{
+          if(!u || u.role!=='manager' || u.status!=='approved') return;
+          const mid = String(managerId);
+          if(u.empObjId===mid || u.employeeId===mid || mobKey===_normMobileKey(mid) ||
+             (typeof _normMobileKey==='function' && _normMobileKey(u.mobile||'')===_normMobileKey(mid))){
+            targets.add(mobKey);
+            if(u.empObjId) targets.add(u.empObjId);
+            if(u.mobile) targets.add(_normMobileKey(u.mobile));
+          }
+        });
+      }catch(e){}
+      for(const t of targets){
+        if(!t) continue;
+        try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
+      }
+    }catch(e){ console.warn('[member→mgr in-app]', e); }
+  }
+
+  // WhatsApp only if that template is ON
+  try{
+    const cfg = await _loadMgrShiftCfgForMember(managerId);
+    const enabled = type==='leave'
+      ? (cfg.waMemberLeaveToMgrEnabled !== false)
+      : (cfg.waMemberShiftToMgrEnabled !== false);
+    if(!enabled){
+      toast(isEn
+        ? '✅ Saved — Manager notified in app (WhatsApp off for this type)'
+        : '✅ सेव — Manager को app में सूचना (इस type का WhatsApp बंद है)');
+      return;
+    }
+    const phone = await _resolveManagerPhone(managerId);
+    if(!phone || phone.length!==10){
+      toast(isEn
+        ? '✅ Saved — Manager has no mobile for WhatsApp (in-app sent)'
+        : '✅ सेव — Manager का WhatsApp नंबर नहीं (app सूचना गई)');
+      return;
+    }
+    const def = _defaultShiftConfig();
+    let tpl = type==='leave'
+      ? (cfg.waMemberLeaveToMgrTemplate || def.waMemberLeaveToMgrTemplate)
+      : (cfg.waMemberShiftToMgrTemplate || def.waMemberShiftToMgrTemplate);
+    const fill = (s, map)=>{
+      let out = String(s||'');
+      Object.keys(map).forEach(k=>{
+        out = out.replace(new RegExp('\\{'+k+'\\}','g'), map[k]==null?'':String(map[k]));
+      });
+      return out;
+    };
+    const msg = fill(tpl, {
+      name: payload.name || SESSION.name || '',
+      dates: payload.dates || payload.date || '',
+      date: payload.date || '',
+      leaveType: payload.leaveType || '',
+      reason: payload.reason || '',
+      days: payload.days != null ? payload.days : '',
+      currentShift: payload.currentShift || '',
+      newShift: payload.newShift || '',
+      manager: payload.managerName || 'Manager'
+    });
+    if(typeof openWA==='function') openWA(phone, msg);
+    else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
+    toast(isEn ? '📲 WhatsApp opened — send to Manager' : '📲 WhatsApp खुला — Manager को भेजें');
+  }catch(e){
+    console.warn('[member→mgr WA]', e);
+  }
+}
+
+
 function warmShiftConfigCache(){
   getShiftConfig().catch(()=>{}); // fire-and-forget, populates _shiftConfigCache for sync use
 }
@@ -1421,7 +1591,12 @@ function getLeaves(){
 }
 function getReports(){
   const scopedIds=new Set(getEmps().map(e=>e.id));
-  return (_cache.reports||[]).filter(r=>scopedIds.has(r.aboutId));
+  // Imp Info broadcasts use aboutId:'all' — always include them (and any type imp_info)
+  return (_cache.reports||[]).filter(r=>{
+    if(!r) return false;
+    if(r.type==='imp_info' || r.aboutId==='all' || r.section==='ALL') return true;
+    return scopedIds.has(r.aboutId);
+  });
 }
 function getOverrides(){ return _cache.overrides   || {}; }
 function getRegs()     { return _cache.regRequests || []; }
@@ -3694,6 +3869,23 @@ async function showManagerLoginApproval(userData, mobile10, fullPhone){
   ov.style.display='flex';
 }
 
+
+/** Login request belongs to current manager? Strict managerId only (no company broadcast). */
+function _isMyTeamLoginRequest(v){
+  if(!v) return false;
+  if(typeof isAdmin==='function' && isAdmin()) return true; // admin sees all
+  const mid = String((SESSION && (SESSION.empObjId || SESSION.uid || SESSION.managerId)) || '').trim();
+  const myMobile = (typeof _normMobileKey==='function')
+    ? _normMobileKey((SESSION && (SESSION.mobile || SESSION.phone)) || '')
+    : String((SESSION && SESSION.mobile) || '');
+  const reqMid = String(v.managerId || '').trim();
+  if(!reqMid) return false; // unassigned — only admin (handled above)
+  if(reqMid === mid) return true;
+  if(myMobile && (reqMid === myMobile || (typeof _normMobileKey==='function' && _normMobileKey(reqMid) === myMobile))) return true;
+  if(SESSION && SESSION.uid && reqMid === SESSION.uid) return true;
+  return false;
+}
+
 async function sendManagerLoginRequest(){
   if(!_mgrLoginCtx) return;
   const { userData, mobile10, fullPhone } = _mgrLoginCtx;
@@ -3721,32 +3913,56 @@ async function sendManagerLoginRequest(){
     });
     _mgrLoginCtx.reqKey = reqKey;
 
-    // Notify manager on ALL keys they may listen on (empObjId, mobile, uid)
+    // Notify ONLY the member's assigned manager (never all managers in same company)
     try{
       const notif = {
         type: 'manager_login_approval',
         title: '📱 Member login request',
         body: (userData.name||mobile10)+' wants to login. Open Pending → Approve.',
         reqKey, phone: mobile10,
+        managerId: userData.managerId||'',
         read: false, at: new Date().toISOString()
       };
       const targets = new Set();
-      if(userData.managerId) targets.add(userData.managerId);
-      // Resolve manager mobileUsers + employees for reliable delivery
-      try{
-        const allMu = await fbGet('mobileUsers') || {};
-        Object.entries(allMu).forEach(([mobKey, u])=>{
-          if(!u || u.role!=='manager' || u.status!=='approved') return;
-          const same =
-            (userData.managerId && (u.empObjId===userData.managerId || u.employeeId===userData.managerId || mobKey===_normMobileKey(userData.managerId))) ||
-            (userData.company && u.company && String(u.company).toLowerCase()===String(userData.company).toLowerCase());
-          if(same){
-            targets.add(mobKey);
-            if(u.empObjId) targets.add(u.empObjId);
-            if(u.mobile) targets.add(_normMobileKey(u.mobile));
+      const mid = String(userData.managerId||'').trim();
+      if(mid){
+        targets.add(mid);
+        try{
+          const allMu = await fbGet('mobileUsers') || {};
+          Object.entries(allMu).forEach(([mobKey, u])=>{
+            if(!u || u.role!=='manager' || u.status!=='approved') return;
+            // Match this manager only — by empObjId, employeeId, or mobile key
+            const isThisMgr =
+              u.empObjId===mid || u.employeeId===mid ||
+              mobKey===_normMobileKey(mid) ||
+              _normMobileKey(u.mobile||'')===_normMobileKey(mid) ||
+              String(u.uid||'')===mid;
+            if(isThisMgr){
+              targets.add(mobKey);
+              if(u.empObjId) targets.add(u.empObjId);
+              if(u.employeeId) targets.add(u.employeeId);
+              if(u.mobile) targets.add(_normMobileKey(u.mobile));
+              if(u.uid) targets.add(u.uid);
+            }
+          });
+        }catch(e){}
+        // Also resolve from employees record if present
+        try{
+          const empRec = await fbGet('employees/'+mid);
+          if(empRec){
+            if(empRec.phone) targets.add(_normMobileKey(empRec.phone));
+            if(empRec.mobile) targets.add(_normMobileKey(empRec.mobile));
+            if(empRec.id) targets.add(empRec.id);
           }
-        });
-      }catch(e){}
+        }catch(e){}
+      } else {
+        // No manager linked — notify hard-admin only (do NOT broadcast to every manager)
+        console.warn('[mgr login notif] member has no managerId — admin fallback only');
+        try{
+          const hard = (CFG && CFG.hardAdminPhones) || [];
+          hard.forEach(ph=>{ if(ph) targets.add(_normMobileKey(String(ph).replace(/^\+91/,''))); });
+        }catch(e){}
+      }
       for(const t of targets){
         if(!t) continue;
         try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
@@ -4046,18 +4262,14 @@ async function renderDeviceTransferRequests(){
     const data = await fbGet('loginRequests') || {};
     const mid = SESSION.empObjId || SESSION.uid || '';
     const myEmpId = SESSION.empId || '';
-    const myCompany = (SESSION.company||'').toLowerCase();
     const mine = Object.entries(data).filter(([k,v])=>{
       if(!v || v.status!=='pending') return false;
       if(v.type==='device_transfer'){
         return v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId;
       }
-      // Manager sees team member login approvals here as a backup (also in adminOnlyPendingBlock)
+      // Manager sees ONLY their team's login approvals (managerId match — not same company)
       if(v.type==='manager_login_approval' && (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || typeof isAdmin==='function' && isAdmin())){
-        if(!v.managerId) return true;
-        if(v.managerId===mid || v.managerId===SESSION.uid || v.managerId===SESSION.empObjId) return true;
-        if(v.company && myCompany && String(v.company).toLowerCase()===myCompany) return true;
-        return false;
+        return _isMyTeamLoginRequest(v);
       }
       return false;
     });
@@ -5548,7 +5760,7 @@ async function launchApp(){
   _updateSchedAdminVisibility();
   // Imp Info button — admin and manager
   const iiBtn = document.getElementById('impInfoBtn');
-  if(iiBtn) iiBtn.style.display = isAdminOrMgr() ? 'inline-flex' : 'none';
+  if(iiBtn) iiBtn.style.display = (!isGuest() && SESSION && SESSION.role) ? 'inline-flex' : 'none';
   if(isAdmin()) document.getElementById('smsSettingsBtn').style.display='none'; /* moved to profile */
   // OD Records chip — only Admin/Manager can see all OD records
   const odChip = document.getElementById('odChip');
@@ -5857,6 +6069,11 @@ function _renderShiftSettingsModal(){
   if(!d.waHolidayTemplate) d.waHolidayTemplate = _d0.waHolidayTemplate;
   if(!d.waCOffTemplate) d.waCOffTemplate = _d0.waCOffTemplate;
   if(d.gpMaxPerMonth==null) d.gpMaxPerMonth = 2;
+  if(d.waMemberLeaveToMgrEnabled==null) d.waMemberLeaveToMgrEnabled = true;
+  if(d.waMemberShiftToMgrEnabled==null) d.waMemberShiftToMgrEnabled = true;
+  if(!d.waMemberLeaveToMgrTemplate) d.waMemberLeaveToMgrTemplate = _d0.waMemberLeaveToMgrTemplate;
+  if(!d.waMemberShiftToMgrTemplate) d.waMemberShiftToMgrTemplate = _d0.waMemberShiftToMgrTemplate;
+  if(d.waNotifyOnSave==null) d.waNotifyOnSave = true;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">⚙️ ${_lang==='en'?'Shift & Min Staff':'शिफ्ट व मिन स्टाफ़'}</div>
@@ -5891,6 +6108,48 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div id="ss_minMachines" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('machine')}</div>
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
+
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
+    <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp — Member → Manager</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:12px;line-height:1.45">
+      ${_lang==='en'
+        ? 'When a team member applies leave or requests a shift change, they can open WhatsApp to message you. In-app notifications always stay on. Turn each type ON/OFF below.'
+        : 'जब member leave या shift change request भेजे, WhatsApp से आपको message जा सकता है। App notification हमेशा चालू रहती है। हर type अलग ON/OFF करें।'}
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">🏖️ Leave request → Manager</div>
+        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'Member Save leave → WhatsApp to you':'Member leave Save → आपको WhatsApp'}</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
+        <input type="checkbox" id="ss_waMemLeaveOn" ${d.waMemberLeaveToMgrEnabled!==false?'checked':''} style="width:18px;height:18px"> ON
+      </label>
+    </div>
+    <textarea id="ss_waMemLeaveTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:12px;resize:vertical">${(d.waMemberLeaveToMgrTemplate||_d0.waMemberLeaveToMgrTemplate||'').replace(/`/g,"'")}</textarea>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">📅 Shift change → Manager</div>
+        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'Member requests shift change → WhatsApp to you':'Member shift request → आपको WhatsApp'}</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
+        <input type="checkbox" id="ss_waMemShiftOn" ${d.waMemberShiftToMgrEnabled!==false?'checked':''} style="width:18px;height:18px"> ON
+      </label>
+    </div>
+    <textarea id="ss_waMemShiftTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:8px;resize:vertical">${(d.waMemberShiftToMgrTemplate||_d0.waMemberShiftToMgrTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:#64748b;margin-bottom:8px">{name} {dates} {date} {leaveType} {reason} {days} {currentShift} {newShift}</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Schedule Save → Team (existing)</div>
+        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'When you save schedule, WhatsApp employees':'आप schedule Save करें तो employees को WhatsApp'}</div>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8">
+        <input type="checkbox" id="ss_waNotifyOnSave" ${d.waNotifyOnSave!==false?'checked':''} style="width:18px;height:18px"> ON
+      </label>
+    </div>
+  </div>
 
   </div>
   <div class="modal-sticky-actions">
@@ -6008,8 +6267,18 @@ async function _saveShiftSettings(){
   const _act = (c)=> (_shiftDraft.shifts||[]).some(s=>String(s.code).toUpperCase()===c && s.active!==false);
   _shiftDraft.hideSummaryDN = !_act('D') && !_act('N');
   _shiftDraft.hideSummaryABC = !_act('A') && !_act('B') && !_act('C');
-  _shiftDraft.waNotifyOnSave = _shiftDraft.waNotifyOnSave !== false;
   try{
+    const onSaveEl = document.getElementById('ss_waNotifyOnSave');
+    if(onSaveEl) _shiftDraft.waNotifyOnSave = !!onSaveEl.checked;
+    else _shiftDraft.waNotifyOnSave = _shiftDraft.waNotifyOnSave !== false;
+    const memLeaveOn = document.getElementById('ss_waMemLeaveOn');
+    if(memLeaveOn) _shiftDraft.waMemberLeaveToMgrEnabled = !!memLeaveOn.checked;
+    const memShiftOn = document.getElementById('ss_waMemShiftOn');
+    if(memShiftOn) _shiftDraft.waMemberShiftToMgrEnabled = !!memShiftOn.checked;
+    const memLeaveTpl = document.getElementById('ss_waMemLeaveTpl');
+    if(memLeaveTpl) _shiftDraft.waMemberLeaveToMgrTemplate = memLeaveTpl.value;
+    const memShiftTpl = document.getElementById('ss_waMemShiftTpl');
+    if(memShiftTpl) _shiftDraft.waMemberShiftToMgrTemplate = memShiftTpl.value;
     const ta = document.getElementById('ss_waTemplate');
     if(ta) _shiftDraft.waShiftTemplate = ta.value;
     const map = [
@@ -7433,7 +7702,7 @@ function _updateSchedAdminVisibility(){
   row.style.display = canEditSchedule() ? 'flex' : 'none';
   // Also update Imp Info button
   const iiBtn = document.getElementById('impInfoBtn');
-  if(iiBtn) iiBtn.style.display = isAdminOrMgr() ? 'inline-flex' : 'none';
+  if(iiBtn) iiBtn.style.display = (!isGuest() && SESSION && SESSION.role) ? 'inline-flex' : 'none';
 }
 
 function renderAll(){
@@ -8336,13 +8605,32 @@ function renderMyShift(){
     </div>
     <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
     <div class="ms-grid">${cells}</div>
-    <div class="ms-hint">${(_lang==='en')?'Tap a day to change shift (needs schedule permission / Manager)':'दिन पर टैप करें — shift बदलें (Manager / permission)'}</div>
+    <div class="ms-hint">${(_lang==='en')
+      ? (canEditSchedule() ? 'Tap a day to change shift — saves here (no WhatsApp for your own shift)' : 'Tap a day to request a shift change — your Manager will approve')
+      : (canEditSchedule() ? 'दिन पर टैप करें — यहीं save होगा (अपनी shift पर WhatsApp नहीं)' : 'दिन पर टैप करें — Manager approve करेगा तब schedule अपडेट होगा')}</div>
+    <div id="myShiftPendingReqs"></div>
   </div>
   <div class="stitle" style="margin-top:18px">👥 ${(_lang==='en')?'Shift Mates Today':'आज के Shift Mates'}</div>
   <div class="ms-mates">
     ${mates.length?mates.slice(0,30).map(emp=>`<div class="ms-mate-chip"><b>${emp.name||''}</b><span>${emp.mc||emp.sec||''}</span></div>`).join('')
       :`<div style="font-size:13px;color:var(--muted2);padding:8px">${(_lang==='en')?'No shift mates for your shift today':'आज आपकी shift पर कोई mate नहीं'}</div>`}
   </div>`;
+  // Show member's pending shift-change requests under calendar
+  try{ _renderMyShiftPendingReqs(e.id); }catch(ex){}
+}
+async function _renderMyShiftPendingReqs(empObjId){
+  const host = document.getElementById('myShiftPendingReqs');
+  if(!host || !empObjId) return;
+  try{
+    const data = await fbGet('shiftChangeRequests') || {};
+    const mine = Object.entries(data).filter(([k,v])=>v && v.empObjId===empObjId && v.status==='pending');
+    if(!mine.length){ host.innerHTML=''; return; }
+    const isEn = _lang==='en';
+    host.innerHTML = `<div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3)">
+      <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">${isEn?'⏳ Pending Manager approval':'⏳ Manager approval pending'}</div>
+      ${mine.map(([k,v])=>`<div style="font-size:12px;color:var(--text);margin:4px 0">${v.date}: <b>${v.currentShift||'—'}</b> → <b style="color:#38bdf8">${v.newShift}</b></div>`).join('')}
+    </div>`;
+  }catch(e){ host.innerHTML=''; }
 }
 let _myShiftMonth = null;
 
@@ -10979,7 +11267,25 @@ async function submitLeave(){
   });
   // Store the key for reference
   await fbUpdate(`leaves/${key}`, {_key:key});
-  closeModal(); toast('✅ छुट्टी आवेदन भेज दिया गया!');
+  closeModal();
+  toast('✅ छुट्टी आवेदन भेज दिया गया!');
+  // In-app always + WhatsApp to mapped manager if template ON
+  try{
+    const mgrId = emp.managerId || SESSION.managerId || '';
+    const datesStr = (from===to) ? from : (from+' → '+to);
+    await _notifyMappedManagerAfterMemberAction('leave', {
+      managerId: mgrId,
+      empObjId: emp.id,
+      name: emp.name,
+      dates: datesStr,
+      date: from,
+      leaveType: type,
+      reason: reason,
+      days: days,
+      reqKey: key,
+      notifBody: (emp.name||'')+' · '+datesStr+' · '+(type||'Leave')
+    });
+  }catch(e){ console.warn('[leave notify mgr]', e); }
 }
 
 async function actLeave(key, status){
@@ -11729,7 +12035,7 @@ async function rejectResignation(key){
 // ════════════════════════════════════════
 // REPORTS
 // ════════════════════════════════════════
-let _rfFilter='all';
+let _rfFilter='imp_info';
 function setRF(f,el){ _rfFilter=f; document.querySelectorAll('#reportFilter .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderReports(); }
 
 function _buildNcrCards(){
@@ -11788,11 +12094,18 @@ function renderReports(){
     return db-da;
   });
 
-  // Update count badge
+  // Update count badge (context-aware for Imp Info filter)
   const badge = document.getElementById('reportTotalBadge');
   if(badge){
-    const ncrCount = list.filter(r=>r.type==='ncr').length;
-    badge.textContent = `कुल ${list.length} रिपोर्ट · ${ncrCount} NCR`;
+    const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+    if(_rfFilter === 'imp_info'){
+      badge.textContent = isEn ? `${list.length} notice(s)` : `कुल ${list.length} सूचना`;
+      badge.style.color = '#38bdf8';
+    } else {
+      const ncrCount = list.filter(r=>r.type==='ncr').length;
+      badge.textContent = isEn ? `${list.length} reports · ${ncrCount} NCR` : `कुल ${list.length} रिपोर्ट · ${ncrCount} NCR`;
+      badge.style.color = '#f87171';
+    }
   }
 
   const rt_ncr = REPORT_TYPES.ncr;
@@ -11808,7 +12121,7 @@ function renderReports(){
       ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
           ${r.involvedNames.map(nm=>`<span style="background:rgba(244,63,94,.12);color:var(--lv);border:1px solid rgba(244,63,94,.25);border-radius:5px;padding:2px 8px;font-size:11px;font-weight:700">${nm}</span>`).join('')}
         </div>`
-      : `<div class="card-name" style="color:#fff;font-size:15px">${r.aboutName||r.empName}</div>`;
+      : `<div class="card-name" style="color:#fff;font-size:15px">${typeof escHtml==='function'?escHtml(r.title||r.aboutName||r.empName||''):(r.title||r.aboutName||r.empName||'')}</div>`;
 
     return `<div class="card" style="border-left:3px solid ${rt.color}${isLegacy?';border-left-width:4px':''}">
       <div class="card-row">
@@ -11821,16 +12134,16 @@ function renderReports(){
             ${ncrLabel}
             ${!isLegacy?`<span class="badge ${r.status}">${{pending:'⏳ प्रतीक्षा',approved:'✅ मंजूर',rejected:'❌ अस्वीकार'}[r.status]||r.status}</span>`:'<span class="badge approved">✅ दर्ज</span>'}
           </div>
-          <div style="margin-top:8px;background:rgba(244,63,94,.05);border:1px solid rgba(244,63,94,.18);border-radius:8px;padding:10px">
-            <div style="font-size:10px;font-weight:800;color:var(--lv);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">⚠️ ${isNCR?'NCR विवरण':'विवरण'}</div>
-            <div style="font-size:13px;color:var(--text);line-height:1.6">${r.description||'—'}</div>
+          <div style="margin-top:8px;background:${r.type==='imp_info'?'rgba(56,189,248,.08)':'rgba(244,63,94,.05)'};border:1px solid ${r.type==='imp_info'?'rgba(56,189,248,.25)':'rgba(244,63,94,.18)'};border-radius:8px;padding:10px">
+            <div style="font-size:10px;font-weight:800;color:${r.type==='imp_info'?'#38bdf8':'var(--lv)'};text-transform:uppercase;letter-spacing:1px;margin-bottom:5px">${r.type==='imp_info'?'📢 सूचना':(isNCR?'⚠️ NCR विवरण':'विवरण')}</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.6">${(typeof escHtml==='function'?escHtml(r.description||'—'):(r.description||'—'))}</div>
           </div>
           <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
             <span style="font-size:11px;color:var(--muted2)">📅 ${fmtDate(r.date)}</span>
             <span style="font-size:11px;color:var(--muted2)">📝 ${r.reportedByName||'Quality Dept'}</span>
           </div>
-          ${r.photo ? `<div style="margin-top:8px;border-radius:10px;overflow:hidden;cursor:pointer" onclick="viewReportPhoto(this)">
-            <img src="${r.photo}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block">
+          ${(r.photoUrl||r.photo) ? `<div style="margin-top:8px;border-radius:10px;overflow:hidden;cursor:pointer" onclick="viewReportPhoto(this)">
+            <img src="${r.photoUrl||r.photo}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;display:block" loading="lazy">
           </div>` : ''}
         </div>
       </div>
@@ -11846,7 +12159,20 @@ function renderReports(){
         </button>
       </div>`:''}
     </div>`;
-  }).join('') : '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">कोई रिपोर्ट नहीं</div></div>';
+  }).join('') : (function(){
+    const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+    if(_rfFilter === 'imp_info'){
+      return `<div class="empty" style="padding:28px 16px">
+        <div class="empty-icon">📢</div>
+        <div class="empty-text">${isEn?'No important notices yet':'कोई महत्वपूर्ण सूचना नहीं'}</div>
+        <div style="font-size:12px;color:var(--muted2);margin-top:8px;line-height:1.5;max-width:280px;margin-left:auto;margin-right:auto">
+          ${isEn?'Anyone can post a team notice with optional photo.':'कोई भी टीम सूचना पोस्ट कर सकता है — फोटो वैकल्पिक।'}
+        </div>
+        <button type="button" onclick="openImpInfoForm()" class="action-primary" style="margin-top:16px;display:inline-flex">📢 ${isEn?'Post notice':'सूचना पोस्ट करें'}</button>
+      </div>`;
+    }
+    return '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">'+(isEn?'No reports':'कोई रिपोर्ट नहीं')+'</div></div>';
+  })();
 }
 
 async function renderODRecords(){
@@ -12077,135 +12403,194 @@ async function deleteReport(key, name){
 }
 
 // ════════════════════════════════════════
-// IMP. INFORMATION (Admin/Manager posts)
+// IMP. INFORMATION — anyone logged in can post; photos via Firebase Storage
 // ════════════════════════════════════════
 function openImpInfoForm(){
+  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
   openModal(`<div class="modal-handle"></div>
-  <div style="text-align:center;margin-bottom:10px">
-    <div style="font-size:36px">📢</div>
-    <div class="modal-title" style="margin-bottom:4px">Imp. Information</div>
-    <div style="font-size:14px;color:var(--muted2)">सभी कर्मचारियों के लिए महत्वपूर्ण सूचना</div>
+  <div style="text-align:center;margin-bottom:12px">
+    <div style="width:56px;height:56px;margin:0 auto 8px;border-radius:16px;background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(99,102,241,.2));display:flex;align-items:center;justify-content:center;font-size:28px">📢</div>
+    <div class="modal-title" style="margin-bottom:4px">${isEn?'Important Information':'महत्वपूर्ण जानकारी'}</div>
+    <div style="font-size:13px;color:var(--muted2);line-height:1.4">${isEn?'Share a notice with the whole team':'पूरी टीम के लिए सूचना पोस्ट करें'}</div>
   </div>
-  <div class="field"><label>📌 विषय (Title)</label>
-    <input type="text" id="imp_title" placeholder="जैसे: कल से नई Shift Timing" style="width:100%;padding:16px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:#fff;font-size:18px;outline:none;font-family:inherit"></div>
-  <div class="field"><label>📋 पूरी जानकारी (Details)</label>
-    <textarea id="imp_desc" placeholder="सभी जरूरी details यहाँ लिखें..." style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:#fff;font-size:16px;outline:none;resize:none;height:120px;font-family:inherit"></textarea></div>
-  <div class="field"><label>📅 तारीख</label>
-    <input type="date" id="imp_date" value="${TODAY_STR}" style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:#fff;font-size:16px;outline:none"></div>
+  <div class="field"><label>📌 ${isEn?'Title':'विषय'} <span style="color:var(--lv)">*</span></label>
+    <input type="text" id="imp_title" maxlength="80" placeholder="${isEn?'e.g. Wrong material received — return to store':'जैसे: गलत माल आया — स्टोर वापस करें'}"
+      style="width:100%;padding:14px 16px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:16px;outline:none;font-family:inherit;box-sizing:border-box"
+      oninput="const c=document.getElementById('imp_title_cnt');if(c)c.textContent=(this.value||'').length+'/80'">
+    <div id="imp_title_cnt" style="text-align:right;font-size:11px;color:var(--muted2);margin-top:4px">0/80</div>
+  </div>
+  <div class="field"><label>📋 ${isEn?'Full details':'पूरी जानकारी'} <span style="color:var(--lv)">*</span></label>
+    <textarea id="imp_desc" maxlength="1000" placeholder="${isEn?'Write all important details…':'सभी जरूरी details यहाँ लिखें...'}"
+      style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:15px;outline:none;resize:vertical;min-height:110px;font-family:inherit;box-sizing:border-box"
+      oninput="const c=document.getElementById('imp_desc_cnt');if(c)c.textContent=(this.value||'').length+'/1000'"></textarea>
+    <div id="imp_desc_cnt" style="text-align:right;font-size:11px;color:var(--muted2);margin-top:4px">0/1000</div>
+  </div>
+  <div class="field"><label>📅 ${isEn?'Date':'तारीख'}</label>
+    <input type="date" id="imp_date" value="${TODAY_STR}"
+      style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:16px;outline:none;box-sizing:border-box"></div>
   <div class="field">
-    <label>📸 Photo / Document Upload करें (Optional)</label>
-    <div id="imp_img_preview" style="display:none;margin-bottom:8px;border-radius:10px;overflow:hidden;max-height:200px;position:relative">
-      <img id="imp_img_thumb" style="width:100%;max-height:200px;object-fit:cover;border-radius:10px" src="">
-      <button onclick="document.getElementById('imp_img_thumb').src='';document.getElementById('imp_img_preview').style.display='none';document.getElementById('imp_img_input').value=''" style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.7);border:none;color:#fff;border-radius:50%;width:26px;height:26px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
+    <label>📸 ${isEn?'Photo (optional)':'फोटो (वैकल्पिक)'}</label>
+    <div id="imp_img_preview" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden;max-height:220px;position:relative;border:1px solid var(--border2)">
+      <img id="imp_img_thumb" style="width:100%;max-height:220px;object-fit:cover;display:block" src="" alt="">
+      <button type="button" onclick="clearImpImg()" aria-label="Remove photo"
+        style="position:absolute;top:8px;right:8px;background:rgba(0,0,0,.75);border:none;color:#fff;border-radius:50%;width:28px;height:28px;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div style="display:flex;gap:6px">
+    <div style="display:flex;gap:8px">
       <button type="button" onclick="document.getElementById('imp_cam_input').click()"
-        style="flex:1;padding:14px;border:1.5px dashed rgba(56,189,248,.3);border-radius:10px;
-        background:rgba(56,189,248,.06);color:var(--s1);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
-        📸 Camera से लें
+        style="flex:1;padding:12px;border:1.5px dashed rgba(56,189,248,.4);border-radius:12px;
+        background:rgba(56,189,248,.08);color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        📸 ${isEn?'Camera':'कैमरा'}
       </button>
       <button type="button" onclick="document.getElementById('imp_img_input').click()"
-        style="flex:1;padding:14px;border:1.5px dashed rgba(56,189,248,.3);border-radius:10px;
-        background:rgba(56,189,248,.06);color:var(--s1);font-size:14px;font-weight:600;cursor:pointer;font-family:inherit">
-        🖼️ Gallery से चुनें
+        style="flex:1;padding:12px;border:1.5px dashed rgba(56,189,248,.4);border-radius:12px;
+        background:rgba(56,189,248,.08);color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
+        🖼️ ${isEn?'Gallery':'गैलरी'}
       </button>
     </div>
     <input type="file" id="imp_cam_input" accept="image/*" capture="environment" style="display:none" onchange="previewImpImg(this)">
     <input type="file" id="imp_img_input" accept="image/*" style="display:none" onchange="previewImpImg(this)">
   </div>
-  <button class="submit-btn" style="background:linear-gradient(135deg,#0284c7,#0369a1);box-shadow:0 4px 20px rgba(56,189,248,.3)" onclick="submitImpInfo()">📢 पोस्ट करें</button>
-  <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
+  <button class="submit-btn" onclick="submitImpInfo()" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">📢 ${isEn?'Post':'पोस्ट करें'}</button>
+  <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+}
+
+function clearImpImg(){
+  try{
+    const t=document.getElementById('imp_img_thumb'); if(t) t.src='';
+    const p=document.getElementById('imp_img_preview'); if(p) p.style.display='none';
+    const gi=document.getElementById('imp_img_input'); if(gi) gi.value='';
+    const ci=document.getElementById('imp_cam_input'); if(ci) ci.value='';
+  }catch(e){}
 }
 
 function previewImpImg(input){
-  const file = input.files[0]; if(!file) return;
+  const file = input.files && input.files[0]; if(!file) return;
   if(file.size > 10*1024*1024){ toast('⚠️ 10MB से छोटी फोटो चुनें'); input.value=''; return; }
   const reader = new FileReader();
   reader.onload = e => {
-    document.getElementById('imp_img_thumb').src = e.target.result;
-    document.getElementById('imp_img_preview').style.display = 'block';
+    const thumb=document.getElementById('imp_img_thumb');
+    const prev=document.getElementById('imp_img_preview');
+    if(thumb) thumb.src = e.target.result;
+    if(prev) prev.style.display = 'block';
   };
   reader.readAsDataURL(file);
 }
 
-let _impInfoSubmitting = false; // Guard against double-submit
+let _impInfoSubmitting = false;
 async function submitImpInfo(){
-  if(_impInfoSubmitting) return; // Block duplicate clicks
-  
-  const title = (document.getElementById('imp_title')?.value||'').trim();
-  const desc = (document.getElementById('imp_desc')?.value||'').trim();
+  if(_impInfoSubmitting) return;
+  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const title = (document.getElementById('imp_title')?.value||'').trim().slice(0,80);
+  const desc = (document.getElementById('imp_desc')?.value||'').trim().slice(0,1000);
   const date = document.getElementById('imp_date')?.value || TODAY_STR;
-  
-  if(!title){ toast('⚠️ विषय (Title) लिखें'); return; }
-  if(!desc){ toast('⚠️ जानकारी (Details) लिखें'); return; }
-  
-  // Disable submit button visually
-  const submitBtn = document.querySelector('#tab-reports .submit-btn[onclick*="submitImpInfo"], .modal button[onclick*="submitImpInfo"]');
-  if(submitBtn){ submitBtn.disabled=true; submitBtn.style.opacity='.6'; submitBtn.textContent='⏳ पोस्ट हो रहा है...'; }
+  if(!title){ toast(isEn?'⚠️ Enter a title':'⚠️ विषय (Title) लिखें'); return; }
+  if(!desc){ toast(isEn?'⚠️ Enter details':'⚠️ जानकारी (Details) लिखें'); return; }
+
+  const submitBtn = document.querySelector('.modal button[onclick*="submitImpInfo"]');
+  if(submitBtn){ submitBtn.disabled=true; submitBtn.style.opacity='.6'; submitBtn.textContent=isEn?'⏳ Posting…':'⏳ पोस्ट हो रहा है...'; }
   _impInfoSubmitting = true;
 
-  let imgData = null;
-  const imgInput = document.getElementById('imp_img_input');
-  const camInput = document.getElementById('imp_cam_input');
-  const activeImgInput = (camInput && camInput.files && camInput.files[0]) ? camInput : (imgInput && imgInput.files && imgInput.files[0]) ? imgInput : null;
-  if(activeImgInput && activeImgInput.files && activeImgInput.files[0]){
-    imgData = await new Promise(res => {
-      const reader = new FileReader();
-      reader.onload = e => res(e.target.result);
-      reader.readAsDataURL(activeImgInput.files[0]);
-    });
-    try{ imgData = await compressImage(imgData, 800, 0.6); }catch(e){}
-    if(imgData && imgData.length > 500000){ 
-      toast('⚠️ फोटो बहुत बड़ी है');
-      _impInfoSubmitting = false;
-      return;
-    }
-  }
-  
-  const reportObj = {
-    aboutId: 'all',
-    aboutName: 'सभी कर्मचारी',
-    empName: title,
-    section: 'ALL',
-    type: 'imp_info',
-    date,
-    description: desc,
-    status: 'approved',
-    reportedById: SESSION.empObjId || 'admin',
-    reportedByName: SESSION.name,
-    submittedAt: new Date().toISOString()
-  };
-  if(imgData) reportObj.photo = imgData;
-  
+  let photoUrl = null;
+  let localPreview = null;
   try{
+    const imgInput = document.getElementById('imp_img_input');
+    const camInput = document.getElementById('imp_cam_input');
+    const activeImgInput = (camInput && camInput.files && camInput.files[0]) ? camInput : (imgInput && imgInput.files && imgInput.files[0]) ? imgInput : null;
+    if(activeImgInput && activeImgInput.files && activeImgInput.files[0]){
+      let imgData = await new Promise((res,rej)=>{
+        const reader = new FileReader();
+        reader.onload = e => res(e.target.result);
+        reader.onerror = rej;
+        reader.readAsDataURL(activeImgInput.files[0]);
+      });
+      try{ imgData = await compressImage(imgData, 1000, 0.65); }catch(e){}
+      localPreview = imgData;
+      const uid = (SESSION && (SESSION.empObjId || SESSION.mobile || SESSION.uid)) || 'anon';
+      const path = 'reportPhotos/imp_info/' + String(uid).replace(/[^a-zA-Z0-9_-]/g,'_') + '_' + Date.now() + '.jpg';
+      if(typeof window._fbUploadSelfie === 'function'){
+        photoUrl = await window._fbUploadSelfie(imgData, path);
+      }
+      if(!photoUrl){
+        // Fallback: keep compressed base64 only if Storage fails (legacy)
+        if(imgData && imgData.length > 450000){
+          toast(isEn?'⚠️ Photo too large / upload failed':'⚠️ फोटो अपलोड नहीं हुई');
+          throw new Error('photo_upload_failed');
+        }
+      }
+    }
+
+    const reportObj = {
+      aboutId: 'all',
+      aboutName: isEn ? 'All team' : 'सभी कर्मचारी',
+      empName: title,
+      title: title,
+      section: 'ALL',
+      type: 'imp_info',
+      date,
+      description: desc,
+      status: 'approved',
+      reportedById: (SESSION && SESSION.empObjId) || 'user',
+      reportedByName: (SESSION && SESSION.name) || 'User',
+      submittedAt: new Date().toISOString()
+    };
+    if(photoUrl) reportObj.photoUrl = photoUrl;
+    else if(localPreview) reportObj.photo = localPreview; // last-resort fallback
+
     const key = await fbPush('reports', reportObj);
     await fbUpdate('reports/'+key, {_key:key});
+    reportObj._key = key;
+
+    // Optimistic local cache so list updates immediately
+    try{
+      if(!_cache.reports) _cache.reports = [];
+      _cache.reports = [reportObj].concat(_cache.reports.filter(r=>r && r._key !== key));
+    }catch(e){}
+
+    // Switch to Imp Info filter and show card
+    _rfFilter = 'imp_info';
+    try{
+      document.querySelectorAll('#reportFilter .chip').forEach(c=>c.classList.remove('on'));
+      const chip = document.querySelector('#reportFilter .chip[onclick*="imp_info"]');
+      if(chip) chip.classList.add('on');
+    }catch(e){}
+
     closeModal();
-    toast('📢 Information पोस्ट हो गई!');
-    
-    // Notify all active employees
-    const activeEmps = getEmps().filter(e=>e.status!=='resigned' && e.id !== SESSION.empObjId);
-    for(const emp of activeEmps){
-      try{
-        await fbPush('userNotifications/'+emp.id, {
-          title: '📢 ' + title,
-          body: desc.substring(0,100) + (desc.length>100?'...':''),
-          read: false,
-          at: new Date().toISOString(),
-          changedBy: SESSION.name
-        });
-      }catch(e){}
-    }
-    
+    toast(isEn?'📢 Notice posted!':'📢 Information पोस्ट हो गई!');
     renderReports();
+
+    // Notify others (best-effort, non-blocking)
+    setTimeout(async ()=>{
+      try{
+        const myId = SESSION && SESSION.empObjId;
+        const activeEmps = getEmps().filter(e=>e.status!=='resigned' && e.id !== myId).slice(0, 80);
+        for(const emp of activeEmps){
+          try{
+            await fbPush('userNotifications/'+emp.id, {
+              title: '📢 ' + title,
+              body: desc.substring(0,100) + (desc.length>100?'...':''),
+              read: false,
+              at: new Date().toISOString(),
+              changedBy: (SESSION && SESSION.name) || '',
+              type: 'imp_info'
+            });
+          }catch(e){}
+        }
+      }catch(e){}
+    }, 50);
   }catch(e){
-    toast('❌ Error: '+e.message);
-    if(submitBtn){ submitBtn.disabled=false; submitBtn.style.opacity='1'; submitBtn.textContent='📢 पोस्ट करें'; }
+    const msg = (e && e.message) ? String(e.message) : String(e);
+    if(/permission|PERMISSION/i.test(msg)){
+      toast(isEn?'❌ Permission denied — ask Admin to update reports rules':'❌ Permission denied — Admin से reports rules अपडेट करवाएँ');
+    } else if(msg !== 'photo_upload_failed'){
+      toast('❌ ' + (isEn?'Error: ':'Error: ') + msg);
+    }
+    if(submitBtn){ submitBtn.disabled=false; submitBtn.style.opacity='1'; submitBtn.textContent=isEn?'📢 Post':'📢 पोस्ट करें'; }
   } finally {
     _impInfoSubmitting = false;
   }
 }
 
+// ════════════════════════════════════════
 // ════════════════════════════════════════
 // PENDING (ADMIN)
 // ════════════════════════════════════════
@@ -12566,15 +12951,12 @@ function renderPending(){
       let reqs = data ? Object.entries(data).filter(([k,v])=>v && v.status==='pending') : [];
       // Managers only see their team / phone-matched requests
       if(isMgr() && !isAdmin()){
-        const mid = SESSION.empObjId || SESSION.uid || SESSION.managerId || '';
-        const myCompany = (SESSION.company||'').toLowerCase();
         reqs = reqs.filter(([k,v])=>{
           if(v.type==='manager_login_approval'){
-            return !v.managerId || v.managerId===mid || v.managerId===SESSION.uid ||
-              (v.company && myCompany && String(v.company).toLowerCase()===myCompany);
+            return _isMyTeamLoginRequest(v);
           }
           if(v.type==='device_transfer') return false; // handled in deviceTransferRequests for self
-          return true; // other login requests visible to manager
+          return false; // managers do not see other login types unless admin
         });
       }
       if(!lrEl) return;
@@ -12604,6 +12986,8 @@ function renderPending(){
       }).join('');
     }).catch(()=>{ if(lrEl) lrEl.innerHTML=''; });
   }
+  // Shift change requests (members → manager)
+  try{ _renderPendingShiftChangeRequests(); }catch(e){}
   // Device change requests
   renderPendingDevices();
   // Registration requests
@@ -13774,6 +14158,7 @@ function openBulkImportTeam(){
   <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">
     अपनी Excel/CSV file अपलोड करें जिसमें ये columns हों (कोई भी क्रम में, नाम केस-असंवेदनशील):<br>
     <b style="color:var(--text)">Name</b> (जरूरी) · <b style="color:var(--text)">E Code</b> (जरूरी) ·
+    <b style="color:var(--text)">Section</b> (जरूरी — Line-1 / Warehouse / ICU आदि) ·
     <b style="color:var(--text)">Designation</b> · <b style="color:var(--text)">Machine</b> ·
     <b style="color:var(--text)">Responsibility</b> · <b style="color:var(--text)">Salary</b> (वैकल्पिक) ·
     <b style="color:var(--text)">Mobile Number</b> (वैकल्पिक — दिया तो वो OTP से सीधे Login कर पाएंगे) ·
@@ -13788,7 +14173,7 @@ function openBulkImportTeam(){
 }
 
 function downloadBulkImportTemplate(){
-  const csv='Name,E Code,Designation,Machine,Responsibility,Salary,Mobile Number,Joining Date,Weekly Off,Date of Birth\nRAM KUMAR,30001001,Operator,M-1,Operation,25000,9876543210,01-04-2024,Sunday,15-06-1995\nSHYAM LAL,30001002,Supervisor,ALL,Quality Check,,,,Monday,\n';
+  const csv='Name,E Code,Section,Designation,Machine,Responsibility,Salary,Mobile Number,Joining Date,Weekly Off,Date of Birth\nRAM KUMAR,30001001,Line-1,Operator,M-1,Operation,25000,9876543210,01-04-2024,Sunday,15-06-1995\nSHYAM LAL,30001002,Warehouse,Supervisor,ALL,Quality Check,,,,Monday,\n';
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -14333,22 +14718,27 @@ function openAddEmpForm(){
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ne_code" placeholder="30000XXX"></div>
   </div>
   <div class="grid2">
+    <div class="field"><label>${isEn?'Section':'सेक्शन'} <span style="color:var(--lv)">*</span></label>
+      <input class="inp-field" id="ne_section" placeholder="${isEn?'e.g. Line-1 / Warehouse / ICU':'जैसे: Line-1 / Warehouse / ICU'}" maxlength="40" oninput="this.value=this.value.trimStart()">
+    </div>
     <div class="field"><label>Designation</label><select id="ne_designation">${desigOpts}</select></div>
-    <div class="field"><label>${typeof t==='function'?t('मशीन'):'Machine'}</label><select id="ne_mc">${mcOpts}</select></div>
   </div>
   <div class="grid2">
+    <div class="field"><label>${typeof t==='function'?t('मशीन'):'Machine'}</label><select id="ne_mc">${mcOpts}</select></div>
     <div class="field"><label>${typeof t==='function'?t('ज़िम्मेदारी'):'Responsibility'}</label><select id="ne_resp">${respOpts}</select></div>
+  </div>
+  <div class="grid2">
     <div class="field"><label>Week Off</label>
       <select id="ne_woff"><option>MON</option><option>TUE</option><option>WED</option><option>THU</option><option>FRI</option><option>SAT</option><option selected>SUN</option></select>
     </div>
+    <div class="field"><label>📱 ${typeof t==='function'?t('मोबाइल नंबर'):'Mobile'} (SMS)</label><input class="inp-field" id="ne_phone" placeholder="10-digit number" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>
   </div>
-  <div class="field"><label>📱 ${typeof t==='function'?t('मोबाइल नंबर'):'Mobile'} (SMS)</label><input class="inp-field" id="ne_phone" placeholder="10-digit number" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>
   <div class="grid2">
     <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ne_joining" type="date"></div>
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ne_dob" type="date"></div>
   </div>
   <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="number" min="0" step="1" placeholder="e.g. 15000"></div>
-  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section from Excel column (Metalliser / Slitter / MetProd…).':'Section Excel column से।'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section = team group for schedule filters (not the same as Machine).':'Section = schedule फ़िल्टर के लिए समूह (Machine से अलग)।'}</div>
   <button class="submit-btn" onclick="addEmployee()">✅ ${typeof t==='function'?t('जोड़ें'):'Add'}</button>
   <button class="cancel-btn" onclick="closeModal()">${typeof t==='function'?t('रद्द करें'):'Cancel'}</button>`);
 }
@@ -14364,9 +14754,11 @@ async function addEmployee(){
   const joiningDate=document.getElementById('ne_joining')?.value?.trim()||'';
   const dob=document.getElementById('ne_dob')?.value?.trim()||'';
   const salaryRaw=document.getElementById('ne_salary')?.value?.trim();
-  // Section derived from Machine (no separate Section field)
-  const sec=_secFromMachine(mc, designation);
+  const sectionRaw=(document.getElementById('ne_section')?.value||'').trim();
+  // Prefer explicit Section; fallback to machine mapping only if empty
+  const sec = sectionRaw || _secFromMachine(mc, designation) || mc || 'General';
   if(!name||!code){ toast('नाम और कोड जरूरी है'); return; }
+  if(!sectionRaw){ toast((typeof _lang!=='undefined'&&_lang==='en')?'⚠️ Section is required':'⚠️ Section जरूरी है'); return; }
   if(!mc){ toast((typeof _lang!=='undefined'&&_lang==='en')?'⚠️ Select a Machine':'⚠️ मशीन चुनें'); return; }
   // Only Admin can add Manager-section employees
   if(sec==='MGR' && !isAdmin()){ toast('❌ Manager section में सिर्फ Admin जोड़ सकते हैं'); return; }
@@ -14396,7 +14788,7 @@ async function addEmployee(){
     }
   }
   const id='e'+Date.now().toString(36);
-  const emp={id,name,empId:code,sec,mc,resp,woff,status:'active',
+  const emp={id,name,empId:code,sec,section:sectionRaw||sec,mc,resp,woff,status:'active',
     designation,
     companyId:myCompanyId()==='ALL'?'default':myCompanyId(),
     companyLabel:SESSION.company||'Man Power',
@@ -14427,14 +14819,20 @@ function openEditEmpForm(empId){
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ee_code" value="${e.empId||''}"></div>
   </div>
   <div class="grid2">
+    <div class="field"><label>${isEn?'Section':'सेक्शन'}</label>
+      <input class="inp-field" id="ee_sec" value="${(e.section||e.sec||'').replace(/"/g,'&quot;')}" maxlength="40" placeholder="${isEn?'e.g. Line-1 / Warehouse':'जैसे: Line-1 / Warehouse'}">
+    </div>
     <div class="field"><label>Designation</label><select id="ee_designation">${desigOpts}</select></div>
-    <div class="field"><label>${isEn?'Machine':'मशीन'}</label><select id="ee_mc">${mcOpts}</select></div>
   </div>
   <div class="grid2">
+    <div class="field"><label>${isEn?'Machine':'मशीन'}</label><select id="ee_mc">${mcOpts}</select></div>
     <div class="field"><label>${isEn?'Responsibility':'ज़िम्मेदारी'}</label><select id="ee_resp">${respExtra}${respOpts}</select></div>
+  </div>
+  <div class="grid2">
     <div class="field"><label>Week Off</label>
       <select id="ee_woff">${['MON','TUE','WED','THU','FRI','SAT','SUN'].map(d=>`<option${(e.woff||'SUN')===d?' selected':''}>${d}</option>`).join('')}</select>
     </div>
+    <div class="field"></div>
   </div>
   ${(()=>{
     const lockPhone = isManagerSelfRecord(e);
@@ -14520,11 +14918,13 @@ async function saveEmployee(empId){
   const nameVal = val('ee_name').toUpperCase();
   if(!nameVal){ toast('⚠️ Name required'); return; }
 
+  const secVal = document.getElementById('ee_sec') ? val('ee_sec') : ((e&&(e.section||e.sec)) || '');
   const update = {
     name:        nameVal,
     empId:       val('ee_code'),
     mc:          mcVal,
-    sec:         (document.getElementById('ee_sec') ? val('ee_sec') : (e&&e.sec) || ''),
+    sec:         secVal,
+    section:     secVal,
     resp:        val('ee_resp'),
     woff:        val('ee_woff') || 'SUN',
     status:      val('ee_status') || 'active',
@@ -17584,7 +17984,10 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
   }catch(e){ console.warn('[grantApprovedCompOff]', e); }
 }
 
-async function saveAllShiftChanges(){
+async function saveAllShiftChanges(opts){
+  opts = opts || {};
+  const skipWhatsApp = !!opts.skipWhatsApp;
+  const stayOnMyShift = !!opts.stayOnMyShift;
   const entries = Object.values(_pendingShiftChanges);
   if(!entries.length){ toast('कोई बदलाव नहीं है'); return; }
 
@@ -17639,9 +18042,10 @@ async function saveAllShiftChanges(){
 
 
     // Restore button and re-render
-    restoreBtn();
+        restoreBtn();
     _updateSaveBar();
-    renderSchedule();
+    try{ renderSchedule(); }catch(e){}
+    try{ if(stayOnMyShift || _currentTab==='myshift') renderMyShift(); }catch(e){}
 
     toast(`✅ ${savedEntries.length} बदलाव save हुए`);
 
@@ -17804,8 +18208,14 @@ async function saveAllShiftChanges(){
     // Browser blocks window.open() on 2nd+ calls from setTimeout (popup blocker).
     // Fix: Show a small modal for each employee — user taps "Send" which IS a direct
     // gesture, allowing window.open() to work every time.
-    if(waQueue.length === 1){
-      // Single employee — open directly (safe, triggered by save button click context)
+    // Skip WhatsApp when manager edits only their own shift (or explicit skip)
+    const onlyOwn = savedEntries.every(e=>{
+      const myId = SESSION.empObjId || (myEmp()&&myEmp().id);
+      return myId && e.empId === myId;
+    });
+    if(skipWhatsApp || onlyOwn){
+      // no WhatsApp
+    } else if(waQueue.length === 1){
       openWA(waQueue[0].emp.phone, waQueue[0].msgLines);
       toast(`📲 ${waQueue[0].emp.name} को WhatsApp भेजा`);
     } else if(waQueue.length > 1){
@@ -18584,23 +18994,23 @@ function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){
   closeModal();
   const key = empId+'__'+date;
+  const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
+  const fromMyShift = (typeof _currentTab!=='undefined' && _currentTab==='myshift');
+  const canEdit = (typeof canEditSchedule==='function') && canEditSchedule();
 
   if(newShift === currentShift){
-    // Remove from pending if they select the original shift back
     delete _pendingShiftChanges[key];
-    // Restore cell
     const cellEl = document.querySelector(`[data-pending="${key}"]`);
     if(cellEl){
       cellEl.innerHTML = `<span class="shc ${cellClass(currentShift)}">${cellDisp(currentShift)}</span>`;
       cellEl.removeAttribute('data-pending');
     }
     _updateSaveBar();
+    if(fromMyShift){ try{ renderMyShift(); }catch(e){} }
     return;
   }
 
-  // Single-day change only — no auto-fill pattern
-
-  // Gate Pass monthly limit (default 2)
+  // Gate Pass monthly limit
   if(newShift === 'GP'){
     const cfg = getShiftConfigSync();
     const gpMax = Math.max(1, Number(cfg.gpMaxPerMonth)||2);
@@ -18613,11 +19023,30 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
       toast(`⛔ Gate Pass limit: महीने में अधिकतम ${gpMax} GP। ${empName} के पास पहले से limit पूरी है।`);
       return;
     }
-  } else {
-    _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
   }
 
-  // Visually mark the cell in the table as pending (orange glow)
+  // ── Member (no schedule authority): request manager approval — stay on My Shift ──
+  if(isOwn && !canEdit){
+    delete _pendingShiftChanges[key];
+    _submitOwnShiftChangeRequest(empId, empName, date, currentShift, newShift, coMeta);
+    return;
+  }
+
+  // ── Manager / authorized: from My Shift → save here (no jump to Schedule) ──
+  if(fromMyShift && canEdit){
+    _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
+    // Auto-save this change in place; skip WhatsApp when only own shift
+    const skipWA = isOwn;
+    toast((_lang==='en')?'⏳ Saving shift…':'⏳ Shift save हो रही है…');
+    saveAllShiftChanges({ skipWhatsApp: skipWA, stayOnMyShift: true }).catch(e=>{
+      toast('❌ '+(e&&e.message||e));
+    });
+    return;
+  }
+
+  // ── Schedule grid path: stage + save bar ──
+  _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
+
   const cellEl = document.querySelector(`td[data-cellkey="${empId}_${date}"]`);
   if(cellEl){
     cellEl.dataset.pending = key;
@@ -18626,13 +19055,181 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
       <span class="shc ${cellClass(newShift)}" style="outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(newShift)}</span>
       <div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`;
   }
-  // Refresh My Shift calendar if open
   try{
     if(_currentTab==='myshift' && typeof renderMyShift==='function') renderMyShift();
   }catch(e){}
 
   _updateSaveBar();
-  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — Schedule पर Save दबाएँ`);
+  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — Save दबाएँ`);
+}
+
+/** Member requests own shift change → assigned manager only */
+async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, newShift, coMeta){
+  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  try{
+    toast(isEn?'⏳ Sending request to Manager…':'⏳ Manager को request भेजी जा रही है…');
+    try{ await window._fbSignInAnon && window._fbSignInAnon(); }catch(e){}
+    const me = myEmp() || {};
+    const managerId = SESSION.managerId || me.managerId || '';
+    if(!managerId){
+      toast(isEn?'❌ No manager linked — ask Admin':'❌ Manager link नहीं है — Admin से संपर्क करें');
+      return;
+    }
+    const req = {
+      type: 'shift_change_request',
+      empObjId: empId,
+      empId: me.empId || SESSION.empId || '',
+      empName: empName || SESSION.name || '',
+      date,
+      currentShift,
+      newShift,
+      coMeta: coMeta || null,
+      managerId: String(managerId),
+      phone: SESSION.mobile || me.phone || me.mobile || '',
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      requestedBy: SESSION.name || empName || ''
+    };
+    const reqKey = await fbPush('shiftChangeRequests', req);
+    await fbUpdate('shiftChangeRequests/'+reqKey, { _key: reqKey });
+
+    // Notify assigned manager only
+    const notif = {
+      type: 'shift_change_request',
+      title: isEn ? '📅 Shift change request' : '📅 Shift बदलने का अनुरोध',
+      body: (empName||'')+' · '+date+' · '+(currentShift||'—')+' → '+(newShift||''),
+      reqKey, empObjId: empId, date, newShift, currentShift,
+      managerId: String(managerId),
+      read: false, at: new Date().toISOString()
+    };
+    const targets = new Set([String(managerId)]);
+    try{
+      const allMu = await fbGet('mobileUsers') || {};
+      Object.entries(allMu).forEach(([mobKey, u])=>{
+        if(!u || u.role!=='manager' || u.status!=='approved') return;
+        const mid = String(managerId);
+        if(u.empObjId===mid || u.employeeId===mid || mobKey===(typeof _normMobileKey==='function'?_normMobileKey(mid):mid) ||
+           (typeof _normMobileKey==='function' && _normMobileKey(u.mobile||'')===_normMobileKey(mid))){
+          targets.add(mobKey);
+          if(u.empObjId) targets.add(u.empObjId);
+          if(u.mobile) targets.add(_normMobileKey(u.mobile));
+        }
+      });
+    }catch(e){}
+    for(const t of targets){
+      if(!t) continue;
+      try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
+    }
+
+    toast(isEn
+      ? ('✅ Request sent to Manager — wait for approval')
+      : ('✅ Manager को request भेज दी — Approve के बाद shift अपडेट होगी'));
+    // WhatsApp to manager if template enabled (in-app already sent above)
+    try{
+      await _notifyMappedManagerAfterMemberAction('shift', {
+        managerId: managerId,
+        empObjId: empId,
+        name: empName || SESSION.name,
+        date: date,
+        dates: date,
+        currentShift: currentShift,
+        newShift: newShift,
+        reqKey: reqKey,
+        skipInApp: true,
+        notifBody: (empName||'')+' · '+date+' · '+(currentShift||'—')+' → '+(newShift||'')
+      });
+    }catch(e2){ console.warn('[shift WA]', e2); }
+    try{ renderMyShift(); }catch(e){}
+  }catch(e){
+    console.error('[shift change request]', e);
+    toast('❌ '+(e&&e.message||e));
+  }
+}
+
+
+async function _renderPendingShiftChangeRequests(){
+  if(!(typeof isAdminOrMgr==='function' && isAdminOrMgr()) && !(typeof canEditSchedule==='function' && canEditSchedule())) return;
+  let host = document.getElementById('pendingShiftChangeReqs');
+  if(!host){
+    // Create container above device pending if possible
+    const parent = document.getElementById('pendingLoginRequests') || document.getElementById('adminOnlyPendingBlock') || document.getElementById('pendingRegs');
+    if(!parent || !parent.parentNode) return;
+    host = document.createElement('div');
+    host.id = 'pendingShiftChangeReqs';
+    parent.parentNode.insertBefore(host, parent.nextSibling);
+  }
+  try{
+    const data = await fbGet('shiftChangeRequests') || {};
+    let list = Object.entries(data).filter(([k,v])=>v && v.status==='pending');
+    if(typeof isAdmin==='function' && isAdmin()){
+      // all
+    } else {
+      list = list.filter(([k,v])=> _isMyTeamLoginRequest({ managerId: v.managerId, type:'manager_login_approval' }) ||
+        (SESSION.empObjId && v.managerId===SESSION.empObjId) || (SESSION.uid && v.managerId===SESSION.uid));
+    }
+    if(!list.length){ host.innerHTML=''; return; }
+    const isEn = (typeof _lang!=='undefined' && _lang==='en');
+    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#38bdf8;margin:12px 0 8px">📅 ${isEn?'Shift change requests':'Shift बदलने के अनुरोध'}</div>` +
+      list.map(([k,v])=>`
+        <div class="card" style="margin-bottom:8px;border-left:3px solid #38bdf8">
+          <div class="card-name">${(v.empName||'').replace(/</g,'')}</div>
+          <div class="card-sub">${v.date||''} · <b>${v.currentShift||'—'}</b> → <b style="color:#38bdf8">${v.newShift||''}</b></div>
+          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
+          <div class="action-row" style="margin-top:8px;display:flex;gap:8px">
+            <button class="act-btn approve" onclick="approveShiftChangeRequest('${k}')">✅ Approve</button>
+            <button class="act-btn reject" onclick="rejectShiftChangeRequest('${k}')">❌ Reject</button>
+          </div>
+        </div>`).join('');
+  }catch(e){ console.warn('[pending shift reqs]', e); }
+}
+
+async function approveShiftChangeRequest(reqKey){
+  try{
+    const rec = await fbGet('shiftChangeRequests/'+reqKey);
+    if(!rec || rec.status!=='pending'){ toast('Already handled'); return; }
+    if(!canEditSchedule() && !(typeof isAdmin==='function' && isAdmin())){
+      toast('❌ Permission नहीं है'); return;
+    }
+    const okAuth = await _ensureWriteAuth();
+    if(!okAuth){ toast('❌ Phone verify करें'); return; }
+    const ovKey = rec.empObjId+'_'+rec.date;
+    await fbUpdate('overrides', { [ovKey]: rec.newShift });
+    try{
+      _cache.overrides = {...(getOverrides()||{}), [ovKey]: rec.newShift};
+    }catch(e){}
+    await fbUpdate('shiftChangeRequests/'+reqKey, {
+      status: 'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: SESSION.name||''
+    });
+    // Notify member
+    try{
+      if(rec.empObjId){
+        await fbPush('userNotifications/'+rec.empObjId, {
+          type: 'shift_change_approved',
+          title: '✅ Shift change approved',
+          body: (rec.date||'')+' → '+(rec.newShift||''),
+          read: false, at: new Date().toISOString()
+        });
+      }
+    }catch(e){}
+    toast('✅ Shift updated');
+    try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+    try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
+  }catch(e){ toast('❌ '+(e.message||e)); }
+}
+
+async function rejectShiftChangeRequest(reqKey){
+  try{
+    await fbUpdate('shiftChangeRequests/'+reqKey, {
+      status: 'rejected',
+      rejectedAt: new Date().toISOString(),
+      rejectedBy: SESSION.name||''
+    });
+    toast('Request rejected');
+    try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+  }catch(e){ toast('❌ '+(e.message||e)); }
 }
 
 // Legacy single-call — now just a wrapper used by resetShiftOverride
@@ -24311,8 +24908,7 @@ function listenUserShiftNotifications(){
           const mine = pending.filter(v=>{
             if(v.type==='device_transfer') return v.empObjId===empId || v.empId===SESSION.empId;
             if(v.type==='manager_login_approval'){
-              return !v.managerId || v.managerId===empId || v.managerId===SESSION.uid ||
-                (v.company && SESSION.company && String(v.company).toLowerCase()===String(SESSION.company).toLowerCase());
+              return _isMyTeamLoginRequest(v);
             }
             return false;
           });

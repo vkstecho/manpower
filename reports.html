@@ -1,18 +1,18 @@
 <!-- ── REPORTS ── -->
 <div class="tab" id="tab-reports">
   <div class="page-title" id="pageTitleReports">रिपोर्ट</div>
-  <div class="page-sub">NCR, अनुपस्थिति, चेतावनी, प्रशंसा, Imp Info &nbsp;·&nbsp; <span id="reportTotalBadge" style="color:#f87171;font-weight:800"></span></div>
+  <div class="page-sub">NCR, अनुपस्थिति, चेतावनी, प्रशंसा, Imp Info &nbsp;·&nbsp; <span id="reportTotalBadge" style="color:#38bdf8;font-weight:800"></span></div>
   <div class="action-row-compact">
-    <button class="action-primary" onclick="openReportForm()">+ नई रिपोर्ट दर्ज करें</button>
-    <button id="impInfoBtn" class="action-secondary blue" style="display:none" onclick="openImpInfoForm()">📢 Imp. Info</button>
+    <button id="impInfoBtn" class="action-primary" style="display:inline-flex" onclick="openImpInfoForm()">📢 महत्वपूर्ण जानकारी</button>
+    <button class="action-secondary" onclick="openReportForm()">+ नई रिपोर्ट</button>
   </div>
   <div class="chips" id="reportFilter">
-    <div class="chip on" onclick="setRF('all',this)" data-i18n-all>सभी</div>
+    <div class="chip on" onclick="setRF('imp_info',this)">📢 महत्वपूर्ण जानकारी</div>
+    <div class="chip" onclick="setRF('all',this)" data-i18n-all>सभी</div>
     <div class="chip" onclick="setRF('ncr',this)">⚠️ NCR</div>
     <div class="chip" onclick="setRF('absent',this)">📵 अनुपस्थित</div>
     <div class="chip" onclick="setRF('warning',this)">⚡ चेतावनी</div>
     <div class="chip" onclick="setRF('appreciation',this)">🌟 प्रशंसा</div>
-    <div class="chip" onclick="setRF('imp_info',this)">📢 महत्वपूर्ण जानकारी</div>
     <div class="chip" id="odChip" style="display:none" onclick="setRF('od',this)">🔄 OD रिकॉर्ड</div>
   </div>
   <div id="reportList"></div>

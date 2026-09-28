@@ -3,7 +3,7 @@
    - Never deletes mp-integrity (session integrity token) on activate
    - Precaches all tab partials for offline section viewing
 */
-const CACHE = 'manpower-v240';
+const CACHE = 'manpower-v2412-section';
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 const PRECACHE = [
   './',
