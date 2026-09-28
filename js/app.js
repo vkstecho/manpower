@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.15';
+const APP_VERSION = '2.4.17';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -1073,6 +1073,13 @@ function _defaultShiftConfig(){
     waCOffTemplate: '🔄 *Man Power — C-Off*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *Compensatory Off (C-Off)* दिया गया है।\n\n📅 *C-Off Date:* {coffDate}\n📝 *कारण:* {reason}\n\nयह आपकी approved C-Off balance में जोड़ दिया गया है।\n_— {manager}_',
     gpMaxPerMonth: 2,
     waNotifyOnSave: true,
+    // Per-type Manager→Team WhatsApp (each can be toggled in Shift Settings)
+    waShiftEnabled: true,
+    waLeaveEnabled: true,
+    waAbsentEnabled: true,
+    waGPEnabled: true,
+    waHolidayEnabled: true,
+    waCOffEnabled: true,
     // Member → Manager WhatsApp (after member Save). In-app notifications always on.
     waMemberLeaveToMgrEnabled: true,
     waMemberShiftToMgrEnabled: true,
@@ -6161,6 +6168,12 @@ function _renderShiftSettingsModal(){
   if(!d.waMemberLeaveToMgrTemplate) d.waMemberLeaveToMgrTemplate = _d0.waMemberLeaveToMgrTemplate;
   if(!d.waMemberShiftToMgrTemplate) d.waMemberShiftToMgrTemplate = _d0.waMemberShiftToMgrTemplate;
   if(d.waNotifyOnSave==null) d.waNotifyOnSave = true;
+  if(d.waShiftEnabled==null) d.waShiftEnabled = true;
+  if(d.waLeaveEnabled==null) d.waLeaveEnabled = true;
+  if(d.waAbsentEnabled==null) d.waAbsentEnabled = true;
+  if(d.waGPEnabled==null) d.waGPEnabled = true;
+  if(d.waHolidayEnabled==null) d.waHolidayEnabled = true;
+  if(d.waCOffEnabled==null) d.waCOffEnabled = true;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">⚙️ ${_lang==='en'?'Shift & Min Staff':'शिफ्ट व मिन स्टाफ़'}</div>
@@ -6197,51 +6210,115 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
 
   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
-    <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp — Member → Manager</div>
-    <div style="font-size:11px;color:#64748b;margin-bottom:12px;line-height:1.45">
+    <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp templates (your team)</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.45">
       ${_lang==='en'
-        ? 'When a team member applies leave or requests a shift change, they can open WhatsApp to message you. In-app notifications always stay on. Turn each type ON/OFF below.'
-        : 'जब member leave या shift change request भेजे, WhatsApp से आपको message जा सकता है। App notification हमेशा चालू रहती है। हर type अलग ON/OFF करें।'}
+        ? 'Customise messages for your team. In-app notifications always stay on. Placeholders are replaced automatically when the message is sent.'
+        : 'अपनी team के लिए messages customise करें। App notification हमेशा चालू रहती है। Placeholders message भेजते समय अपने आप भर जाते हैं।'}
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);margin-bottom:8px">
+    <!-- ══ Member → Manager ══ -->
+    <div style="font-size:12px;font-weight:800;color:#25D366;margin:4px 0 8px">📩 Member → Manager</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25)">
       <div>
         <div style="font-size:13px;font-weight:800;color:var(--text)">🏖️ Leave request → Manager</div>
-        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'Member Save leave → WhatsApp to you':'Member leave Save → आपको WhatsApp'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Member Save leave → WhatsApp to you':'Member leave Save → आपको WhatsApp'}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
-        <input type="checkbox" id="ss_waMemLeaveOn" ${d.waMemberLeaveToMgrEnabled!==false?'checked':''} style="width:18px;height:18px"> ON
+        <input type="checkbox" id="ss_waMemLeaveOn" ${d.waMemberLeaveToMgrEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Leave request WhatsApp ON"> ON
       </label>
     </div>
-    <textarea id="ss_waMemLeaveTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:12px;resize:vertical">${(d.waMemberLeaveToMgrTemplate||_d0.waMemberLeaveToMgrTemplate||'').replace(/`/g,"'")}</textarea>
+    <textarea id="ss_waMemLeaveTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Leave request template">${(d.waMemberLeaveToMgrTemplate||_d0.waMemberLeaveToMgrTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:12px">{name} {dates} {date} {leaveType} {reason} {days}</div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25);margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25)">
       <div>
         <div style="font-size:13px;font-weight:800;color:var(--text)">📅 Shift change → Manager</div>
-        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'Member requests shift change → WhatsApp to you':'Member shift request → आपको WhatsApp'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Member requests shift change → WhatsApp to you':'Member shift request → आपको WhatsApp'}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
-        <input type="checkbox" id="ss_waMemShiftOn" ${d.waMemberShiftToMgrEnabled!==false?'checked':''} style="width:18px;height:18px"> ON
+        <input type="checkbox" id="ss_waMemShiftOn" ${d.waMemberShiftToMgrEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Shift change WhatsApp ON"> ON
       </label>
     </div>
-    <textarea id="ss_waMemShiftTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:8px;resize:vertical">${(d.waMemberShiftToMgrTemplate||_d0.waMemberShiftToMgrTemplate||'').replace(/`/g,"'")}</textarea>
-    <div style="font-size:10px;color:#64748b;margin-bottom:8px">{name} {dates} {date} {leaveType} {reason} {days} {currentShift} {newShift}</div>
+    <textarea id="ss_waMemShiftTpl" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Shift change request template">${(d.waMemberShiftToMgrTemplate||_d0.waMemberShiftToMgrTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:14px">{name} {date} {currentShift} {newShift}</div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);margin-bottom:8px">
+    <!-- ══ Manager → Team (schedule save) ══ -->
+    <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 8px">📢 Manager → Team (Schedule Save)</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.45">
+      ${_lang==='en'
+        ? 'When you change shifts and Save, each member can get WhatsApp. Message type depends on what you marked (L / Ab / GP / H / C-Off / general shift).'
+        : 'जब आप shift बदलकर Save करते हैं, members को WhatsApp जा सकता है। Message type mark किए गए code पर निर्भर (L / Ab / GP / H / C-Off / सामान्य shift)।'}
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25)">
       <div>
-        <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Schedule Save → Team</div>
-        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'When you save schedule, WhatsApp employees with changes':'आप schedule Save करें तो बदले हुए employees को WhatsApp'}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Notify team on Save</div>
+        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Master switch for all Manager→Team WhatsApp':'सभी Manager→Team WhatsApp का master switch'}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8">
         <input type="checkbox" id="ss_waNotifyOnSave" ${d.waNotifyOnSave!==false?'checked':''} style="width:18px;height:18px" aria-label="Notify team on schedule save"> ON
       </label>
     </div>
-    <textarea id="ss_waTemplate" rows="6" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Schedule change WhatsApp template">${(d.waShiftTemplate||_d0.waShiftTemplate||'').replace(/`/g,"'")}</textarea>
-    <div style="font-size:10px;color:var(--muted2);margin-bottom:12px;line-height:1.45">
-      ${_lang==='en'
-        ? 'Placeholders: {name} {changes} {manager} {date} — this message is sent to members when you change their shifts and Save.'
-        : 'Placeholders: {name} {changes} {manager} {date} — जब आप shift बदलकर Save करते हैं तो members को यही message जाता है।'}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🔔 General shift change</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waShiftOn" ${d.waShiftEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply general shift template"> ON
+      </label>
     </div>
+    <textarea id="ss_waTemplate" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="General shift change template">${(d.waShiftTemplate||_d0.waShiftTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:10px">{name} {changes} {manager} {date}</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🏖️ Leave (L)</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waLeaveOn" ${d.waLeaveEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply leave template"> ON
+      </label>
+    </div>
+    <textarea id="ss_waLeave" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Leave template">${(d.waLeaveTemplate||_d0.waLeaveTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:10px">{name} {dates} {date} {manager}</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">⚠️ Absent (Ab)</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waAbsentOn" ${d.waAbsentEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply absent template"> ON
+      </label>
+    </div>
+    <textarea id="ss_waAbsent" rows="6" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Absent template">${(d.waAbsentTemplate||_d0.waAbsentTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:10px">{name} {dates} {date} {manager}</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🪪 Gate Pass (GP)</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waGPOn" ${d.waGPEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply Gate Pass template"> ON
+      </label>
+    </div>
+    <textarea id="ss_waGP" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Gate Pass template">${(d.waGPTemplate||_d0.waGPTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">{name} {dates} {date} {manager} {gpCount} {gpMax}</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;max-width:200px">
+      <div style="font-size:11px;color:var(--muted2);white-space:nowrap">${_lang==='en'?'Max GP / month':'Max GP / महीना'}</div>
+      <input type="number" id="ss_gpMax" min="1" max="31" value="${d.gpMaxPerMonth!=null?d.gpMaxPerMonth:(_d0.gpMaxPerMonth||2)}" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" aria-label="Max Gate Pass per month">
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🎉 Holiday (H)</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waHolidayOn" ${d.waHolidayEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply holiday template"> ON
+      </label>
+    </div>
+    <textarea id="ss_waHoliday" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Holiday template">${(d.waHolidayTemplate||_d0.waHolidayTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:10px">{name} {dates} {date} {manager}</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:10px;margin:8px 0 6px;background:var(--card2);border:1px solid var(--border2)">
+      <div style="font-size:12px;font-weight:800;color:var(--text)">🔄 Comp Off (C/O)</div>
+      <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8;flex-shrink:0">
+        <input type="checkbox" id="ss_waCOffOn" ${d.waCOffEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Apply Comp Off template"> ON
+      </label>
+    </div>
+    <textarea id="ss_waCOff" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Comp Off template">${(d.waCOffTemplate||_d0.waCOffTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:8px">{name} {date} {manager} {coffDate} {reason}</div>
   </div>
 
   </div>
@@ -6384,6 +6461,18 @@ async function _saveShiftSettings(){
     for(const [id,key] of map){
       const el = document.getElementById(id);
       if(el) _shiftDraft[key] = el.value;
+    }
+    const enMap = [
+      ['ss_waShiftOn','waShiftEnabled'],
+      ['ss_waLeaveOn','waLeaveEnabled'],
+      ['ss_waAbsentOn','waAbsentEnabled'],
+      ['ss_waGPOn','waGPEnabled'],
+      ['ss_waHolidayOn','waHolidayEnabled'],
+      ['ss_waCOffOn','waCOffEnabled']
+    ];
+    for(const [id,key] of enMap){
+      const el = document.getElementById(id);
+      if(el) _shiftDraft[key] = !!el.checked;
     }
     const gpEl = document.getElementById('ss_gpMax');
     if(gpEl) _shiftDraft.gpMaxPerMonth = Math.max(1, Number(gpEl.value)||2);
@@ -18237,11 +18326,19 @@ async function saveAllShiftChanges(opts){
         if(_waCfg.waNotifyOnSave === false) continue;
         if(phone.length !== 10) continue;
 
-        const allCO = changes.every(c => c.newShift === 'C/O');
+        const allCO = changes.every(c => c.newShift === 'C/O' || c.newShift === 'CO');
         const allAb = changes.every(c => c.newShift === 'Ab');
         const allL  = changes.every(c => c.newShift === 'L');
         const allGP = changes.every(c => c.newShift === 'GP');
         const allH  = changes.every(c => c.newShift === 'H');
+        // Per-template ON/OFF (default ON if flag missing)
+        const _typeOn = (flag) => flag !== false;
+        if(allCO && !_typeOn(_waCfg.waCOffEnabled)) continue;
+        if(allAb && !_typeOn(_waCfg.waAbsentEnabled)) continue;
+        if(allL  && !_typeOn(_waCfg.waLeaveEnabled)) continue;
+        if(allGP && !_typeOn(_waCfg.waGPEnabled)) continue;
+        if(allH  && !_typeOn(_waCfg.waHolidayEnabled)) continue;
+        if(!allCO && !allAb && !allL && !allGP && !allH && !_typeOn(_waCfg.waShiftEnabled)) continue;
         let msgLines;
 
         const _datesList = changes.map(c => {

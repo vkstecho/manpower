@@ -1,9 +1,29 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.15)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.17)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+## What's new in 2.4.17
+
+### Per-template ON/OFF in Shift Settings
+- Each WhatsApp template has a **side-by-side ON** toggle (apply this message or not).
+- Manager → Team: General shift, Leave, Absent, GP, Holiday, Comp Off — each independent.
+- Member → Manager leave/shift toggles unchanged.
+- Master **Notify team on Save** still gates all Manager→Team WhatsApp.
+- Flags stored on manager shift config (`waShiftEnabled`, `waLeaveEnabled`, …).
+
+---
+## What's new in 2.4.16
+
+### All WhatsApp templates editable in Shift Settings
+- Profile → **M/c & Shift Settings** now shows **every** team template:
+  - Member → Manager: Leave request, Shift change request
+  - Manager → Team: General shift, Leave (L), Absent (Ab), Gate Pass (GP), Holiday (H), Comp Off (C/O)
+- Master switch **Notify team on Save** + Max GP / month
+- Placeholders listed under each box; values save to each manager’s shift config
+
+---
 ## What's new in 2.4.15
 
 ### Multi-select Cancel — faster / more responsive (esp. zoomed)
