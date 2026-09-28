@@ -1,14 +1,19 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.5)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.13)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+## What's new in 2.4.13
 
+### Dynamic section colours & icons (multi-industry polish)
+- New `getSectionMeta(sec)` — single source of truth for section display.
+- Free-form sections from Excel now get **stable, attractive hash-based colours** (no more dull grey).
+- Smart icons: Warehouse → 📦, ICU/Ward → 🏥, Line/Production → ⚙️, Quality → 🔬, Dispatch → 🚚, etc.
+- Team page, Left-employees view, Excel preview, and Home group chips all use the new meta.
+- Service Worker cache bumped (`manpower-v2413-section`).
 
-
-
-
+---
 ## What's new in 2.4.5
 
 ### Mobile Save without OTP (Trusted mode fix)

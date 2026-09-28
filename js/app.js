@@ -95,6 +95,69 @@ function secName(sec){
   return sec;
 }
 
+/**
+ * getSectionMeta(sec) — single source of truth for section display (v2.4.13).
+ * Legacy keys (M1/M2/S1/S2/SUP/MGR) use the classic SEC table.
+ * Free-form sections (from Manager Excel) get a stable hash-based colour + sensible icon.
+ * Returns: { label, hi, color, bg, icon, type }
+ */
+const _SEC_PALETTE = [
+  {color:'#f97316', bg:'rgba(249,115,22,.12)'},   // orange
+  {color:'#3b82f6', bg:'rgba(59,130,246,.12)'},   // blue
+  {color:'#22c55e', bg:'rgba(34,197,94,.12)'},    // green
+  {color:'#a78bfa', bg:'rgba(167,139,250,.12)'},  // violet
+  {color:'#f43f5e', bg:'rgba(244,63,94,.12)'},    // rose
+  {color:'#14b8a6', bg:'rgba(20,184,166,.12)'},   // teal
+  {color:'#eab308', bg:'rgba(234,179,8,.12)'},    // amber
+  {color:'#6366f1', bg:'rgba(99,102,241,.12)'},   // indigo
+  {color:'#ec4899', bg:'rgba(236,72,153,.12)'},   // pink
+  {color:'#0ea5e9', bg:'rgba(14,165,233,.12)'},   // sky
+];
+function _hashStr(s){
+  let h = 0;
+  const str = String(s||'');
+  for(let i=0;i<str.length;i++){ h = ((h<<5)-h) + str.charCodeAt(i); h |= 0; }
+  return Math.abs(h);
+}
+function getSectionMeta(sec){
+  if(!sec) return {label:'', hi:'', color:'#94a3b8', bg:'rgba(148,163,184,.1)', icon:'👤', type:''};
+  const key = String(sec).trim();
+  const legacy = SEC[key] || SEC[key.toUpperCase()];
+  if(legacy){
+    return {
+      label: legacy.label,
+      hi: legacy.hi,
+      color: legacy.color,
+      bg: legacy.bg,
+      icon: legacy.icon || '👤',
+      type: legacy.type || ''
+    };
+  }
+  // Free-form / multi-industry section from Excel
+  const pal = _SEC_PALETTE[_hashStr(key) % _SEC_PALETTE.length];
+  const display = secName(key) || key;
+  // Heuristic icon from common words
+  const low = key.toLowerCase();
+  let icon = '🏭';
+  if(/warehouse|store|godown|inventory/.test(low)) icon = '📦';
+  else if(/icu|ward|hospital|clinic|medical/.test(low)) icon = '🏥';
+  else if(/office|admin|hr|accounts/.test(low)) icon = '🏢';
+  else if(/line|assembly|production|pack/.test(low)) icon = '⚙️';
+  else if(/quality|qa|qc|lab/.test(low)) icon = '🔬';
+  else if(/dispatch|logistics|transport/.test(low)) icon = '🚚';
+  else if(/kitchen|canteen|food/.test(low)) icon = '🍳';
+  else if(/security|gate/.test(low)) icon = '🛡️';
+  else if(/maintenance|utility|eng/.test(low)) icon = '🔧';
+  return {
+    label: display,
+    hi: display,
+    color: pal.color,
+    bg: pal.bg,
+    icon,
+    type: 'custom'
+  };
+}
+
 const REPORT_TYPES = {
   ncr:          { ico:'⚠️', label:'NCR रिपोर्ट',       color:'#f87171', bg:'rgba(239,68,68,.1)' },
   absent:       { ico:'📵', label:'अनुपस्थिति',         color:'var(--night)', bg:'rgba(129,140,248,.1)' },
@@ -183,10 +246,11 @@ async function openEmpReorderPanel(){
   const _coveredSecs = new Set(['M1','M2','S1','S2','SUP','MGR']);
   const _extraSecs = Array.from(new Set(emps.map(e=>e.sec).filter(s=>s && !_coveredSecs.has(s))));
   _extraSecs.forEach(secVal=>{
+    const meta = getSectionMeta(secVal);
     GROUPS.push({
       key:'dyn_'+secVal,
-      label:'🏭 '+(secName(secVal)||secVal),
-      color:'#94a3b8',
+      label:(meta.icon||'🏭')+' '+(meta.hi||secVal),
+      color: meta.color,
       filter: e => e.sec===secVal
     });
   });
@@ -636,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.12';
+const APP_VERSION = '2.4.13';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -13195,7 +13259,7 @@ function renderTeam(search=''){
   renderOrder.forEach(sec => {
     const members = groups[sec];
     if(!members || !members.length) return;
-    const s = SEC[sec] || {icon:'👤', hi:sec, color:'#94a3b8', bg:'rgba(148,163,184,.1)'};
+    const s = getSectionMeta(sec);
     html += `<div class="stitle">${s.icon||'👤'} ${s.hi||sec} <span style="color:${s.color||'#94a3b8'};font-size:13px">(${members.length})</span></div>`;
     // Sub-group by Responsibility: Operators → Assistants → Engineers → Managers → Others
     const RESP_ORDER=['Operators','Assistants','Engineers','Managers','Others'];
@@ -13980,7 +14044,6 @@ function _showEmpUploadPreview(parsed, errors){
   const conflictRows = parsed.filter(p => p._skipSave);
   const newCount = okRows.filter(p => p._isNew).length;
   const updCount = okRows.length - newCount;
-  const secColor = {'M1':'#f97316','M2':'#fb923c','S1':'#3b82f6','S2':'#60a5fa','SUP':'#a78bfa','MGR':'#22c55e'};
   const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
 
   const rows = parsed.map(p => {
@@ -13997,12 +14060,13 @@ function _showEmpUploadPreview(parsed, errors){
           ? `Mobile ${p.phone} already used by ${p._conflictWith||'another member'}${p._otherTeam?' (other team)':''}. Will NOT be saved.`
           : `मोबाइल ${p.phone} पहले से ${p._conflictWith||'दूसरे member'} के पास है${p._otherTeam?' (दूसरी team)':''}. Save नहीं होगा।`)
       : '';
+    const secMeta = getSectionMeta(p.sec || p.section);
     return `
     <tr style="border-bottom:1px solid var(--border2);${conflict?'background:rgba(244,63,94,.12);outline:1px solid rgba(244,63,94,.35);':''}" title="${escHtml(tip)}">
       <td style="padding:6px 8px;font-size:11px;font-weight:700;color:${conflict?'#fda4af':'#fff'}">${escHtml(p.name)}${conflict?' ⚠️':''}</td>
       <td style="padding:6px 4px;font-size:10px;color:var(--muted2)">${escHtml(p.empId)}</td>
       <td style="padding:6px 4px;font-size:10px">
-        <span style="background:${secColor[p.sec]||'#475569'}22;color:${secColor[p.sec]||'#94a3b8'};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${p.sec}</span>
+        <span style="background:${secMeta.bg};color:${secMeta.color};border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700">${escHtml(p.sec||p.section||'—')}</span>
       </td>
       <td style="padding:6px 4px;font-size:10px;color:var(--muted2)">${escHtml(p.mc)}</td>
       <td style="padding:6px 4px;font-size:10px;color:var(--muted2)">${p.woff}</td>
@@ -15136,7 +15200,7 @@ async function renderLeftMembers(){
   renderOrder.forEach(sec => {
     const members = secGroups[sec];
     if(!members || !members.length) return;
-    const s = SEC[sec] || {icon:'👤', hi:sec||'Other', color:'#94a3b8'};
+    const s = getSectionMeta(sec);
     html += `<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:${s.color};margin:10px 0 6px;display:flex;align-items:center;gap:6px">${s.icon||'👤'} ${s.hi||sec} <span style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:4px;padding:1px 6px;font-size:9px;color:var(--lv)">${members.length}</span></div>`;
     html += members.map(e => {
       const ini = (e.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
