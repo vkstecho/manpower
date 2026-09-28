@@ -1,9 +1,41 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.13)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.15)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+## What's new in 2.4.15
+
+### Multi-select Cancel — faster / more responsive (esp. zoomed)
+- Cancel hides the bar **immediately**, then clears cell highlights off the main paint path.
+- Class cleanup scoped to `#schedTbl` (not full document).
+- Selection highlight no longer uses heavy `box-shadow` (outline + tint only).
+- Cancel button uses `touchstart` + larger tap target + `touch-action: manipulation`.
+- Service Worker cache: `manpower-v2415`.
+
+---
+## What's new in 2.4.14
+
+### Schedule → Team WhatsApp template visible in Shift Settings
+- Profile → **M/c & Shift Settings** now shows the full **Schedule Save → Team** message template (`waShiftTemplate`).
+- Managers can edit the exact text members receive when shifts are changed and Saved.
+- Placeholders documented: `{name}` `{changes}` `{manager}` `{date}`.
+
+### Manager / self device-login notification fix
+- When a Manager (or any user) logs in on a **new device**, the **already logged-in device** now reliably receives:
+  - In-app toast
+  - Browser notification (if permission granted)
+  - Pending list refresh + badge pulse
+- Notification fan-out uses empObjId, empId, mobile, and live employee record IDs.
+- `loginRequests` listener works for **all** logged-in users (not only managers), so self `device_transfer` is never missed.
+- Matching also uses mobile number, not only empObjId.
+
+### Continued multi-industry polish
+- Section colours/icons from `getSectionMeta` (v2.4.13) remain in place.
+- Shift Settings modal uses CSS variables for muted text; key controls have `aria-label`s.
+- Service Worker cache: `manpower-v2414`.
+
+---
 ## What's new in 2.4.13
 
 ### Dynamic section colours & icons (multi-industry polish)
@@ -11,7 +43,6 @@ Sections, machines, and staffing rules are driven by the **Manager’s Excel upl
 - Free-form sections from Excel now get **stable, attractive hash-based colours** (no more dull grey).
 - Smart icons: Warehouse → 📦, ICU/Ward → 🏥, Line/Production → ⚙️, Quality → 🔬, Dispatch → 🚚, etc.
 - Team page, Left-employees view, Excel preview, and Home group chips all use the new meta.
-- Service Worker cache bumped (`manpower-v2413-section`).
 
 ---
 ## What's new in 2.4.5

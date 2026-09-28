@@ -6,7 +6,7 @@
 (function (global) {
   'use strict';
   global.MP_CFG = global.MP_CFG || {
-    APP_VERSION: '2.4.13',
+    APP_VERSION: '2.4.15',
     license: {
       expiry: new Date(2026, 11, 31),
       warnDays: 15,

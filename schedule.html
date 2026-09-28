@@ -74,7 +74,9 @@
       <button class="ms-btn" style="background:#7f1d1d;color:#fca5a5" onclick="applyMultiShift('Ab')" style="font-size:10px">Ab</button>
       <button class="ms-btn" style="background:#ea580c;color:#fff" onclick="applyMultiShift('H')">H</button>
     </div>
-    <button class="ms-cancel" onclick="clearMultiSelect()">✕ रद्द करें · Cancel</button>
+    <button type="button" class="ms-cancel" id="msCancelBtn"
+      ontouchstart="event.stopPropagation();clearMultiSelect();" onclick="clearMultiSelect();"
+      aria-label="Cancel multi-select">✕ रद्द करें · Cancel</button>
   </div>
 
   <!-- ══ PENDING CHANGES SAVE BAR ══ -->

@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.13';
+const APP_VERSION = '2.4.15';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -4230,12 +4230,32 @@ async function sendOtherDeviceLoginRequest(){
       empObjId, empId, reqKey, deviceId,
       read: false, at: new Date().toISOString()
     };
-    try{ await fbPush('userNotifications/'+empObjId, notif); }catch(e){}
+    // Fan-out to every identity the already-logged-in session may be listening on
+    const notifTargets = new Set();
+    if(empObjId) notifTargets.add(empObjId);
+    if(empId) notifTargets.add(empId);
     try{
       const mob = _normMobileKey(emp.phone||emp.mobile||'');
-      if(mob) await fbPush('userNotifications/'+mob, notif);
-      if(emp.managerId) await fbPush('userNotifications/'+emp.managerId, notif);
+      if(mob) notifTargets.add(mob);
+      // mobileUsers key often equals 10-digit mobile
+      if(emp.mobile) notifTargets.add(_normMobileKey(emp.mobile));
+      if(emp.phone) notifTargets.add(_normMobileKey(emp.phone));
+      if(emp.uid) notifTargets.add(String(emp.uid));
+      // Also look up live employee record for alternate ids
+      try{
+        const live = (typeof getEmps==='function' ? getEmps() : []).find(e=>e && (e.id===empObjId || e.empId===empId));
+        if(live){
+          if(live.id) notifTargets.add(live.id);
+          if(live.empId) notifTargets.add(live.empId);
+          if(live.phone) notifTargets.add(_normMobileKey(live.phone));
+          if(live.mobile) notifTargets.add(_normMobileKey(live.mobile));
+        }
+      }catch(e2){}
     }catch(e){}
+    for(const t of notifTargets){
+      if(!t) continue;
+      try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
+    }
 
     if(statusEl) statusEl.innerHTML =
       '✅ Notification sent to your <b style="color:#fff">other device</b>.<br>'+
@@ -4326,10 +4346,12 @@ async function renderDeviceTransferRequests(){
     const data = await fbGet('loginRequests') || {};
     const mid = SESSION.empObjId || SESSION.uid || '';
     const myEmpId = SESSION.empId || '';
+    const myMob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     const mine = Object.entries(data).filter(([k,v])=>{
       if(!v || v.status!=='pending') return false;
       if(v.type==='device_transfer'){
-        return v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId;
+        return v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId ||
+          (myMob && (_normMobileKey(v.phone||'')===myMob || _normMobileKey(v.mobile||'')===myMob));
       }
       // Manager sees ONLY their team's login approvals (managerId match — not same company)
       if(v.type==='manager_login_approval' && (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || typeof isAdmin==='function' && isAdmin())){
@@ -6127,6 +6149,7 @@ function _renderShiftSettingsModal(){
   (d.slitters||[]).forEach(m=>{ if(d.minBySec[m]==null) d.minBySec[m]=d.minSlit; });
     // Seed type-wise WA templates from defaults if missing
   const _d0 = _defaultShiftConfig();
+  if(!d.waShiftTemplate) d.waShiftTemplate = _d0.waShiftTemplate;
   if(!d.waLeaveTemplate) d.waLeaveTemplate = _d0.waLeaveTemplate;
   if(!d.waAbsentTemplate) d.waAbsentTemplate = _d0.waAbsentTemplate;
   if(!d.waGPTemplate) d.waGPTemplate = _d0.waGPTemplate;
@@ -6206,19 +6229,25 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);margin-bottom:8px">
       <div>
-        <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Schedule Save → Team (existing)</div>
-        <div style="font-size:11px;color:#94a3b8">${_lang==='en'?'When you save schedule, WhatsApp employees':'आप schedule Save करें तो employees को WhatsApp'}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Schedule Save → Team</div>
+        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'When you save schedule, WhatsApp employees with changes':'आप schedule Save करें तो बदले हुए employees को WhatsApp'}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8">
-        <input type="checkbox" id="ss_waNotifyOnSave" ${d.waNotifyOnSave!==false?'checked':''} style="width:18px;height:18px"> ON
+        <input type="checkbox" id="ss_waNotifyOnSave" ${d.waNotifyOnSave!==false?'checked':''} style="width:18px;height:18px" aria-label="Notify team on schedule save"> ON
       </label>
+    </div>
+    <textarea id="ss_waTemplate" rows="6" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Schedule change WhatsApp template">${(d.waShiftTemplate||_d0.waShiftTemplate||'').replace(/`/g,"'")}</textarea>
+    <div style="font-size:10px;color:var(--muted2);margin-bottom:12px;line-height:1.45">
+      ${_lang==='en'
+        ? 'Placeholders: {name} {changes} {manager} {date} — this message is sent to members when you change their shifts and Save.'
+        : 'Placeholders: {name} {changes} {manager} {date} — जब आप shift बदलकर Save करते हैं तो members को यही message जाता है।'}
     </div>
   </div>
 
   </div>
   <div class="modal-sticky-actions">
-    <button class="submit-btn" onclick="_saveShiftSettings()">✅ Save करें</button>
-    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
+    <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ Save करें</button>
+    <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">रद्द करें</button>
   </div>`);
 }
 
@@ -9722,14 +9751,46 @@ function _msUpdateBar(){
 }
 
 function clearMultiSelect(){
+  // v2.4.15: Instant UI feedback first — hide bar before heavy class cleanup
+  // (especially important when many cells selected + browser pinch-zoom)
   _msActive = false;
   _msDragging = false;
+  const keys = _msSelected.size;
   _msSelected.clear();
-  document.querySelectorAll('.cell-selected').forEach(td=>td.classList.remove('cell-selected'));
+
   const bar = document.getElementById('multiSelectBar');
-  if(bar) bar.style.display = 'none';
+  if(bar){
+    bar.style.display = 'none';
+    bar.style.pointerEvents = 'none';
+  }
   const btn = document.getElementById('msToggleBtn');
-  if(btn){ btn.classList.remove('ms-on'); btn.style.background='rgba(167,139,250,.06)'; btn.style.borderColor='rgba(167,139,250,.4)'; btn.textContent=(_lang==='en')?'☑️ Multi-Select':'☑️ Multi-Select'; }
+  if(btn){
+    btn.classList.remove('ms-on');
+    btn.style.background='rgba(167,139,250,.06)';
+    btn.style.borderColor='rgba(167,139,250,.4)';
+    btn.textContent=(_lang==='en')?'☑️ Multi-Select':'☑️ Multi-Select';
+  }
+
+  // Defer paint-heavy class removal so Cancel feels instant
+  const clearCells = ()=>{
+    try{
+      // Prefer scoped query; fall back to keys stored on cells via data attrs
+      const root = document.getElementById('schedTbl') || document;
+      const nodes = root.querySelectorAll('td.cell-selected');
+      // Batch: toggle a parent class first (cheap), then strip per-cell
+      if(root.classList) root.classList.add('ms-clearing');
+      for(let i=0;i<nodes.length;i++) nodes[i].classList.remove('cell-selected');
+      if(root.classList) root.classList.remove('ms-clearing');
+    }catch(e){
+      try{ document.querySelectorAll('.cell-selected').forEach(td=>td.classList.remove('cell-selected')); }catch(x){}
+    }
+    if(bar) bar.style.pointerEvents = '';
+  };
+  if(keys > 12 && typeof requestAnimationFrame==='function'){
+    requestAnimationFrame(()=>{ requestAnimationFrame(clearCells); });
+  } else {
+    clearCells();
+  }
 }
 
 
@@ -24959,32 +25020,61 @@ let _userNotifUnread = 0;
 function listenUserShiftNotifications(){
   const empId = SESSION.empObjId;
   const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+  const myEmpCode = SESSION.empId || '';
   if(!empId && !mob) return;
 
-  // Managers: also listen loginRequests so member login requests appear without refresh
+  // Any logged-in user: listen loginRequests for own device_transfer + managers for team member approvals
   try{
-    if(typeof isMgr==='function' && isMgr() && !window._loginReqListenOn){
+    if(!window._loginReqListenOn){
       window._loginReqListenOn = true;
+      let _lastLoginReqAlertAt = 0;
       fbListen('loginRequests', (data)=>{
         try{
           const pending = data ? Object.values(data).filter(v=>v && v.status==='pending' &&
             (v.type==='manager_login_approval' || v.type==='device_transfer')) : [];
           const mine = pending.filter(v=>{
-            if(v.type==='device_transfer') return v.empObjId===empId || v.empId===SESSION.empId;
+            if(v.type==='device_transfer'){
+              // Self: another device of THIS account wants to login
+              return (empId && (v.empObjId===empId || v.empObjId===SESSION.empObjId)) ||
+                     (myEmpCode && v.empId===myEmpCode) ||
+                     (mob && (_normMobileKey(v.phone||'')===mob || _normMobileKey(v.mobile||'')===mob));
+            }
             if(v.type==='manager_login_approval'){
-              return _isMyTeamLoginRequest(v);
+              return (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || (typeof isAdmin==='function' && isAdmin()))
+                && (typeof _isMyTeamLoginRequest==='function' ? _isMyTeamLoginRequest(v) : false);
             }
             return false;
           });
           if(mine.length){
-            try{
-              if(typeof Notification!=='undefined' && Notification.permission==='granted'){
-                new Notification('📱 Login request', { body: (mine[0].empName||mine[0].phone||'Member')+' wants to login', silent:false });
-              }
-            }catch(e){}
-            toast('📱 '+(mine[0].empName||'Member')+' login request — open Pending');
-            try{ if(_currentTab==='pending' && typeof renderPending==='function') renderPending(); }catch(e){}
+            // Debounce alerts (listener can fire multiple times)
+            const now = Date.now();
+            if(now - _lastLoginReqAlertAt > 4000){
+              _lastLoginReqAlertAt = now;
+              const first = mine[0];
+              const isSelfDevice = first.type==='device_transfer';
+              const label = isSelfDevice
+                ? ('New device login — Approve in Pending')
+                : ((first.empName||first.phone||'Member')+' login request — open Pending');
+              try{
+                if(typeof Notification!=='undefined' && Notification.permission==='granted'){
+                  new Notification('📱 '+(isSelfDevice?'Device login':'Login request'), { body: label, silent:false, tag:'mp-login-req' });
+                }
+              }catch(e){}
+              try{ toast('📱 '+label); }catch(e){}
+            }
             try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
+            try{ if(typeof renderPending==='function' && (typeof _currentTab==='undefined' || _currentTab==='pending')) renderPending(); }catch(e){}
+            // Bump notif badge so user notices even if not on Pending tab
+            try{
+              const badge = document.getElementById('notifCount');
+              if(badge){
+                const n = Math.max(1, Number(badge.textContent)||0);
+                badge.textContent = String(n);
+                badge.style.display = 'flex';
+              }
+              const bell = document.getElementById('notifBtn');
+              if(bell){ bell.style.display='flex'; bell.style.animation='pulse 1s infinite'; }
+            }catch(e){}
           }
         }catch(e){}
       });
@@ -25024,6 +25114,24 @@ function listenUserShiftNotifications(){
       if(localSeen[key]) n = {...n, read:true};
       return n;
     }).sort((a,b)=> new Date(b.at||0) - new Date(a.at||0));
+    // Alert on new device login request (manager/member already logged in elsewhere)
+    try{
+      const prevUnread = (_userNotifCache||[]).filter(n=>!n.read && n.type==='device_login_request').length;
+      const newDeviceReqs = merged.filter(n=>!n.read && n.type==='device_login_request');
+      if(newDeviceReqs.length > prevUnread){
+        const latest = newDeviceReqs[0];
+        if(!window._lastDeviceLoginToastAt || Date.now()-window._lastDeviceLoginToastAt > 5000){
+          window._lastDeviceLoginToastAt = Date.now();
+          try{ toast('📱 '+(latest.title||'New device login')+' — open Pending to Approve'); }catch(e){}
+          try{
+            if(typeof Notification!=='undefined' && Notification.permission==='granted'){
+              new Notification(latest.title||'📱 Device login', { body: latest.body||'Approve in Pending', tag:'mp-device-login' });
+            }
+          }catch(e){}
+          try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
+        }
+      }
+    }catch(e){}
     _userNotifCache = merged;
     _userNotifUnread = merged.filter(n=>!n.read).length;
     _updateUserNotifBadge();
@@ -25035,6 +25143,10 @@ function listenUserShiftNotifications(){
   // Also listen by mobile key (fallback when empObjId missing at write time)
   if(mob && mob !== empId){
     fbListen('userNotifications/'+mob, v => mergeNotifs(v, mob));
+  }
+  // Also by emp code if different
+  if(myEmpCode && myEmpCode !== empId && myEmpCode !== mob){
+    try{ fbListen('userNotifications/'+myEmpCode, v => mergeNotifs(v, myEmpCode)); }catch(e){}
   }
 }
 
