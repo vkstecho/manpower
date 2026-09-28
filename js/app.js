@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.55';
+const APP_VERSION = '2.4.57';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -4325,7 +4325,29 @@ async function showManagerLoginApproval(userData, mobile10, fullPhone){
 
   let ov = document.getElementById('mgrLoginApprovalOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='mgrLoginApprovalOverlay'; document.body.appendChild(ov); }
-  const name = (userData.name||'Member').replace(/</g,'');
+  // Always prefer CURRENT employee record by mobile — never show stale mobileUsers name
+  let liveName = '';
+  try{
+    const mob = (typeof _normMobileKey==='function') ? _normMobileKey(mobile10||fullPhone||'') : String(mobile10||'').replace(/\D/g,'').slice(-10);
+    const all = (typeof getEmps==='function' ? getEmps() : []) || [];
+    const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+    let match = active.find(e => (typeof _normMobileKey==='function' ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)) === mob);
+    if(!match) match = all.find(e => (typeof _normMobileKey==='function' ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)) === mob);
+    if(match && match.name) liveName = match.name;
+    // Sync mobileUsers if stale
+    if(liveName && userData && userData.name && liveName !== userData.name){
+      userData.name = liveName;
+      try{
+        if(typeof _syncMobileUserToCurrentEmployee==='function'){
+          _syncMobileUserToCurrentEmployee(mob, userData, { via:'login_without_otp_screen' });
+        } else if(typeof fbUpdate==='function' && mob){
+          fbUpdate('mobileUsers/'+mob, { name: liveName, nameSyncedAt: new Date().toISOString() }).catch(()=>{});
+        }
+      }catch(e){}
+    }
+  }catch(e){}
+  const name = (liveName || userData.name || 'Member').replace(/</g,'');
+  try{ if(userData) userData.name = name; }catch(e){}
   ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   ov.innerHTML=`
     <div style="width:100%;max-width:400px;text-align:center">
@@ -7780,7 +7802,7 @@ async function showProfile(){
       </button>
       <button class="profile-action" onclick="closeModal();openExtendAccessModal()">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">🔄</div>
-        <div><div class="pa-label">User Access Extend</div><div class="pa-sub">Validity बढ़ाएं</div></div>
+        <div><div class="pa-label">User Access Extend</div><div class="pa-sub">${typeof L==='function'?L('Validity बढ़ाएं','Extend validity'):'Extend validity'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
@@ -7805,7 +7827,7 @@ async function showProfile(){
       </button>
       <button class="profile-action danger" onclick="doLogout()" style="margin-top:4px">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
-        <div><div class="pa-label">Logout</div><div class="pa-sub">सभी sessions साफ़ करें</div></div>
+        <div><div class="pa-label">Logout</div><div class="pa-sub">${typeof L==='function'?L('सभी sessions साफ़ करें','Clear all sessions'):'Clear all sessions'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
     </div>`);
@@ -7848,7 +7870,13 @@ async function showProfile(){
     }catch(ex){}
     const color = !hasExpiry?'#22c55e':daysLeft<=7?'#f43f5e':daysLeft<=15?'#f97316':'#22c55e';
     const icon  = !hasExpiry?'🟢':daysLeft<=0?'🔴':daysLeft<=7?'⚠️':'🟢';
-    const msg   = !hasExpiry?'कोई Expiry तय नहीं है':daysLeft<=0?'Validity Expire हो गई — Admin से मिलें':daysLeft<=7?`सिर्फ ${daysLeft} दिन बाकी — जल्दी Admin से मिलें`:`${daysLeft} दिन बाकी`;
+    const msg = !hasExpiry
+      ? ((typeof L==='function')?L('कोई Expiry तय नहीं है','No expiry set'):'No expiry set')
+      : daysLeft<=0
+        ? ((typeof L==='function')?L('Validity Expire हो गई — Admin से मिलें','Validity expired — contact Admin'):'Validity expired — contact Admin')
+        : daysLeft<=7
+          ? ((typeof L==='function')?L('सिर्फ '+daysLeft+' दिन बाकी — जल्दी Admin से मिलें','Only '+daysLeft+' days left — contact Admin soon'):('Only '+daysLeft+' days left'))
+          : ((typeof L==='function')?L(daysLeft+' दिन बाकी', daysLeft+' days left'):(daysLeft+' days left'));
     const empRec = myEmp();
     const secLabel = empRec ? (secName(empRec.sec) || empRec.sec) : '';
     const roleLabel = isMgr()?'🏅 Manager':isSupervisor()?'👁️ Supervisor':'👤 User';
@@ -7928,7 +7956,7 @@ async function showProfile(){
       </button>`:''}
       <button class="profile-action danger" onclick="doLogout()">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
-        <div><div class="pa-label">Logout</div><div class="pa-sub">सभी sessions साफ़ करें</div></div>
+        <div><div class="pa-label">Logout</div><div class="pa-sub">${typeof L==='function'?L('सभी sessions साफ़ करें','Clear all sessions'):'Clear all sessions'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
     </div>`);
@@ -9147,7 +9175,7 @@ function _renderHomePersonalCalendar(){
           const daysLeft = Math.ceil((new Date(approval.validTill) - new Date()) / 86400000);
           if(daysLeft <= 7 && daysLeft > 0 && !sessionStorage.getItem('validity_warned')){
             sessionStorage.setItem('validity_warned','1');
-            setTimeout(()=> toast(`⚠️ App Validity: सिर्फ ${daysLeft} दिन बाकी! Profile tap करें।`), 2500);
+            setTimeout(()=> toast((typeof L==='function')?L('⚠️ App Validity: सिर्फ '+daysLeft+' दिन बाकी! Profile tap करें।','⚠️ App Validity: Only '+daysLeft+' days left! Tap Profile.'):('⚠️ Only '+daysLeft+' days left')), 2500);
           }
         }
       }).catch(()=>{});
@@ -9705,9 +9733,9 @@ function openCustomRange(){
     document.getElementById('customDateFrom').value=cur0;
     document.getElementById('customDateTo').value=cur1;
   }
-  // Set min/max on date inputs — allow full 1-year range
-  const minDate=addDays(TODAY_STR,-365);
-  const maxDate=addDays(TODAY_STR,365);
+  // Set min/max — allow multi-year (5 years back / 5 years forward)
+  const minDate=addDays(TODAY_STR,-365*5);
+  const maxDate=addDays(TODAY_STR,365*5);
   document.getElementById('customDateFrom').min=minDate;
   document.getElementById('customDateFrom').max=maxDate;
   document.getElementById('customDateTo').min=minDate;
@@ -9740,7 +9768,7 @@ function applyCustomRange(){
   if(!f||!t){ toast('⚠️ कृपया दोनों तारीखें चुनें'); return; }
   if(f>t){ toast('⚠️ शुरू की तारीख अंत से पहले होनी चाहिए'); return; }
   const days = Math.round((new Date(t)-new Date(f))/86400000)+1;
-  if(days>366){ toast('⚠️ अधिकतम 1 साल (366 दिन) का range चुनें'); return; }
+  if(days>366*5){ toast((typeof L==='function')?L('⚠️ अधिकतम 5 साल का range चुनें','⚠️ Maximum 5 years range'):'⚠️ Max 5 years'); return; }
   _customRangeActive=true; _customDateFrom=f; _customDateTo=t;
   document.getElementById('resetRangeBtn').style.display='';
   closeCustomRange();
@@ -14143,6 +14171,47 @@ function renderMyTeamApprovals(){
 }
 
 // ── Admin: Managers & their Teams hierarchy view ──
+
+/** Admin: delete a manager and all members under them from mobileUsers */
+function confirmDeleteManagerWithTeam(mgrKey, mgrName, memberCount){
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  const msg = (typeof L==='function')
+    ? L('🗑️ Manager "'+(mgrName||'')+'" और उनकी पूरी team ('+memberCount+' members) delete करें? यह mobile registration हटा देगा।',
+        '🗑️ Delete Manager "'+(mgrName||'')+'" and their full team ('+memberCount+' members)? This removes mobile registration.')
+    : 'Delete Manager and team?';
+  if(!confirm(msg)) return;
+  deleteManagerWithTeam(mgrKey, mgrName);
+}
+
+async function deleteManagerWithTeam(mgrKey, mgrName){
+  if(!isAdmin()) return;
+  try{
+    toast('⏳ Deleting…');
+    const data = await fbGet('mobileUsers') || {};
+    const mk = (typeof _normMobileKey==='function') ? _normMobileKey(mgrKey) : String(mgrKey||'').replace(/\D/g,'').slice(-10);
+    const toDelete = [];
+    Object.entries(data).forEach(([k,v])=>{
+      if(!v) return;
+      const keyN = (typeof _normMobileKey==='function') ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10);
+      if(keyN === mk || k === mgrKey){ toDelete.push(k); return; }
+      if(v.role==='member'){
+        const mid = (typeof _normMobileKey==='function') ? _normMobileKey(v.managerId) : String(v.managerId||'').replace(/\D/g,'').slice(-10);
+        if(mid === mk || v.managerId === mgrKey) toDelete.push(k);
+      }
+    });
+    for(const k of toDelete){
+      try{ await fbSet('mobileUsers/'+k, null); }catch(e){
+        try{ await fbUpdate('mobileUsers/'+k, { status:'removed', removedAt: new Date().toISOString(), removedBy: SESSION.name||'admin' }); }catch(e2){}
+      }
+    }
+    toast('✅ '+(mgrName||'Manager')+' + team removed ('+toDelete.length+')');
+    try{ renderAdminTeamHierarchy(); }catch(e){}
+  }catch(err){
+    console.error(err);
+    toast('❌ Delete failed: '+(err.message||err));
+  }
+}
+
 function renderAdminTeamHierarchy(){
   const block=document.getElementById('adminTeamHierarchyBlock');
   const el=document.getElementById('adminTeamHierarchySection');
@@ -14180,7 +14249,7 @@ function renderAdminTeamHierarchy(){
     });
 
     if(!managers.length && !uncategorised.length){
-      el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई registered Manager/Member नहीं</div>'; return;
+      el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+((typeof L==='function')?L('कोई registered Manager/Member नहीं','No registered Manager/Member'):'No registered Manager/Member')+'</div>'; return;
     }
 
     let html=managers.map(([mgrKey,mgr])=>{
@@ -14192,7 +14261,8 @@ function renderAdminTeamHierarchy(){
         if(!(mid === mk || v.managerId === mgrKey)) return false;
         return _companyMatchesView(v.company, viewCid);
       });
-      const statusBadge=_mobileStatusBadge(mgr);
+            const statusBadge=_mobileStatusBadge(mgr);
+      const noMemLbl = (typeof L==='function') ? L('इस Manager के अंतर्गत कोई Member नहीं','No members under this Manager') : 'No members under this Manager';
       const membersHtml=members.length?members.map(([memKey,mem])=>`
           <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px">
             <div style="flex:1;min-width:0">
@@ -14202,19 +14272,26 @@ function renderAdminTeamHierarchy(){
             ${_mobileStatusBadge(mem)}
             ${_mobileActionButtons(memKey,mem.name,mem.status)}
           </div>`).join(''):
-        '<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">इस Manager के अंतर्गत कोई Member नहीं</div>';
+        `<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`;
+      const foldId = 'admMgrFold_'+String(mgrKey).replace(/[^a-zA-Z0-9]/g,'_');
+      const expLbl = (typeof L==='function') ? L('📅 All members expiry','📅 All members expiry') : '📅 All members expiry';
+      const delLbl = (typeof L==='function') ? L('🗑️ Delete Manager + Team','🗑️ Delete Manager + Team') : '🗑️ Delete Manager + Team';
+      const memCountLbl = (typeof L==='function') ? L('members','members') : 'members';
       return `
-      <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
-        <div style="padding:12px;background:rgba(249,115,22,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="card team-fold" data-open="0" style="margin-bottom:12px;padding:0;overflow:hidden">
+        <div class="team-fold-hdr" style="padding:12px;background:rgba(249,115,22,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;user-select:none"
+          onclick="if(!event.target.closest('button')){ const b=this.parentElement; const body=b.querySelector('.team-fold-body'); const chev=this.querySelector('.team-fold-chev'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'block'; if(chev)chev.textContent=open?'▶':'▼'; b.setAttribute('data-open',open?'0':'1'); }">
+          <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px">▶</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;font-weight:900;color:var(--text)">👔 ${mgr.name} <span style="font-size:10px;color:#64748b;font-weight:600">(${members.length} members)</span></div>
+            <div style="font-size:14px;font-weight:900;color:var(--text)">👔 ${mgr.name} <span style="font-size:10px;color:#64748b;font-weight:600">(${members.length} ${memCountLbl})</span></div>
             <div style="font-size:11px;color:#64748b">📱 ${mgr.mobile} &nbsp;·&nbsp; 🏢 ${mgr.company||'—'}</div>
           </div>
           ${statusBadge}
           ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}
-          ${members.length?`<button onclick="openAdminSetExpiryModal('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\'")}',true)" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer;white-space:nowrap">📅 All members expiry</button>`:''}
+          ${members.length?`<button type="button" onclick="event.stopPropagation();openAdminSetExpiryModal('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\\'")}',true)" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer;white-space:nowrap">${expLbl}</button>`:''}
+          <button type="button" onclick="event.stopPropagation();confirmDeleteManagerWithTeam('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\\'")}',${members.length})" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#f43f5e;font-weight:800;cursor:pointer;white-space:nowrap">${delLbl}</button>
         </div>
-        ${membersHtml}
+        <div class="team-fold-body" style="display:none">${membersHtml}</div>
       </div>`;
     }).join('');
 
@@ -21373,19 +21450,20 @@ function openScheduleBuilder(){
   }
   const monthOpts = months.map(m=>`<option value="${m.key}"${m.key===defaultKey?' selected':''}>${m.label}</option>`).join('');
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
-  const L = {
-    title: L('📋 Schedule Builder','📋 Schedule Builder'),
-    month: L('महीना चुनें','Select Month'),
-    section: L('Section','Section'),
-    allSec: L('सभी Section','All Sections'),
-    dateRange: L('तारीख रेंज','Date Range'),
-    fullMonth: L('📅 पूरा महीना','📅 Full Month'),
-    customDates: L('🗓️ कस्टम तारीख','🗓️ Custom Dates'),
-    from: L('से (From)','From'),
-    to: L('तक (To)','To'),
-    hint: L('उदा. 11 से 20 — केवल ये दिन Schedule में दिखेंगे','e.g. 11 to 20 — only these days will appear in the schedule'),
-    open: L('📋 Schedule खोलें','📋 Open Schedule'),
-    cancel: L('रद्द करें','Cancel'),
+  // Use lb (not L) — must not shadow global L(hi,en)
+  const lb = {
+    title: (typeof L==='function')?L('📋 Schedule Builder','📋 Schedule Builder'):'📋 Schedule Builder',
+    month: (typeof L==='function')?L('महीना चुनें','Select Month'):'Select Month',
+    section: (typeof L==='function')?L('Section','Section'):'Section',
+    allSec: (typeof L==='function')?L('सभी Section','All Sections'):'All Sections',
+    dateRange: (typeof L==='function')?L('तारीख रेंज','Date Range'):'Date Range',
+    fullMonth: (typeof L==='function')?L('📅 पूरा महीना','📅 Full Month'):'📅 Full Month',
+    customDates: (typeof L==='function')?L('🗓️ कस्टम तारीख','🗓️ Custom Dates'):'🗓️ Custom Dates',
+    from: (typeof L==='function')?L('से (From)','From'):'From',
+    to: (typeof L==='function')?L('तक (To)','To'):'To',
+    hint: (typeof L==='function')?L('उदा. 11 से 20 — केवल ये दिन Schedule में दिखेंगे','e.g. 11 to 20 — only these days will appear in the schedule'):'e.g. 11 to 20 — only these days will appear',
+    open: (typeof L==='function')?L('📋 Schedule खोलें','📋 Open Schedule'):'📋 Open Schedule',
+    cancel: (typeof L==='function')?L('रद्द करें','Cancel'):'Cancel',
   };
   const secOpts = Object.entries(SEC).map(([k,v])=>{
     const name = isEn ? (v.label||k) : (v.hi||v.label||k);
@@ -21393,43 +21471,43 @@ function openScheduleBuilder(){
   }).join('');
   
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">${L.title}</div>
+    <div class="modal-title">${lb.title}</div>
     <div class="field" style="margin-bottom:14px">
-      <label>${L.month}</label>
+      <label>${lb.month}</label>
       <select class="inp-field" id="sb_month" onchange="_sbUpdateDayOptions()">${monthOpts}</select>
     </div>
     <div class="field" style="margin-bottom:14px">
-      <label>${L.section}</label>
+      <label>${lb.section}</label>
       <select class="inp-field" id="sb_sec">
-        <option value="ALL">${L.allSec}</option>
+        <option value="ALL">${lb.allSec}</option>
         ${secOpts}
       </select>
     </div>
     <div class="field" style="margin-bottom:10px">
-      <label>${L.dateRange}</label>
+      <label>${lb.dateRange}</label>
       <div style="display:flex;gap:8px;margin-top:6px">
         <button type="button" id="sbRangeFull" class="sb-range-btn on" onclick="_sbSetRangeMode('full')"
-          style="flex:1;padding:10px 8px;border-radius:10px;border:1.5px solid var(--m1);background:rgba(249,115,22,.12);color:var(--m1);font-size:13px;font-weight:800;cursor:pointer">${L.fullMonth}</button>
+          style="flex:1;padding:10px 8px;border-radius:10px;border:1.5px solid var(--m1);background:rgba(249,115,22,.12);color:var(--m1);font-size:13px;font-weight:800;cursor:pointer">${lb.fullMonth}</button>
         <button type="button" id="sbRangeCustom" class="sb-range-btn" onclick="_sbSetRangeMode('custom')"
-          style="flex:1;padding:10px 8px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--muted2);font-size:13px;font-weight:800;cursor:pointer">${L.customDates}</button>
+          style="flex:1;padding:10px 8px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--muted2);font-size:13px;font-weight:800;cursor:pointer">${lb.customDates}</button>
       </div>
     </div>
     <div id="sbCustomRangeFields" style="display:none;margin-bottom:14px">
       <div style="display:flex;gap:10px;align-items:flex-end">
         <div class="field" style="flex:1;margin:0">
-          <label style="font-size:12px">${L.from}</label>
+          <label style="font-size:12px">${lb.from}</label>
           <select class="inp-field" id="sb_dayFrom"></select>
         </div>
         <div style="padding-bottom:12px;color:var(--muted2);font-weight:800">→</div>
         <div class="field" style="flex:1;margin:0">
-          <label style="font-size:12px">${L.to}</label>
+          <label style="font-size:12px">${lb.to}</label>
           <select class="inp-field" id="sb_dayTo"></select>
         </div>
       </div>
-      <div style="font-size:11px;color:var(--muted2);margin-top:6px">${L.hint}</div>
+      <div style="font-size:11px;color:var(--muted2);margin-top:6px">${lb.hint}</div>
     </div>
-    <button class="submit-btn" onclick="loadScheduleBuilder()">${L.open}</button>
-    <button class="cancel-btn" onclick="closeModal()">${L.cancel}</button>`);
+    <button class="submit-btn" onclick="loadScheduleBuilder()">${lb.open}</button>
+    <button class="cancel-btn" onclick="closeModal()">${lb.cancel}</button>`);
   setTimeout(_sbUpdateDayOptions, 30);
 }
 
