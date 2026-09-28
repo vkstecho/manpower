@@ -1,9 +1,90 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.18)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.66)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
+## What's new in 2.4.66
+
+### Home — one summary only
+- Removed duplicate count row on Home.
+- Single coloured shift-split under the date (Total Man + non-zero codes).
+- Card size: ~88–140px wide, 22px number, 11px label.
+
+## What's new in 2.4.65
+
+### OD records sync with schedule
+- Marking **OD** on schedule creates an OD report (Reports → OD Records).
+- Changing that **same date** away from OD (Save bar, Create Schedule, or Reset override) **removes** the matching OD report (employee + date).
+- New OD reports store `odKey = empId_date` for reliable matching.
+
+## What's new in 2.4.64
+
+### Report / Imp. Information photos
+- Photos show **full size** in the card (no crop / no 220px cap).
+- Tap opens **fullscreen** viewer; phone **Back**, ✕, or tap outside returns to the same place in Reports.
+
+## What's new in 2.4.63
+
+### Team delete + search
+- Manager can **remove a member** (archive to Left Members) with write-auth + soft-delete fallback if Firebase remove is blocked.
+- Team search matches **name, mobile, and employee code**.
+- While searching, section chips are ignored and **section/responsibility groups auto-expand** so matches are visible.
+
+## What's new in 2.4.62
+
+### New / Edit Employee field dropdowns
+- **Section, Machine, Responsibility, Designation** are dropdowns filled from roster / Excel values.
+- **Others (type manually)** reveals a free-text field when the value is not in the list.
+
+## What's new in 2.4.61
+
+### Home & Schedule shift-split counts
+- Home today summary: **Total Man** + counts per non-zero shift code (D, N, G, O, L, C/O, H, Ab, …).
+- Schedule summary rows under the grid: work shifts + status codes; **zero-count rows hidden**.
+- **Total** = sum of all shown counts for that day.
+
+## What's new in 2.4.60
+
+### Admin Team UI
+- Profile chip always visible (ADMIN / MGR / MEMBER).
+- Manager cards: clearer layout, correct **member counts** (member + worker linked by managerId).
+- **Delete Manager + Team** uses `fbRemove` + soft status fallback.
+
+## What's new in 2.4.59
+
+### Joining date & login name
+- Schedule cells **before joining date** are cleared / shown blank (not Off).
+- Login-without-OTP resolves **live employee name** from Firebase by mobile (fixes stale names like ANKIT).
+
+## What's new in 2.4.58 – 2.4.57
+
+### Create Schedule (mobile) + i18n
+- Sticky toolbar, scrollable grid, landscape-friendly layout.
+- Row/column **C / P** copy-paste; Excel-like paste from single cell.
+- English UI strings for builder / profile validity messages.
+- Create Schedule button fixed (L() shadowing).
+
+## What's new in 2.4.56 – 2.4.52
+
+### Admin / cost / exports
+- Admin hierarchy collapsible; delete manager + team.
+- Custom shift date range extended (up to 5 years).
+- Manpower cost Ab-day deduction fix; monthly cost Excel export (branded).
+- My Shift: shift details + calendar download.
+
+## What's new in 2.4.51 – 2.4.43
+
+### Team structure & permissions
+- Sections from Excel (not hardcoded); Create Schedule sort: Section → Responsibility → Weekly Off → Name.
+- Team view: section/responsibility folds collapsed by default.
+- Hide Create/Upload/Download schedule for members without authorization.
+- Approved leaves editable by manager / delegated leave makers.
+- Mobile identity sync; Admin analytics for logged-in devices.
+- Employee code on leaves; bulk/individual app expiry under Team.
+- Round profile avatar (initials / photo) + role tag.
+
+---
 ## What's new in 2.4.18
 
 ### Met Train PRO path + Learn & Grow back button

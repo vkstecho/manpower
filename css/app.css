@@ -4412,3 +4412,15 @@ img.rpt-photo {
 body.rpt-photo-fs-lock {
   overflow: hidden !important;
 }
+
+/* Home — single today summary under date */
+#homeStats.today-summary-host,
+.today-summary-host {
+  display: block !important;
+  margin: 0 0 8px;
+}
+#homeStats.today-summary-host .today-summary-split {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

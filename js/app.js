@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.65';
+const APP_VERSION = '2.4.66';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -9135,10 +9135,13 @@ function _homeTodaySummaryHtml(){
     });
 
     const lblTotal = en ? 'Total Man' : 'कुल';
-    let html = `<div class="today-summary today-summary-split" aria-label="Today shift split">
-      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${total}</div><div class="today-summary-lbl">${lblTotal}</div></div>`;
+    const cardStyle = 'flex:1 1 88px;min-width:88px;max-width:140px;padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--border2);text-align:center';
+    const valStyle = 'font-size:22px;font-weight:900;line-height:1.15;font-family:Barlow Condensed,sans-serif';
+    const lblStyle = 'font-size:11px;font-weight:700;color:var(--muted2);margin-top:2px';
+    let html = `<div class="today-summary today-summary-split" style="display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px" aria-label="Today shift split">
+      <div class="today-summary-card" style="${cardStyle}"><div class="today-summary-val" style="${valStyle};color:var(--green)">${total}</div><div class="today-summary-lbl" style="${lblStyle}">${lblTotal}</div></div>`;
     cards.forEach(c=>{
-      html += `<div class="today-summary-card"><div class="today-summary-val" style="color:${c.color}">${c.n}</div><div class="today-summary-lbl">${c.label}</div></div>`;
+      html += `<div class="today-summary-card" style="${cardStyle}"><div class="today-summary-val" style="${valStyle};color:${c.color}">${c.n}</div><div class="today-summary-lbl" style="${lblStyle}">${c.label}</div></div>`;
     });
     html += `</div>`;
     return html;
@@ -9223,27 +9226,15 @@ async function renderHome(){
   const nE  =emps.filter(e=>getShift(e,TODAY_STR)==='N').length;
   const lvE =emps.filter(e=>getShift(e,TODAY_STR)==='L').length;
 
+  // ONE summary only (under date) — coloured shift-split cards, non-zero codes
   try{
     const hs = document.getElementById('homeStats');
     if(hs){
-      // Same shift-split as top summary (non-zero only + Total)
-      const counts = _countShiftCodesForDate(emps, TODAY_STR);
-      const totalN = emps.length;
-      const order = ['D','N','G','A','B','C','O','L','C/O','H','Ab','GP','OD','HLF'];
-      const labels = {D:en?'D Shift':'D',N:en?'N Shift':'N',G:en?'G Shift':'G',A:'A',B:'B',C:'C',O:en?'W-Off':'W-Off',L:en?'Leave':'Leave','C/O':'C-Off',H:en?'Holiday':'H',Ab:en?'Absent':'Ab',GP:'GP',OD:'OD',HLF:en?'Half':'½'};
-      const colors = {D:'#f59e0b',N:'#818cf8',G:'#0284c7',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#64748b',L:'var(--lv)','C/O':'#92400e',H:'#ea580c',Ab:'#f97316',GP:'#9333ea',OD:'#0d9488',HLF:'#c2410c'};
-      let h = `<div class="stat-card"><div class="stat-val" style="color:var(--green)">${totalN}</div><div class="stat-lbl">${en?'Total Man':'कुल'}</div></div>`;
-      order.forEach(code=>{
-        const n = counts[code]||0;
-        if(n<=0) return;
-        h += `<div class="stat-card"><div class="stat-val" style="color:${colors[code]||'#64748b'}">${n}</div><div class="stat-lbl">${labels[code]||code}</div></div>`;
-      });
-      Object.keys(counts).forEach(code=>{
-        if(order.includes(code) || !counts[code]) return;
-        h += `<div class="stat-card"><div class="stat-val">${counts[code]}</div><div class="stat-lbl">${code}</div></div>`;
-      });
-      hs.innerHTML = h;
+      hs.className = 'today-summary-host';
+      hs.innerHTML = (typeof _homeTodaySummaryHtml==='function') ? _homeTodaySummaryHtml() : '';
     }
+    const topDup = document.getElementById('homeTodaySummary');
+    if(topDup){ topDup.innerHTML = ''; topDup.style.display = 'none'; }
   }catch(e){ console.warn('[homeStats]', e); }
 
 
