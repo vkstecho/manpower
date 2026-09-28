@@ -68,10 +68,10 @@ const CFG = {
 
 
 const SEC = {
-  M1: {label:'Metalliser-1',hi:'मेटलाइज़र-1',color:'var(--m1)',bg:'var(--m1bg)',icon:'🏭',machine:'M-1',type:'metalliser'},
-  M2: {label:'Metalliser-2',hi:'मेटलाइज़र-2',color:'var(--m2)',bg:'var(--m2bg)',icon:'🏭',machine:'M-2',type:'metalliser'},
-  S1: {label:'Slitter-1',   hi:'स्लिटर-1',  color:'var(--s1)',bg:'var(--s1bg)',icon:'✂️',machine:'S-1',type:'slitter'},
-  S2: {label:'Slitter-2',   hi:'स्लिटर-2',  color:'var(--s2)',bg:'var(--s2bg)',icon:'✂️',machine:'S-2',type:'slitter'},
+  M1: {label:'Section M1',hi:'सेक्शन M1',color:'var(--m1)',bg:'var(--m1bg)',icon:'🏭',machine:'M-1',type:'metalliser'},
+  M2: {label:'Section M2',hi:'सेक्शन M2',color:'var(--m2)',bg:'var(--m2bg)',icon:'🏭',machine:'M-2',type:'metalliser'},
+  S1: {label:'Section S1',hi:'सेक्शन S1',color:'var(--s1)',bg:'var(--s1bg)',icon:'✂️',machine:'S-1',type:'slitter'},
+  S2: {label:'Section S2',hi:'सेक्शन S2',color:'var(--s2)',bg:'var(--s2bg)',icon:'✂️',machine:'S-2',type:'slitter'},
   SUP:{label:'Supervisor',  hi:'सुपरवाइज़र', color:'var(--sup)',bg:'var(--supbg)',icon:'👷',machine:'S.I.',type:'sup'},
   MGR:{label:'Manager',     hi:'मैनेजर',     color:'var(--mgr)',bg:'var(--mgrbg)',icon:'🎯',machine:'ALL',type:'mgr'},
 };
@@ -89,8 +89,8 @@ function secName(sec){
   // Generic pool categories from Excel imports / free-form section codes
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const key = sec.toString().trim().toUpperCase();
-  if(key==='MET')  return L('Met (All)','Met (All)');
-  if(key==='SLIT') return L('Slit (सभी Slitter)','Slit (All Slitter)');
+  if(key==='MET')  return L('Section (All)','Section (All)');
+  if(key==='SLIT') return L('Section (All)','Section (All)');
   if(key==='ALL')  return L('Supervisor','Supervisor');
   return sec;
 }
@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.54';
+const APP_VERSION = '2.4.55';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -1499,9 +1499,9 @@ function _buildMachineChips(kind){
   const otherSecs=allSecs.filter(s=>!known.has(s));
 
   if(metPoolSecs.length || metMachineSecs.length)
-    primary.push({code:'GRP:metalliser',label:L('मेटलाइज़र','Metalliser')});
+    primary.push({code:'GRP:metalliser',label:L('सेक्शन ग्रुप','Section Group')});
   if(slitPoolSecs.length || slitMachineSecs.length)
-    primary.push({code:'GRP:slitter',label:L('स्लिटर','Slitter')});
+    primary.push({code:'GRP:slitter',label:L('सेक्शन ग्रुप 2','Section Group 2')});
   if(supSecs.length)
     primary.push({code:'GRP:supervisor',label:L('सुपरवाइज़र','Supervisor')});
   if(mgrSecs.length)
@@ -14738,7 +14738,13 @@ function renderTeam(search=''){
   else {
     const tc = document.createElement('div');
     tc.id = 'teamCount';
-    tc.style.cssText = 'font-size:14px;color:var(--muted2);margin-bottom:1  // Build groups: Excel Section → Responsibility → Name (all collapsed by default)
+    tc.style.cssText = 'font-size:14px;color:var(--muted2);margin-bottom:12px;padding:4px 2px';
+    tc.innerHTML = totalLabel;
+    const listEl = document.getElementById('teamList');
+    if(listEl && listEl.parentNode) listEl.parentNode.insertBefore(tc, listEl);
+  }
+
+  // Build groups: Excel Section → Responsibility → Name (all collapsed by default)
   const secMap = new Map(); // secLabel -> Map(respLabel -> emps[])
   list.forEach(e=>{
     const sec = ((typeof getEmpSection==='function') ? getEmpSection(e) : '') || String(e.section||e.sec||'').trim() || ((typeof L==='function')?L('अन्य','Other'):'Other');
