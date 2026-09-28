@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.1';
+const APP_VERSION = '2.4.4';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -2447,6 +2447,55 @@ async function _sendOTP(isResend){
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
 
+  // ── v2.4.2: Returning user with device password → NO OTP ──
+  if(!isResend && !window._forceOtpAfterMgrWait && !window._forceOtpAfterPwForgot){
+    try{
+      const userData = await fbGet('mobileUsers/'+mobile);
+      if(userData && userData.status==='approved' &&
+         (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
+        if(!(userData.validTill && new Date(userData.validTill)<new Date())){
+          const empObjId = userData.empObjId || userData.employeeId || '';
+          const savedPw = _getDevicePasswordHash(empObjId, mobile);
+          const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
+          let deviceOk = false;
+          if(empObjId){
+            try{
+              const dRec = await fbGet('deviceApprovals/'+empObjId);
+              if(dRec && dRec.approvedDeviceId === deviceId && dRec.validTill && new Date(dRec.validTill)>new Date()){
+                deviceOk = true;
+              }
+            }catch(e){}
+          }
+          // Also accept password if this browser recently verified same phone (90d)
+          let recentPhone = false;
+          try{
+            const had = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'').slice(-10);
+            const vat = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
+            recentPhone = (had===mobile && vat && (Date.now()-vat) < 90*24*3600*1000);
+          }catch(e){}
+          if(savedPw && (deviceOk || recentPhone)){
+            showPasswordLoginForMobile(userData, mobile, deviceId);
+            return;
+          }
+          // Trusted device but no password yet → offer set password (optional skip → still need OTP once OR set pw)
+          if((deviceOk || recentPhone) && !savedPw){
+            const fakeEmp = {
+              id: empObjId || ('m_'+mobile),
+              empId: userData.empId||userData.empCode||'',
+              name: userData.name||'',
+              phone: mobile,
+              mobile: mobile,
+              _userData: userData
+            };
+            showSetPasswordScreen(fakeEmp, deviceId, false, userData, mobile);
+            return;
+          }
+        }
+      }
+    }catch(e){ console.warn('[login] password gate', e); }
+  }
+  window._forceOtpAfterPwForgot = false;
+
   // Registered member/manager: offer Manager in-app approval first (saves OTP cost)
   // Skip this gate on explicit resend or when force-OTP flag is set
   if(!isResend && !window._forceOtpAfterMgrWait){
@@ -2992,6 +3041,36 @@ function _launchAsNewUser(userData){
   setTimeout(()=>{ try{ _syncAuthRoleNodes(); }catch(e){} }, 500);
   setTimeout(()=>{ try{ _resolveSessionEmpLink(); _syncAuthRoleNodes(); }catch(e){} }, 1500);
   setTimeout(()=>{ try{ _resolveSessionEmpLink(); listenUserShiftNotifications(); _syncAuthRoleNodes(); }catch(e){} }, 4000);
+
+  // v2.4.3: After OTP/approval — prefer Fingerprint setup, then device password
+  try{
+    const m = _normMobileKey(userData.mobile||SESSION.mobile||'');
+    const empObjId = SESSION.empObjId || userData.empObjId || userData.employeeId || '';
+    const uid = empObjId || ('m_'+m);
+    const uname = SESSION.name || userData.name || 'User';
+    if(!window._pwPromptShownThisSession){
+      window._pwPromptShownThisSession = true;
+      setTimeout(async ()=>{
+        try{
+          // 1) Fingerprint if hardware available and not yet registered
+          const fpUserKey = FP_KEY + '_' + uid;
+          const alreadyFp = localStorage.getItem(fpUserKey)==='1';
+          let didFp = false;
+          if(!alreadyFp && typeof registerFingerprint==='function'){
+            await registerFingerprint(uname, uid);
+            didFp = localStorage.getItem(fpUserKey)==='1';
+          }
+          // 2) Device password (backup when FP not available / declined)
+          const hasPw = typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, m);
+          if(!hasPw){
+            const fakeEmp = { id: uid, empId: SESSION.empId||'', name: uname, phone:m, mobile:m };
+            const did = (typeof getDeviceId==='function')?getDeviceId():'';
+            showSetPasswordScreen(fakeEmp, did, true, userData, m);
+          }
+        }catch(e){ console.warn('[post-login security setup]', e); }
+      }, 800);
+    }
+  }catch(e){}
 }
 
 /** Match logged-in mobile user to employees record for notifications */
@@ -3506,15 +3585,18 @@ async function doLoginAfterApproval(emp, existingReg, deviceId){
   
   SESSION={role:'worker',name:emp.name,empId:emp.empId,empObjId:emp.id,
            dept:emp.sec||'MET',company:'Man Power',deviceId,loginAt:new Date().toISOString()};
+  const _mob = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+  if(_mob.length===10) SESSION.mobile = _mob;
+  _markWriteAuthFromLogin(_mob);
   writeIntegrityToken();
   saveSession();
   const ov=document.getElementById('loginApprovalOverlay'); if(ov) ov.style.display='none';
   toast('✅ Login approved! Welcome '+emp.name);
 
-  // ── After first approval: prompt to set password ──
-  const savedPw = localStorage.getItem('mp_pw_'+emp.id);
+  // ── After first approval: prompt to set password (skip still opens app) ──
+  const savedPw = _getDevicePasswordHash(emp.id, _mob);
   if(!savedPw){
-    setTimeout(()=>showSetPasswordScreen(emp, deviceId, true), 600);
+    setTimeout(()=>showSetPasswordScreen(emp, deviceId, true, null, _mob), 600);
   } else {
     launchApp();
     setTimeout(()=>registerFingerprint(emp.name, emp.id), 1500);
@@ -4011,24 +4093,75 @@ try{
 
 
 // ── Set Password Screen (first time after approval) ──
-function showSetPasswordScreen(emp, deviceId, afterApproval=false){
+
+// ════════════════════════════════════════
+// DEVICE PASSWORD (avoid OTP on every login) — v2.4.2
+// Keys: mp_pw_{empObjId} and/or mp_pw_m_{10digit mobile}
+// ════════════════════════════════════════
+function _pwMobileKey(mobile){
+  const m = String(mobile||'').replace(/\D/g,'').slice(-10);
+  return m.length===10 ? ('mp_pw_m_'+m) : '';
+}
+function _getDevicePasswordHash(empId, mobile){
+  try{
+    if(empId){
+      const h = localStorage.getItem('mp_pw_'+empId);
+      if(h) return h;
+    }
+    const mk = _pwMobileKey(mobile);
+    if(mk){ const h2 = localStorage.getItem(mk); if(h2) return h2; }
+  }catch(e){}
+  return null;
+}
+function _setDevicePasswordHash(empId, mobile, hash){
+  try{
+    if(empId) localStorage.setItem('mp_pw_'+empId, hash);
+    const mk = _pwMobileKey(mobile);
+    if(mk) localStorage.setItem(mk, hash);
+  }catch(e){}
+}
+function _clearDevicePassword(empId, mobile){
+  try{
+    if(empId) localStorage.removeItem('mp_pw_'+empId);
+    const mk = _pwMobileKey(mobile);
+    if(mk) localStorage.removeItem(mk);
+  }catch(e){}
+}
+function _markWriteAuthFromLogin(mobile){
+  try{
+    const m = String(mobile||'').replace(/\D/g,'').slice(-10);
+    if(m.length===10){
+      localStorage.setItem('mp_device_phone', '+91'+m);
+      localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      sessionStorage.setItem('mp_write_auth','1');
+    }
+  }catch(e){}
+}
+
+function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null, mobile10=null){
   let ov = document.getElementById('setPasswordOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='setPasswordOverlay'; document.body.appendChild(ov); }
+  const empId = emp && emp.id ? emp.id : '';
+  const empName = (emp && emp.name) ? String(emp.name).replace(/'/g,"\\'") : '';
+  const mob = mobile10 || (emp && (emp.phone||emp.mobile)) || '';
+  const mobClean = String(mob||'').replace(/\D/g,'').slice(-10);
+  // stash for submit
+  window._pwSetupCtx = { emp, deviceId, afterApproval, userData, mobile10: mobClean };
   ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   ov.innerHTML=`
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:12px">🔐</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
-        Password बनाएं
+        Device Password
       </div>
-      <div style="font-size:13px;color:#94a3b8;margin-bottom:24px">
-        नमस्ते <b style="color:#f97316">${emp.name}</b>!<br>
-        अगली बार सीधे password से login करें<br>
-        <span style="font-size:11px;color:#64748b">(Phone/Photo दोबारा नहीं पूछा जाएगा)</span>
+      <div style="font-size:13px;color:#94a3b8;margin-bottom:18px;line-height:1.55">
+        <b style="color:#f97316">${(emp&&emp.name)||'User'}</b> के लिए इस device पर password सेट करें।<br>
+        अगली बार <b style="color:#fff">OTP की जरूरत नहीं</b> — सिर्फ password।
       </div>
-      <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">नया PASSWORD (कम से कम 5 अंक) *</div>
+      <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left">
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">PASSWORD (कम से कम 5 अंक) *</div>
         <input id="spw1" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
@@ -4040,17 +4173,17 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false){
           oninput="_spwValidate()">
         <div id="spwErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
       </div>
-      <button id="spwBtn" onclick="_submitSetPassword('${emp.id}','${emp.name}','${deviceId}',${afterApproval})"
+      <button id="spwBtn" onclick="_submitSetPassword()"
         style="width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#15803d);border:none;
                border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:12px;
                opacity:.4;pointer-events:none;font-family:inherit">
         ✅ Password Save करें
       </button>
-      ${!afterApproval?`<button onclick="document.getElementById('setPasswordOverlay').remove()"
+      <button onclick="_skipSetPassword()"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
                color:#64748b;font-size:13px;cursor:pointer;font-family:inherit">
-        अभी नहीं → सीधे Login करें
-      </button>`:''}
+        अभी नहीं → ${afterApproval ? 'App खोलें' : 'OTP से Login'}
+      </button>
     </div>`;
   ov.style.display='flex';
 }
@@ -4062,55 +4195,87 @@ function _spwValidate(){
   const err=document.getElementById('spwErr');
   if(p1.length<5){ if(err) err.textContent='Password कम से कम 5 characters होना चाहिए'; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
   if(p2.length>0 && p1!==p2){ if(err) err.textContent='Passwords match नहीं हो रहे'; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
-  if(p1===p2 && p1.length>=5){ if(err) err.textContent=''; if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';} }
-  else { if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} }
+  if(p1!==p2){ if(err) err.textContent=''; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
+  if(err) err.textContent='';
+  if(btn){ btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
 }
 
-function _submitSetPassword(empId, empName, deviceId, afterApproval){
-  const pw=(document.getElementById('spw1')?.value||'');
-  if(pw.length<5){ toast('❌ Password कम से कम 5 characters होना चाहिए'); return; }
-  // Save password using SHA-256 hash (secure)
-  hashPass(pw+'mp_salt_v24').then(h=>{ try{ localStorage.setItem('mp_pw_'+empId, h); }catch(e){} });
-  const ov=document.getElementById('setPasswordOverlay');
-  if(ov) ov.remove();
-  toast('✅ Password set हो गया! अगली बार सीधे login करें');
-  if(afterApproval){
-    launchApp();
-    setTimeout(()=>registerFingerprint(empName, empId), 1500);
+async function _submitSetPassword(){
+  const ctx = window._pwSetupCtx || {};
+  const p1=(document.getElementById('spw1')?.value||'');
+  const p2=(document.getElementById('spw2')?.value||'');
+  if(p1.length<5 || p1!==p2){ toast('⚠️ Password check करें'); return; }
+  const emp = ctx.emp || {};
+  const empId = emp.id || '';
+  const mobile = ctx.mobile10 || String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+  const h = await hashPass(p1+'mp_salt_v24');
+  _setDevicePasswordHash(empId, mobile, h);
+  const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
+  toast('✅ Password save हो गया — अगली बार OTP नहीं लगेगा');
+  if(ctx.afterApproval){
+    // Already logged in — open app
+    if(typeof launchApp==='function') launchApp();
+    try{ if(emp.name && empId) setTimeout(()=>registerFingerprint(emp.name, empId), 1500); }catch(e){}
+  } else if(ctx.userData){
+    // Returning device, password just set → login with that account
+    await _finishMobilePasswordLogin(ctx.userData, mobile, ctx.deviceId);
+  } else {
+    // Fall through to password screen for emp-code path
+    showPasswordLoginScreen(emp, ctx.deviceId);
   }
 }
 
-// ── Password Login Screen (returning approved user) ──
+function _skipSetPassword(){
+  const ctx = window._pwSetupCtx || {};
+  const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
+  if(ctx.afterApproval){
+    // Already authenticated this session — app works; next login may need OTP again
+    toast('ℹ️ Password बाद में Profile से सेट कर सकते हैं');
+    if(typeof launchApp==='function') launchApp();
+  } else {
+    // Need OTP once to establish session
+    toast('📱 Password नहीं — OTP से login करें');
+    window._forceOtpAfterPwForgot = true;
+    _sendOTP(false);
+  }
+}
+
+// ── Password Login (emp-code / worker path) ──
 function showPasswordLoginScreen(emp, deviceId){
   let ov = document.getElementById('pwLoginOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='pwLoginOverlay'; document.body.appendChild(ov); }
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px';
+  const empId = emp.id || '';
+  const empName = (emp.name||'').replace(/'/g,"\\'");
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   ov.innerHTML=`
     <div style="width:100%;max-width:360px;text-align:center">
-      <div style="font-size:48px;margin-bottom:10px">👋</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:#fff;margin-bottom:4px">
-        वापसी पर स्वागत है!
+      <div style="font-size:48px;margin-bottom:10px">🔓</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
+        background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
+        Password Login
       </div>
-      <div style="font-size:14px;color:#94a3b8;margin-bottom:24px">
-        <b style="color:#f97316">${emp.name}</b> · ${emp.empId}
+      <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
+        <b style="color:#f97316">${emp.name||''}</b><br>
+        <span style="font-size:12px">OTP नहीं — इस device का password डालें</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">PASSWORD डालें *</div>
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
         <input id="pwlInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                 padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
-          onkeydown="if(event.key==='Enter')_submitPwLogin('${emp.id}','${emp.name}','${deviceId}')">
+                 padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
+                 font-size:24px;text-align:center;outline:none;font-family:inherit;letter-spacing:6px"
+          onkeydown="if(event.key==='Enter')_submitPwLogin('${empId}','${empName}','${deviceId}')">
         <div id="pwlErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
       </div>
-      <button onclick="_submitPwLogin('${emp.id}','${emp.name}','${deviceId}')"
+      <button onclick="_submitPwLogin('${empId}','${empName}','${deviceId}')"
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
-               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:12px;font-family:inherit">
-        🔓 Login करें
+               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
+        ✅ Login करें
       </button>
-      <button onclick="_forgotPw('${emp.id}','${emp.name}')"
+      <button onclick="_forgotPw('${empId}','${empName}', '${String((emp.phone||emp.mobile||'')).replace(/\D/g,'').slice(-10)}')"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
                color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
-        🔑 Password भूल गए? Employee Code से दोबारा verify करें
+        🔑 Password भूल गए? OTP से दोबारा verify करें
       </button>
     </div>`;
   ov.style.display='flex';
@@ -4119,51 +4284,149 @@ function showPasswordLoginScreen(emp, deviceId){
 
 async function _submitPwLogin(empId, empName, deviceId){
   const entered=(document.getElementById('pwlInput')?.value||'');
-  const saved=localStorage.getItem('mp_pw_'+empId);
+  let emp=null;
+  try{ const ed=await fbGet('employees/'+empId); emp=ed||{id:empId,name:empName,empId:empId}; }catch(e){ emp={id:empId,name:empName,empId:empId}; }
+  const mobile = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+  const saved=_getDevicePasswordHash(empId, mobile);
   const errEl=document.getElementById('pwlErr');
   const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
     if(errEl) errEl.textContent='❌ गलत Password — दोबारा try करें';
-    document.getElementById('pwlInput').style.borderColor='#f43f5e';
-    setTimeout(()=>{ if(document.getElementById('pwlInput')) document.getElementById('pwlInput').style.borderColor='#475569'; },1500);
+    const inp=document.getElementById('pwlInput');
+    if(inp){ inp.style.borderColor='#f43f5e'; setTimeout(()=>{ if(inp) inp.style.borderColor='#475569'; },1500); }
     return;
   }
-  // Password correct — log in
   const ov=document.getElementById('pwLoginOverlay'); if(ov) ov.remove();
 
-  // Get fresh employee data
-  let emp=null;
-  try{ const ed=await fbGet('employees/'+empId); emp=ed||{id:empId,name:empName,empId:empId}; }catch(e){ emp={id:empId,name:empName,empId:empId}; }
-
-  // Firebase auth
   try{
     const result=await Promise.race([window._fbCall('workerLogin',{empId:emp.empId||empId,deviceId}),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))]);
     if(result.data?.token) await window._fbSignInWithToken(result.data.token);
   }catch(e){ try{ await window._fbSignInAnon(); }catch(e2){} }
 
   const accessLevel=emp.accessLevel||'worker';
-  const isMgrRole=accessLevel==='manager'||emp.sec==='MGR'||emp.empId==='30000463';
-  // Resolve manager mobile: emp profile → known Vivek contact → empty
-  let mgrMobile = String(emp.phone || emp.mobile || '').replace(/\D/g,'');
-  if(mgrMobile.length !== 10 && isMgrRole && (emp.empId==='30000463' || (emp.name||'').toUpperCase().includes('VIVEK'))){
-    mgrMobile = String(CFG.contactVivek||'').replace(/\D/g,'').slice(-10);
-  }
+  const isMgrRole=accessLevel==='manager'||emp.sec==='MGR';
   SESSION={role:isMgrRole?'manager':'worker',name:emp.name||empName,empId:emp.empId||empId,
-           empObjId:emp.id||empId,dept:emp.sec||'MET',company:'Man Power',deviceId,
+           empObjId:emp.id||empId,dept:emp.sec||'',company:'Man Power',deviceId,
            accessLevel,loginAt:new Date().toISOString()};
-  if(isMgrRole && mgrMobile.length===10) SESSION.mobile = mgrMobile;
+  if(mobile.length===10) SESSION.mobile = mobile;
+  _markWriteAuthFromLogin(mobile);
   writeIntegrityToken();
   saveSession();
-  toast('✅ Login हो गया! Welcome '+emp.name);
+  toast('✅ Login हो गया! Welcome '+(emp.name||empName));
   launchApp();
 }
 
-function _forgotPw(empId, empName){
-  localStorage.removeItem('mp_pw_'+empId);
+function _forgotPw(empId, empName, mobile){
+  _clearDevicePassword(empId, mobile);
   const ov=document.getElementById('pwLoginOverlay'); if(ov) ov.remove();
-  toast('🔑 Password हटाया गया — Employee Code से दोबारा verify करें');
-  showStep(2);
+  const ov2=document.getElementById('pwMobileOverlay'); if(ov2) ov2.remove();
+  toast('🔑 Password हटाया — OTP से दोबारा verify करें');
+  window._forceOtpAfterPwForgot = true;
+  try{
+    const el=document.getElementById('loginMobile');
+    if(el && mobile && String(mobile).length===10) el.value = mobile;
+  }catch(e){}
+  try{ showStep(1); }catch(e){}
+  setTimeout(()=>{ try{ _sendOTP(false); }catch(e){} }, 400);
 }
+
+// ── Mobile-first password login (Man Power primary path) ──
+function showPasswordLoginForMobile(userData, mobile10, deviceId){
+  let ov = document.getElementById('pwMobileOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='pwMobileOverlay'; document.body.appendChild(ov); }
+  window._pwMobileCtx = { userData, mobile10, deviceId };
+  const name = (userData.name||'User').replace(/</g,'');
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="width:100%;max-width:360px;text-align:center">
+      <div style="font-size:48px;margin-bottom:10px">🔓</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
+        background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
+        Password Login
+      </div>
+      <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
+        <b style="color:#f97316">${name}</b><br>
+        <span style="font-size:12px">+91-${mobile10} · OTP नहीं चाहिए</span>
+      </div>
+      <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <input id="pwmInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
+          style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
+                 padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
+                 font-size:24px;text-align:center;outline:none;font-family:inherit;letter-spacing:6px"
+          onkeydown="if(event.key==='Enter')_submitMobilePwLogin()">
+        <div id="pwmErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+      </div>
+      <button onclick="_submitMobilePwLogin()"
+        style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
+               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
+        ✅ Login करें
+      </button>
+      <button onclick="_forgotMobilePw()"
+        style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
+               color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
+        🔑 Password भूल गए? OTP से verify करें
+      </button>
+    </div>`;
+  ov.style.display='flex';
+  setTimeout(()=>{ try{ document.getElementById('pwmInput')?.focus(); }catch(e){} }, 300);
+}
+
+async function _submitMobilePwLogin(){
+  const ctx = window._pwMobileCtx || {};
+  const entered=(document.getElementById('pwmInput')?.value||'');
+  const userData = ctx.userData || {};
+  const mobile = ctx.mobile10 || '';
+  const empObjId = userData.empObjId || userData.employeeId || '';
+  const saved = _getDevicePasswordHash(empObjId, mobile);
+  const errEl=document.getElementById('pwmErr');
+  const enteredHash = await hashPass(entered+'mp_salt_v24');
+  if(!saved || enteredHash!==saved){
+    if(errEl) errEl.textContent='❌ गलत Password';
+    return;
+  }
+  const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
+  await _finishMobilePasswordLogin(userData, mobile, ctx.deviceId);
+}
+
+async function _finishMobilePasswordLogin(userData, mobile, deviceId){
+  try{ await window._fbSignInAnon(); }catch(e){}
+  // Bind device for future password logins
+  const empObjId = userData.empObjId || userData.employeeId || '';
+  if(empObjId){
+    try{
+      await fbUpdate('deviceApprovals/'+empObjId, {
+        approvedDeviceId: deviceId || (typeof getDeviceId==='function'?getDeviceId():''),
+        approvedAt: new Date().toISOString(),
+        validTill: new Date(Date.now()+365*86400000).toISOString(),
+        empName: userData.name||'',
+        empId: userData.empId||userData.empCode||'',
+        via: 'device_password'
+      });
+    }catch(e){}
+  }
+  _markWriteAuthFromLogin(mobile);
+  _loginMobile = '+91'+mobile;
+  toast('✅ Welcome '+(userData.name||''));
+  _launchAsNewUser(userData);
+}
+
+function _forgotMobilePw(){
+  const ctx = window._pwMobileCtx || {};
+  const userData = ctx.userData || {};
+  const mobile = ctx.mobile10 || '';
+  _clearDevicePassword(userData.empObjId||userData.employeeId||'', mobile);
+  const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
+  toast('🔑 Password हटाया — OTP भेजा जा रहा है');
+  window._forceOtpAfterPwForgot = true;
+  try{
+    const el=document.getElementById('loginMobile');
+    if(el) el.value = mobile;
+  }catch(e){}
+  setTimeout(()=>{ try{ _sendOTP(false); }catch(e){} }, 300);
+}
+
+// ════════════════════════════════════════
 
 // ════════════════════════════════════════
 
@@ -4840,8 +5103,46 @@ function _hasElevatedFirebaseAuth(){
 }
 
 /**
+ * Write-security mode (per browser):
+ *  - "trusted" (default, MET-like): after one successful login/OTP on this device,
+ *    schedule Save works without OTP every time (anonymous Firebase + auth != null rules).
+ *  - "strict": always require live Phone Auth (or OTP modal) before Save.
+ * Toggle in Profile → App Access Security.
+ */
+function getWriteSecurityMode(){
+  try{
+    const m = localStorage.getItem('mp_write_security_mode');
+    if(m === 'strict' || m === 'trusted') return m;
+  }catch(e){}
+  return 'trusted'; // MET-like default
+}
+function setWriteSecurityMode(mode){
+  try{ localStorage.setItem('mp_write_security_mode', mode === 'strict' ? 'strict' : 'trusted'); }catch(e){}
+}
+function _isTrustedDeviceForWrite(){
+  try{
+    if(!(SESSION && SESSION.role)) return false;
+    const _sessMob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
+    const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
+    const hadPhone = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'');
+    const recentWrite = parseInt(localStorage.getItem('mp_write_auth_at')||'0',10);
+    const phoneMatches = !hadPhone || !_sessMob || hadPhone.slice(-10) === _sessMob;
+    const within90d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 90*24*3600*1000;
+    const within14dWrite = recentWrite && (Date.now()-recentWrite) < 14*24*3600*1000;
+    const sessionOk = sessionStorage.getItem('mp_write_auth')==='1';
+    // Also trust if device password or fingerprint is set for this user
+    const empObjId = SESSION.empObjId || '';
+    const hasPw = typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, _sessMob);
+    const uid = empObjId || (_sessMob ? ('m_'+_sessMob) : '');
+    const hasFp = !!(uid && localStorage.getItem('mp_fp_enabled_'+uid)==='1') || localStorage.getItem('mp_fp_enabled')==='1';
+    return !!(phoneMatches && (within90d || within14dWrite || sessionOk || hasPw || hasFp || hadPhone));
+  }catch(e){ return false; }
+}
+
+/**
  * Ensure write-capable auth before schedule save.
- * If only anonymous session, open quick Phone OTP (no full logout) then retry.
+ * Trusted mode (default): MET-like — no OTP every Save on this browser after first login.
+ * Strict mode: require Phone Auth or quick OTP modal.
  * @returns {Promise<boolean>}
  */
 async function _ensureWriteAuth(){
@@ -4864,9 +5165,18 @@ async function _ensureWriteAuth(){
           localStorage.setItem('mp_device_verified_at', String(Date.now()));
       } else if(_sessMob){
         localStorage.setItem('mp_device_phone', '+91'+_sessMob);
+        if(!localStorage.getItem('mp_device_verified_at'))
+          localStorage.setItem('mp_device_verified_at', String(Date.now()));
       }
     }catch(e){}
   };
+
+  // Ensure some Firebase Auth user exists (anonymous is OK in trusted mode + new rules)
+  try{
+    if(window._fbAuth && !window._fbAuth.currentUser && typeof window._fbSignInAnon === 'function'){
+      await window._fbSignInAnon();
+    }
+  }catch(e){ console.warn('[writeAuth] anon sign-in', e); }
 
   // Fast path: Firebase Phone Auth already active on this tab
   if(_hasElevatedFirebaseAuth()){
@@ -4875,20 +5185,12 @@ async function _ensureWriteAuth(){
     return true;
   }
 
-  // Device cache: phone already verified on this browser (up to 90 days) — wait for Auth restore
+  // Device cache: wait briefly for Phone Auth restore from IndexedDB
   try{
-    const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
-    const hadPhone = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'');
-    const recentWrite = parseInt(localStorage.getItem('mp_write_auth_at')||'0',10);
-    const phoneMatches = !hadPhone || !_sessMob || hadPhone.slice(-10) === _sessMob;
-    const within90d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 90*24*3600*1000;
-    const within14dWrite = recentWrite && (Date.now()-recentWrite) < 14*24*3600*1000;
-    const sessionOk = sessionStorage.getItem('mp_write_auth')==='1';
-    if(phoneMatches && (within90d || within14dWrite || sessionOk || hadPhone)){
-      // Up to ~5s for IndexedDB Phone Auth restore — avoid OTP on every Save
-      for(let i=0;i<34;i++){
+    if(_isTrustedDeviceForWrite()){
+      for(let i=0;i<20;i++){
         if(_hasElevatedFirebaseAuth()) break;
-        await new Promise(r=>setTimeout(r, 150));
+        await new Promise(r=>setTimeout(r, 100));
         try{
           if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
         }catch(e){}
@@ -4902,26 +5204,34 @@ async function _ensureWriteAuth(){
     return true;
   }
 
-  // Last short wait if cache says this device was verified
-  try{
-    if(sessionStorage.getItem('mp_write_auth')==='1' || localStorage.getItem('mp_device_phone')){
-      await new Promise(r=>setTimeout(r, 800));
-      if(_hasElevatedFirebaseAuth()){
-        await _syncAuthRoleNodes();
-        _markDeviceCache();
-        return true;
+  // ── MET-like trusted path: no OTP if this browser was previously verified ──
+  if(getWriteSecurityMode() === 'trusted' && _isTrustedDeviceForWrite()){
+    try{
+      if(window._fbAuth && !window._fbAuth.currentUser && typeof window._fbSignInAnon === 'function'){
+        await window._fbSignInAnon();
       }
+    }catch(e){}
+    try{ await _syncAuthRoleNodes(); }catch(e){}
+    _markDeviceCache();
+    // auth != null is enough for overrides/schedules under updated rules
+    if(window._fbAuth && window._fbAuth.currentUser){
+      return true;
     }
-  }catch(e){}
+  }
 
-  // OTP only when Phone Auth is truly missing on this browser
+  // Strict mode OR untrusted device: OTP for managers
   const mob = _sessMob;
   if((isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
     return await _openQuickPhoneReauth(mob);
   }
   if(SESSION.role === 'admin'){
     await _syncAuthRoleNodes();
-    return _hasElevatedFirebaseAuth();
+    return !!(window._fbAuth && window._fbAuth.currentUser);
+  }
+  // Members with session: allow if any auth user present
+  if(SESSION && SESSION.role && window._fbAuth && window._fbAuth.currentUser){
+    _markDeviceCache();
+    return true;
   }
   return false;
 }
@@ -6208,6 +6518,175 @@ async function openAdminAnalytics(){
     <button class="cancel-btn" onclick="closeModal()">Close</button>`);
 }
 
+
+// ════════════════════════════════════════
+// APP ACCESS SECURITY (Profile) — password + fingerprint  v2.4.3
+// ════════════════════════════════════════
+function _sessionSecurityIds(){
+  const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+  const empObjId = SESSION.empObjId || '';
+  const uid = empObjId || (mob ? ('m_'+mob) : 'user');
+  return { mob, empObjId, uid, name: SESSION.name||'User' };
+}
+
+async function openAppAccessSecurity(){
+  const { mob, empObjId, uid, name } = _sessionSecurityIds();
+  const hasPw = !!(typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, mob));
+  const fpOn = localStorage.getItem(FP_KEY+'_'+uid)==='1' || localStorage.getItem(FP_KEY)==='1';
+  let bioOk = false;
+  try{ bioOk = await isBiometricAvailable(); }catch(e){}
+  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🔐 ${isEn?'App Access Security':'ऐप एक्सेस सुरक्षा'}</div>
+    <div class="modal-scroll-body">
+      <div style="font-size:12px;color:var(--muted2);line-height:1.55;margin-bottom:14px">
+        ${isEn
+          ? 'These settings are only on <b style="color:var(--text)">this device</b>. Use fingerprint (preferred) or a device password so you do not need OTP every time.'
+          : 'ये सेटिंग सिर्फ <b style="color:var(--text)">इस device</b> पर हैं। Fingerprint (बेहतर) या device password से अगली बार OTP की जरूरत नहीं पड़ेगी।'}
+      </div>
+      <div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">${isEn?'STATUS':'स्थिति'}</div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+          <span style="color:var(--muted2)">👆 Fingerprint</span>
+          <span style="font-weight:800;color:${fpOn?'#22c55e':'#f97316'}">${fpOn?(isEn?'ON':'चालू'):(isEn?'OFF':'बंद')}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+          <span style="color:var(--muted2)">🔑 Device Password</span>
+          <span style="font-weight:800;color:${hasPw?'#22c55e':'#f97316'}">${hasPw?(isEn?'Set':'सेट है'):(isEn?'Not set':'सेट नहीं')}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+          <span style="color:var(--muted2)">📱 Biometric hardware</span>
+          <span style="font-weight:700;color:var(--text)">${bioOk?(isEn?'Available':'उपलब्ध'):(isEn?'Not available':'नहीं')}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+          <span style="color:var(--muted2)">💾 Schedule Save security</span>
+          <span style="font-weight:800;color:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'#22c55e'}">${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?(isEn?'Strict (OTP)':'Strict · OTP'):(isEn?'Trusted (MET-like)':'Trusted · बिना OTP')}</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin:8px 0 10px;padding:10px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2)">
+        ${isEn
+          ? '<b style="color:var(--text)">Trusted</b> = Save shifts on this laptop/phone without OTP every time (like MET Power). <b style="color:var(--text)">Strict</b> = require phone OTP before each Save when Phone Auth is missing.'
+          : '<b style="color:var(--text)">Trusted</b> = इस device पर Schedule Save बिना बार‑बार OTP (MET Power जैसा)। <b style="color:var(--text)">Strict</b> = Phone Auth न हो तो हर Save से पहले OTP।'}
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button type="button" onclick="setWriteSecurityMode('trusted');toast((_lang==='en')?'✅ Trusted mode — MET-like Save':'✅ Trusted mode — बिना OTP Save');closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
+          style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'#22c55e':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'rgba(34,197,94,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
+          ✅ Trusted<br><span style="font-weight:600;opacity:.8;font-size:10px">MET-like</span>
+        </button>
+        <button type="button" onclick="setWriteSecurityMode('strict');toast((_lang==='en')?'🔐 Strict mode — OTP before Save':'🔐 Strict mode — Save से पहले OTP');closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
+          style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'rgba(249,115,22,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
+          🔐 Strict<br><span style="font-weight:600;opacity:.8;font-size:10px">OTP gate</span>
+        </button>
+      </div>
+      <button class="profile-action" style="margin-top:4px;width:100%;text-align:left" onclick="closeModal();setTimeout(()=>openChangeDevicePassword(),200)">
+        <div class="pa-icon" style="background:rgba(249,115,22,.12)">🔑</div>
+        <div><div class="pa-label">${hasPw?(isEn?'Change Device Password':'Password बदलें'):(isEn?'Set Device Password':'Password सेट करें')}</div>
+        <div class="pa-sub">${isEn?'For login without OTP on this device':'इस device पर बिना OTP login'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
+      ${bioOk?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left" onclick="closeModal();setTimeout(()=>setupFingerprintFromProfile(),200)">
+        <div class="pa-icon" style="background:rgba(168,85,247,.12)">👆</div>
+        <div><div class="pa-label">${fpOn?(isEn?'Re-setup Fingerprint':'Fingerprint दोबारा सेट करें'):(isEn?'Enable Fingerprint Login':'Fingerprint Login चालू करें')}</div>
+        <div class="pa-sub">${isEn?'Unlock app with fingerprint / face':'Fingerprint / Face से app खोलें'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+      ${fpOn?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left;border-color:rgba(244,63,94,.3)" onclick="disableFingerprintFromProfile()">
+        <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚫</div>
+        <div><div class="pa-label">${isEn?'Disable Fingerprint':'Fingerprint बंद करें'}</div>
+        <div class="pa-sub">${isEn?'Use password or OTP instead':'Password या OTP इस्तेमाल करें'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+      ${hasPw?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left;border-color:rgba(244,63,94,.3)" onclick="clearDevicePasswordFromProfile()">
+        <div class="pa-icon" style="background:rgba(244,63,94,.12)">🗑️</div>
+        <div><div class="pa-label">${isEn?'Remove Device Password':'Password हटाएं'}</div>
+        <div class="pa-sub">${isEn?'Next login may need OTP':'अगली बार OTP लग सकता है'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+    </div>
+    <div class="modal-sticky-actions">
+      <button class="cancel-btn" onclick="closeModal()">${isEn?'Close':'बंद करें'}</button>
+    </div>`);
+}
+
+function openChangeDevicePassword(){
+  const { mob, empObjId, uid, name } = _sessionSecurityIds();
+  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const hasPw = !!(typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, mob));
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🔑 ${hasPw?(isEn?'Change Password':'Password बदलें'):(isEn?'Set Password':'Password सेट करें')}</div>
+    <div class="modal-scroll-body">
+      <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
+        ${isEn?'Saved only on this device. Min 5 characters.':'सिर्फ इस device पर सेव होगा। कम से कम 5 अक्षर।'}
+      </div>
+      ${hasPw?`<div class="field"><label>${isEn?'Current password (optional)':'पुराना password (optional)'}</label>
+        <input class="inp-field" type="password" id="secOldPw" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>`:''}
+      <div class="field"><label>${isEn?'New password':'नया password'} *</label>
+        <input class="inp-field" type="password" id="secNewPw" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>
+      <div class="field"><label>${isEn?'Confirm new password':'नया password दोबारा'} *</label>
+        <input class="inp-field" type="password" id="secNewPw2" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>
+      <div id="secPwErr" style="color:#f43f5e;font-size:12px;min-height:16px;margin-bottom:8px"></div>
+    </div>
+    <div class="modal-sticky-actions">
+      <button class="submit-btn" onclick="saveDevicePasswordFromProfile()">💾 ${isEn?'Save':'सेव करें'}</button>
+      <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>
+    </div>`);
+}
+
+async function saveDevicePasswordFromProfile(){
+  const { mob, empObjId } = _sessionSecurityIds();
+  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const p1 = (document.getElementById('secNewPw')?.value||'');
+  const p2 = (document.getElementById('secNewPw2')?.value||'');
+  const old = (document.getElementById('secOldPw')?.value||'');
+  const err = document.getElementById('secPwErr');
+  if(p1.length < 5){ if(err) err.textContent = isEn?'Min 5 characters':'कम से कम 5 अक्षर'; return; }
+  if(p1 !== p2){ if(err) err.textContent = isEn?'Passwords do not match':'Password match नहीं हो रहे'; return; }
+  const existing = _getDevicePasswordHash(empObjId, mob);
+  if(existing && old){
+    const oldH = await hashPass(old+'mp_salt_v24');
+    if(oldH !== existing){ if(err) err.textContent = isEn?'Current password wrong':'पुराना password गलत'; return; }
+  }
+  const h = await hashPass(p1+'mp_salt_v24');
+  _setDevicePasswordHash(empObjId, mob, h);
+  toast(isEn?'✅ Device password saved':'✅ Device password सेव हो गया');
+  closeModal();
+  setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
+}
+
+async function setupFingerprintFromProfile(){
+  const { uid, name } = _sessionSecurityIds();
+  // Force re-register even if already set
+  try{ localStorage.removeItem(FP_KEY+'_'+uid); }catch(e){}
+  try{
+    await registerFingerprint(name, uid);
+    // If user declined prompt inside registerFingerprint, still try direct create
+    if(localStorage.getItem(FP_KEY+'_'+uid)!=='1'){
+      // registerFingerprint already asked; if declined, leave OFF
+    }
+  }catch(e){ toast('❌ Fingerprint: '+(e.message||e.name||e)); }
+  setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 400);
+}
+
+function disableFingerprintFromProfile(){
+  const { uid } = _sessionSecurityIds();
+  try{
+    localStorage.removeItem(FP_KEY);
+    localStorage.removeItem(FP_KEY+'_'+uid);
+    localStorage.removeItem(FP_CRED_KEY);
+  }catch(e){}
+  toast((_lang==='en')?'Fingerprint disabled':'Fingerprint बंद कर दिया');
+  closeModal();
+  setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
+}
+
+function clearDevicePasswordFromProfile(){
+  const { mob, empObjId } = _sessionSecurityIds();
+  _clearDevicePassword(empObjId, mob);
+  toast((_lang==='en')?'Device password removed':'Device password हटा दिया');
+  closeModal();
+  setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
+}
+
 async function showProfile(){
  try{
   const e=myEmp();
@@ -6329,6 +6808,11 @@ async function showProfile(){
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openEditProfileModal()">
         <div class="pa-icon" style="background:rgba(96,165,250,.12)">✏️</div>
         <div><div class="pa-label">${(_lang==='en')?'Edit Profile':'Profile Edit करें'}</div><div class="pa-sub">${(_lang==='en')?'Name, DOB, DOJ, Salary, Weekly Off':'नाम, DOB, जॉइनिंग, सैलरी, वीकली ऑफ'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+      ${(SESSION.role==='manager'||SESSION.role==='member'||SESSION.role==='worker')?`<button class="profile-action" style="margin-top:6px" onclick="openAppAccessSecurity()">
+        <div class="pa-icon" style="background:rgba(34,197,94,.12)">🔐</div>
+        <div><div class="pa-label">${(_lang==='en')?'App Access Security':'ऐप एक्सेस सुरक्षा'}</div><div class="pa-sub">${(_lang==='en')?'Password & Fingerprint for this device':'इस device का Password और Fingerprint'}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
 
@@ -22979,17 +23463,54 @@ function hideFpScreen(){
 
 function skipFingerprint(){
   hideFpScreen();
-  // Show login screen
+  // If session still valid, try device password instead of full mobile OTP
+  try{
+    if(SESSION && SESSION.role){
+      const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+      const empObjId = SESSION.empObjId || '';
+      const hasPw = typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, mob);
+      if(hasPw){
+        // Re-load userData path via mobile password screen
+        (async()=>{
+          try{
+            const userData = mob ? await fbGet('mobileUsers/'+mob) : null;
+            if(userData && userData.status==='approved'){
+              showPasswordLoginForMobile(userData, mob, typeof getDeviceId==='function'?getDeviceId():'');
+              return;
+            }
+          }catch(e){}
+          // Fallback: password screen from SESSION
+          const emp = { id: empObjId||('m_'+mob), name: SESSION.name||'', empId: SESSION.empId||'', phone:mob, mobile:mob };
+          showPasswordLoginScreen(emp, typeof getDeviceId==='function'?getDeviceId():'');
+        })();
+        return;
+      }
+    }
+  }catch(e){}
   const login = document.getElementById('loginScreen');
   if(login){ login.classList.add('show'); login.style.display='flex'; }
   showStep(1);
 }
 
-// Check if fingerprint is set up and session exists — show fp screen
+// Check if fingerprint is set up and session exists — show fp screen (v2.4.3)
 async function checkFingerprintOnStart(){
-  // Temporarily skip fingerprint gate — was leaving some devices on a black screen
-  // when FP UI failed to paint. Session will launchApp() directly.
-  return false;
+  try{
+    const fpEnabled = localStorage.getItem(FP_KEY) === '1';
+    const hasCred = !!localStorage.getItem(FP_CRED_KEY);
+    const hasSession = !!(SESSION && SESSION.role);
+    if(!fpEnabled || !hasCred || !hasSession) return false;
+    const available = await isBiometricAvailable();
+    if(!available) return false;
+    // Safety: if FP screen missing in DOM, skip
+    if(!document.getElementById('fingerprintScreen')) return false;
+    showFpScreen();
+    // Auto-trigger biometric after short delay (like MET Power feel)
+    setTimeout(()=>{ try{ tryFingerprintLogin(); }catch(e){} }, 400);
+    return true;
+  }catch(e){
+    console.warn('[FP gate]', e);
+    return false;
+  }
 }
 
 function startApp(){

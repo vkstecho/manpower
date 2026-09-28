@@ -1,3 +1,8 @@
+## v2.4.4 rules change
+
+`overrides`, `schedules`, `shiftConfigs` write rule is now `auth != null` (MET-like trusted Save).
+Redeploy this file to Firebase RTDB rules after uploading the app.
+
 # Deploy Firebase Realtime Database rules (Man Power v2.4.0)
 
 ## File

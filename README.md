@@ -1,10 +1,46 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.1)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.4)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
 
 
+
+
+
+## What's new in 2.4.4
+
+### MET-like Schedule Save on trusted devices
+- **Default: Trusted mode** — after one successful login/OTP on this browser, **Save shifts without OTP every time** (laptop-friendly, like MET Power).
+- **Strict mode** — optional: require phone OTP before Save when Phone Auth is missing.
+- Toggle in **Profile → App Access Security** (Trusted vs Strict).
+- RTDB rules for `overrides`, `schedules`, `shiftConfigs`: write allowed when `auth != null` (must **redeploy** `database.rules.json`).
+
+**Security note:** Trusted mode matches MET Power convenience. Anyone with access to the logged-in browser can save schedule data. Use Strict on shared PCs.
+
+---
+## What's new in 2.4.3
+
+### Fingerprint login (like MET Power)
+- On app open, if fingerprint was set up for this device, show **Touch to Login** (WebAuthn).
+- After first OTP login: offer **Fingerprint setup**, then optional **device password** as backup.
+- Skip fingerprint → password login if set, else mobile OTP.
+
+### Profile → App Access Security
+- Every member/manager can **set / change / remove device password**.
+- **Enable / re-setup / disable fingerprint** from Profile.
+- Status shown: Fingerprint ON/OFF, Password set or not, biometric hardware available.
+
+---
+## What's new in 2.4.2
+
+### Device password (no OTP every time)
+- After first OTP/approval login, app offers a **device password**.
+- Next logins on the same phone/browser: **password only** (no SMS OTP).
+- Password stored only on device (`localStorage`); Forgot password → OTP once.
+- Skip password still opens the app; edits work via write-auth cache (same as MET Power).
+
+---
 ## What's new in 2.4.1
 
 ### Modal / mobile fixes
