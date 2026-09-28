@@ -1,4 +1,4 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.4)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.5)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
@@ -8,6 +8,15 @@ Sections, machines, and staffing rules are driven by the **Manager’s Excel upl
 
 
 
+
+## What's new in 2.4.5
+
+### Mobile Save without OTP (Trusted mode fix)
+- On phone, closing the PWA clears `sessionStorage` — older trusted checks failed and asked OTP again.
+- **Trusted mode** now treats a valid logged-in **SESSION** as enough (same as laptop / MET).
+- Opening the app stamps device write-trust flags so Save works after close/reopen.
+
+---
 ## What's new in 2.4.4
 
 ### MET-like Schedule Save on trusted devices

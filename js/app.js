@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.4';
+const APP_VERSION = '2.4.5';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -5122,6 +5122,16 @@ function setWriteSecurityMode(mode){
 function _isTrustedDeviceForWrite(){
   try{
     if(!(SESSION && SESSION.role)) return false;
+    // v2.4.5: In Trusted mode, a live app session is enough (mobile + laptop).
+    // sessionStorage is wiped when the mobile PWA is fully closed — do NOT require it.
+    // This matches MET Power: once logged in on this device, Save works without OTP.
+    if(getWriteSecurityMode() === 'trusted'){
+      if(SESSION.role === 'manager' || SESSION.role === 'admin' || SESSION.role === 'member'
+          || SESSION.role === 'worker' || (typeof isMgr==='function' && isMgr())){
+        return true;
+      }
+    }
+    // Strict mode (or unknown role): require device verify flags / password / fingerprint
     const _sessMob = _normMobileKey(SESSION.mobile || SESSION.uid || '');
     const verifiedAt = parseInt(localStorage.getItem('mp_device_verified_at')||'0',10);
     const hadPhone = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'');
@@ -5130,7 +5140,6 @@ function _isTrustedDeviceForWrite(){
     const within90d = hadPhone && verifiedAt && (Date.now()-verifiedAt) < 90*24*3600*1000;
     const within14dWrite = recentWrite && (Date.now()-recentWrite) < 14*24*3600*1000;
     const sessionOk = sessionStorage.getItem('mp_write_auth')==='1';
-    // Also trust if device password or fingerprint is set for this user
     const empObjId = SESSION.empObjId || '';
     const hasPw = typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, _sessMob);
     const uid = empObjId || (_sessMob ? ('m_'+_sessMob) : '');
@@ -5204,23 +5213,43 @@ async function _ensureWriteAuth(){
     return true;
   }
 
-  // ── MET-like trusted path: no OTP if this browser was previously verified ──
+  // ── MET-like trusted path (mobile + laptop): session logged in → no OTP on Save ──
   if(getWriteSecurityMode() === 'trusted' && _isTrustedDeviceForWrite()){
     try{
       if(window._fbAuth && !window._fbAuth.currentUser && typeof window._fbSignInAnon === 'function'){
         await window._fbSignInAnon();
       }
     }catch(e){}
+    // Brief wait if auth still null (slow mobile network)
+    if(!(window._fbAuth && window._fbAuth.currentUser)){
+      for(let i=0;i<15;i++){
+        if(window._fbAuth && window._fbAuth.currentUser) break;
+        try{
+          if(typeof window._fbSignInAnon === 'function') await window._fbSignInAnon();
+        }catch(e){}
+        await new Promise(r=>setTimeout(r, 120));
+      }
+    }
     try{ await _syncAuthRoleNodes(); }catch(e){}
     _markDeviceCache();
-    // auth != null is enough for overrides/schedules under updated rules
     if(window._fbAuth && window._fbAuth.currentUser){
+      return true;
+    }
+    // Last resort: still skip OTP in trusted mode if session exists — rules need auth;
+    // try one more anon sign-in
+    try{ if(typeof window._fbSignInAnon === 'function') await window._fbSignInAnon(); }catch(e){}
+    if(window._fbAuth && window._fbAuth.currentUser){
+      _markDeviceCache();
       return true;
     }
   }
 
-  // Strict mode OR untrusted device: OTP for managers
+  // Strict mode OR untrusted: OTP for managers
   const mob = _sessMob;
+  if(getWriteSecurityMode() === 'strict' && (isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
+    return await _openQuickPhoneReauth(mob);
+  }
+  // Trusted mode but flags failed AND no auth user — only then OTP
   if((isMgr() || SESSION.role === 'manager' || SESSION.role === 'admin') && mob && mob.length === 10){
     return await _openQuickPhoneReauth(mob);
   }
@@ -5348,6 +5377,18 @@ function _reauthCancel(){
 }
 
 async function launchApp(){
+  // v2.4.5: stamp this device as write-trusted whenever app opens with a session
+  try{
+    if(SESSION && SESSION.role && getWriteSecurityMode()==='trusted'){
+      const m = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+      if(m) localStorage.setItem('mp_device_phone', '+91'+m);
+      if(!localStorage.getItem('mp_device_verified_at'))
+        localStorage.setItem('mp_device_verified_at', String(Date.now()));
+      localStorage.setItem('mp_write_auth_at', String(Date.now()));
+      sessionStorage.setItem('mp_write_auth','1');
+    }
+  }catch(e){}
+
   try{
   warmShiftConfigCache();
   // ── Restore Firebase Auth: WAIT for IndexedDB restore before any anon sign-in ──
