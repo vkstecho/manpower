@@ -85,13 +85,13 @@ const SEC = {
 function secName(sec){
   if(!sec) return '';
   const s = SEC[sec];
-  if(s) return (typeof _lang !== 'undefined' && _lang === 'en') ? s.label : s.hi;
+  if(s) return (typeof _lang !== 'undefined' && _lang !== 'hi') ? (s.label||s.en||s.hi) : s.hi;
   // Generic pool categories from Excel imports / free-form section codes
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const key = sec.toString().trim().toUpperCase();
-  if(key==='MET')  return isEn ? 'Met (All)' : 'Met (All)';
-  if(key==='SLIT') return isEn ? 'Slit (All Slitter)'   : 'Slit (सभी Slitter)';
-  if(key==='ALL')  return isEn ? 'Supervisor'            : 'Supervisor';
+  if(key==='MET')  return L('Met (All)','Met (All)');
+  if(key==='SLIT') return L('Slit (सभी Slitter)','Slit (All Slitter)');
+  if(key==='ALL')  return L('Supervisor','Supervisor');
   return sec;
 }
 
@@ -256,7 +256,7 @@ async function openEmpReorderPanel(){
   });
   GROUPS.push({
     key:'dyn_none',
-    label:'👤 '+(_lang==='en'?'Unassigned':'अवर्गीकृत'),
+    label:'👤 '+(L('अवर्गीकृत','Unassigned')),
     color:'#64748b',
     filter: e => !e.sec
   });
@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.24';
+const APP_VERSION = '2.4.54';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -717,7 +717,7 @@ function _unlockOrientation(){
   }catch(e){}
 }
 try{ _unlockOrientation(); }catch(e){}
-document.addEventListener('DOMContentLoaded', function(){ try{ _unlockOrientation(); }catch(e){} });
+document.addEventListener('DOMContentLoaded', function(){ try{ _unlockOrientation(); }catch(e){} try{ if(typeof applyLoginLang==='function') applyLoginLang(); else if(typeof applyLang==='function') applyLang(); }catch(e){} });
 window.addEventListener('load', function(){ try{ _unlockOrientation(); }catch(e){} });
 
  // Bump this to force re-seed
@@ -1267,7 +1267,7 @@ async function _loadMgrShiftCfgForMember(managerId){
  */
 async function _notifyMappedManagerAfterMemberAction(type, payload){
   payload = payload || {};
-  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const managerId = payload.managerId || SESSION.managerId || (myEmp()&&myEmp().managerId) || '';
   if(!managerId){
     console.warn('[member→mgr] no managerId');
@@ -1280,8 +1280,8 @@ async function _notifyMappedManagerAfterMemberAction(type, payload){
       const notif = {
         type: type==='leave' ? 'leave_request' : 'shift_change_request',
         title: type==='leave'
-          ? (isEn ? '🏖️ Leave request' : '🏖️ छुट्टी आवेदन')
-          : (isEn ? '📅 Shift change request' : '📅 Shift बदलने का अनुरोध'),
+          ? (L('🏖️ छुट्टी आवेदन','🏖️ Leave request'))
+          : (L('📅 Shift बदलने का अनुरोध','📅 Shift change request')),
         body: payload.notifBody || payload.name || '',
         read: false,
         at: new Date().toISOString(),
@@ -1317,22 +1317,18 @@ async function _notifyMappedManagerAfterMemberAction(type, payload){
       ? (cfg.waMemberLeaveToMgrEnabled !== false)
       : (cfg.waMemberShiftToMgrEnabled !== false);
     if(!enabled){
-      toast(isEn
-        ? '✅ Saved — Manager notified in app (WhatsApp off for this type)'
-        : '✅ सेव — Manager को app में सूचना (इस type का WhatsApp बंद है)');
+      toast(L('✅ सेव — Manager को app में सूचना (इस type का WhatsApp बंद है)','✅ Saved — Manager notified in app (WhatsApp off for this type)'));
       return;
     }
     const phone = await _resolveManagerPhone(managerId);
     if(!phone || phone.length!==10){
-      toast(isEn
-        ? '✅ Saved — Manager has no mobile for WhatsApp (in-app sent)'
-        : '✅ सेव — Manager का WhatsApp नंबर नहीं (app सूचना गई)');
+      toast(L('✅ सेव — Manager का WhatsApp नंबर नहीं (app सूचना गई)','✅ Saved — Manager has no mobile for WhatsApp (in-app sent)'));
       return;
     }
     const def = _defaultShiftConfig();
     let tpl = type==='leave'
-      ? (cfg.waMemberLeaveToMgrTemplate || def.waMemberLeaveToMgrTemplate)
-      : (cfg.waMemberShiftToMgrTemplate || def.waMemberShiftToMgrTemplate);
+      ? getWATemplate('waMemberLeaveToMgrTemplate', cfg.waMemberLeaveToMgrTemplate)
+      : getWATemplate('waMemberShiftToMgrTemplate', cfg.waMemberShiftToMgrTemplate);
     const fill = (s, map)=>{
       let out = String(s||'');
       Object.keys(map).forEach(k=>{
@@ -1353,7 +1349,7 @@ async function _notifyMappedManagerAfterMemberAction(type, payload){
     });
     if(typeof openWA==='function') openWA(phone, msg);
     else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
-    toast(isEn ? '📲 WhatsApp opened — send to Manager' : '📲 WhatsApp खुला — Manager को भेजें');
+    toast(L('📲 WhatsApp खुला — Manager को भेजें','📲 WhatsApp opened — send to Manager'));
   }catch(e){
     console.warn('[member→mgr WA]', e);
   }
@@ -1429,18 +1425,14 @@ function _isMachineLikeValue(v){
  */
 function getEmpSection(e){
   if(!e) return '';
-  // Prefer dedicated Excel "Section" field when present (Metalliser / Slitter / MetProd …)
+  // Section = whatever Manager put in Excel "Section" column (free text).
+  // Prefer e.section; fall back to e.sec. Never invent Metalliser/Slitter prefixes.
   let raw = String(e.section||'').trim();
   if(!raw) raw = String(e.sec||'').trim();
   if(!raw) return '';
-  if(_isMachineLikeValue(raw)) return ''; // machine is not section
-  const key = raw.toUpperCase().replace(/[^A-Z0-9]/g,'');
-  // Role codes must not appear under Section filters (use Designation instead)
-  if(key==='MGR'||key==='MANAGER'||key==='SUP'||key==='SUPERVISOR'||key==='STAFF') return '';
-  // Legacy machine-pool codes — not free-text section names
-  if(key==='M1'||key==='M2'||key==='MET') return '';
-  if(key==='S1'||key==='S2'||key==='SLIT') return '';
-  return raw; // Metalliser, Slitter, MetProd, or any custom name from Manager Excel
+  // Pure machine codes (M-1, S-1) belong to Machine column — not Section
+  if(typeof _isMachineLikeValue==='function' && _isMachineLikeValue(raw)) return '';
+  return raw;
 }
 function getEmpMachine(e){
   if(!e) return '';
@@ -1491,7 +1483,7 @@ function _normSecKey(s){ return (s||'').toString().toUpperCase().replace(/[^A-Z0
 function _buildMachineChips(kind){
   const cfg=getShiftConfigSync();
   const emps=getEmps();
-  const primary=[{code:'ALL',label:_lang==='en'?'All':'सभी'}];
+  const primary=[{code:'ALL',label:L('सभी','All')}];
   const secondary=[];
   const metKeys=new Set((cfg.metallisers||[]).map(_normSecKey));
   const slitKeys=new Set((cfg.slitters||[]).map(_normSecKey));
@@ -1507,13 +1499,13 @@ function _buildMachineChips(kind){
   const otherSecs=allSecs.filter(s=>!known.has(s));
 
   if(metPoolSecs.length || metMachineSecs.length)
-    primary.push({code:'GRP:metalliser',label:_lang==='en'?'Metalliser':'मेटलाइज़र'});
+    primary.push({code:'GRP:metalliser',label:L('मेटलाइज़र','Metalliser')});
   if(slitPoolSecs.length || slitMachineSecs.length)
-    primary.push({code:'GRP:slitter',label:_lang==='en'?'Slitter':'स्लिटर'});
+    primary.push({code:'GRP:slitter',label:L('स्लिटर','Slitter')});
   if(supSecs.length)
-    primary.push({code:'GRP:supervisor',label:_lang==='en'?'Supervisor':'सुपरवाइज़र'});
+    primary.push({code:'GRP:supervisor',label:L('सुपरवाइज़र','Supervisor')});
   if(mgrSecs.length)
-    primary.push({code:'GRP:manager',label:_lang==='en'?'Manager':'मैनेजर'});
+    primary.push({code:'GRP:manager',label:L('मैनेजर','Manager')});
 
   metMachineSecs.sort().forEach(s=>secondary.push({code:s,label:secName(s)||s}));
   slitMachineSecs.sort().forEach(s=>secondary.push({code:s,label:secName(s)||s}));
@@ -1526,6 +1518,29 @@ function _buildMachineChips(kind){
   }
   return { primary, secondary };
 }
+function _buildTeamSectionChips(){
+  // Chips = unique Section values from Excel (not hardcoded M1/S1…)
+  const primary = [{code:'ALL', label: (typeof L==='function') ? L('सभी','All') : 'All'}];
+  const secs = (typeof _teamFieldValues==='function') ? _teamFieldValues('section') : [];
+  secs.forEach(v=>{
+    if(!v) return;
+    primary.push({code:v, label:v});
+  });
+  return primary;
+}
+function _toggleTeamFold(hdr){
+  try{
+    const box = hdr && hdr.parentElement;
+    if(!box) return;
+    const body = box.querySelector(':scope > .team-fold-body');
+    const chev = hdr.querySelector('.team-fold-chev');
+    if(!body) return;
+    const open = body.style.display !== 'none';
+    body.style.display = open ? 'none' : 'block';
+    if(chev) chev.textContent = open ? '▶' : '▼';
+    box.setAttribute('data-open', open ? '0' : '1');
+  }catch(e){}
+}
 function _renderDynamicChips(containerId, chips, activeCode, clickFnName){
   const el=document.getElementById(containerId);
   if(!el) return;
@@ -1533,13 +1548,13 @@ function _renderDynamicChips(containerId, chips, activeCode, clickFnName){
   el.innerHTML=list.map(c=>`<div class="chip${c.code===activeCode?' on':''}" onclick="${clickFnName}('${c.code.replace(/'/g,"\\'")}',this)">${c.label}</div>`).join('');
 }
 function _renderSchedFilterChips(activeCode){
-  const isEn = (_lang==='en');
+  const isEn = (_lang !== 'hi');
   const primary = [
-    {code:'ALL', label: isEn?'All':'सभी'},
-    {code:'CAT:section', label: isEn?'Sections':'सेक्शन'},
-    {code:'CAT:machine', label: isEn?'Machines':'मशीन'},
-    {code:'CAT:responsibility', label: isEn?'Responsibility':'Responsibility'},
-    {code:'CAT:designation', label: isEn?'Designation':'Designation'},
+    {code:'ALL', label: L('सभी','All')},
+    {code:'CAT:section', label: L('सेक्शन','Sections')},
+    {code:'CAT:machine', label: L('मशीन','Machines')},
+    {code:'CAT:responsibility', label: L('Responsibility','Responsibility')},
+    {code:'CAT:designation', label: L('Designation','Designation')},
   ];
   let primaryActive = activeCode || 'ALL';
   if(String(activeCode).startsWith('SEC:')) primaryActive = 'CAT:section';
@@ -1701,8 +1716,48 @@ initTheme();
 // LANGUAGE + COUNTRY (shared with Met Train: mp_country, mp_lang)
 // Default: India → Hindi
 // ══════════════════════════════════════════
-let _lang = localStorage.getItem('mp_lang') || 'hi';
-let _country = localStorage.getItem('mp_country') || 'IN';
+let _lang = localStorage.getItem('mp_lang') || '';
+let _country = localStorage.getItem('mp_country') || '';
+/** Map browser locale → app lang code */
+function _detectBrowserLang(){
+  try{
+    var nav = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+    var low = String(nav).toLowerCase();
+    var map = {
+      'hi':'hi','hi-in':'hi','en':'en','en-in':'en','en-us':'en','en-gb':'en',
+      'gu':'gu','gu-in':'gu','ta':'ta','ta-in':'ta','te':'te','te-in':'te',
+      'kn':'kn','kn-in':'kn','bn':'bn','bn-in':'bn','bn-bd':'bn','or':'or','or-in':'or',
+      'ar':'ar','ar-sa':'ar','ar-ae':'ar','ar-eg':'ar','ur':'ur','ur-pk':'ur','ur-in':'ur',
+      'zh':'zh','zh-cn':'zh','zh-tw':'zh','de':'de','de-de':'de','it':'it','it-it':'it',
+      'es':'es','es-es':'es','es-mx':'es','tr':'tr','tr-tr':'tr','pt':'pt','pt-br':'pt','pt-pt':'pt',
+      'th':'th','th-th':'th','id':'id','id-id':'id','vi':'vi','vi-vn':'vi'
+    };
+    if(map[low]) return map[low];
+    var base = low.split('-')[0];
+    return map[base] || 'en';
+  }catch(e){ return 'en'; }
+}
+function _detectBrowserCountry(){
+  try{
+    var nav = (navigator.languages && navigator.languages[0]) || navigator.language || '';
+    var low = String(nav).toLowerCase();
+    if(/ar|ur/.test(low) && !/in/.test(low)) return 'GULF';
+    if(/^zh/.test(low)) return 'CN';
+    if(/de|it|es|tr|fr|nl|pl/.test(low.split('-')[0])) return 'EU';
+    if(/pt|es-mx|es-ar|en-us|en-ca/.test(low)) return 'AM';
+    if(/th|id|vi|ms/.test(low.split('-')[0])) return 'SEA';
+    return 'IN';
+  }catch(e){ return 'IN'; }
+}
+if(!_lang){
+  _lang = _detectBrowserLang();
+  try{ localStorage.setItem('mp_lang', _lang); }catch(e){}
+}
+if(!_country){
+  _country = _detectBrowserCountry();
+  try{ localStorage.setItem('mp_country', _country); }catch(e){}
+}
+
 
 
 function shareApp(){
@@ -1751,7 +1806,7 @@ function openLocalePicker(){
   <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">${cHtml}</div>
   <div style="font-size:12px;font-weight:800;color:var(--text);margin-bottom:8px">2. Language</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">${lHtml}</div>
-  <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.4">Full UI: <b>Hindi</b> or <b>English</b> only. Any other language selection uses <b>English</b> words (no mixed text).</div>
+  <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.4">Full UI languages by region: <b>India</b> (hi/en/gu/ta/te/kn/bn/or), <b>Gulf</b> (en/hi/ar/ur/bn), <b>China</b> (zh/en), <b>EU</b> (en/de/it/es/tr), <b>Americas</b> (en/es/pt), <b>SE Asia</b> (en/th/id/vi). Missing strings → English.</div>
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="closeModal()">✅ Done</button>
   </div>`);
@@ -1772,7 +1827,12 @@ function selectLang(code){
   _lang = code || 'hi';
   try{ localStorage.setItem('mp_lang', _lang); }catch(e){}
   applyLang();
-  try{ buildNav().then(()=>{ goTab(_currentTab); }); }catch(e){}
+  try{ applyLoginLang(); }catch(e){}
+  try{
+    if(typeof SESSION!=='undefined' && SESSION && SESSION.role){
+      buildNav().then(()=>{ goTab(_currentTab); });
+    }
+  }catch(e){}
   openLocalePicker();
   toast('🌐 '+String(_lang).toUpperCase()+' · '+(_country||'IN'));
 }
@@ -1783,9 +1843,112 @@ function toggleLang(){
   buildNav().then(()=>{ goTab(_currentTab); });
 }
 
+
+/** Refresh login-screen labels for current _lang. Preference is mp_lang (shared with in-app). */
+function applyLoginLang(){
+  const lang = (typeof _lang !== 'undefined' && _lang) ? _lang : 'hi';
+  try{ if(typeof loadLangFont==='function') loadLangFont(lang); }catch(e){}
+  const T = (hi, en) => {
+    if(typeof L === 'function') return L(hi, en);
+    if(typeof mlT === 'function'){
+      const v = mlT(hi, lang);
+      if(v && v !== hi) return v;
+    }
+    return lang === 'hi' ? hi : en;
+  };
+  // Language button
+  const langBtn = document.getElementById('loginLangBtnLabel');
+  if(langBtn){
+    const titles = {hi:'हिन्दी',en:'English',gu:'ગુજરાતી',ta:'தமிழ்',te:'తెలుగు',kn:'ಕನ್ನಡ',bn:'বাংলা',or:'ଓଡ଼ିଆ',ar:'العربية',ur:'اردو',zh:'中文',de:'Deutsch',it:'Italiano',es:'Español',tr:'Türkçe',pt:'Português',th:'ไทย',id:'Indonesia',vi:'Tiếng Việt'};
+    const name = titles[lang] || String(lang).toUpperCase();
+    langBtn.textContent = name + (lang === 'en' ? '' : ' · English OK');
+  }
+  // Mobile title — English always primary
+  const title = document.getElementById('loginMobileTitle');
+  if(title) title.textContent = '📱 Mobile Number';
+  const titleHi = document.getElementById('loginMobileTitleHi');
+  if(titleHi){
+    if(lang === 'en'){ titleHi.style.display = 'none'; }
+    else {
+      titleHi.style.display = '';
+      titleHi.textContent = T('मोबाइल नंबर', 'Mobile Number');
+    }
+  }
+  const hint = document.getElementById('loginMobileHint');
+  if(hint){
+    hint.innerHTML = lang === 'hi'
+      ? 'Member / Manager login — <b style="color:#ffffff">केवल Mobile Number</b> (Employee Code नहीं)'
+      : 'Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)';
+  }
+  const inp = document.getElementById('loginMobile');
+  if(inp) inp.placeholder = lang === 'hi' ? '10 अंकों का Mobile Number' : '10-digit Mobile Number';
+  const otpBtn = document.getElementById('sendOtpBtn');
+  if(otpBtn){
+    const dis = otpBtn.disabled;
+    otpBtn.innerHTML = T('OTP भेजें', 'Send OTP') + ' &#128172;';
+    otpBtn.disabled = dis;
+  }
+  // OTP step
+  const otpTitle = document.getElementById('loginOtpTitle');
+  if(otpTitle) otpTitle.textContent = T('OTP डालें', 'Enter OTP');
+  const otpTitleHi = document.getElementById('loginOtpTitleHi');
+  if(otpTitleHi){
+    if(lang === 'en') otpTitleHi.style.display = 'none';
+    else { otpTitleHi.style.display = ''; otpTitleHi.textContent = T('OTP डालें', 'Enter OTP'); }
+  }
+  const verifyBtn = document.getElementById('verifyOtpBtn');
+  if(verifyBtn){
+    const dis = verifyBtn.disabled;
+    verifyBtn.innerHTML = T('Verify करें', 'Verify') + ' &#10003;';
+    verifyBtn.disabled = dis;
+  }
+  const resend = document.getElementById('otpResendBtn');
+  if(resend) resend.innerHTML = T('OTP फिर भेजें', 'Resend OTP') + ' &#8635;';
+  document.querySelectorAll('#loginBackBtn2, #loginStep2 .back-btn, #loginStep3 .back-btn').forEach(function(b){
+    if(b) b.innerHTML = T('&larr; वापस', '&larr; Back');
+  });
+  // Role step
+  const rh = document.getElementById('loginRoleHeading');
+  if(rh) rh.textContent = T('आप कौन हैं?', 'Who are you?');
+  const rs = document.getElementById('loginRoleSub');
+  if(rs) rs.textContent = T('अपनी भूमिका चुनें', 'Choose your role');
+  const rm = document.getElementById('loginRoleMgrSub');
+  if(rm) rm.textContent = T('मैं एक Manager हूं — अपनी team बनाना चाहता/चाहती हूं', 'I am a Manager — I manage my team');
+  const rmem = document.getElementById('loginRoleMemSub');
+  if(rmem) rmem.textContent = T('मैं एक Member हूं — अपने Manager की team में शामिल हूं', "I am a Member — I join my Manager's team");
+  const learn = document.getElementById('loginLearnTitle');
+  if(learn) learn.textContent = lang === 'hi' ? 'सीखें — Learn Now' : 'Learn Now';
+  const pwa = document.getElementById('loginPwaLabel');
+  if(pwa) pwa.textContent = lang === 'hi' ? 'App Install करें / Download App' : 'Install App / Download App';
+}
+
 function applyLang(){
-  // Man Power full string tables: Hindi vs English. Non-hi → English chrome.
+  try{ applyLoginLang(); }catch(e){}
   const isEn = (_lang !== 'hi');
+  const lang = _lang || 'hi';
+
+  // HTML lang + RTL dir (Arabic / Urdu)
+  try{
+    var rtl = (lang === 'ar' || lang === 'ur');
+    document.documentElement.setAttribute('lang', lang || 'en');
+    document.documentElement.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+    document.body && document.body.setAttribute('data-lang', lang || 'en');
+    if(typeof loadLangFont==='function') loadLangFont(lang);
+  }catch(e){}
+  // i18n debug: highlight missing translations
+  try{
+    if(localStorage.getItem('mp_i18n_debug') === '1' && typeof _translateDOM === 'function'){
+      setTimeout(function(){
+        document.querySelectorAll('[data-i18n]').forEach(function(el){
+          var k = el.getAttribute('data-i18n');
+          var tr = typeof t === 'function' ? t(k) : k;
+          if(tr === k && lang !== 'hi') el.classList.add('i18n-miss');
+          else el.classList.remove('i18n-miss');
+        });
+      }, 100);
+    }
+  }catch(e){}
+  // Multi-lang: hi keeps Hindi chrome; everything else uses selected language (fallback en).
   // Toggle button label
   const btn = document.getElementById('langToggleBtn');
   if(btn){
@@ -1796,23 +1959,21 @@ function applyLang(){
 
   // Header brand
   const brand = document.querySelector('.hdr-brand');
-  if(brand) brand.innerHTML = isEn
-    ? '<span>MP</span> Man Power'
-    : '<span>MP</span> Man Power';
+  if(brand) brand.innerHTML = L('<span>MP</span> Man Power','<span>MP</span> Man Power');
 
   // Sync row
   const syncLbl = document.getElementById('syncLabel');
-  if(syncLbl) syncLbl.textContent = isEn ? 'Live' : 'लाइव';
+  if(syncLbl) syncLbl.textContent = (typeof mlT==='function') ? mlT('लाइव', lang) : (L('लाइव','Live'));
 
   // Section status heading
   const secTitle = document.getElementById('homeSectionTitle');
-  if(secTitle) secTitle.textContent = isEn
-    ? "Today's Status — Section Wise"
-    : 'आज की स्थिति — सेक्शन वार';
+  if(secTitle) secTitle.textContent = (typeof mlT==='function')
+    ? mlT('आज की स्थिति — सेक्शन वार', lang)
+    : (isEn ? "Today's Status — Section Wise" : 'आज की स्थिति — सेक्शन वार');
 
   // Learn bar
   const learnTitle = document.getElementById('learnBarTitle');
-  if(learnTitle) learnTitle.textContent = isEn ? 'Learn & Grow' : 'सीखें & Grow करें';
+  if(learnTitle) learnTitle.textContent = (typeof mlT==='function') ? mlT('सीखें & Grow करें', lang) : (L('सीखें & Grow करें','Learn & Grow'));
 
   // Home stat labels
   const statMap = {
@@ -1822,7 +1983,7 @@ function applyLang(){
   };
   Object.entries(statMap).forEach(([id,txt])=>{
     const el = document.getElementById(id);
-    if(el) el.textContent = isEn ? txt.en : txt.hi;
+    if(el) el.textContent = (typeof mlLabel==='function') ? mlLabel(txt, lang) : (_lang==='hi' ? txt.hi : txt.en);
   });
 
   // ── Page titles ──
@@ -1836,7 +1997,7 @@ function applyLang(){
   };
   Object.entries(pageTitleMap).forEach(([id,txt])=>{
     const el = document.getElementById(id);
-    if(el) el.textContent = isEn ? txt.en : txt.hi;
+    if(el) el.textContent = (typeof mlLabel==='function') ? mlLabel(txt, lang) : (_lang==='hi' ? txt.hi : txt.en);
   });
 
   // ── Schedule admin buttons ──
@@ -1853,20 +2014,20 @@ function applyLang(){
   Object.entries(schedBtnMap).forEach(([id,txt])=>{
     const el = document.getElementById(id);
     if(!el) return;
-    el.textContent = isEn ? txt.en : txt.hi;
+    el.textContent = (typeof mlLabel==='function') ? mlLabel(txt, lang) : (_lang==='hi' ? txt.hi : txt.en);
   });
   try{
     const cr = document.getElementById('customRangeBtn');
     if(cr){
       cr.textContent = '🗓️';
-      cr.setAttribute('title', isEn ? 'Pick custom dates' : 'कस्टम तारीख चुनें');
+      cr.setAttribute('title', L('कस्टम तारीख चुनें','Pick custom dates'));
     }
   }catch(e){}
 
   // Multi-Select button (special — has dynamic states)
   const msBtn = document.getElementById('msToggleBtn');
   if(msBtn && !(typeof _msActive !== 'undefined' && _msActive)){
-    msBtn.textContent = isEn ? '☑️ Multi-Select' : '☑️ Multi-Select';
+    msBtn.textContent = L('☑️ Multi-Select','☑️ Multi-Select');
   }
 
   // Page titles & static chips
@@ -1876,7 +2037,7 @@ function applyLang(){
   };
   Object.entries(pageMap).forEach(([id,txt])=>{
     const el=document.getElementById(id);
-    if(el) el.textContent = isEn ? txt.en : txt.hi;
+    if(el) el.textContent = (typeof mlLabel==='function') ? mlLabel(txt, lang) : (_lang==='hi' ? txt.hi : txt.en);
   });
   // Leave filter chips
   document.querySelectorAll('#tab-leave .chip, [onclick*="setLF"]').forEach(el=>{
@@ -1886,26 +2047,24 @@ function applyLang(){
   });
   // Save bar
   const saveTitle=document.getElementById('saveBarTitle');
-  if(saveTitle) saveTitle.textContent = isEn ? '📝 Changes pending' : '📝 बदलाव pending हैं';
+  if(saveTitle) saveTitle.textContent = L('📝 बदलाव pending हैं','📝 Changes pending');
   document.querySelectorAll('#schedSaveBar button').forEach(el=>{
     const raw=(el.textContent||'').trim();
     if(isEn && typeof t==='function'){ const tr=t(raw); if(tr!==raw) el.textContent=tr; }
   });
   // Multi-select cancel
   document.querySelectorAll('.ms-cancel').forEach(el=>{
-    el.textContent = isEn ? '✕ Cancel' : '✕ रद्द करें · Cancel';
+    el.textContent = L('✕ रद्द करें · Cancel','✕ Cancel');
   });
 
   // ── All "सभी" / "All" filter chips ──
   document.querySelectorAll('[data-i18n-all]').forEach(el => {
-    el.textContent = isEn ? 'All' : 'सभी';
+    el.textContent = (typeof mlT==='function') ? mlT('सभी', lang) : (L('सभी','All'));
   });
 
   // ── Cell tap legend in Schedule Builder if open ──
   const sbLegend = document.getElementById('sbCellLegend');
-  if(sbLegend) sbLegend.textContent = isEn
-    ? 'Cell tap: D → N → O → L → G → CO → ½ → Ab → clear'
-    : 'Cell tap करें: D → N → O → L → G → CO → ½ → Ab → साफ';
+  if(sbLegend) sbLegend.textContent = L('Cell tap करें: D → N → O → L → G → CO → ½ → Ab → साफ','Cell tap: D → N → O → L → G → CO → ½ → Ab → clear');
 
   // Re-render home if on home tab — wait for it to finish, then re-walk DOM
   if(typeof _currentTab !== 'undefined' && _currentTab === 'home'){
@@ -1946,43 +2105,65 @@ function _buildReverseDict(){
 }
 
 function _translateDOM(){
-  if(typeof _i18n_HI_EN !== 'object') return;
-  const isEn = _lang === 'en';
-  const enToHi = _buildReverseDict();
+  if(typeof _i18n_HI_EN !== 'object' && typeof _i18n_ML !== 'object') return;
+  const lang = (typeof _lang !== 'undefined') ? _lang : 'hi';
+  const enToHi = (typeof _buildReverseDict === 'function') ? _buildReverseDict() : {};
+
+  // Also build reverse from multi-lang table (en/gu/ta/... → hi)
+  const mlReverse = {};
+  if(typeof _i18n_ML === 'object'){
+    Object.keys(_i18n_ML).forEach(hi=>{
+      const m = _i18n_ML[hi];
+      if(!m) return;
+      Object.keys(m).forEach(l=>{
+        if(m[l] && !mlReverse[m[l]]) mlReverse[m[l]] = hi;
+      });
+    });
+  }
+
+  function resolveHi(text){
+    if(!text) return null;
+    if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[text]) return text;
+    if(typeof _i18n_ML === 'object' && _i18n_ML[text]) return text;
+    if(enToHi[text]) return enToHi[text];
+    if(mlReverse[text]) return mlReverse[text];
+    return null;
+  }
+
+  function translateKey(hiKey){
+    if(!hiKey) return hiKey;
+    if(lang === 'hi') return hiKey;
+    if(typeof mlT === 'function'){
+      const v = mlT(hiKey, lang);
+      if(v !== hiKey) return v;
+    }
+    if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[hiKey]) return _i18n_HI_EN[hiKey];
+    return hiKey;
+  }
 
   const SELECTOR = 'button, .chip, .nb, .submit-btn, .act-btn, .sched-admin-btn, .big-btn, .back-btn, label, h1, h2, h3, h4, .modal-title, .page-title, .empty-text, .stat-lbl, .sec-name, .lc-title, .lc-sub, .pc-nav-lbl, span, div, p, td, th, option';
   const nodes = document.querySelectorAll(SELECTOR);
   nodes.forEach(el => {
-    // Skip elements with children (only translate pure-text leaves)
     if(el.children.length > 0) return;
     const current = (el.textContent || '').trim();
     if(!current) return;
 
-    // Determine the Hindi original for this element
     let hiOrig = el.dataset.i18nOrig;
-    // Self-heal: if cached "original" is actually an English value (from older buggy cache),
-    // re-detect from the reverse dictionary
-    if(hiOrig && !_i18n_HI_EN[hiOrig] && enToHi[hiOrig]){
-      hiOrig = enToHi[hiOrig];
-      el.dataset.i18nOrig = hiOrig;
+    if(hiOrig){
+      // Self-heal: cached value might be English or another language
+      const healed = resolveHi(hiOrig);
+      if(healed && healed !== hiOrig){
+        hiOrig = healed;
+        el.dataset.i18nOrig = hiOrig;
+      }
     }
     if(!hiOrig){
-      // First time seeing this element — figure out what its Hindi original is
-      if(_i18n_HI_EN[current]){
-        // Current text is a Hindi key in dictionary → that IS the original
-        hiOrig = current;
-      } else if(enToHi[current]){
-        // Current text is an English value → find the Hindi key
-        hiOrig = enToHi[current];
-      } else {
-        // Not in dictionary at all — leave as-is, don't cache
-        return;
-      }
+      hiOrig = resolveHi(current);
+      if(!hiOrig) return;
       el.dataset.i18nOrig = hiOrig;
     }
 
-    // Apply translation based on current language
-    const target = isEn ? (_i18n_HI_EN[hiOrig] || hiOrig) : hiOrig;
+    const target = translateKey(hiOrig);
     if(current !== target){
       el.textContent = el.textContent.replace(current, target);
     }
@@ -1993,18 +2174,19 @@ function _translateDOM(){
     const current = el.getAttribute('placeholder') || '';
     if(!current) return;
     let hiOrig = el.dataset.i18nPh;
-    // Self-heal cached English placeholder
-    if(hiOrig && !_i18n_HI_EN[hiOrig] && enToHi[hiOrig]){
-      hiOrig = enToHi[hiOrig];
-      el.dataset.i18nPh = hiOrig;
+    if(hiOrig){
+      const healed = resolveHi(hiOrig);
+      if(healed && healed !== hiOrig){
+        hiOrig = healed;
+        el.dataset.i18nPh = hiOrig;
+      }
     }
     if(!hiOrig){
-      if(_i18n_HI_EN[current]) hiOrig = current;
-      else if(enToHi[current]) hiOrig = enToHi[current];
-      else return;
+      hiOrig = resolveHi(current);
+      if(!hiOrig) return;
       el.dataset.i18nPh = hiOrig;
     }
-    const target = isEn ? (_i18n_HI_EN[hiOrig] || hiOrig) : hiOrig;
+    const target = translateKey(hiOrig);
     if(current !== target) el.setAttribute('placeholder', target);
   });
 }
@@ -2045,7 +2227,7 @@ function _managerEmptyTeamHtml(){
   if(!(SESSION.role==='manager' || (typeof isMgr==='function' && isMgr()))) return '';
   const n = (typeof getEmps==='function' ? getEmps() : []).filter(e=>e.status!=='resigned'&&e.status!=='left').length;
   if(n > 0) return '';
-  const en = (typeof _lang!=='undefined' && _lang==='en');
+  const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
   return `<div class="hm-empty" style="margin:10px 12px;padding:14px;border-radius:12px;border:1px dashed rgba(249,115,22,.45);background:rgba(249,115,22,.08);text-align:left">
     <div style="font-weight:900;color:var(--text);margin-bottom:4px">${en?'Your team is empty':'आपकी Team अभी खाली है'}</div>
     <div style="font-size:12px;color:var(--muted2);line-height:1.5">${en
@@ -2119,7 +2301,13 @@ async function _unlinkMobileUserOnLeave(emp){
       status: 'left_team',
       managerId: null,
       leftAt: new Date().toISOString(),
-      leftReason: emp.status||'removed'
+      leftReason: emp.status||'removed',
+      // Remove old member identity so next login never shows this name
+      name: '',
+      empId: null,
+      empCode: null,
+      empObjId: null,
+      employeeId: null
     });
   }catch(e){ console.warn('[unlinkMobile]', e); }
 }
@@ -2340,23 +2528,31 @@ function showHardExpiry(){
   }
 }
 
-async function extendUserExpiry(empId, days){
-  const validTill = new Date(Date.now() + (days||365)*86400000).toISOString();
+async function extendUserExpiry(empId, daysOrDate){
+  // daysOrDate: number of days OR ISO/date string YYYY-MM-DD
+  let validTill;
+  if(typeof daysOrDate === 'string' && daysOrDate.length >= 8 && /\d{4}-\d{2}-\d{2}/.test(daysOrDate)){
+    const d = new Date(daysOrDate);
+    d.setHours(23,59,59,999);
+    validTill = d.toISOString();
+  } else {
+    const days = parseInt(daysOrDate, 10) || 365;
+    validTill = new Date(Date.now() + days*86400000).toISOString();
+  }
   try{
     if(typeof _ensureWriteAuth === 'function') await _ensureWriteAuth();
     await fbUpdate('deviceApprovals/' + empId, {
       validTill,
       extendedBy: SESSION.name || 'admin',
       extendedAt: new Date().toISOString(),
-      daysGranted: days||365
+      daysGranted: daysOrDate
     });
-    // Also mirror on mobileUsers if phone-keyed record exists
     try{
-      const emp = (_cache.employees||[]).find(e=>e.id===empId);
+      const emp = (_cache.employees||[]).find(e=>e.id===empId) || (getEmps()||[]).find(e=>e.id===empId);
       const mob = _normMobileKey(emp && (emp.phone||emp.mobile));
-      if(mob) await fbUpdate('mobileUsers/'+mob, { validTill, accessExtendedAt: new Date().toISOString() });
+      if(mob) await fbUpdate('mobileUsers/'+mob, { validTill, accessExtendedAt: new Date().toISOString(), extendedBy: SESSION.name||'admin' });
     }catch(e2){}
-    toast('✅ Validity extended to '+new Date(validTill).toLocaleDateString('en-IN'));
+    toast('✅ Validity set to '+new Date(validTill).toLocaleDateString('en-IN'));
     return true;
   }catch(e){
     console.error('[extendUserExpiry]', e);
@@ -3007,19 +3203,40 @@ async function _checkUserAfterOTP(){
               showOtherDeviceLoginRequest(emp, dRec, deviceId);
               return;
             }
-            // First time / same device → claim this device
+            // First time / same device → claim this device (CURRENT employee name, not stale mobileUsers)
             try{
+              const liveName = (empMatch && empMatch.name) || userData.name || '';
+              const liveCode = (empMatch && empMatch.empId) || userData.empId || userData.empCode || '';
               await fbUpdate('deviceApprovals/'+empObjId, {
                 approvedDeviceId: deviceId,
                 approvedAt: new Date().toISOString(),
                 validTill: new Date(Date.now()+365*86400000).toISOString(),
-                empName: userData.name||'',
-                empId: userData.empId||userData.empCode||'',
+                empName: liveName,
+                empId: liveCode,
+                mobile: _normMobileKey(mobile),
+                deviceName: (typeof _guessDeviceLabel==='function'?_guessDeviceLabel():''),
                 via: 'mobile_otp'
               });
+              // Refresh mobileUsers to current employee identity
+              try{
+                await _syncMobileUserToCurrentEmployee(mobile, userData, { deviceId, via:'mobile_otp' });
+              }catch(e){}
             }catch(e){}
           }
         }catch(e){ console.warn('[mobile login device]', e); }
+        // Prefer live employee identity before launch
+        try{
+          const live = await _resolveEmpByMobile(mobile);
+          if(live && live.name){
+            userData = Object.assign({}, userData, {
+              name: live.name,
+              empId: live.empId || userData.empId,
+              empCode: live.empId || userData.empCode,
+              empObjId: live.id,
+              employeeId: live.id
+            });
+          }
+        }catch(e){}
         _launchAsNewUser(userData); return;
       }
     }
@@ -3301,6 +3518,127 @@ function _launchAsHardAdmin(mobile10){
   setTimeout(()=>{ try{ _syncAuthRoleNodes(); }catch(e){} }, 1500);
 }
 
+function _guessDeviceLabel(){
+  try{
+    const ua = (navigator.userAgent||'');
+    if(/iPhone/i.test(ua)) return 'iPhone';
+    if(/iPad/i.test(ua)) return 'iPad';
+    if(/Android/i.test(ua)){
+      const m = ua.match(/Android[^;]*;\s*([^)]+)\)/);
+      if(m && m[1]){
+        let s = m[1].replace(/\s*Build.*$/i,'').trim();
+        if(s && s.length<40) return s;
+      }
+      return 'Android';
+    }
+    if(/Windows/i.test(ua)) return 'Windows PC';
+    if(/Mac OS/i.test(ua)) return 'Mac';
+    if(/Linux/i.test(ua)) return 'Linux';
+    return (ua||'Device').substring(0,40);
+  }catch(e){ return 'Device'; }
+}
+
+/** Prefer live employees/{id} by phone — wipe stale mobileUsers name/emp link */
+async function _resolveEmpByMobile(mobile){
+  const mob = _normMobileKey(mobile||'');
+  if(!mob || mob.length<10) return null;
+  let all = (_cache.employees||[]);
+  if(!all.length){
+    try{
+      const snap = await fbGet('employees');
+      if(snap && typeof snap==='object'){
+        all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
+        _cache.employees = all;
+      }
+    }catch(e){}
+  }
+  const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+  let match = active.find(e => _normMobileKey(e.phone||e.mobile||'') === mob);
+  if(!match) match = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mob);
+  return match || null;
+}
+
+/** Sync mobileUsers/{mob} to CURRENT employee (or clear old member identity) */
+async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
+  opts = opts || {};
+  const mob = _normMobileKey(mobile||'');
+  if(!mob || mob.length<10) return null;
+  try{
+    const match = await _resolveEmpByMobile(mob);
+    const base = Object.assign({}, userData||{});
+    const deviceId = opts.deviceId || (typeof getDeviceId==='function' ? getDeviceId() : '');
+    const deviceName = opts.deviceName || _guessDeviceLabel();
+    if(match && match.status!=='resigned' && match.status!=='left' && match.status!=='left_team' && match.status!=='removed'){
+      const patch = {
+        name: match.name || base.name || '',
+        empId: match.empId || base.empId || '',
+        empCode: match.empId || base.empCode || '',
+        empObjId: match.id,
+        employeeId: match.id,
+        phone: mob,
+        mobile: mob,
+        company: match.company || base.company || SESSION.company || '',
+        section: match.section || match.sec || base.section || '',
+        lastLoginAt: new Date().toISOString(),
+        lastDeviceId: deviceId || base.lastDeviceId || '',
+        lastDeviceName: deviceName || base.lastDeviceName || ''
+      };
+      // Keep role/status/managerId from existing mobileUsers unless forced
+      if(base.role) patch.role = base.role;
+      if(base.status) patch.status = base.status;
+      if(base.managerId) patch.managerId = base.managerId;
+      try{ await fbUpdate('mobileUsers/'+mob, patch); }catch(e){ console.warn('[syncMU]', e); }
+      // Fix deviceApprovals under CURRENT emp id
+      if(match.id && deviceId){
+        try{
+          await fbUpdate('deviceApprovals/'+match.id, {
+            approvedDeviceId: deviceId,
+            approvedAt: new Date().toISOString(),
+            validTill: new Date(Date.now()+365*86400000).toISOString(),
+            empName: match.name||'',
+            empId: match.empId||'',
+            mobile: mob,
+            deviceName: deviceName,
+            via: opts.via || 'login_sync'
+          });
+        }catch(e){}
+      }
+      // If mobileUsers still pointed at an OLD empObjId, clear that device approval name
+      const oldId = base.empObjId || base.employeeId || '';
+      if(oldId && oldId !== match.id){
+        try{
+          await fbUpdate('deviceApprovals/'+oldId, {
+            empName: '(reassigned)',
+            note: 'Mobile '+mob+' moved to '+ (match.name||match.id),
+            reassignedAt: new Date().toISOString()
+          });
+        }catch(e){}
+      }
+      return match;
+    }
+    // No active employee with this phone — if mobileUsers had an old member name, strip identity
+    if(base && (base.name || base.empObjId)){
+      try{
+        await fbUpdate('mobileUsers/'+mob, {
+          name: base.role==='manager' ? (base.name||'') : '',
+          empId: null,
+          empCode: null,
+          empObjId: null,
+          employeeId: null,
+          staleClearedAt: new Date().toISOString(),
+          lastLoginAt: new Date().toISOString(),
+          lastDeviceId: deviceId||'',
+          lastDeviceName: deviceName||''
+        });
+      }catch(e){}
+    }
+    return null;
+  }catch(e){
+    console.warn('[_syncMobileUserToCurrentEmployee]', e);
+    return null;
+  }
+}
+
 function _launchAsNewUser(userData){
   // Safety: never demote hard-admin phone to member/manager
   const mob = _normMobileKey(userData.mobile||userData.uid||'');
@@ -3311,6 +3649,7 @@ function _launchAsNewUser(userData){
   SESSION.uid=userData.mobile;
   SESSION.name=userData.name;
   SESSION.role=userData.role;
+  if(userData.photoUrl) SESSION.photoUrl = userData.photoUrl;
   SESSION.company=userData.company||'';
   SESSION.companyId=_normCompanyId(userData.company);
   SESSION.managerId=userData.managerId||'';
@@ -3321,19 +3660,38 @@ function _launchAsNewUser(userData){
   SESSION.pendingApproval=(userData.role==='member' && userData.status==='pending');
   SESSION.newUser=true;
   SESSION.loginAt=new Date().toISOString();
-  // Link to employees/{id} by mobile so in-app notifications work
+  // ALWAYS prefer current employees/{id} by mobile — never keep old member name
   try{
-    const mob = _normMobileKey(userData.mobile||'');
+    const mobKey = _normMobileKey(userData.mobile||'');
     const all = (_cache.employees||[]);
-    let match = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mob);
+    const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+    let match = active.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
+    if(!match) match = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
     if(!match && SESSION.empId){
-      match = all.find(e => String(e.empId||'').trim().toUpperCase() === String(SESSION.empId).trim().toUpperCase());
+      match = active.find(e => String(e.empId||'').trim().toUpperCase() === String(SESSION.empId).trim().toUpperCase())
+        || all.find(e => String(e.empId||'').trim().toUpperCase() === String(SESSION.empId).trim().toUpperCase());
     }
-    if(match){
+    if(match && match.status!=='resigned' && match.status!=='left' && match.status!=='left_team' && match.status!=='removed'){
       SESSION.empObjId = match.id;
       SESSION.empId = match.empId || SESSION.empId;
-      if(!SESSION.name) SESSION.name = match.name;
+      SESSION.name = match.name || SESSION.name; // current employee name wins
+      if(match.company) SESSION.company = match.company;
+      if(match.section||match.sec) SESSION.dept = match.section||match.sec;
+      // Avatar: prefer employee photo, else mobileUsers photo
+      if(match.photoUrl) SESSION.photoUrl = match.photoUrl;
+      else if(userData && userData.photoUrl) SESSION.photoUrl = userData.photoUrl;
+    } else if(userData && userData.photoUrl){
+      SESSION.photoUrl = userData.photoUrl;
+    } else if(match && (match.status==='resigned'||match.status==='left'||match.status==='left_team'||match.status==='removed')){
+      // Old member still on phone — do not keep their name
+      SESSION.name = userData.role==='manager' ? (userData.name||'') : (SESSION.name||'Member');
+      SESSION.empObjId = '';
+      SESSION.empId = '';
     }
+    // Async sync mobileUsers to current identity (fire-and-forget)
+    try{
+      _syncMobileUserToCurrentEmployee(mobKey, userData, { deviceId: typeof getDeviceId==='function'?getDeviceId():'', via:'launch' });
+    }catch(e){}
   }catch(e){}
   saveSession();
   try{ writeIntegrityToken(); localStorage.setItem('mp_int_ok','1'); }catch(e){}
@@ -4445,7 +4803,7 @@ async function renderDeviceTransferRequests(){
         <div class="card" style="margin-bottom:8px;border-left:3px solid #f97316;border-color:rgba(249,115,22,.35)">
           <div class="card-name">${name}</div>
           <div class="card-sub">${sub}</div>
-          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
+          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN')):''}</div>
           <div class="action-row" style="margin-top:8px;display:flex;gap:8px">
             <button class="act-btn approve" onclick="${approveFn}">✅ Approve</button>
             <button class="act-btn reject" onclick="${rejectFn}">❌ Reject</button>
@@ -5845,53 +6203,59 @@ async function launchApp(){
   // ── Sync header height immediately so sidebar + sticky elements position correctly ──
   try{ syncStickyTop(); }catch(e){}
 
-  const ini=(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
-  const userAvEl=document.getElementById('userAv');
-  if(userAvEl){
-    if(SESSION.photoUrl){
-      userAvEl.innerHTML=`<img src="${SESSION.photoUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
-    }else{
-      userAvEl.textContent=ini;
+  try{ updateHeaderProfile(); }catch(e){
+    const ini=(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+    const userAvEl=document.getElementById('userAv');
+    if(userAvEl){
+      if(SESSION.photoUrl) userAvEl.innerHTML=`<img src="${SESSION.photoUrl}" alt="">`;
+      else { userAvEl.innerHTML=''; userAvEl.textContent=ini; }
     }
   }
-  const hdrName=document.getElementById('userHdrName');
-  if(hdrName) hdrName.textContent=(SESSION.name||'Guest').split(' ')[0];
 
   // Hide pending overlay if we successfully entered the app
   try{ const pb=document.getElementById('pendingBox'); if(pb) pb.style.display='none'; }catch(e){}
 
   const rt=document.getElementById('roleTag');
   if(rt){
-  if(isAdmin()){ rt.textContent='🛡️ ADMIN'; rt.className='role-tag admin'; }
-  else if(isMgr() || SESSION.role==='manager'){ rt.textContent='🏅 MANAGER'; rt.className='role-tag'; rt.style.cssText='background:rgba(168,85,247,.2);color:#a855f7;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif'; }
-  else if(isSupervisor()){ rt.textContent='👁️ SUPERVISOR'; rt.className='role-tag'; rt.style.cssText='background:rgba(56,189,248,.15);color:#38bdf8;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif'; }
-  else if(isPendingMember()){
-    rt.textContent='⏳ PENDING';
-    rt.className='role-tag';
-    rt.style.cssText='background:rgba(234,179,8,.2);color:#eab308;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif';
+  if(isAdmin()){
+    rt.textContent='ADMIN';
+    rt.className='role-tag admin';
+    rt.style.cssText='background:rgba(249,115,22,.2);color:#fb923c;';
   }
-  else if(SESSION.role==='member'){
-    const tp = myTeamPerms();
+  else if(isMgr() || SESSION.role==='manager'){
+    rt.textContent='MGR';
+    rt.className='role-tag';
+    rt.style.cssText='background:rgba(168,85,247,.22);color:#c084fc;';
+  }
+  else if(isPendingMember()){
+    rt.textContent='PEND';
+    rt.className='role-tag';
+    rt.style.cssText='background:rgba(234,179,8,.2);color:#eab308;';
+  }
+  else if(SESSION.role==='member' || SESSION.role==='worker'){
+    const tp = (typeof myTeamPerms==='function') ? myTeamPerms() : {};
     if(tp.schedule||tp.leave||tp.reports){
-      const bits=[];
-      if(tp.schedule) bits.push('Schedule');
-      if(tp.leave) bits.push('Leave');
-      if(tp.reports) bits.push('Reports');
-      rt.textContent='⚡ '+bits.join('/');
+      rt.textContent='AUTH';
       rt.className='role-tag';
-      rt.style.cssText='background:rgba(168,85,247,.18);color:#c084fc;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif';
+      rt.style.cssText='background:rgba(168,85,247,.18);color:#c084fc;';
     } else {
-      rt.textContent='👤 MEMBER'; rt.className='role-tag'; rt.style.cssText='background:rgba(96,165,250,.15);color:#60a5fa;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif';
+      rt.textContent='MEMBER';
+      rt.className='role-tag';
+      rt.style.cssText='background:rgba(96,165,250,.18);color:#60a5fa;';
     }
   }
-  else if(isGuest()){ 
-    const co = SESSION.company||'GUEST';
-    rt.textContent = co !== 'Man Power' ? '🏢 '+co : '👤 GUEST'; 
-    rt.className='role-tag'; 
-    rt.style.cssText='background:rgba(148,163,184,.15);color:#94a3b8;border-radius:4px;padding:2px 7px;font-size:9px;font-weight:700;font-family:Barlow Condensed,sans-serif'; 
+  else if(isGuest()){
+    rt.textContent='GUEST';
+    rt.className='role-tag';
+    rt.style.cssText='background:rgba(148,163,184,.18);color:#94a3b8;';
   }
-  else { rt.textContent='👤 USER'; rt.className='role-tag user'; }
+  else {
+    rt.textContent='USER';
+    rt.className='role-tag user';
+    rt.style.cssText='';
+  }
   } // end roleTag null-safe
+  try{ updateHeaderProfile(); }catch(e){}
 
   if(isAdmin()){
     document.getElementById('notifBtn').style.display='flex';
@@ -6034,7 +6398,7 @@ async function buildNav(){
   window._navMoreTabs = moreTabs;
 
   const _nbHtml = (t, on)=>{
-    const label = (typeof _lang !== 'undefined' && _lang === 'en') ? (t.lblEn||t.lbl) : t.lbl;
+    const label = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
     return `<button class="nb${on?' on':''}" id="nb-${t.id}" onclick="goTab('${t.id}')" aria-label="${label}">
       <span class="nb-ico">${t.ico}</span><span style="font-size:12px;font-weight:800">${label}</span>
       ${t.id==='pending'?'<span class="nb-badge" id="pendingBadge" style="display:none">0</span>':''}
@@ -6045,7 +6409,7 @@ async function buildNav(){
   if(moreTabs.length){
     const moreOn = moreTabs.some(t=>t.id===firstTab);
     navHtml += `<button class="nb${moreOn?' on':''}" id="nb-more" onclick="openNavMoreSheet()" aria-label="More">
-      <span class="nb-ico">☰</span><span style="font-size:12px;font-weight:800">${(typeof _lang!=='undefined'&&_lang==='en')?'More':'और'}</span>
+      <span class="nb-ico">☰</span><span style="font-size:12px;font-weight:800">${(typeof mlT==='function')?mlT('और',(typeof _lang!=='undefined'?_lang:'hi')):(L('और','More'))}</span>
     </button>`;
   }
   document.getElementById('mainNav').innerHTML = navHtml;
@@ -6075,7 +6439,7 @@ async function buildNav(){
       const btn = document.createElement('button');
       btn.className = 'pc-nav-btn' + (t.id===firstTab?' on':'');
       btn.id = 'pc-nb-'+t.id;
-      const sLabel = (typeof _lang !== 'undefined' && _lang === 'en') ? (t.lblEn||t.lbl) : t.lbl;
+      const sLabel = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
       btn.setAttribute('aria-label', sLabel);
       btn.innerHTML = `<span class="pc-nav-ico">${t.ico}</span><span class="pc-nav-lbl">${sLabel}</span>`
         + (t.id==='pending' ? `<span class="pc-nav-badge" id="pcPendingBadge" style="display:none">0</span>` : '')
@@ -6236,7 +6600,7 @@ function _renderShiftSettingsModal(){
   if(d.waCOffEnabled==null) d.waCOffEnabled = true;
 d.shiftCount = d.shifts.filter(s=>s.active).length;
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">⚙️ ${_lang==='en'?'Shift & Min Staff':'शिफ्ट व मिन स्टाफ़'}</div>
+  <div class="modal-title">⚙️ ${L('शिफ्ट व मिन स्टाफ़','Shift & Min Staff')}</div>
   <div style="font-size:12px;color:#94a3b8;margin-bottom:14px">
     ${isAdmin()?'Company: <b style="color:var(--text)">'+(SESSION.viewCompanyId||'').toUpperCase()+'</b>':'For your own team'}
   </div>
@@ -6272,9 +6636,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
     <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp templates (your team)</div>
     <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.45">
-      ${_lang==='en'
-        ? 'Customise messages for your team. In-app notifications always stay on. Placeholders are replaced automatically when the message is sent.'
-        : 'अपनी team के लिए messages customise करें। App notification हमेशा चालू रहती है। Placeholders message भेजते समय अपने आप भर जाते हैं।'}
+      ${L('अपनी team के लिए messages customise करें। App notification हमेशा चालू रहती है। Placeholders message भेजते समय अपने आप भर जाते हैं।','Customise messages for your team. In-app notifications always stay on. Placeholders are replaced automatically when the message is sent.')}
     </div>
 
     <!-- ══ Member → Manager ══ -->
@@ -6283,7 +6645,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25)">
       <div>
         <div style="font-size:13px;font-weight:800;color:var(--text)">🏖️ Leave request → Manager</div>
-        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Member Save leave → WhatsApp to you':'Member leave Save → आपको WhatsApp'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${L('Member leave Save → आपको WhatsApp','Member Save leave → WhatsApp to you')}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
         <input type="checkbox" id="ss_waMemLeaveOn" ${d.waMemberLeaveToMgrEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Leave request WhatsApp ON"> ON
@@ -6295,7 +6657,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(37,211,102,.08);border:1px solid rgba(37,211,102,.25)">
       <div>
         <div style="font-size:13px;font-weight:800;color:var(--text)">📅 Shift change → Manager</div>
-        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Member requests shift change → WhatsApp to you':'Member shift request → आपको WhatsApp'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${L('Member shift request → आपको WhatsApp','Member requests shift change → WhatsApp to you')}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#25D366">
         <input type="checkbox" id="ss_waMemShiftOn" ${d.waMemberShiftToMgrEnabled!==false?'checked':''} style="width:18px;height:18px" aria-label="Shift change WhatsApp ON"> ON
@@ -6307,15 +6669,13 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <!-- ══ Manager → Team (schedule save) ══ -->
     <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 8px">📢 Manager → Team (Schedule Save)</div>
     <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.45">
-      ${_lang==='en'
-        ? 'When you change shifts and Save, each member can get WhatsApp. Message type depends on what you marked (L / Ab / GP / H / C-Off / general shift).'
-        : 'जब आप shift बदलकर Save करते हैं, members को WhatsApp जा सकता है। Message type mark किए गए code पर निर्भर (L / Ab / GP / H / C-Off / सामान्य shift)।'}
+      ${L('जब आप shift बदलकर Save करते हैं, members को WhatsApp जा सकता है। Message type mark किए गए code पर निर्भर (L / Ab / GP / H / C-Off / सामान्य shift)।','When you change shifts and Save, each member can get WhatsApp. Message type depends on what you marked (L / Ab / GP / H / C-Off / general shift).')}
     </div>
 
     <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:8px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25)">
       <div>
         <div style="font-size:13px;font-weight:800;color:var(--text)">📢 Notify team on Save</div>
-        <div style="font-size:11px;color:var(--muted2)">${_lang==='en'?'Master switch for all Manager→Team WhatsApp':'सभी Manager→Team WhatsApp का master switch'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${L('सभी Manager→Team WhatsApp का master switch','Master switch for all Manager→Team WhatsApp')}</div>
       </div>
       <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:800;color:#38bdf8">
         <input type="checkbox" id="ss_waNotifyOnSave" ${d.waNotifyOnSave!==false?'checked':''} style="width:18px;height:18px" aria-label="Notify team on schedule save"> ON
@@ -6358,7 +6718,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <textarea id="ss_waGP" rows="5" style="width:100%;box-sizing:border-box;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-family:inherit;margin-bottom:6px;resize:vertical" aria-label="Gate Pass template">${(d.waGPTemplate||_d0.waGPTemplate||'').replace(/`/g,"'")}</textarea>
     <div style="font-size:10px;color:var(--muted2);margin-bottom:6px">{name} {dates} {date} {manager} {gpCount} {gpMax}</div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;max-width:200px">
-      <div style="font-size:11px;color:var(--muted2);white-space:nowrap">${_lang==='en'?'Max GP / month':'Max GP / महीना'}</div>
+      <div style="font-size:11px;color:var(--muted2);white-space:nowrap">${L('Max GP / महीना','Max GP / month')}</div>
       <input type="number" id="ss_gpMax" min="1" max="31" value="${d.gpMaxPerMonth!=null?d.gpMaxPerMonth:(_d0.gpMaxPerMonth||2)}" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" aria-label="Max Gate Pass per month">
     </div>
 
@@ -6566,7 +6926,7 @@ async function _saveShiftSettings(){
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
     closeModal();
-    toast(_lang==='en'?'✅ Shift settings saved':'✅ शिफ्ट सेटिंग सेव हो गई');
+    toast(L('✅ शिफ्ट सेटिंग सेव हो गई','✅ Shift settings saved'));
   }
 }
 
@@ -6575,12 +6935,45 @@ async function _saveShiftSettings(){
 // ════════════════════════════════════════
 // PROFILE EDIT — name + photo
 // ════════════════════════════════════════
+/** Round header avatar: photo if set, else initials; role under circle */
+function updateHeaderProfile(){
+  try{
+    const chip = document.querySelector('.user-chip.user-chip-profile') || document.querySelector('.user-chip');
+    if(chip && !chip.classList.contains('user-chip-profile')){
+      chip.classList.add('user-chip-profile');
+    }
+    const ini = (SESSION.name||'?').split(/\s+/).filter(Boolean).map(n=>n[0]).join('').substring(0,2).toUpperCase() || '?';
+    const userAvEl = document.getElementById('userAv');
+    if(userAvEl){
+      userAvEl.style.background = 'linear-gradient(135deg,var(--m1,#f97316),var(--s1,#a855f7))';
+      const url = SESSION.photoUrl || '';
+      if(url){
+        userAvEl.innerHTML = '<img src="'+String(url).replace(/"/g,'&quot;')+'" alt="">';
+        userAvEl.setAttribute('data-has-photo','1');
+      } else {
+        userAvEl.innerHTML = '';
+        userAvEl.textContent = ini;
+        userAvEl.removeAttribute('data-has-photo');
+      }
+    }
+    const hdrName = document.getElementById('userHdrName');
+    if(hdrName){
+      hdrName.textContent = (SESSION.name||'Guest').split(' ')[0];
+      hdrName.classList.add('user-hdr-name-sr');
+    }
+    // Role label (short, works in all languages)
+    const rt = document.getElementById('roleTag');
+    if(rt && !rt.textContent){ /* role set by launchApp */ }
+  }catch(e){ console.warn('[updateHeaderProfile]', e); }
+}
+
 let _profilePhotoData = null;
+
 
 function openEditProfileModal(){
   _profilePhotoData = null;
   const photo = SESSION.photoUrl || '';
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const emp = myEmp() || {};
   const esc = (s)=> String(s==null?'':s).replace(/"/g,'&quot;');
   const toDateInput = (v)=>{
@@ -6594,47 +6987,45 @@ function openEditProfileModal(){
     return '';
   };
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">✏️ ${isEn?'My Profile':'मेरी Profile'}</div>
+    <div class="modal-title">✏️ ${L('मेरी Profile','My Profile')}</div>
     <div class="modal-scroll-body">
     <div style="text-align:center;margin-bottom:16px">
       <div id="profilePhotoPreview" style="width:96px;height:96px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;overflow:hidden;border:3px solid rgba(249,115,22,.4)">
         ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}
       </div>
       <input type="file" id="profilePhotoInput" accept="image/*" capture="user" style="display:none" onchange="onProfilePhotoPicked(this)">
-      <button type="button" class="cancel-btn" style="display:inline-flex;align-items:center;gap:6px;margin:0 4px" onclick="document.getElementById('profilePhotoInput').click()">📷 ${isEn?'Set photo':'फोटो लगाएं'}</button>
+      <button type="button" class="cancel-btn" style="display:inline-flex;align-items:center;gap:6px;margin:0 4px" onclick="document.getElementById('profilePhotoInput').click()">📷 ${L('फोटो लगाएं','Set photo')}</button>
       ${photo||_profilePhotoData?`<button type="button" class="cancel-btn" style="display:inline-flex;color:#f43f5e;margin:0 4px" onclick="clearProfilePhoto()">🗑️</button>`:''}
     </div>
-    <div class="field"><label>${isEn?'Name':'नाम'}</label>
+    <div class="field"><label>${L('नाम','Name')}</label>
       <input class="inp-field" id="profileNameInput" value="${esc(SESSION.name||emp.name||'')}" maxlength="60"></div>
-    <div class="field"><label>${isEn?'Date of Birth':'जन्म तिथि (DOB)'}</label>
+    <div class="field"><label>${L('जन्म तिथि (DOB)','Date of Birth')}</label>
       <input class="inp-field" type="date" id="profileDobInput" value="${esc(toDateInput(emp.dob||''))}"></div>
-    <div class="field"><label>${isEn?'Date of Joining':'जॉइनिंग डेट'}</label>
+    <div class="field"><label>${L('जॉइनिंग डेट','Date of Joining')}</label>
       <input class="inp-field" type="date" id="profileDojInput" value="${esc(toDateInput(emp.joiningDate||emp.doj||''))}"></div>
-    <div class="field"><label>${isEn?'Salary (monthly)':'सैलरी (मासिक)'}</label>
+    <div class="field"><label>${L('सैलरी (मासिक)','Salary (monthly)')}</label>
       <input class="inp-field" type="number" id="profileSalaryInput" value="${esc(emp.salary||emp.monthlySalary||'')}" placeholder="₹"></div>
-    <div class="field"><label>${isEn?'Weekly Off':'वीकली ऑफ'}</label>
+    <div class="field"><label>${L('वीकली ऑफ','Weekly Off')}</label>
       <select class="inp-field" id="profileWoffInput">
-        ${[{v:'',l:'—'},{v:'SUN',l:isEn?'Sunday':'रवि (SUN)'},{v:'MON',l:isEn?'Monday':'सोम (MON)'},{v:'TUE',l:isEn?'Tuesday':'मंगल (TUE)'},{v:'WED',l:isEn?'Wednesday':'बुध (WED)'},{v:'THU',l:isEn?'Thursday':'गुरु (THU)'},{v:'FRI',l:isEn?'Friday':'शुक्र (FRI)'},{v:'SAT',l:isEn?'Saturday':'शनि (SAT)'}].map(d=>`<option value="${d.v}" ${(emp.woff||'')===d.v?'selected':''}>${d.l}</option>`).join('')}
+        ${[{v:'',l:'—'},{v:'SUN',l:L('रवि (SUN)','Sunday')},{v:'MON',l:L('सोम (MON)','Monday')},{v:'TUE',l:L('मंगल (TUE)','Tuesday')},{v:'WED',l:L('बुध (WED)','Wednesday')},{v:'THU',l:L('गुरु (THU)','Thursday')},{v:'FRI',l:L('शुक्र (FRI)','Friday')},{v:'SAT',l:L('शनि (SAT)','Saturday')}].map(d=>`<option value="${d.v}" ${(emp.woff||'')===d.v?'selected':''}>${d.l}</option>`).join('')}
       </select></div>
-    <div class="field"><label>${isEn?'Designation':'पद'}</label>
+    <div class="field"><label>${L('पद','Designation')}</label>
       <input class="inp-field" id="profileDesigInput" value="${esc(emp.designation||'')}" maxlength="40"></div>
-    <div class="field"><label>${isEn?'Emp ID':'Emp ID'}</label>
+    <div class="field"><label>${L('Emp ID','Emp ID')}</label>
       <input class="inp-field" id="profileEmpIdInput" value="${esc(emp.empId||SESSION.empId||'')}" maxlength="20"></div>
-    <div class="field"><label>${isEn?'Section':'सेक्शन'}</label>
+    <div class="field"><label>${L('सेक्शन','Section')}</label>
       <input class="inp-field" id="profileSecInput" value="${esc(emp.sec||'')}" maxlength="40" placeholder="from Excel Section"></div>
-    <div class="field"><label>${isEn?'Machine':'मशीन'}</label>
+    <div class="field"><label>${L('मशीन','Machine')}</label>
       <input class="inp-field" id="profileMcInput" value="${esc(emp.mc||emp.machine||'')}" maxlength="40"></div>
-    <div class="field"><label>${isEn?'Responsibility':'Responsibility'}</label>
+    <div class="field"><label>${L('Responsibility','Responsibility')}</label>
       <input class="inp-field" id="profileRespInput" value="${esc(emp.resp||emp.responsibility||'')}" maxlength="40"></div>
     <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-      ${isEn
-        ? 'Details from Manager are shown here. Changes notify your Manager.'
-        : 'Manager द्वारा भरी जानकारी यहाँ दिखती है। बदलाव पर Manager को notification जाएगी।'}
+      ${L('Manager द्वारा भरी जानकारी यहाँ दिखती है। बदलाव पर Manager को notification जाएगी।','Details from Manager are shown here. Changes notify your Manager.')}
     </div>
     </div>
     <div class="modal-sticky-actions">
-    <button class="submit-btn" onclick="saveProfileEdits()">💾 ${isEn?'Save & Notify Manager':'सेव + Manager को सूचित करें'}</button>
-    <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>
+    <button class="submit-btn" onclick="saveProfileEdits()">💾 ${L('सेव + Manager को सूचित करें','Save & Notify Manager')}</button>
+    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
     </div>`);
 }
 
@@ -6789,8 +7180,15 @@ async function saveProfileEdits(){
     try{
       const userAvEl = document.getElementById('userAv');
       if(userAvEl){
-        if(photoUrl) userAvEl.innerHTML = `<img src="${photoUrl}" style="width:100%;height:100%;object-fit:cover">`;
-        else userAvEl.textContent = name.split(' ').map(n=>n[0]).join('').substring(0,2);
+        userAvEl.style.background = 'linear-gradient(135deg,var(--m1,#f97316),var(--s1,#a855f7))';
+        if(photoUrl){
+          userAvEl.innerHTML = `<img src="${photoUrl}" alt="">`;
+          userAvEl.setAttribute('data-has-photo','1');
+        } else {
+          userAvEl.innerHTML = '';
+          userAvEl.textContent = name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+          userAvEl.removeAttribute('data-has-photo');
+        }
       }
       const userNameEl = document.getElementById('userName');
       if(userNameEl) userNameEl.textContent = name;
@@ -7040,25 +7438,118 @@ async function openAdminAnalytics(){
   try{ managers = await fbGet('managers') || {}; }catch(e){}
   try{ deviceApprovals = await fbGet('deviceApprovals') || {}; }catch(e){}
 
-  const mu = Object.values(mobileUsers);
+  const muEntries = Object.entries(mobileUsers||{}).map(([k,u])=>({...(u||{}), _key:k, mobile: (u&& (u.mobile||u.phone)) || k }));
+  const mu = muEntries;
   const managersN = mu.filter(u=>u.role==='manager' && u.status==='approved').length;
   const membersN = mu.filter(u=>u.role==='member' && u.status==='approved').length;
   const pendingN = mu.filter(u=>u.status==='pending').length;
-  const empN = Object.keys(employees).length;
+  const empN = Object.keys(employees||{}).length;
   const now = Date.now();
   const active30 = mu.filter(u=>{
     const t = u.lastLoginAt || u.loginAt || u.registeredAt || u.approvedAt;
     if(!t) return false;
     return (now - new Date(t).getTime()) < 30*86400000;
   }).length;
-  const validDevices = Object.values(deviceApprovals).filter(a=>{
+  const daEntries = Object.entries(deviceApprovals||{}).map(([k,a])=>({...(a||{}), _key:k}));
+  const validDevices = daEntries.filter(a=>{
     try{ return a.validTill && new Date(a.validTill) > new Date(); }catch(e){ return false; }
   }).length;
 
-  // Recent admin_login is in GA — show local counts from RTDB
+  const empById = {};
+  const empByPhone = {};
+  Object.entries(employees||{}).forEach(([id,e])=>{
+    if(!e) return;
+    const rec = {...e, id: e.id||id};
+    empById[rec.id] = rec;
+    const ph = _normMobileKey(e.phone||e.mobile||'');
+    if(ph) empByPhone[ph] = rec;
+  });
+
+  const deviceRows = [];
+  const seen = new Set();
+  daEntries.forEach(a=>{
+    let valid = false;
+    try{ valid = !!(a.validTill && new Date(a.validTill) > new Date()); }catch(e){}
+    const emp = empById[a._key] || (a.empId ? Object.values(empById).find(e=>String(e.empId)===String(a.empId)) : null);
+    const mob = _normMobileKey(a.mobile || (emp&&(emp.phone||emp.mobile)) || '');
+    const muRec = mob ? (mobileUsers[mob] || null) : null;
+    const name = (emp && emp.name) || a.empName || (muRec && muRec.name) || '—';
+    const role = (muRec && muRec.role) || (emp && (emp.accessLevel==='manager'||emp.sec==='MGR') ? 'manager' : 'member') || '—';
+    const company = (muRec && muRec.company) || (emp && emp.company) || '—';
+    const deviceName = a.deviceName || (muRec && muRec.lastDeviceName) || '—';
+    const lastAt = a.approvedAt || (muRec && (muRec.lastLoginAt||muRec.loginAt)) || '';
+    const key = (mob||a._key)+'|'+(a.approvedDeviceId||'');
+    if(seen.has(key)) return;
+    seen.add(key);
+    deviceRows.push({
+      name, mobile: mob || '—', company, deviceName,
+      role, valid, lastAt,
+      deviceId: (a.approvedDeviceId||'').substring(0,10),
+      empCode: (emp && emp.empId) || a.empId || ''
+    });
+  });
+  mu.forEach(u=>{
+    const mob = _normMobileKey(u.mobile||u.phone||u._key||'');
+    if(!mob) return;
+    const keyPrefix = mob+'|';
+    if([...seen].some(s=>s.startsWith(keyPrefix))) return;
+    if(!u.lastLoginAt && !u.loginAt && u.status!=='approved') return;
+    const emp = empByPhone[mob];
+    deviceRows.push({
+      name: (emp && emp.name) || u.name || '—',
+      mobile: mob,
+      company: u.company || (emp && emp.company) || '—',
+      deviceName: u.lastDeviceName || '—',
+      role: u.role || '—',
+      valid: u.status==='approved',
+      lastAt: u.lastLoginAt || u.loginAt || u.approvedAt || '',
+      deviceId: (u.lastDeviceId||'').substring(0,10),
+      empCode: (emp && emp.empId) || u.empId || ''
+    });
+  });
+  deviceRows.sort((a,b)=>{
+    const ta = a.lastAt ? new Date(a.lastAt).getTime() : 0;
+    const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
+    return tb - ta;
+  });
+
+  const fmtWhen = (iso)=>{
+    if(!iso) return '—';
+    try{
+      const d = new Date(iso);
+      if(isNaN(d.getTime())) return '—';
+      return d.toLocaleString(typeof mpLocale==='function'?mpLocale():'en-IN', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    }catch(e){ return '—'; }
+  };
+
+  const rowsHtml = deviceRows.length ? deviceRows.map(r=>{
+    const roleColor = r.role==='manager' ? '#a855f7' : (r.role==='admin' ? '#f97316' : '#38bdf8');
+    const validBadge = r.valid
+      ? '<span style="font-size:10px;font-weight:800;color:#22c55e;background:rgba(34,197,94,.12);padding:2px 7px;border-radius:6px">Valid</span>'
+      : '<span style="font-size:10px;font-weight:800;color:#94a3b8;background:rgba(148,163,184,.12);padding:2px 7px;border-radius:6px">Expired/—</span>';
+    return `<div style="background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="min-width:0">
+          <div style="font-size:14px;font-weight:900;color:var(--text)">${escHtml(r.name)}</div>
+          <div style="font-size:12px;color:var(--muted2);margin-top:3px">📱 ${escHtml(r.mobile)}${r.empCode?' · #'+escHtml(String(r.empCode)):''}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <span style="font-size:10px;font-weight:800;color:${roleColor};text-transform:uppercase">${escHtml(String(r.role))}</span>
+          <div style="margin-top:4px">${validBadge}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-size:11px;color:var(--muted2)">
+        <div>🏢 <b style="color:var(--text)">${escHtml(String(r.company||'—'))}</b></div>
+        <div>📲 <b style="color:var(--text)">${escHtml(String(r.deviceName||'—'))}</b></div>
+        <div>🕒 ${fmtWhen(r.lastAt)}</div>
+        <div style="font-family:monospace;font-size:10px">ID ${escHtml(r.deviceId||'—')}</div>
+      </div>
+    </div>`;
+  }).join('') : '<div class="empty"><div class="empty-text">No device login records yet</div></div>';
+
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">📊 App Analytics</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Realtime Database snapshot · Google Analytics events log on Admin login (Firebase Console → Analytics)</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Realtime Database · device logins · Google Analytics on Admin login</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
         <div style="font-size:22px;font-weight:900;color:#22c55e">${mu.length}</div>
@@ -7073,7 +7564,7 @@ async function openAdminAnalytics(){
         <div style="font-size:11px;color:var(--muted2)">Approved Managers</div>
       </div>
       <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
-        <div style="font-size:22px;font-weight:900;color:#a78bfa">${membersN}</div>
+        <div style="font-size:22px;font-weight:900;color:#a855f7">${membersN}</div>
         <div style="font-size:11px;color:var(--muted2)">Approved Members</div>
       </div>
       <div style="background:var(--panel);border-radius:12px;padding:14px;border:1px solid var(--border2)">
@@ -7089,6 +7580,11 @@ async function openAdminAnalytics(){
         <div style="font-size:11px;color:var(--muted2)">Devices with valid access (not expired)</div>
       </div>
     </div>
+
+    <div style="font-size:13px;font-weight:900;color:var(--text);margin:6px 0 8px">📱 Logged-in devices</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Name · Mobile · Company · Device · last activity (from RTDB)</div>
+    <div style="max-height:42vh;overflow-y:auto;margin-bottom:12px;padding-right:2px">${rowsHtml}</div>
+
     <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:12px">
       Live counts from Firebase RTDB. Measurement ID <b>G-DK6JFY33ED</b>.
     </div>
@@ -7098,6 +7594,7 @@ async function openAdminAnalytics(){
     </a>
     <button class="cancel-btn" onclick="closeModal()">Close</button>`);
 }
+
 
 
 // ════════════════════════════════════════
@@ -7116,120 +7613,116 @@ async function openAppAccessSecurity(){
   const fpOn = localStorage.getItem(FP_KEY+'_'+uid)==='1' || localStorage.getItem(FP_KEY)==='1';
   let bioOk = false;
   try{ bioOk = await isBiometricAvailable(); }catch(e){}
-  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🔐 ${isEn?'App Access Security':'ऐप एक्सेस सुरक्षा'}</div>
+    <div class="modal-title">🔐 ${L('ऐप एक्सेस सुरक्षा','App Access Security')}</div>
     <div class="modal-scroll-body">
       <div style="font-size:12px;color:var(--muted2);line-height:1.55;margin-bottom:14px">
-        ${isEn
-          ? 'These settings are only on <b style="color:var(--text)">this device</b>. Use fingerprint (preferred) or a device password so you do not need OTP every time.'
-          : 'ये सेटिंग सिर्फ <b style="color:var(--text)">इस device</b> पर हैं। Fingerprint (बेहतर) या device password से अगली बार OTP की जरूरत नहीं पड़ेगी।'}
+        ${L('ये सेटिंग सिर्फ <b style="color:var(--text)">इस device</b> पर हैं। Fingerprint (बेहतर) या device password से अगली बार OTP की जरूरत नहीं पड़ेगी।','These settings are only on <b style="color:var(--text)">this device</b>. Use fingerprint (preferred) or a device password so you do not need OTP every time.')}
       </div>
       <div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin-bottom:12px">
-        <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">${isEn?'STATUS':'स्थिति'}</div>
+        <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">${L('स्थिति','STATUS')}</div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
           <span style="color:var(--muted2)">👆 Fingerprint</span>
-          <span style="font-weight:800;color:${fpOn?'#22c55e':'#f97316'}">${fpOn?(isEn?'ON':'चालू'):(isEn?'OFF':'बंद')}</span>
+          <span style="font-weight:800;color:${fpOn?'#22c55e':'#f97316'}">${fpOn?(L('चालू','ON')):(L('बंद','OFF'))}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
           <span style="color:var(--muted2)">🔑 Device Password</span>
-          <span style="font-weight:800;color:${hasPw?'#22c55e':'#f97316'}">${hasPw?(isEn?'Set':'सेट है'):(isEn?'Not set':'सेट नहीं')}</span>
+          <span style="font-weight:800;color:${hasPw?'#22c55e':'#f97316'}">${hasPw?(L('सेट है','Set')):(L('सेट नहीं','Not set'))}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
           <span style="color:var(--muted2)">📱 Biometric hardware</span>
-          <span style="font-weight:700;color:var(--text)">${bioOk?(isEn?'Available':'उपलब्ध'):(isEn?'Not available':'नहीं')}</span>
+          <span style="font-weight:700;color:var(--text)">${bioOk?(L('उपलब्ध','Available')):(L('नहीं','Not available'))}</span>
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
           <span style="color:var(--muted2)">💾 Schedule Save security</span>
-          <span style="font-weight:800;color:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'#22c55e'}">${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?(isEn?'Strict (OTP)':'Strict · OTP'):(isEn?'Trusted (MET-like)':'Trusted · बिना OTP')}</span>
+          <span style="font-weight:800;color:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'#22c55e'}">${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?(L('Strict · OTP','Strict (OTP)')):(L('Trusted · बिना OTP','Trusted (MET-like)'))}</span>
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin:8px 0 10px;padding:10px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2)">
-        ${isEn
-          ? '<b style="color:var(--text)">Trusted</b> = Save shifts on this laptop/phone without OTP every time (like MET Power). <b style="color:var(--text)">Strict</b> = require phone OTP before each Save when Phone Auth is missing.'
-          : '<b style="color:var(--text)">Trusted</b> = इस device पर Schedule Save बिना बार‑बार OTP (MET Power जैसा)। <b style="color:var(--text)">Strict</b> = Phone Auth न हो तो हर Save से पहले OTP।'}
+        ${L('<b style="color:var(--text)">Trusted</b> = इस device पर Schedule Save बिना बार‑बार OTP (MET Power जैसा)। <b style="color:var(--text)">Strict</b> = Phone Auth न हो तो हर Save से पहले OTP।','<b style="color:var(--text)">Trusted</b> = Save shifts on this laptop/phone without OTP every time (like MET Power). <b style="color:var(--text)">Strict</b> = require phone OTP before each Save when Phone Auth is missing.')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button type="button" onclick="setWriteSecurityMode('trusted');toast((_lang==='en')?'✅ Trusted mode — MET-like Save':'✅ Trusted mode — बिना OTP Save');closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
+        <button type="button" onclick="setWriteSecurityMode('trusted');toast(L('✅ Trusted mode — बिना OTP Save','✅ Trusted mode — MET-like Save'));closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
           style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'#22c55e':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'rgba(34,197,94,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
           ✅ Trusted<br><span style="font-weight:600;opacity:.8;font-size:10px">MET-like</span>
         </button>
-        <button type="button" onclick="setWriteSecurityMode('strict');toast((_lang==='en')?'🔐 Strict mode — OTP before Save':'🔐 Strict mode — Save से पहले OTP');closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
+        <button type="button" onclick="setWriteSecurityMode('strict');toast(L('🔐 Strict mode — Save से पहले OTP','🔐 Strict mode — OTP before Save'));closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
           style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'rgba(249,115,22,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
           🔐 Strict<br><span style="font-weight:600;opacity:.8;font-size:10px">OTP gate</span>
         </button>
       </div>
       <button class="profile-action" style="margin-top:4px;width:100%;text-align:left" onclick="closeModal();setTimeout(()=>openChangeDevicePassword(),200)">
         <div class="pa-icon" style="background:rgba(249,115,22,.12)">🔑</div>
-        <div><div class="pa-label">${hasPw?(isEn?'Change Device Password':'Password बदलें'):(isEn?'Set Device Password':'Password सेट करें')}</div>
-        <div class="pa-sub">${isEn?'For login without OTP on this device':'इस device पर बिना OTP login'}</div></div>
+        <div><div class="pa-label">${hasPw?(L('Password बदलें','Change Device Password')):(L('Password सेट करें','Set Device Password'))}</div>
+        <div class="pa-sub">${L('इस device पर बिना OTP login','For login without OTP on this device')}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       ${bioOk?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left" onclick="closeModal();setTimeout(()=>setupFingerprintFromProfile(),200)">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">👆</div>
-        <div><div class="pa-label">${fpOn?(isEn?'Re-setup Fingerprint':'Fingerprint दोबारा सेट करें'):(isEn?'Enable Fingerprint Login':'Fingerprint Login चालू करें')}</div>
-        <div class="pa-sub">${isEn?'Unlock app with fingerprint / face':'Fingerprint / Face से app खोलें'}</div></div>
+        <div><div class="pa-label">${fpOn?(L('Fingerprint दोबारा सेट करें','Re-setup Fingerprint')):(L('Fingerprint Login चालू करें','Enable Fingerprint Login'))}</div>
+        <div class="pa-sub">${L('Fingerprint / Face से app खोलें','Unlock app with fingerprint / face')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${fpOn?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left;border-color:rgba(244,63,94,.3)" onclick="disableFingerprintFromProfile()">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚫</div>
-        <div><div class="pa-label">${isEn?'Disable Fingerprint':'Fingerprint बंद करें'}</div>
-        <div class="pa-sub">${isEn?'Use password or OTP instead':'Password या OTP इस्तेमाल करें'}</div></div>
+        <div><div class="pa-label">${L('Fingerprint बंद करें','Disable Fingerprint')}</div>
+        <div class="pa-sub">${L('Password या OTP इस्तेमाल करें','Use password or OTP instead')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${hasPw?`<button class="profile-action" style="margin-top:6px;width:100%;text-align:left;border-color:rgba(244,63,94,.3)" onclick="clearDevicePasswordFromProfile()">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🗑️</div>
-        <div><div class="pa-label">${isEn?'Remove Device Password':'Password हटाएं'}</div>
-        <div class="pa-sub">${isEn?'Next login may need OTP':'अगली बार OTP लग सकता है'}</div></div>
+        <div><div class="pa-label">${L('Password हटाएं','Remove Device Password')}</div>
+        <div class="pa-sub">${L('अगली बार OTP लग सकता है','Next login may need OTP')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
     </div>
     <div class="modal-sticky-actions">
-      <button class="cancel-btn" onclick="closeModal()">${isEn?'Close':'बंद करें'}</button>
+      <button class="cancel-btn" onclick="closeModal()">${L('बंद करें','Close')}</button>
     </div>`);
 }
 
 function openChangeDevicePassword(){
   const { mob, empObjId, uid, name } = _sessionSecurityIds();
-  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const hasPw = !!(typeof _getDevicePasswordHash==='function' && _getDevicePasswordHash(empObjId, mob));
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🔑 ${hasPw?(isEn?'Change Password':'Password बदलें'):(isEn?'Set Password':'Password सेट करें')}</div>
+    <div class="modal-title">🔑 ${hasPw?(L('Password बदलें','Change Password')):(L('Password सेट करें','Set Password'))}</div>
     <div class="modal-scroll-body">
       <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-        ${isEn?'Saved only on this device. Min 5 characters.':'सिर्फ इस device पर सेव होगा। कम से कम 5 अक्षर।'}
+        ${L('सिर्फ इस device पर सेव होगा। कम से कम 5 अक्षर।','Saved only on this device. Min 5 characters.')}
       </div>
-      ${hasPw?`<div class="field"><label>${isEn?'Current password (optional)':'पुराना password (optional)'}</label>
+      ${hasPw?`<div class="field"><label>${L('पुराना password (optional)','Current password (optional)')}</label>
         <input class="inp-field" type="password" id="secOldPw" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>`:''}
-      <div class="field"><label>${isEn?'New password':'नया password'} *</label>
+      <div class="field"><label>${L('नया password','New password')} *</label>
         <input class="inp-field" type="password" id="secNewPw" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>
-      <div class="field"><label>${isEn?'Confirm new password':'नया password दोबारा'} *</label>
+      <div class="field"><label>${L('नया password दोबारा','Confirm new password')} *</label>
         <input class="inp-field" type="password" id="secNewPw2" inputmode="numeric" maxlength="20" placeholder="●●●●●"></div>
       <div id="secPwErr" style="color:#f43f5e;font-size:12px;min-height:16px;margin-bottom:8px"></div>
     </div>
     <div class="modal-sticky-actions">
-      <button class="submit-btn" onclick="saveDevicePasswordFromProfile()">💾 ${isEn?'Save':'सेव करें'}</button>
-      <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>
+      <button class="submit-btn" onclick="saveDevicePasswordFromProfile()">💾 ${L('सेव करें','Save')}</button>
+      <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
     </div>`);
 }
 
 async function saveDevicePasswordFromProfile(){
   const { mob, empObjId } = _sessionSecurityIds();
-  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const p1 = (document.getElementById('secNewPw')?.value||'');
   const p2 = (document.getElementById('secNewPw2')?.value||'');
   const old = (document.getElementById('secOldPw')?.value||'');
   const err = document.getElementById('secPwErr');
-  if(p1.length < 5){ if(err) err.textContent = isEn?'Min 5 characters':'कम से कम 5 अक्षर'; return; }
-  if(p1 !== p2){ if(err) err.textContent = isEn?'Passwords do not match':'Password match नहीं हो रहे'; return; }
+  if(p1.length < 5){ if(err) err.textContent = L('कम से कम 5 अक्षर','Min 5 characters'); return; }
+  if(p1 !== p2){ if(err) err.textContent = L('Password match नहीं हो रहे','Passwords do not match'); return; }
   const existing = _getDevicePasswordHash(empObjId, mob);
   if(existing && old){
     const oldH = await hashPass(old+'mp_salt_v24');
-    if(oldH !== existing){ if(err) err.textContent = isEn?'Current password wrong':'पुराना password गलत'; return; }
+    if(oldH !== existing){ if(err) err.textContent = L('पुराना password गलत','Current password wrong'); return; }
   }
   const h = await hashPass(p1+'mp_salt_v24');
   _setDevicePasswordHash(empObjId, mob, h);
-  toast(isEn?'✅ Device password saved':'✅ Device password सेव हो गया');
+  toast(L('✅ Device password सेव हो गया','✅ Device password saved'));
   closeModal();
   setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
 }
@@ -7255,7 +7748,7 @@ function disableFingerprintFromProfile(){
     localStorage.removeItem(FP_KEY+'_'+uid);
     localStorage.removeItem(FP_CRED_KEY);
   }catch(e){}
-  toast((_lang==='en')?'Fingerprint disabled':'Fingerprint बंद कर दिया');
+  toast(L('Fingerprint बंद कर दिया','Fingerprint disabled'));
   closeModal();
   setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
 }
@@ -7263,7 +7756,7 @@ function disableFingerprintFromProfile(){
 function clearDevicePasswordFromProfile(){
   const { mob, empObjId } = _sessionSecurityIds();
   _clearDevicePassword(empObjId, mob);
-  toast((_lang==='en')?'Device password removed':'Device password हटा दिया');
+  toast(L('Device password हटा दिया','Device password removed'));
   closeModal();
   setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
 }
@@ -7337,7 +7830,7 @@ async function showProfile(){
         if(rec && rec.validTill){
           hasExpiry = true;
           daysLeft = Math.ceil((new Date(rec.validTill) - new Date()) / 86400000);
-          expiryDate = new Date(rec.validTill).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+          expiryDate = new Date(rec.validTill).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
           expiryStr = expiryDate;
         }
       } else {
@@ -7347,7 +7840,7 @@ async function showProfile(){
           if(approval && approval.validTill){
             hasExpiry = true;
             daysLeft = Math.ceil((new Date(approval.validTill) - new Date()) / 86400000);
-            expiryDate = new Date(approval.validTill).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+            expiryDate = new Date(approval.validTill).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
             expiryStr = expiryDate;
           }
         }
@@ -7368,53 +7861,53 @@ async function showProfile(){
       ${(function(){
         const er = empRec||{};
         const rows = [
-          [(_lang==='en')?'Emp Code':'Emp Code', er.empId||er.code||SESSION.empId||'—'],
-          [(_lang==='en')?'DOB':'जन्म तिथि', (function(){ const v=er.dob; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{day:'2-digit',month:'short',year:'numeric'}); })()],
-          [(_lang==='en')?'Date of Joining':'जॉइनिंग', (function(){ const v=er.joiningDate||er.doj; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{day:'2-digit',month:'short',year:'numeric'}); })()],
-          [(_lang==='en')?'Salary':'सैलरी', (function(){ const n=er.salary??er.monthlySalary; if(n==null||n==='')return '—'; const num=Number(String(n).replace(/[^\d.]/g,'')); return isNaN(num)?('₹ '+n):('₹ '+num.toLocaleString('en-IN')); })()],
-          [(_lang==='en')?'Weekly Off':'वीकली ऑफ', er.woff||'—'],
-          [(_lang==='en')?'Designation':'पद', er.designation||'—'],
-          [(_lang==='en')?'Section':'सेक्शन', secLabel||er.sec||'—'],
+          [L('Emp Code','Emp Code'), er.empId||er.code||SESSION.empId||'—'],
+          [L('जन्म तिथि','DOB'), (function(){ const v=er.dob; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'2-digit',month:'short',year:'numeric'}); })()],
+          [L('जॉइनिंग','Date of Joining'), (function(){ const v=er.joiningDate||er.doj; if(!v)return '—'; const d=new Date(v); return isNaN(d)?String(v):d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'2-digit',month:'short',year:'numeric'}); })()],
+          [L('सैलरी','Salary'), (function(){ const n=er.salary??er.monthlySalary; if(n==null||n==='')return '—'; const num=Number(String(n).replace(/[^\d.]/g,'')); return isNaN(num)?('₹ '+n):('₹ '+num.toLocaleString('en-IN')); })()],
+          [L('वीकली ऑफ','Weekly Off'), er.woff||'—'],
+          [L('पद','Designation'), er.designation||'—'],
+          [L('सेक्शन','Section'), secLabel||er.sec||'—'],
         ];
         return '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left">'
-          +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(_lang==='en'?'MY DETAILS':'मेरी जानकारी')+'</div>'
+          +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(L('मेरी जानकारी','MY DETAILS'))+'</div>'
           +rows.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px"><span style="color:var(--muted2)">'+k+'</span><span style="color:var(--text);font-weight:700">'+v+'</span></div>').join('')
           +'</div>';
       })()}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openLeaveBalanceModal()">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">🏖️</div>
-        <div><div class="pa-label">${(_lang==='en')?'Leave Balance':'छुट्टी बैलेंस'}</div><div class="pa-sub">${(_lang==='en')?'All leave types & remaining':'सभी प्रकार की छुट्टियाँ व शेष'}</div></div>
+        <div><div class="pa-label">${L('छुट्टी बैलेंस','Leave Balance')}</div><div class="pa-sub">${L('सभी प्रकार की छुट्टियाँ व शेष','All leave types & remaining')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openEditProfileModal()">
         <div class="pa-icon" style="background:rgba(96,165,250,.12)">✏️</div>
-        <div><div class="pa-label">${(_lang==='en')?'Edit Profile':'Profile Edit करें'}</div><div class="pa-sub">${(_lang==='en')?'Name, DOB, DOJ, Salary, Weekly Off':'नाम, DOB, जॉइनिंग, सैलरी, वीकली ऑफ'}</div></div>
+        <div><div class="pa-label">${L('Profile Edit करें','Edit Profile')}</div><div class="pa-sub">${L('नाम, DOB, जॉइनिंग, सैलरी, वीकली ऑफ','Name, DOB, DOJ, Salary, Weekly Off')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${(SESSION.role==='manager'||SESSION.role==='member'||SESSION.role==='worker')?`<button class="profile-action" style="margin-top:6px" onclick="openAppAccessSecurity()">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">🔐</div>
-        <div><div class="pa-label">${(_lang==='en')?'App Access Security':'ऐप एक्सेस सुरक्षा'}</div><div class="pa-sub">${(_lang==='en')?'Password & Fingerprint for this device':'इस device का Password और Fingerprint'}</div></div>
+        <div><div class="pa-label">${L('ऐप एक्सेस सुरक्षा','App Access Security')}</div><div class="pa-sub">${L('इस device का Password और Fingerprint','Password & Fingerprint for this device')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
 
       <div style="background:var(--panel);border:1.5px solid ${daysLeft<=7?color:'var(--border2)'};border-radius:14px;padding:16px;margin:16px 0;text-align:left">
-        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${(_lang==='en')?'APP ACCESS VALIDITY':'ऐप एक्सेस वैधता'}</div>
+        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${L('ऐप एक्सेस वैधता','APP ACCESS VALIDITY')}</div>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:28px">${icon}</div>
           <div>
             <div style="font-size:22px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif">${msg}</div>
-            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${(_lang==='en')?'Valid till: ':'वैध तक: '}${expiryStr}</div>`:''}
+            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('वैध तक: ','Valid till: ')}${expiryStr}</div>`:''}
           </div>
         </div>
       </div>
       ${isMgr()?`<button type="button" class="profile-action" onclick="openShiftSettings()">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">⚙️</div>
-        <div><div class="pa-label">M/c &amp; Shift Setting</div><div class="pa-sub">${(_lang==='en')?'Shifts & min staff by Section/Machine':'Shifts & Section/Machine minimums'}</div></div>
+        <div><div class="pa-label">M/c &amp; Shift Setting</div><div class="pa-sub">${L('Shifts & Section/Machine minimums','Shifts & min staff by Section/Machine')}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
         <div class="pa-icon" style="background:rgba(245,158,11,.12)">📅</div>
-        <div><div class="pa-label">Holiday List</div><div class="pa-sub">${(_lang==='en')?'Date + Reason · Excel / Auto-fetch All-India':'Date + Reason · Excel / Auto-fetch All-India'}</div></div>
+        <div><div class="pa-label">Holiday List</div><div class="pa-sub">${L('Date + Reason · Excel / Auto-fetch All-India','Date + Reason · Excel / Auto-fetch All-India')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${isMgr()?`<button type="button" class="profile-action" onclick="openLeaveQuotaSettings()">
@@ -7425,12 +7918,12 @@ async function showProfile(){
 `:''}
       ${(SESSION.role==='manager'||isMgr())?`<button type="button" class="profile-action" onclick="openChangeCompanyModal()">
         <div class="pa-icon" style="background:rgba(96,165,250,.12)">🏢</div>
-        <div><div class="pa-label">${(_lang==='en')?'Change Company Name':'Company Name बदलें'}</div><div class="pa-sub">${(_lang==='en')?'Current: ':'वर्तमान: '}${SESSION.company||'—'}</div></div>
+        <div><div class="pa-label">${L('Company Name बदलें','Change Company Name')}</div><div class="pa-sub">${L('वर्तमान: ','Current: ')}${SESSION.company||'—'}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${isMgr()?`<button type="button" class="profile-action" onclick="openLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">👋</div>
-        <div><div class="pa-label">${(_lang==='en')?'Leave team / Transfer Manager':'Leave team / Transfer Manager'}</div><div class="pa-sub">${(_lang==='en')?'Promote a member and leave the team':'किसी सदस्य को नया Manager बनाकर टीम छोड़ें'}</div></div>
+        <div><div class="pa-label">${L('Leave team / Transfer Manager','Leave team / Transfer Manager')}</div><div class="pa-sub">${L('किसी सदस्य को नया Manager बनाकर टीम छोड़ें','Promote a member and leave the team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       <button class="profile-action danger" onclick="doLogout()">
@@ -7485,29 +7978,29 @@ function _rankManagerSuccessors(){
 
 
 async function openChangeCompanyModal(){ /* profile */
-  if(SESSION.role!=='manager' && !isAdmin()){ toast((_lang==='en')?'❌ Manager only':'❌ Manager only'); return; }
-  const isEn = (_lang==='en');
+  if(SESSION.role!=='manager' && !isAdmin()){ toast(L('❌ Manager only','❌ Manager only')); return; }
+  const isEn = (_lang !== 'hi');
   const cur = SESSION.company || '';
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🏢 ${isEn?'Change Company Name':'Company Name बदलें'}</div>
+    <div class="modal-title">🏢 ${L('Company Name बदलें','Change Company Name')}</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-      ${isEn?'Current:':'वर्तमान:'} <b style="color:var(--text)">${(cur||'—').replace(/</g,'&lt;')}</b>
+      ${L('वर्तमान:','Current:')} <b style="color:var(--text)">${(cur||'—').replace(/</g,'&lt;')}</b>
     </div>
-    <label style="font-size:11px;color:var(--muted2);font-weight:700">${isEn?'New company name':'नया Company नाम'}</label>
-    <input class="inp-field" id="chgCompanyName" value="${String(cur).replace(/"/g,'&quot;')}" placeholder="${isEn?'e.g. Man Power / ABC Industries':'जैसे: Man Power'}" style="margin:8px 0 14px;width:100%;box-sizing:border-box">
-    <button class="submit-btn" onclick="saveChangeCompanyName()">✅ ${isEn?'Save':'Save करें'}</button>
-    <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+    <label style="font-size:11px;color:var(--muted2);font-weight:700">${L('नया Company नाम','New company name')}</label>
+    <input class="inp-field" id="chgCompanyName" value="${String(cur).replace(/"/g,'&quot;')}" placeholder="${L('जैसे: Man Power','e.g. Man Power / ABC Industries')}" style="margin:8px 0 14px;width:100%;box-sizing:border-box">
+    <button class="submit-btn" onclick="saveChangeCompanyName()">✅ ${L('Save करें','Save')}</button>
+    <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
   setTimeout(()=>document.getElementById('chgCompanyName')?.focus(), 100);
 }
 
 async function saveChangeCompanyName(){
-  const isEn = (_lang==='en');
+  const isEn = (_lang !== 'hi');
   const name = (document.getElementById('chgCompanyName')?.value||'').trim();
-  if(!name || name.length < 2){ toast(isEn?'⚠️ Enter a valid company name':'⚠️ सही Company नाम डालें'); return; }
+  if(!name || name.length < 2){ toast(L('⚠️ सही Company नाम डालें','⚠️ Enter a valid company name')); return; }
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast(isEn?'❌ Phone verify on this device first':'❌ पहले इस device पर Phone verify करें'); return; }
+      if(!ok){ toast(L('❌ पहले इस device पर Phone verify करें','❌ Phone verify on this device first')); return; }
     }
     const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     if(!mob){ toast('❌ Mobile not found in session'); return; }
@@ -7766,20 +8259,24 @@ async function confirmLeaveTeamTransfer(useRecommended){
 
 function openExtendAccessModal(){
   const emps = getEmps();
-  const empOptions = emps.map(e=>`<option value="${e.id}|${e.empId}">${e.name} (${e.empId})</option>`).join('');
+  const empOptions = emps.map(e=>`<option value="${e.id}|${e.empId}">${e.name} (${e.empId||'—'})</option>`).join('');
+  const defaultDate = new Date(Date.now()+365*86400000).toISOString().slice(0,10);
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">⏳ Access Extend करें</div>
+  <div class="modal-title">⏳ Access Extend / Expiry</div>
   <div class="field"><label>कर्मचारी</label>
     <select class="inp-field" id="ext_emp">${empOptions}</select></div>
-  <div class="field"><label>कितने दिन के लिए?</label>
-    <select class="inp-field" id="ext_days">
+  <div class="field"><label>Exact expiry date</label>
+    <input type="date" class="inp-field" id="ext_date" value="${defaultDate}">
+  </div>
+  <div class="field"><label>या कितने दिन?</label>
+    <select class="inp-field" id="ext_days" onchange="(function(s){var d=new Date();d.setDate(d.getDate()+parseInt(s.value||365,10));var el=document.getElementById('ext_date');if(el)el.value=d.toISOString().slice(0,10);})(this)">
       <option value="365" selected>365 दिन (1 साल) — Standard</option>
       <option value="180">180 दिन (6 महीने)</option>
       <option value="90">90 दिन</option>
       <option value="45">45 दिन</option>
       <option value="730">730 दिन (2 साल)</option>
     </select></div>
-  <button class="submit-btn" onclick="doExtendAccess()">✅ Extend करें</button>
+  <button class="submit-btn" onclick="doExtendAccess()">✅ Save Expiry</button>
   <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
@@ -7787,6 +8284,12 @@ async function doExtendAccess(){
   const val = document.getElementById('ext_emp').value;
   if(!val){ toast('⚠️ कर्मचारी चुनें'); return; }
   const [empObjId] = val.split('|');
+  const dateStr = (document.getElementById('ext_date')||{}).value;
+  if(dateStr){
+    const ok = await extendUserExpiry(empObjId, dateStr);
+    if(ok) closeModal();
+    return;
+  }
   const days = parseInt(document.getElementById('ext_days').value)||365;
   const ok = await extendUserExpiry(empObjId, days);
   if(ok) closeModal();
@@ -7810,7 +8313,7 @@ function _goTabDirect(t){
   if(t==='home')         renderHome();
   if(t==='myshift')      renderMyShift();
   if(t==='todo')         renderTodo();
-  if(t==='schedule')     { schedOff=(typeof _schedDefaultOff==='function'?_schedDefaultOff():-5); _customRangeActive=false; renderSchedule(); setTimeout(syncStickyTop,100); setTimeout(syncStickyTop,400); }
+  if(t==='schedule')     { schedOff=(typeof _schedDefaultOff==='function'?_schedDefaultOff():-5); _customRangeActive=false; try{ _updateSchedAdminVisibility(); }catch(e){} renderSchedule(); setTimeout(syncStickyTop,100); setTimeout(syncStickyTop,400); }
   if(t==='leave')        { try{ renderLeaves(); }catch(e){ console.warn('[leave]',e); } try{ renderResignations(); }catch(e){ console.warn('[resign]',e); } }
   if(t==='reports')      renderReports();
   if(t==='pending')      renderPending();
@@ -7893,7 +8396,7 @@ function openNavMoreSheet(){
   const grid = document.getElementById('navMoreGrid');
   if(!sheet || !grid) return;
   const tabs = window._navMoreTabs || [];
-  const en = (typeof _lang!=='undefined' && _lang==='en');
+  const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
   grid.innerHTML = tabs.map(t=>{
     const label = en ? (t.lblEn||t.lbl) : t.lbl;
     return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();goTab('${t.id}')" aria-label="${label}">
@@ -7939,9 +8442,28 @@ function goTab(t){
 }
 
 function _updateSchedAdminVisibility(){
+  const canEdit = (typeof canEditSchedule==='function') ? canEditSchedule() : false;
+  // Admin/Manager (or delegated schedule perm): show Create/Upload/Print + View/Edit
   const row = document.getElementById('schedAdminRow');
-  if(!row) return;
-  row.style.display = canEditSchedule() ? 'flex' : 'none';
+  if(row) row.style.display = canEdit ? 'flex' : 'none';
+  // Members without schedule permission: hide View/Edit — schedule is view-only for them
+  const modeToggle = document.getElementById('schModeToggle');
+  if(modeToggle) modeToggle.style.display = canEdit ? '' : 'none';
+  const editBtn = document.getElementById('schModeEdit');
+  if(editBtn) editBtn.style.display = canEdit ? '' : 'none';
+  const viewBtn = document.getElementById('schModeView');
+  if(viewBtn) viewBtn.style.display = canEdit ? '' : 'none';
+  // Force view mode if not allowed to edit team schedule
+  if(!canEdit){
+    window._schedEditMode = false;
+    const hint = document.getElementById('schedEditHint');
+    if(hint) hint.style.display = 'none';
+    if(viewBtn) viewBtn.classList.add('on');
+    if(editBtn) editBtn.classList.remove('on');
+  }
+  // Multi-select only for editors
+  const msBtn = document.getElementById('msToggleBtn');
+  if(msBtn) msBtn.style.display = canEdit ? '' : 'none';
   // Also update Imp Info button
   const iiBtn = document.getElementById('impInfoBtn');
   if(iiBtn) iiBtn.style.display = (!isGuest() && SESSION && SESSION.role) ? 'inline-flex' : 'none';
@@ -7966,8 +8488,8 @@ function confirmModal(title, message, yesLabel='✅ हाँ', noLabel='रद�
   // Auto-translate all visible text via t() helper
   const _t = (typeof t === 'function') ? t : (s=>s);
   // Default labels also need translation
-  const _yesLabel = (yesLabel === '✅ हाँ' && typeof _lang !== 'undefined' && _lang === 'en') ? '✅ Yes' : _t(yesLabel);
-  const _noLabel  = (noLabel  === 'रद्द करें' && typeof _lang !== 'undefined' && _lang === 'en') ? 'Cancel' : _t(noLabel);
+  const _yesLabel = (typeof L==='function'?L(yesLabel,'✅ Yes'):_t(yesLabel));
+  const _noLabel  = (typeof L==='function'?L(noLabel,'Cancel'):_t(noLabel));
   const _title    = _t(title);
   const _message  = _t(message);
   return new Promise(resolve=>{
@@ -8285,7 +8807,7 @@ function cellDisp(s){  if(!s) return ''; const raw=String(s).trim(); if(/^L([:\-
 /** Short word for shift code — Home calendar labels (EN/HI) */
 function shiftWord(s){
   if(!s) return '';
-  const en = (typeof _lang !== 'undefined' && _lang === 'en');
+  const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const key = (s === 'C/O') ? 'CO' : s;
   const mapEn = {D:'Day',N:'Night',O:'Off',L:'Leave',G:'Gen',GP:'GP',CO:'C-Off','C/O':'C-Off',H:'Hol',HLF:'Half',Ab:'Abs',OD:'OD',A:'A-Sh',B:'B-Sh',C:'C-Sh'};
   const mapHi = {D:'दिन',N:'रात',O:'ऑफ',L:'छुट्टी',G:'जनरल',GP:'GP',CO:'C-Off','C/O':'C-Off',H:'हॉलिडे',HLF:'आधा',Ab:'अनुप',OD:'OD',A:'A शिफ्ट',B:'B शिफ्ट',C:'C शिफ्ट'};
@@ -8340,26 +8862,63 @@ function isManPowerCompanyUser(){ return isAdmin() || SESSION.company === 'Man P
 
 function _homeTodaySummaryHtml(){
   try{
-    const emps = (typeof getEmps==='function' ? getEmps() : []).filter(e=>e && e.status!=='resigned' && e.status!=='left');
-    const leaves = (typeof getLeaves==='function' ? getLeaves() : []).filter(l=>l.status==='approved' || l.status==='pending');
-    const today = (typeof TODAY_DATE!=='undefined' && TODAY_DATE) ? TODAY_DATE : new Date();
-    const ymd = today.toISOString().slice(0,10);
-    let onLeave = 0;
-    leaves.forEach(l=>{
-      const f = (l.from||'').toString().slice(0,10);
-      const t = (l.to||l.from||'').toString().slice(0,10);
-      if(f && t && f<=ymd && ymd<=t && l.status==='approved') onLeave++;
+    const emps = (typeof getEmps==='function' ? getEmps() : []).filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+    let ymd = '';
+    try{
+      if(typeof TODAY_STR==='string' && TODAY_STR) ymd = TODAY_STR;
+      else {
+        const today = (typeof TODAY_DATE!=='undefined' && TODAY_DATE) ? TODAY_DATE : new Date();
+        ymd = today.toISOString().slice(0,10);
+      }
+    }catch(e){ ymd = new Date().toISOString().slice(0,10); }
+
+    // Classify each employee from schedule (getShift) for TODAY
+    let wOff = 0, onLeave = 0, holiday = 0, cOff = 0, absent = 0;
+    emps.forEach(e=>{
+      try{
+        const raw = String((typeof getShift==='function' ? getShift(e, ymd) : '')||'').trim();
+        const sh = raw.toUpperCase();
+        // Weekly Off — O / WO / W-OFF / OFF (not C/O)
+        if(sh==='O' || sh==='WO' || sh==='W-OFF' || sh==='WOFF' || sh==='OFF' || /^W[\s\-_]?OFF$/i.test(raw)){
+          wOff++; return;
+        }
+        // Leave
+        if(sh==='L' || /^L([:\-_].*)?$/i.test(raw)){
+          onLeave++; return;
+        }
+        // Holiday
+        if(sh==='H' || sh==='HOLIDAY' || /^H([:\-_].*)?$/i.test(raw)){
+          holiday++; return;
+        }
+        // Comp Off
+        if(sh==='C/O' || sh==='C\\/O' || sh==='CO' || sh==='C-OFF' || sh==='COFF' || /^C\/?O$/i.test(raw)){
+          cOff++; return;
+        }
+        // Absent
+        if(sh==='AB' || /^AB\b/i.test(raw) || /^ABSENT/i.test(raw) || /अनुपस्थित/i.test(raw)){
+          absent++; return;
+        }
+      }catch(err){}
     });
-    const present = Math.max(0, emps.length - onLeave);
-    const pendingLeave = leaves.filter(l=>l.status==='pending').length;
-    const en = (typeof _lang!=='undefined' && _lang==='en');
+
+    // On duty = Total − Absent − Leave − Holiday − C-Off − W-Off
+    // (W-Off excluded too — not working that day; shown in middle card)
+    const total = emps.length;
+    const present = Math.max(0, total - absent - onLeave - holiday - cOff - wOff);
+
+    const lblDuty = (typeof L==='function') ? L('ड्यूटी पर','On duty') : 'On duty';
+    // e.g. "2 on W off" — number is in the big value; label is "on W off"
+    const lblWoff = (typeof L==='function') ? L('W-Off पर','on W off') : 'on W off';
+    const lblAbsent = (typeof L==='function') ? L('अनुपस्थित','Absentees') : 'Absentees';
+
     return `<div class="today-summary" aria-label="Today summary">
-      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${present}</div><div class="today-summary-lbl">${en?'On duty':'ड्यूटी पर'}</div></div>
-      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--lv)">${onLeave}</div><div class="today-summary-lbl">${en?'On leave':'अवकाश पर'}</div></div>
-      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--day)">${pendingLeave}</div><div class="today-summary-lbl">${en?'Leave pending':'Leave पेंडिंग'}</div></div>
+      <div class="today-summary-card"><div class="today-summary-val" style="color:var(--green)">${present}</div><div class="today-summary-lbl">${lblDuty}</div></div>
+      <div class="today-summary-card"><div class="today-summary-val" style="color:#38bdf8">${wOff}</div><div class="today-summary-lbl">${lblWoff}</div></div>
+      <div class="today-summary-card"><div class="today-summary-val" style="color:#f97316">${absent}</div><div class="today-summary-lbl">${lblAbsent}</div></div>
     </div>`;
   }catch(e){ return ''; }
 }
+
 
 async function renderHome(){
   try{
@@ -8388,7 +8947,7 @@ async function renderHome(){
 
   const emps=getEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length > 0);
   const stillLoading = _cache.employees === null;
-  const en = _lang==='en';
+  const en = (_lang !== 'hi');
 
   // Always show BOTH blocks (same Home for Manager + Individual)
   const adminEl = document.getElementById('homeAdminView');
@@ -8398,7 +8957,7 @@ async function renderHome(){
   if(workerEl) workerEl.style.display='none';
 
   document.getElementById('homeDateLbl').textContent =
-    TODAY_DATE.toLocaleDateString(en?'en-IN':'hi-IN',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    TODAY_DATE.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
   if(!emps || emps.length===0){
     document.getElementById('homeStats').innerHTML=`
@@ -8569,7 +9128,7 @@ async function renderHome(){
 
 /** Personal shift strip: Past 3 days + Upcoming 14 days — used by every role */
 function _renderHomePersonalCalendar(){
-  const en = _lang==='en';
+  const en = (_lang !== 'hi');
   const calEl = document.getElementById('homeShiftCalendar');
   const titleEl = document.getElementById('homeWorkerCalTitle');
   if(titleEl) titleEl.textContent = en ? '📅 My Shift — Past 3 & Next 14 Days' : '📅 मेरी शिफ्ट — पिछले 3 और अगले 14 दिन';
@@ -8765,15 +9324,14 @@ async function submitHomeTodo(){
         const emp = getEmps().find(e => e.id === assigneeId);
         if(emp && emp.phone && emp.phone.length === 10){
           const prioLabel = priority==='high' ? '🔴 Urgent' : priority==='low' ? '🟢 Low' : '🟡 Normal';
-          const dueFmt = dueDate ? new Date(dueDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
-          let waMsg = `📌 *Man Power — Task Assigned*\n\n`;
-          waMsg += `*${emp.name}*, आपको यह काम पूरा करना है`;
-          if(dueFmt) waMsg += ` *${dueFmt}* तक`;
-          waMsg += `:\n\n`;
-          waMsg += `📝 *${title}*\n`;
-          if(desc) waMsg += `${desc}\n`;
-          waMsg += `\n⚡ ${prioLabel}`;
-          waMsg += `\n👤 Assigned by: ${SESSION.name||'Admin'}\n_— Man Power System_`;
+          const dueFmt = dueDate ? (typeof mpFormatDate==='function'?mpFormatDate(dueDate):new Date(dueDate).toLocaleDateString()) : '';
+          const waMsg = (typeof buildWAForEmp==='function')
+            ? buildWAForEmp('waTaskTemplate', emp, {
+                title: title, desc: desc||'', priority: prioLabel,
+                assigner: SESSION.name||'Admin',
+                due: dueFmt ? (' *'+dueFmt+'*') : ''
+              })
+            : ('📌 *Task*\n'+title);
           setTimeout(()=>{ openWA(emp.phone, waMsg); }, 400);
         }
       }catch(e2){}
@@ -8789,6 +9347,251 @@ async function submitHomeTodo(){
 // ════════════════════════════════════════
 // MY SHIFT
 // ════════════════════════════════════════
+
+// ════════════════════════════════════════
+// MY SHIFT — records + branded calendar download
+// ════════════════════════════════════════
+function openMyShiftRecordsPanel(){
+  const host = document.getElementById('myShiftDlPanel');
+  if(!host) return;
+  if(host.dataset.open === '1'){
+    host.innerHTML = '';
+    host.dataset.open = '0';
+    return;
+  }
+  host.dataset.open = '1';
+  host.innerHTML = `
+    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:900;margin-bottom:8px">📥 ${L('Shift Details Download','Shift Details Download')}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <label style="font-size:10px;color:var(--muted2);font-weight:700">${L('प्रकार','Type')}</label>
+          <select id="msLdType" class="inp-field" style="width:100%;margin-top:4px">
+            <option value="shift_all">All Shift Codes</option>
+            <option value="shift_D">Day Shift (D)</option>
+            <option value="shift_N">Night Shift (N)</option>
+            <option value="shift_O">Weekly Off (O)</option>
+            <option value="shift_L">Leave (L)</option>
+            <option value="shift_Ab">Absent (Ab)</option>
+            <option value="shift_H">Holiday (H)</option>
+            <option value="shift_CO">C-Off (C/O)</option>
+            <option value="shift_G">General (G)</option>
+            <option value="shift_A">A Shift</option>
+            <option value="shift_B">B Shift</option>
+            <option value="shift_C">C Shift</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--muted2);font-weight:700">${L('से','From')}</label>
+          <input type="date" id="msLdFrom" class="inp-field" style="width:100%;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:10px;color:var(--muted2);font-weight:700">${L('तक','To')}</label>
+          <input type="date" id="msLdTo" class="inp-field" style="width:100%;margin-top:4px">
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button type="button" onclick="downloadMyShiftRecords()" class="submit-btn" style="width:100%;padding:10px;border-radius:10px;font-weight:800;border:none;cursor:pointer;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff">📥 Download Excel</button>
+        </div>
+      </div>
+    </div>`;
+  try{
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const iso = d => d.toISOString().slice(0,10);
+    document.getElementById('msLdFrom').value = iso(new Date(y, m, 1));
+    document.getElementById('msLdTo').value = iso(new Date(y, m+1, 0));
+  }catch(e){}
+}
+
+async function downloadMyShiftRecords(){
+  // Reuse leave/shift download pipeline with My Shift field ids
+  const typeEl = document.getElementById('msLdType');
+  const fromEl = document.getElementById('msLdFrom');
+  const toEl = document.getElementById('msLdTo');
+  if(!typeEl || !fromEl || !toEl){ toast('⚠️ Panel open करें'); return; }
+  // Temporarily map to ld* ids expected by downloadLeaveOrShiftRecords OR inline
+  const type = typeEl.value || 'shift_all';
+  const from = fromEl.value || '';
+  const to = toEl.value || '';
+  if(!from || !to){ toast('⚠️ From / To date चुनें'); return; }
+  if(from > to){ toast('⚠️ From date, To से पहले हो'); return; }
+
+  const emp = (typeof myEmp==='function' ? myEmp() : null)
+    || (getEmps()||[]).find(e=>e.id===SESSION.empObjId || e.empId===SESSION.empId);
+  if(!emp){ toast('⚠️ Employee profile नहीं मिला'); return; }
+  const myMobile = String(SESSION.mobile||emp.phone||'').replace(/\D/g,'').slice(-10);
+  const genAt = new Date().toLocaleString('en-IN');
+  const want = type.replace('shift_','');
+  const rows = [];
+  rows.push(['Man Power App — Shift History']);
+  rows.push(['VKS Tech — Technology is power']);
+  rows.push(['Member', emp.name||SESSION.name||'', 'Code', emp.empId||'', 'Mobile', myMobile]);
+  rows.push(['Filter', want==='all'?'All codes':want, 'From', from, 'To', to]);
+  rows.push(['Generated', genAt]);
+  rows.push([]);
+  rows.push(['#','Date','Day','Shift Code','Meaning']);
+  const meaning = {D:'Day',N:'Night',A:'A',B:'B',C:'C',O:'Weekly Off',L:'Leave','C/O':'Comp Off',CO:'Comp Off',H:'Holiday',Ab:'Absent',G:'General',GP:'Gate Pass',HLF:'Half Day',OD:'Other Dept'};
+  let n = 0;
+  const cur = new Date(from+'T12:00:00');
+  const end = new Date(to+'T12:00:00');
+  while(cur <= end){
+    const ymd = cur.toISOString().slice(0,10);
+    let sh = '';
+    try{ sh = (typeof getShift==='function') ? String(getShift(emp, ymd)||'') : ''; }catch(e){}
+    const up = sh.toUpperCase();
+    let match = false;
+    if(want==='all') match = !!sh;
+    else if(want==='CO') match = (up==='C/O'||up==='CO'||up==='C-OFF');
+    else if(want==='Ab') match = (typeof _isAbsentShift==='function' ? _isAbsentShift(sh) : /^Ab/i.test(sh));
+    else match = (up === want.toUpperCase() || sh === want);
+    if(match){
+      n++;
+      rows.push([n, ymd, cur.toLocaleDateString('en-IN',{weekday:'short'}), sh||'—', meaning[sh]||meaning[up]||'']);
+    }
+    cur.setDate(cur.getDate()+1);
+  }
+  if(!n) rows.push(['—','No matching shifts in range']);
+  const fileBase = 'ManPower_Shifts_'+want+'_'+from+'_to_'+to;
+  try{
+    try{ await _ensureXlsxLib(); }catch(e){}
+    if(window.XLSX){
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Shifts');
+      XLSX.writeFile(wb, fileBase + '.xlsx');
+      toast('📤 Excel downloaded');
+      return;
+    }
+  }catch(e){ console.warn(e); }
+  const csv = rows.map(r=>r.map(c=>{ const s=String(c==null?'':c); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; }).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = fileBase+'.csv'; a.click();
+  toast('📤 CSV downloaded');
+}
+
+function openShiftCalendarDownload(){
+  const emp = (typeof myEmp==='function' ? myEmp() : null);
+  if(!emp){ toast('⚠️ Profile not found'); return; }
+  const now = new Date();
+  const months = [];
+  for(let i=-6;i<=3;i++){
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    const label = d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
+    const sel = (_myShiftMonth && _myShiftMonth.getFullYear()===d.getFullYear() && _myShiftMonth.getMonth()===d.getMonth()) ? ' selected' : '';
+    months.push(`<option value="${key}"${sel}>${label}</option>`);
+  }
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">📅 ${L('Shift Calendar Download','Shift Calendar Download')}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">${L('महीना चुनें — Print जैसा रंग + Man Power / VKS Tech branding','Pick month — same colours as Print + Man Power / VKS Tech branding')}</div>
+    <div class="field" style="margin-bottom:14px">
+      <label>${L('महीना','Month')}</label>
+      <select id="scDlMonth" class="inp-field">${months.join('')}</select>
+    </div>
+    <button class="submit-btn" onclick="downloadMyShiftCalendar()" style="width:100%">📥 ${L('Download Calendar','Download Calendar')}</button>
+    <button class="cancel-btn" onclick="closeModal()" style="width:100%;margin-top:8px">${L('रद्द','Cancel')}</button>`);
+}
+
+/** Personal month calendar PNG — same shift colours + branding as Schedule print */
+async function downloadMyShiftCalendar(){
+  const emp = (typeof myEmp==='function' ? myEmp() : null);
+  if(!emp){ toast('⚠️ Profile not found'); return; }
+  const mk = (document.getElementById('scDlMonth')||{}).value || '';
+  if(!mk){ toast('⚠️ Month चुनें'); return; }
+  const [yr, mo] = mk.split('-').map(Number);
+  const daysInMonth = new Date(yr, mo, 0).getDate();
+  const first = new Date(yr, mo-1, 1);
+  const startDow = first.getDay();
+  const monthName = first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  const genAt = new Date().toLocaleString('en-IN');
+
+  // Same palette as printSched / _execPrint
+  const SBG={D:'#f59e0b',N:'#4f46e5',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#dcfce7',L:'#fee2e2','C/O':'#ede9fe',G:'#e0f2fe',H:'#ffedd5',OD:'#ccfbf1',HLF:'#fed7aa',Ab:'#fecaca',GP:'#fdf4ff'};
+  const SCL={D:'#000',N:'#fff',A:'#fff',B:'#fff',C:'#fff',O:'#16a34a',L:'#dc2626','C/O':'#7c3aed',G:'#0369a1',H:'#c2410c',OD:'#0d9488',HLF:'#c2410c',Ab:'#991b1b',GP:'#9333ea'};
+
+  let logoDataUrl = null;
+  try{ logoDataUrl = await _loadVksLogoDataUrl(); }catch(e){}
+
+  const dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  let dayCells = '';
+  for(let i=0;i<startDow;i++) dayCells += `<div style="min-height:64px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const ds = yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    let sh = '';
+    try{ sh = String(getShift(emp, ds)||''); }catch(e){}
+    const bg = SBG[sh] || '#f1f5f9';
+    const cl = SCL[sh] || '#475569';
+    const disp = sh==='C/O'?'CO':(sh==='HLF'?'½':(sh||'·'));
+    const isToday = (typeof TODAY_STR!=='undefined' && ds===TODAY_STR);
+    dayCells += `<div style="min-height:64px;background:#fff;border:1px solid ${isToday?'#f97316':'#e2e8f0'};border-radius:8px;padding:6px;${isToday?'box-shadow:0 0 0 2px rgba(249,115,22,.25)':''}">
+      <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:4px">${d}</div>
+      <div style="display:inline-block;min-width:28px;text-align:center;padding:3px 6px;border-radius:6px;font-weight:900;font-size:12px;background:${bg};color:${cl};border:1px solid rgba(0,0,0,.12)">${disp}</div>
+    </div>`;
+  }
+
+  const legend = ['D','N','O','L','C/O','H','Ab','G'].map(c=>{
+    return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:10px;color:#334155"><span style="width:14px;height:14px;border-radius:3px;background:${SBG[c]};border:1px solid rgba(0,0,0,.15)"></span>${c}</span>`;
+  }).join('');
+
+  const imgWidth = 720;
+  const printDiv = document.createElement('div');
+  printDiv.style.cssText = `position:fixed;top:-99999px;left:0;background:#fff;padding:18px;font-family:Arial,sans-serif;width:${imgWidth}px;color:#0f172a`;
+  printDiv.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;border-bottom:2px solid #ea580c;padding-bottom:12px">
+      ${logoDataUrl?`<img src="${logoDataUrl}" width="52" height="52" style="border-radius:12px;object-fit:contain;background:#fff;border:1px solid #e2e8f0;padding:2px"/>`:''}
+      <div style="flex:1">
+        <div style="font-size:20px;font-weight:900;color:#ea580c;letter-spacing:.3px">Man Power App</div>
+        <div style="font-size:13px;font-weight:700;color:#0f172a">My Shift Calendar — ${monthName}</div>
+        <div style="font-size:11px;color:#64748b">${emp.name||''}${emp.empId?' · #'+emp.empId:''} · ${SESSION.company||''}</div>
+      </div>
+      <div style="text-align:right;font-size:10px;color:#64748b">VKS Tech<br/>Technology is power</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px">
+      ${dows.map(d=>`<div style="text-align:center;font-size:11px;font-weight:800;color:#64748b;padding:4px 0">${d}</div>`).join('')}
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${dayCells}</div>
+    <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0">${legend}</div>
+    <div style="margin-top:10px;text-align:center;font-size:10px;color:#94a3b8">
+      ${logoDataUrl?`<img src="${logoDataUrl}" width="14" height="14" style="vertical-align:middle;border-radius:3px"/>`:''}
+      Generated ${genAt} · Man Power App · VKS Tech — vkstech.com
+    </div>`;
+  document.body.appendChild(printDiv);
+
+  const finish = ()=>{ try{ document.body.removeChild(printDiv); }catch(e){} };
+
+  try{
+    if(typeof html2canvas !== 'function'){
+      // Fallback: open print window
+      const w = window.open('', '_blank');
+      if(w){
+        w.document.write('<html><head><title>Shift Calendar</title></head><body>'+printDiv.innerHTML+'</body></html>');
+        w.document.close();
+        w.focus();
+        setTimeout(()=>{ try{ w.print(); }catch(e){} }, 300);
+      }
+      closeModal();
+      finish();
+      toast('🖨️ Print dialog opened');
+      return;
+    }
+    const imgs = printDiv.querySelectorAll('img');
+    await Promise.all([...imgs].map(img=> img.complete ? Promise.resolve() : new Promise(r=>{ img.onload=img.onerror=r; })));
+    const canvas = await html2canvas(printDiv, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: imgWidth });
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'ManPower_ShiftCalendar_'+(emp.name||'member').replace(/\s+/g,'_')+'_'+mk+'.png';
+    a.click();
+    closeModal();
+    toast('📥 Shift calendar downloaded (PNG)');
+  }catch(err){
+    console.warn('[shift cal dl]', err);
+    toast('❌ Download failed');
+  }finally{
+    finish();
+  }
+}
+
 function renderMyShift(){
   const el = document.getElementById('myShiftContent');
   if(!el) return;
@@ -8800,7 +9603,7 @@ function renderMyShift(){
   const first = new Date(y, m, 1);
   const daysInMonth = new Date(y, m+1, 0).getDate();
   const startDow = first.getDay(); // 0 Sun
-  const monthName = first.toLocaleDateString((_lang==='en')?'en-IN':'hi-IN',{month:'long',year:'numeric'});
+  const monthName = first.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
   const canSelf = !isPendingMember(); // members can request change
 
   const shStyle = window.MP_SHIFT_COLORS || {};
@@ -8839,6 +9642,11 @@ function renderMyShift(){
   });
 
   el.innerHTML = `
+  <div class="ms-dl-bar" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+    <button type="button" onclick="openMyShiftRecordsPanel()" style="flex:1;min-width:140px;padding:10px 12px;border-radius:10px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:12px;cursor:pointer">📥 ${L('Shift Details Download','Shift Details Download')}</button>
+    <button type="button" onclick="openShiftCalendarDownload()" style="flex:1;min-width:140px;padding:10px 12px;border-radius:10px;border:1px solid rgba(14,165,233,.4);background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:800;font-size:12px;cursor:pointer">📅 ${L('Shift Calendar Download','Shift Calendar Download')}</button>
+  </div>
+  <div id="myShiftDlPanel"></div>
   <div class="ms-cal-wrap">
     <div class="ms-cal-nav">
       <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}-1,1);renderMyShift()">‹</button>
@@ -8847,15 +9655,15 @@ function renderMyShift(){
     </div>
     <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
     <div class="ms-grid">${cells}</div>
-    <div class="ms-hint">${(_lang==='en')
-      ? (canEditSchedule() ? 'Tap a day to change shift — saves here (no WhatsApp for your own shift)' : 'Tap a day to request a shift change — your Manager will approve')
-      : (canEditSchedule() ? 'दिन पर टैप करें — यहीं save होगा (अपनी shift पर WhatsApp नहीं)' : 'दिन पर टैप करें — Manager approve करेगा तब schedule अपडेट होगा')}</div>
+    <div class="ms-hint">${canEditSchedule()
+      ? L('दिन पर टैप करें — यहीं save होगा (अपनी shift पर WhatsApp नहीं)','Tap a day to change shift — saves here (no WhatsApp for your own shift)')
+      : L('दिन पर टैप करें — Manager approve करेगा तब schedule अपडेट होगा','Tap a day to request a shift change — your Manager will approve')}</div>
     <div id="myShiftPendingReqs"></div>
   </div>
-  <div class="stitle" style="margin-top:18px">👥 ${(_lang==='en')?'Shift Mates Today':'आज के Shift Mates'}</div>
+  <div class="stitle" style="margin-top:18px">👥 ${L('आज के Shift Mates','Shift Mates Today')}</div>
   <div class="ms-mates">
     ${mates.length?mates.slice(0,30).map(emp=>`<div class="ms-mate-chip"><b>${emp.name||''}</b><span>${emp.mc||emp.sec||''}</span></div>`).join('')
-      :`<div style="font-size:13px;color:var(--muted2);padding:8px">${(_lang==='en')?'No shift mates for your shift today':'आज आपकी shift पर कोई mate नहीं'}</div>`}
+      :`<div style="font-size:13px;color:var(--muted2);padding:8px">${L('आज आपकी shift पर कोई mate नहीं','No shift mates for your shift today')}</div>`}
   </div>`;
   // Show member's pending shift-change requests under calendar
   try{ _renderMyShiftPendingReqs(e.id); }catch(ex){}
@@ -8867,9 +9675,9 @@ async function _renderMyShiftPendingReqs(empObjId){
     const data = await fbGet('shiftChangeRequests') || {};
     const mine = Object.entries(data).filter(([k,v])=>v && v.empObjId===empObjId && v.status==='pending');
     if(!mine.length){ host.innerHTML=''; return; }
-    const isEn = _lang==='en';
+    const isEn = (_lang !== 'hi');
     host.innerHTML = `<div style="margin-top:12px;padding:12px;border-radius:12px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3)">
-      <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">${isEn?'⏳ Pending Manager approval':'⏳ Manager approval pending'}</div>
+      <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">${L('⏳ Manager approval pending','⏳ Pending Manager approval')}</div>
       ${mine.map(([k,v])=>`<div style="font-size:12px;color:var(--text);margin:4px 0">${v.date}: <b>${v.currentShift||'—'}</b> → <b style="color:#38bdf8">${v.newShift}</b></div>`).join('')}
     </div>`;
   }catch(e){ host.innerHTML=''; }
@@ -9604,7 +10412,7 @@ async function sendFast2Sms(apiKey, phone, message){
 function buildShiftSms(empName, date, shift){
   const shiftNames = { D:'Day Shift (7AM-7PM)', N:'Night Shift (7PM-7AM)', A:'A Shift', B:'B Shift', C:'C Shift', O:'Weekly Off', L:'Leave', G:'General Shift', 'C/O':'Compensatory Off', HLF:'Half Day', Ab:'Absent' };
   const shiftLabel = shiftNames[shift] || shift;
-  const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   return `Man Power MP System:
 Priy ${empName},
 Aapki ${fmtD} ki shift update hui:
@@ -9722,6 +10530,11 @@ let _msLongPressTimer = null;
 
 // Each cell tap goes here first
 function setSchedEditMode(on){
+  // Members without schedule permission cannot enter Edit on team Schedule
+  if(on && typeof canEditSchedule==='function' && !canEditSchedule()){
+    on = false;
+    try{ toast(L('Schedule edit की अनुमति नहीं — अपनी शिफ्ट My Shift में बदलें','No schedule edit permission — change your shift in My Shift')); }catch(e){}
+  }
   window._schedEditMode = !!on;
   const v = document.getElementById('schModeView');
   const e = document.getElementById('schModeEdit');
@@ -9750,7 +10563,7 @@ function handleSchedCellClick(td, empId, empName, date, origSh){
     if(['L','CO','C/O','OD','Ab','HLF'].includes(sh) && typeof showShiftInfo==='function'){
       showShiftInfo(empId, empName, date, sh);
     } else {
-      try{ toast((typeof _lang!=='undefined'&&_lang==='en')?'Switch to Edit to change shifts':'शिफ्ट बदलने के लिए Edit मोड चुनें'); }catch(e){}
+      try{ toast(L('शिफ्ट बदलने के लिए Edit मोड चुनें','Switch to Edit to change shifts')); }catch(e){}
     }
     return;
   }
@@ -9763,7 +10576,7 @@ function handleSchedCellClick(td, empId, empName, date, origSh){
 
 // ── Show Leave/CO/OD reason on cell click (for all users) ──
 function showShiftInfo(empId, empName, date, shiftVal){
-  const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric',weekday:'long'});
+  const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric',weekday:'long'});
   const shiftNames = {D:'Day Shift',N:'Night Shift',A:'A Shift',B:'B Shift',C:'C Shift',O:'Weekly Off',L:'Leave',G:'General','C/O':'Comp Off',CO:'Comp Off',HLF:'Half Day',Ab:'Absent',GP:'Gate Pass',H:'Holiday',OD:'Other Dept'};
   
   // Search for leave record
@@ -9799,7 +10612,7 @@ function showShiftInfo(empId, empName, date, shiftVal){
       reasonHtml += `<div style="margin-top:4px;font-size:12px;color:var(--muted2)">👤 Marked by: <b>${escHtml(leave.markedBy)}</b></div>`;
     }
     if(leave.appliedAt){
-      reasonHtml += `<div style="margin-top:4px;font-size:11px;color:var(--muted)">🕐 ${new Date(leave.appliedAt).toLocaleString('hi-IN')}</div>`;
+      reasonHtml += `<div style="margin-top:4px;font-size:11px;color:var(--muted)">🕐 ${new Date(leave.appliedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN'))}</div>`;
     }
     if(leave.attachment){
       reasonHtml += `<div style="margin-top:8px"><img src="${leave.attachment}" style="max-width:100%;max-height:200px;border-radius:10px;border:1px solid var(--border2);cursor:pointer" onclick="window.open(this.src,'_blank')"></div>`;
@@ -9917,7 +10730,7 @@ function clearMultiSelect(){
     btn.classList.remove('ms-on');
     btn.style.background='rgba(167,139,250,.06)';
     btn.style.borderColor='rgba(167,139,250,.4)';
-    btn.textContent=(_lang==='en')?'☑️ Multi-Select':'☑️ Multi-Select';
+    btn.textContent=L('☑️ Multi-Select','☑️ Multi-Select');
   }
 
   // Defer paint-heavy class removal so Cancel feels instant
@@ -9975,7 +10788,7 @@ function toggleSelectMode(){
     btn.classList.add('ms-on');
     btn.style.background='rgba(167,139,250,.35)';
     btn.style.borderColor='#a78bfa';
-    btn.textContent=(_lang==='en')?'✕ Cancel Select':'✕ Cancel Select';
+    btn.textContent=L('✕ Cancel Select','✕ Cancel Select');
   }
   toast('☑️ Select Mode ON — tap cells, then choose shift');
   _updateMultiSelectShiftButtons();
@@ -10368,12 +11181,12 @@ function _buildSchedDisplayGroups(allEmps){
   const colors = ['#f97316','#38bdf8','#a855f7','#16a34a','#db2777','#0891b2','#eab308','#6366f1','#14b8a6','#f43f5e'];
   const icons = { section:'🏭', machine:'⚙️', responsibility:'🎯', designation:'💼' };
   const icon = icons[mode] || '📋';
-  const isEn = _lang==='en';
+  const isEn = (_lang !== 'hi');
   const modeLabel = {
-    section: isEn ? 'SECTION' : 'सेक्शन',
-    machine: isEn ? 'MACHINE' : 'मशीन',
-    responsibility: isEn ? 'RESPONSIBILITY' : 'ज़िम्मेदारी',
-    designation: isEn ? 'DESIGNATION' : 'DESIGNATION'
+    section: L('सेक्शन','SECTION'),
+    machine: L('मशीन','MACHINE'),
+    responsibility: L('ज़िम्मेदारी','RESPONSIBILITY'),
+    designation: L('DESIGNATION','DESIGNATION')
   }[mode] || mode.toUpperCase();
 
   // Collect unique values (case-insensitive) present in the already-filtered roster
@@ -10409,7 +11222,7 @@ function _buildSchedDisplayGroups(allEmps){
   if(!vals.length){
     groups.push({
       key:'all',
-      label: icon + ' ' + (isEn ? 'TEAM' : 'टीम') + ' — ' + modeLabel,
+      label: icon + ' ' + (L('टीम','TEAM')) + ' — ' + modeLabel,
       color:'#94a3b8',
       filter: e => true,
       sort: (a,b) => (a.name||'').localeCompare(b.name||'')
@@ -10441,7 +11254,7 @@ function _buildSchedDisplayGroups(allEmps){
   if(orphans.length){
     groups.push({
       key:'dyn_none',
-      label:'👤 '+(isEn?'Unassigned / Other':'अवर्गीकृत / अन्य'),
+      label:'👤 '+(L('अवर्गीकृत / अन्य','Unassigned / Other')),
       color:'#64748b',
       filter: e => !inAny.has(e.id),
       sort: (a,b) => (a.name||'').localeCompare(b.name||'')
@@ -10903,7 +11716,7 @@ function renderSchedule(){
 
   tbody+='</tbody>';
   document.getElementById('schedTbl').innerHTML=thead+tbody;
-  try{ if(typeof _lang!=='undefined'&&_lang==='en'&&typeof _translateDOM==='function') setTimeout(_translateDOM, 50); }catch(e){}
+  try{ if(typeof _lang!=='undefined'&&_lang!=='hi'&&typeof _translateDOM==='function') setTimeout(_translateDOM, 50); }catch(e){}
   // Re-render save bar (pending changes may span visible dates)
   _updateSaveBar();
   // Sync horizontal scroll: sticky date header <-> table scroll container
@@ -11368,8 +12181,203 @@ function updateLeaveFilterCounts(){
   }catch(e){}
 }
 
+
+// ════════════════════════════════════════
+// LEAVES / SHIFT HISTORY DOWNLOAD (Member + Manager)
+// ════════════════════════════════════════
+function openLeaveDownloadPanel(){
+  const existing = document.getElementById('leaveDownloadPanel');
+  if(existing){ existing.style.display = existing.style.display==='none'?'block':'none'; return; }
+  const host = document.getElementById('leaveList');
+  if(!host) return;
+  const panel = document.createElement('div');
+  panel.id = 'leaveDownloadPanel';
+  panel.style.cssText = 'background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-bottom:12px';
+  const isEn = (typeof _lang!=='undefined' && _lang!=='hi');
+  panel.innerHTML = `
+    <div style="font-size:13px;font-weight:900;margin-bottom:8px">📥 ${(typeof L==='function')?L('रिकॉर्ड डाउनलोड','Download records'):'Download records'}</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div>
+        <label style="font-size:10px;color:var(--muted2);font-weight:700">${(typeof L==='function')?L('प्रकार','Type'):'Type'}</label>
+        <select id="ldType" class="inp-field" style="width:100%;margin-top:4px">
+          <option value="leaves_all">All Leaves</option>
+          <option value="leaves_approved">Approved Leaves</option>
+          <option value="leaves_pending">Pending Leaves</option>
+          <option value="coff">C-Off / Comp Off</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--muted2);font-weight:700">${(typeof L==='function')?L('से','From'):'From'}</label>
+        <input type="date" id="ldFrom" class="inp-field" style="width:100%;margin-top:4px">
+      </div>
+      <div>
+        <label style="font-size:10px;color:var(--muted2);font-weight:700">${(typeof L==='function')?L('तक','To'):'To'}</label>
+        <input type="date" id="ldTo" class="inp-field" style="width:100%;margin-top:4px">
+      </div>
+      <div style="display:flex;align-items:flex-end">
+        <button type="button" onclick="downloadLeaveOrShiftRecords()" class="submit-btn" style="width:100%;padding:10px;border-radius:10px;font-weight:800;border:none;cursor:pointer;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff">
+          📥 Download Excel
+        </button>
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--muted2)">${(typeof L==='function')?L('आपके अपने रिकॉर्ड · तारीख चुनें · प्रकार चुनें','Your own records · pick type & dates'):'Your records · pick type & dates'}</div>
+  `;
+  host.parentNode.insertBefore(panel, host);
+  // default: current month
+  try{
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth();
+    const from = new Date(y, m, 1);
+    const to = new Date(y, m+1, 0);
+    const iso = d => d.toISOString().slice(0,10);
+    document.getElementById('ldFrom').value = iso(from);
+    document.getElementById('ldTo').value = iso(to);
+  }catch(e){}
+}
+
+async function downloadLeaveOrShiftRecords(){
+  const type = (document.getElementById('ldType')||{}).value || 'leaves_all';
+  const from = (document.getElementById('ldFrom')||{}).value || '';
+  const to = (document.getElementById('ldTo')||{}).value || '';
+  if(!from || !to){ toast('⚠️ From / To date चुनें'); return; }
+  if(from > to){ toast('⚠️ From date, To से पहले हो'); return; }
+
+  const myId = SESSION.empObjId || SESSION.empId || '';
+  const myName = SESSION.name || 'Member';
+  const myMobile = String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  const genAt = new Date().toLocaleString('en-IN');
+
+  const rows = [];
+  let sheetTitle = 'Records';
+
+  if(type.startsWith('leaves') || type === 'coff'){
+    let list = (typeof getLeaves==='function' ? getLeaves() : []) || [];
+    // Own records only (managers still download own unless admin viewing — keep member-safe)
+    list = list.filter(l=>{
+      if(!l) return false;
+      const ids = [String(l.empId||''), String(l.empObjId||'')];
+      if(myId && (ids.includes(String(myId)) || ids.includes(String(SESSION.empId||'')))) return true;
+      // name+mobile soft match
+      if(l.empName && SESSION.name && String(l.empName).toLowerCase()===String(SESSION.name).toLowerCase()) return true;
+      return false;
+    });
+    if(type === 'leaves_approved') list = list.filter(l=>l.status==='approved');
+    if(type === 'leaves_pending') list = list.filter(l=>l.status==='pending');
+    if(type === 'coff') list = list.filter(l=>{
+      const t = String(l.leaveType||l.type||'');
+      return /C-?Off|Comp|CO/i.test(t) || l.type==='CO';
+    });
+    list = list.filter(l=>{
+      const f = String(l.from||'').slice(0,10);
+      const t2 = String(l.to||l.from||'').slice(0,10);
+      if(!f) return false;
+      return f <= to && t2 >= from;
+    });
+    list.sort((a,b)=> String(a.from).localeCompare(String(b.from)));
+    sheetTitle = type==='coff' ? 'C-Off' : 'Leaves';
+    rows.push(['Man Power App — '+sheetTitle+' Report']);
+    rows.push(['VKS Tech — Technology is power']);
+    rows.push(['Member', myName, 'Mobile', myMobile]);
+    rows.push(['From', from, 'To', to, 'Generated', genAt]);
+    rows.push([]);
+    rows.push(['#','Type','Status','From','To','Days','Reason','C-Off / Shift Date','Applied On']);
+    list.forEach((l,i)=>{
+      rows.push([
+        i+1,
+        l.leaveType || l.type || 'Leave',
+        l.status || '',
+        l.from || '',
+        l.to || l.from || '',
+        l.days || '',
+        l.reason || '',
+        l.coffDate || '',
+        (l.appliedAt || l.createdAt || '').toString().slice(0,16)
+      ]);
+    });
+    if(!list.length) rows.push(['—','No records in range']);
+  } else {
+    // Shift history for logged-in employee
+    const emp = (typeof myEmp==='function' ? myEmp() : null)
+      || (getEmps()||[]).find(e=>e.id===SESSION.empObjId || e.empId===SESSION.empId);
+    if(!emp){ toast('⚠️ Employee profile नहीं मिला'); return; }
+    const want = type.replace('shift_',''); // H, Ab, L, O, D, N, G, CO, all
+    sheetTitle = 'Shifts_'+want;
+    rows.push(['Man Power App — Shift History']);
+    rows.push(['VKS Tech — Technology is power']);
+    rows.push(['Member', emp.name||myName, 'Code', emp.empId||'', 'Mobile', myMobile]);
+    rows.push(['Filter', want==='all'?'All codes':want, 'From', from, 'To', to]);
+    rows.push(['Generated', genAt]);
+    rows.push([]);
+    rows.push(['#','Date','Day','Shift Code','Meaning']);
+    const meaning = {D:'Day',N:'Night',A:'A',B:'B',C:'C',O:'Weekly Off',L:'Leave','C/O':'Comp Off',CO:'Comp Off',H:'Holiday',Ab:'Absent',G:'General',GP:'Gate Pass',HLF:'Half Day',OD:'Other Dept'};
+    let n = 0;
+    const cur = new Date(from+'T12:00:00');
+    const end = new Date(to+'T12:00:00');
+    while(cur <= end){
+      const ymd = cur.toISOString().slice(0,10);
+      let sh = '';
+      try{ sh = (typeof getShift==='function') ? String(getShift(emp, ymd)||'') : ''; }catch(e){}
+      const code = sh;
+      const up = code.toUpperCase();
+      let match = false;
+      if(want==='all') match = !!code;
+      else if(want==='CO') match = (up==='C/O'||up==='CO'||up==='C-OFF');
+      else if(want==='Ab') match = (typeof _isAbsentShift==='function' ? _isAbsentShift(code) : /^Ab/i.test(code));
+      else match = (up === want.toUpperCase() || code === want);
+      if(match){
+        n++;
+        const day = cur.toLocaleDateString('en-IN',{weekday:'short'});
+        rows.push([n, ymd, day, code||'—', meaning[code]||meaning[up]||'']);
+      }
+      cur.setDate(cur.getDate()+1);
+    }
+    if(!n) rows.push(['—','No matching shifts in range']);
+  }
+
+  const fileBase = 'ManPower_'+sheetTitle+'_'+from+'_to_'+to;
+
+  try{
+    try{ await _ensureXlsxLib(); }catch(e){}
+    if(window.XLSX){
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetTitle.slice(0,31));
+      XLSX.writeFile(wb, fileBase + '.xlsx');
+      toast('📤 Excel downloaded');
+      return;
+    }
+  }catch(e){ console.warn(e); }
+
+  // CSV fallback
+  const csv = rows.map(r=>r.map(c=>{
+    const s = String(c==null?'':c);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = fileBase + '.csv';
+  a.click();
+  toast('📤 CSV downloaded');
+}
+
 function renderLeaves(){
   try{ updateLeaveFilterCounts(); }catch(e){}
+  // Leave-only download (not shifts — shifts are on My Shift tab)
+  try{
+    if(!document.getElementById('leaveDlBtn')){
+      const title = document.getElementById('pageTitleLeaves') || document.querySelector('#tab-leave .page-title');
+      if(title && title.parentNode){
+        const btn = document.createElement('button');
+        btn.id = 'leaveDlBtn';
+        btn.type = 'button';
+        btn.textContent = (typeof L==='function')?L('📥 Leave Download','📥 Leave Download'):'📥 Leave Download';
+        btn.onclick = function(){ openLeaveDownloadPanel(); };
+        btn.style.cssText = 'margin:8px 0 10px;padding:8px 14px;border-radius:10px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:12px;cursor:pointer';
+        title.parentNode.insertBefore(btn, title.nextSibling);
+      }
+    }
+  }catch(e){}
 
   let list = getLeaves().filter(l=> {
     if(isAdmin()) return true;
@@ -11393,17 +12401,33 @@ function renderLeaves(){
       <div class="card-row">
         <div class="card-ico" style="background:var(--daybg)">📅</div>
         <div class="card-body">
-          <div class="card-name">${l.empName}</div>
+          <div class="card-name">${l.empName}${(()=>{ const c=l.empCode||l.empNo||''; if(c) return ` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(c))}</span>`; const emp=(getEmps()||[]).find(e=>e.id===l.empId||e.empId===l.empId); const code=emp&&emp.empId?emp.empId:''; return code?` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(code))}</span>`:''; })()}</div>
           <div class="card-tags"><span class="badge ${l.section}">${s.hi}</span><span class="badge ${l.status}">${{pending:'⏳ प्रतीक्षा',approved:'✅ मंजूर',rejected:'❌ अस्वीकार'}[l.status]}</span></div>
           <div class="card-sub" style="margin-top:6px">${l.leaveType||'छुट्टी'} · <b>${l.days}</b> दिन${l.coffDate?` · <span style="color:#f97316;font-weight:700">📅 Shift: ${l.coffDate}</span>`:''}</div>
           <div class="card-meta">${fmtDate(l.from)}${l.from!==l.to?' → '+fmtDate(l.to):''}</div>
           ${l.reason?`<div style="margin-top:6px;padding:7px 10px;background:var(--card2);border-left:3px solid var(--day);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);font-weight:600">📝 ${escHtml(l.reason)}</div>`:'<div style="margin-top:4px;font-size:11px;color:var(--lv);font-weight:600">⚠️ कारण नहीं दिया गया</div>'}
         </div>
       </div>${ra}
-      ${canApproveLeave()&&l.status==='pending'?`<div class="action-row">
-        <button type="button" class="act-btn approve" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','approved')">✅ Approve</button>
-        <button type="button" class="act-btn reject"  data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','rejected')">❌ Reject</button>
-      </div>`:''}
+      ${(() => {
+        const k = l._key||l.id||'';
+        const canMgr = canApproveLeave();
+        if(!canMgr) return '';
+        if(l.status==='pending'){
+          return `<div class="action-row">
+        <button type="button" class="act-btn approve" data-leave-key="${k}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','approved')">✅ Approve</button>
+        <button type="button" class="act-btn reject"  data-leave-key="${k}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','rejected')">❌ Reject</button>
+        <button type="button" class="act-btn edit" data-leave-key="${k}" onclick="event.stopPropagation();openEditLeaveForm(this.getAttribute('data-leave-key')||'')">✏️ Edit</button>
+        <button type="button" class="act-btn reject" data-leave-key="${k}" onclick="event.stopPropagation();deleteLeaveRecord(this.getAttribute('data-leave-key')||'')">🗑️ Delete</button>
+      </div>`;
+        }
+        if(l.status==='approved'){
+          return `<div class="action-row">
+        <button type="button" class="act-btn edit" data-leave-key="${k}" onclick="event.stopPropagation();openEditLeaveForm(this.getAttribute('data-leave-key')||'')">✏️ Edit</button>
+        <button type="button" class="act-btn reject" data-leave-key="${k}" onclick="event.stopPropagation();deleteLeaveRecord(this.getAttribute('data-leave-key')||'')">🗑️ Delete</button>
+      </div>`;
+        }
+        return '';
+      })()}
     </div>`;
   }).join('') : '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी आवेदन नहीं</div></div>';
 }
@@ -11534,7 +12558,7 @@ async function submitLeave(){
   }
 
   const key=await fbPush('leaves',{
-    empId:emp.id, empName:emp.name, section:emp.sec,
+    empId:emp.id, empName:emp.name, empCode: emp.empId||'', section:emp.sec,
     from, to, days, leaveType:type, reason,
     coffDate: coffDate||null,
     status:'pending', appliedAt:new Date().toISOString(), reallocations:[]
@@ -11626,6 +12650,123 @@ async function actLeave(key, status){
   }catch(err){
     console.error('[actLeave]', err);
     toast('❌ Approve failed: '+(err.message||err.code||err)+' — Phone OTP + rules check करें');
+  }
+}
+
+/** Manager or leave-authorized member: edit approved/pending leave (dates, reason, type) */
+function openEditLeaveForm(key){
+  if(!canApproveLeave()){ toast('❌ Leave edit permission नहीं है'); return; }
+  key = String(key||'').trim();
+  const leave = (getLeaves()||[]).find(l=>l && (l._key===key || l.id===key));
+  if(!leave){ toast('❌ Leave record नहीं मिला'); return; }
+  const types = ['Casual Leave','Sick Leave','Emergency Leave','Earned Leave','C-Off'];
+  const typeOpts = types.map(t=>`<option value="${t}" ${leave.leaveType===t?'selected':''}>${t}</option>`).join('');
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">✏️ Edit Leave — ${escHtml(leave.empName||'')}</div>
+  <div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px">Status: <b style="color:var(--text)">${leave.status}</b> · Manager / authorized only</div>
+  <div class="field"><label>Leave Type</label>
+    <select id="elv_type">${typeOpts}</select></div>
+  <div class="grid2">
+    <div class="field"><label>From</label><input type="date" id="elv_from" value="${leave.from||''}"></div>
+    <div class="field"><label>To</label><input type="date" id="elv_to" value="${leave.to||''}"></div>
+  </div>
+  <div class="field" id="elv_coff_wrap" style="${leave.leaveType==='C-Off'?'':'display:none'}">
+    <label>C-Off Shift Date</label>
+    <input type="date" id="elv_coffdate" value="${leave.coffDate||''}">
+  </div>
+  <div class="field"><label>Reason</label>
+    <textarea id="elv_reason" rows="3" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-family:inherit;font-size:13px;resize:vertical">${escHtml(leave.reason||'')}</textarea>
+  </div>
+  <button class="submit-btn" onclick="saveEditedLeave('${key}')">💾 Save Changes</button>
+  <button type="button" onclick="closeModal()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-weight:700;cursor:pointer">Cancel</button>
+  <script>
+    (function(){
+      var sel=document.getElementById('elv_type');
+      if(sel) sel.onchange=function(){
+        var w=document.getElementById('elv_coff_wrap');
+        if(w) w.style.display = this.value==='C-Off' ? '' : 'none';
+      };
+    })();
+  </script>`);
+}
+
+async function saveEditedLeave(key){
+  if(!canApproveLeave()){ toast('❌ Leave edit permission नहीं है'); return; }
+  key = String(key||'').trim();
+  const from = (document.getElementById('elv_from')||{}).value;
+  const to = (document.getElementById('elv_to')||{}).value;
+  const leaveType = (document.getElementById('elv_type')||{}).value;
+  const reason = ((document.getElementById('elv_reason')||{}).value||'').trim();
+  const coffDate = (document.getElementById('elv_coffdate')||{}).value || null;
+  if(!from||!to){ toast('तारीख भरें'); return; }
+  if(!reason){ toast('⚠️ कारण जरूरी है'); return; }
+  if(new Date(to) < new Date(from)){ toast('❌ To date From से पहले नहीं हो सकती'); return; }
+  if(leaveType==='C-Off' && !coffDate){ toast('⚠️ C-Off के लिए Shift Date जरूरी'); return; }
+  const days = dateRange(from, to).length;
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Phone OTP verify करें'); return; }
+    }
+  }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
+  try{
+    const patch = {
+      from, to, days, leaveType, reason,
+      coffDate: leaveType==='C-Off' ? coffDate : null,
+      editedAt: new Date().toISOString(),
+      editedBy: SESSION.name||''
+    };
+    await fbUpdate('leaves/'+key, patch);
+    try{
+      if(_cache.leaves){
+        const ix=_cache.leaves.findIndex(l=>l._key===key||l.id===key);
+        if(ix>=0) Object.assign(_cache.leaves[ix], patch);
+      }
+    }catch(e){}
+    closeModal();
+    toast('✅ Leave updated');
+    try{ if(typeof renderLeaves==='function') renderLeaves(); }catch(e){}
+    try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+  }catch(err){
+    console.error('[saveEditedLeave]', err);
+    toast('❌ Update failed: '+(err.message||err.code||err));
+  }
+}
+
+async function deleteLeaveRecord(key){
+  if(!canApproveLeave()){ toast('❌ Leave delete permission नहीं है'); return; }
+  key = String(key||'').trim();
+  const leave = (getLeaves()||[]).find(l=>l && (l._key===key || l.id===key));
+  if(!leave){ toast('❌ Leave record नहीं मिला'); return; }
+  const ok = await confirmModal(
+    '🗑️ Delete Leave',
+    (leave.empName||'')+' · '+fmtDate(leave.from)+(leave.from!==leave.to?' → '+fmtDate(leave.to):'')+'\n'+(leave.leaveType||'')+' · '+leave.status+'\n\nDelete this leave permanently?',
+    '🗑️ Delete',
+    'Cancel',
+    'act-btn reject'
+  );
+  if(!ok) return;
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const authOk = await _ensureWriteAuth();
+      if(!authOk){ toast('❌ Phone OTP verify करें'); return; }
+    }
+  }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
+  try{
+    await fbRemove('leaves/'+key);
+    try{
+      if(_cache.leaves){
+        _cache.leaves = _cache.leaves.filter(l=>!(l._key===key||l.id===key));
+      }
+    }catch(e){}
+    toast('🗑️ Leave deleted');
+    try{ if(typeof renderLeaves==='function') renderLeaves(); }catch(e){}
+    try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+  }catch(err){
+    console.error('[deleteLeaveRecord]', err);
+    toast('❌ Delete failed: '+(err.message||err.code||err));
   }
 }
 
@@ -11822,25 +12963,22 @@ async function approveLeave(leaveKey, leave, suggestions){
   try{
     const emp = getEmps().find(e => e.id === leave.empId || e.empId === leave.empId);
     if(emp && emp.phone && emp.phone.length === 10){
-      const fromFmt = new Date(leave.from).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
-      const toFmt   = new Date(leave.to  ).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+      const fromFmt = new Date(leave.from).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
+      const toFmt   = new Date(leave.to  ).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
       const days = dateRange(leave.from, leave.to).length;
       const leaveTypeLabel = leave.type === 'CL' ? 'Casual Leave' : leave.type === 'SL' ? 'Sick Leave' : leave.type === 'EL' ? 'Earned Leave' : (leave.type||'Leave');
-      let waMsg = `✅ *Man Power — Leave Approved*\n\nनमस्ते *${emp.name}*,\n\nआपकी Leave Request मंजूर हो गई है।\n\n`;
-      waMsg += `📅 *Leave Period:* ${fromFmt}`;
-      if(leave.from !== leave.to) waMsg += ` से ${toFmt}`;
-      waMsg += `\n📆 *कुल दिन:* ${days} दिन\n`;
-      waMsg += `🏷️ *प्रकार:* ${leaveTypeLabel}\n`;
-      if(leave.reason) waMsg += `📝 *कारण:* ${leave.reason}\n`;
+            let datesStr = fromFmt + (leave.from !== leave.to ? (' → ' + toFmt) : '') + ' (' + days + 'd)';
+      if(leave.reason) datesStr += '\n' + leave.reason;
       if(reallocations.length > 0){
-        waMsg += `\n🔄 *आपकी shifts का arrangement:*\n`;
+        datesStr += '\n';
         reallocations.forEach(r=>{
-          const rFmt = new Date(r.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short'});
-          waMsg += `• ${rFmt}: ${r.coveredBy} cover करेंगे\n`;
+          const rFmt = new Date(r.date).toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short'});
+          datesStr += '• ' + rFmt + ': ' + r.coveredBy + '\n';
         });
       }
-      waMsg += `\nकोई सवाल हो तो Supervisor से मिलें।\n_— Man Power System_`;
-      if(typeof _appendWaAppLink==='function') waMsg = _appendWaAppLink(waMsg);
+      let waMsg = (typeof buildWAForEmp==='function')
+        ? buildWAForEmp('waLeaveApproved', emp, { dates: datesStr, reason: leaveTypeLabel||'' })
+        : ('✅ Leave approved\n' + datesStr);
       if(typeof _appendWaAppLink==='function') waMsg = _appendWaAppLink(waMsg);
       setTimeout(()=>{ openWA(emp.phone, waMsg); }, 400);
     }
@@ -12023,7 +13161,7 @@ function renderResignations(){
       const secInfo = SEC[r.section] || SEC.M1;
       const statusMap = {pending:'⏳ प्रतीक्षा',approved:'✅ स्वीकार',rejected:'❌ अस्वीकार'};
       const statusColor = {pending:'var(--day)',approved:'var(--green)',rejected:'var(--lv)'}[r.status]||'var(--muted)';
-      const fmtLwd = r.lastWorkingDay ? new Date(r.lastWorkingDay).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}) : '—';
+      const fmtLwd = r.lastWorkingDay ? new Date(r.lastWorkingDay).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}) : '—';
       
       return `<div class="card" style="border-left:3px solid var(--lv)">
         <div class="card-row">
@@ -12044,7 +13182,7 @@ function renderResignations(){
             <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:13px;color:var(--muted2)">
               <span>📅 Last Day: <b style="color:#fff">${fmtLwd}</b></span>
               <span>📝 By: ${escHtml(r.submittedBy||'')}</span>
-              <span>${new Date(r.submittedAt).toLocaleDateString('hi-IN',{day:'numeric',month:'short'})}</span>
+              <span>${new Date(r.submittedAt).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'})}</span>
             </div>
             ${r.photo ? `<div style="margin-top:8px;border-radius:10px;overflow:hidden;cursor:pointer" onclick="viewResignPhoto(this)">
               <img src="${r.photo}" style="width:100%;max-height:180px;object-fit:cover;border-radius:10px;display:block">
@@ -12057,7 +13195,7 @@ function renderResignations(){
         </div>` : ''}
         ${r.status==='approved' ? `<div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;margin-top:8px">
           <div style="font-size:14px;color:var(--green);font-weight:700">✅ Resignation approved — शेड्यूल से हटाया गया</div>
-          ${r.relievingDate ? `<div style="font-size:13px;color:var(--muted2);margin-top:4px">📅 Relieving Date: <b style="color:#fff">${new Date(r.relievingDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'})}</b></div>` : ''}
+          ${r.relievingDate ? `<div style="font-size:13px;color:var(--muted2);margin-top:4px">📅 Relieving Date: <b style="color:#fff">${new Date(r.relievingDate).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'})}</b></div>` : ''}
           ${r.managerRemark ? `<div style="font-size:13px;color:var(--muted2);margin-top:4px">📝 Remark: <b style="color:#fff">${escHtml(r.managerRemark)}</b></div>` : ''}
           ${r.approvedBy ? `<div style="font-size:12px;color:var(--muted);margin-top:4px">By: ${escHtml(r.approvedBy)}</div>` : ''}
         </div>` : ''}
@@ -12094,7 +13232,7 @@ async function approveResignation(key){
     if(!res){ toast('❌ Record नहीं मिला'); return; }
     
     const reasonLabel = res.reasonLabel || res.reason || '';
-    const fmtLwd = res.lastWorkingDay ? new Date(res.lastWorkingDay).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}) : '—';
+    const fmtLwd = res.lastWorkingDay ? new Date(res.lastWorkingDay).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}) : '—';
     
     const checklistHtml = RELIEVING_CHECKLIST.map(c => `
       <label style="display:flex;align-items:flex-start;gap:12px;padding:12px;background:var(--card);
@@ -12371,7 +13509,7 @@ function renderReports(){
   // Update count badge (context-aware for Imp Info filter)
   const badge = document.getElementById('reportTotalBadge');
   if(badge){
-    const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+    const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
     if(_rfFilter === 'imp_info'){
       badge.textContent = isEn ? `${list.length} notice(s)` : `कुल ${list.length} सूचना`;
       badge.style.color = '#38bdf8';
@@ -12434,18 +13572,18 @@ function renderReports(){
       </div>`:''}
     </div>`;
   }).join('') : (function(){
-    const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+    const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
     if(_rfFilter === 'imp_info'){
       return `<div class="empty" style="padding:28px 16px">
         <div class="empty-icon">📢</div>
-        <div class="empty-text">${isEn?'No important notices yet':'कोई महत्वपूर्ण सूचना नहीं'}</div>
+        <div class="empty-text">${L('कोई महत्वपूर्ण सूचना नहीं','No important notices yet')}</div>
         <div style="font-size:12px;color:var(--muted2);margin-top:8px;line-height:1.5;max-width:280px;margin-left:auto;margin-right:auto">
-          ${isEn?'Anyone can post a team notice with optional photo.':'कोई भी टीम सूचना पोस्ट कर सकता है — फोटो वैकल्पिक।'}
+          ${L('कोई भी टीम सूचना पोस्ट कर सकता है — फोटो वैकल्पिक।','Anyone can post a team notice with optional photo.')}
         </div>
-        <button type="button" onclick="openImpInfoForm()" class="action-primary" style="margin-top:16px;display:inline-flex">📢 ${isEn?'Post notice':'सूचना पोस्ट करें'}</button>
+        <button type="button" onclick="openImpInfoForm()" class="action-primary" style="margin-top:16px;display:inline-flex">📢 ${L('सूचना पोस्ट करें','Post notice')}</button>
       </div>`;
     }
-    return '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">'+(isEn?'No reports':'कोई रिपोर्ट नहीं')+'</div></div>';
+    return '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">'+(L('कोई रिपोर्ट नहीं','No reports'))+'</div></div>';
   })();
 }
 
@@ -12510,7 +13648,7 @@ async function renderODRecords(){
           ${group.records.map(r=>`
             <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid var(--border);align-items:flex-start">
               <div style="min-width:70px">
-                <div style="font-size:11px;font-weight:700;color:#fff">${new Date(r.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short'})}</div>
+                <div style="font-size:11px;font-weight:700;color:#fff">${new Date(r.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'})}</div>
                 <div style="font-size:9px;color:var(--muted)">${new Date(r.date).toLocaleDateString('en',{weekday:'short'})}</div>
               </div>
               <div style="flex:1">
@@ -12680,30 +13818,30 @@ async function deleteReport(key, name){
 // IMP. INFORMATION — anyone logged in can post; photos via Firebase Storage
 // ════════════════════════════════════════
 function openImpInfoForm(){
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   openModal(`<div class="modal-handle"></div>
   <div style="text-align:center;margin-bottom:12px">
     <div style="width:56px;height:56px;margin:0 auto 8px;border-radius:16px;background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(99,102,241,.2));display:flex;align-items:center;justify-content:center;font-size:28px">📢</div>
-    <div class="modal-title" style="margin-bottom:4px">${isEn?'Important Information':'महत्वपूर्ण जानकारी'}</div>
-    <div style="font-size:13px;color:var(--muted2);line-height:1.4">${isEn?'Share a notice with the whole team':'पूरी टीम के लिए सूचना पोस्ट करें'}</div>
+    <div class="modal-title" style="margin-bottom:4px">${L('महत्वपूर्ण जानकारी','Important Information')}</div>
+    <div style="font-size:13px;color:var(--muted2);line-height:1.4">${L('पूरी टीम के लिए सूचना पोस्ट करें','Share a notice with the whole team')}</div>
   </div>
-  <div class="field"><label>📌 ${isEn?'Title':'विषय'} <span style="color:var(--lv)">*</span></label>
-    <input type="text" id="imp_title" maxlength="80" placeholder="${isEn?'e.g. Wrong material received — return to store':'जैसे: गलत माल आया — स्टोर वापस करें'}"
+  <div class="field"><label>📌 ${L('विषय','Title')} <span style="color:var(--lv)">*</span></label>
+    <input type="text" id="imp_title" maxlength="80" placeholder="${L('जैसे: गलत माल आया — स्टोर वापस करें','e.g. Wrong material received — return to store')}"
       style="width:100%;padding:14px 16px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:16px;outline:none;font-family:inherit;box-sizing:border-box"
       oninput="const c=document.getElementById('imp_title_cnt');if(c)c.textContent=(this.value||'').length+'/80'">
     <div id="imp_title_cnt" style="text-align:right;font-size:11px;color:var(--muted2);margin-top:4px">0/80</div>
   </div>
-  <div class="field"><label>📋 ${isEn?'Full details':'पूरी जानकारी'} <span style="color:var(--lv)">*</span></label>
-    <textarea id="imp_desc" maxlength="1000" placeholder="${isEn?'Write all important details…':'सभी जरूरी details यहाँ लिखें...'}"
+  <div class="field"><label>📋 ${L('पूरी जानकारी','Full details')} <span style="color:var(--lv)">*</span></label>
+    <textarea id="imp_desc" maxlength="1000" placeholder="${L('सभी जरूरी details यहाँ लिखें...','Write all important details…')}"
       style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:15px;outline:none;resize:vertical;min-height:110px;font-family:inherit;box-sizing:border-box"
       oninput="const c=document.getElementById('imp_desc_cnt');if(c)c.textContent=(this.value||'').length+'/1000'"></textarea>
     <div id="imp_desc_cnt" style="text-align:right;font-size:11px;color:var(--muted2);margin-top:4px">0/1000</div>
   </div>
-  <div class="field"><label>📅 ${isEn?'Date':'तारीख'}</label>
+  <div class="field"><label>📅 ${L('तारीख','Date')}</label>
     <input type="date" id="imp_date" value="${TODAY_STR}"
       style="width:100%;padding:14px;background:var(--card);border:2px solid var(--border2);border-radius:12px;color:var(--text);font-size:16px;outline:none;box-sizing:border-box"></div>
   <div class="field">
-    <label>📸 ${isEn?'Photo (optional)':'फोटो (वैकल्पिक)'}</label>
+    <label>📸 ${L('फोटो (वैकल्पिक)','Photo (optional)')}</label>
     <div id="imp_img_preview" style="display:none;margin-bottom:8px;border-radius:12px;overflow:hidden;max-height:220px;position:relative;border:1px solid var(--border2)">
       <img id="imp_img_thumb" style="width:100%;max-height:220px;object-fit:cover;display:block" src="" alt="">
       <button type="button" onclick="clearImpImg()" aria-label="Remove photo"
@@ -12713,19 +13851,19 @@ function openImpInfoForm(){
       <button type="button" onclick="document.getElementById('imp_cam_input').click()"
         style="flex:1;padding:12px;border:1.5px dashed rgba(56,189,248,.4);border-radius:12px;
         background:rgba(56,189,248,.08);color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        📸 ${isEn?'Camera':'कैमरा'}
+        📸 ${L('कैमरा','Camera')}
       </button>
       <button type="button" onclick="document.getElementById('imp_img_input').click()"
         style="flex:1;padding:12px;border:1.5px dashed rgba(56,189,248,.4);border-radius:12px;
         background:rgba(56,189,248,.08);color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit">
-        🖼️ ${isEn?'Gallery':'गैलरी'}
+        🖼️ ${L('गैलरी','Gallery')}
       </button>
     </div>
     <input type="file" id="imp_cam_input" accept="image/*" capture="environment" style="display:none" onchange="previewImpImg(this)">
     <input type="file" id="imp_img_input" accept="image/*" style="display:none" onchange="previewImpImg(this)">
   </div>
-  <button class="submit-btn" onclick="submitImpInfo()" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">📢 ${isEn?'Post':'पोस्ट करें'}</button>
-  <button class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+  <button class="submit-btn" onclick="submitImpInfo()" style="background:linear-gradient(135deg,#0ea5e9,#6366f1)">📢 ${L('पोस्ट करें','Post')}</button>
+  <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
 function clearImpImg(){
@@ -12753,15 +13891,15 @@ function previewImpImg(input){
 let _impInfoSubmitting = false;
 async function submitImpInfo(){
   if(_impInfoSubmitting) return;
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const title = (document.getElementById('imp_title')?.value||'').trim().slice(0,80);
   const desc = (document.getElementById('imp_desc')?.value||'').trim().slice(0,1000);
   const date = document.getElementById('imp_date')?.value || TODAY_STR;
-  if(!title){ toast(isEn?'⚠️ Enter a title':'⚠️ विषय (Title) लिखें'); return; }
-  if(!desc){ toast(isEn?'⚠️ Enter details':'⚠️ जानकारी (Details) लिखें'); return; }
+  if(!title){ toast(L('⚠️ विषय (Title) लिखें','⚠️ Enter a title')); return; }
+  if(!desc){ toast(L('⚠️ जानकारी (Details) लिखें','⚠️ Enter details')); return; }
 
   const submitBtn = document.querySelector('.modal button[onclick*="submitImpInfo"]');
-  if(submitBtn){ submitBtn.disabled=true; submitBtn.style.opacity='.6'; submitBtn.textContent=isEn?'⏳ Posting…':'⏳ पोस्ट हो रहा है...'; }
+  if(submitBtn){ submitBtn.disabled=true; submitBtn.style.opacity='.6'; submitBtn.textContent=L('⏳ पोस्ट हो रहा है...','⏳ Posting…'); }
   _impInfoSubmitting = true;
 
   let photoUrl = null;
@@ -12787,7 +13925,7 @@ async function submitImpInfo(){
       if(!photoUrl){
         // Fallback: keep compressed base64 only if Storage fails (legacy)
         if(imgData && imgData.length > 450000){
-          toast(isEn?'⚠️ Photo too large / upload failed':'⚠️ फोटो अपलोड नहीं हुई');
+          toast(L('⚠️ फोटो अपलोड नहीं हुई','⚠️ Photo too large / upload failed'));
           throw new Error('photo_upload_failed');
         }
       }
@@ -12795,7 +13933,7 @@ async function submitImpInfo(){
 
     const reportObj = {
       aboutId: 'all',
-      aboutName: isEn ? 'All team' : 'सभी कर्मचारी',
+      aboutName: L('सभी कर्मचारी','All team'),
       empName: title,
       title: title,
       section: 'ALL',
@@ -12829,7 +13967,7 @@ async function submitImpInfo(){
     }catch(e){}
 
     closeModal();
-    toast(isEn?'📢 Notice posted!':'📢 Information पोस्ट हो गई!');
+    toast(L('📢 Information पोस्ट हो गई!','📢 Notice posted!'));
     renderReports();
 
     // Notify others (best-effort, non-blocking)
@@ -12854,11 +13992,11 @@ async function submitImpInfo(){
   }catch(e){
     const msg = (e && e.message) ? String(e.message) : String(e);
     if(/permission|PERMISSION/i.test(msg)){
-      toast(isEn?'❌ Permission denied — ask Admin to update reports rules':'❌ Permission denied — Admin से reports rules अपडेट करवाएँ');
+      toast(L('❌ Permission denied — Admin से reports rules अपडेट करवाएँ','❌ Permission denied — ask Admin to update reports rules'));
     } else if(msg !== 'photo_upload_failed'){
-      toast('❌ ' + (isEn?'Error: ':'Error: ') + msg);
+      toast('❌ ' + (L('Error: ','Error: ')) + msg);
     }
-    if(submitBtn){ submitBtn.disabled=false; submitBtn.style.opacity='1'; submitBtn.textContent=isEn?'📢 Post':'📢 पोस्ट करें'; }
+    if(submitBtn){ submitBtn.disabled=false; submitBtn.style.opacity='1'; submitBtn.textContent=L('📢 पोस्ट करें','📢 Post'); }
   } finally {
     _impInfoSubmitting = false;
   }
@@ -12892,7 +14030,7 @@ function renderPendingDevices(){
           <div class="card-body">
             <div class="card-name">${v.empName}</div>
             <div class="card-sub">नया Device Login Request</div>
-            <div class="card-meta">${new Date(v.requestedAt).toLocaleString('hi-IN')}</div>
+            <div class="card-meta">${new Date(v.requestedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN'))}</div>
           </div>
         </div>
         <div class="action-row">
@@ -12943,7 +14081,7 @@ function renderManagerApprovals(){
             <div class="card-name">${u.name} <span style="font-size:10px;background:rgba(249,115,22,.15);color:#f97316;padding:2px 6px;border-radius:4px;margin-left:4px">MANAGER</span></div>
             <div class="card-sub">📱 ${u.mobile} &nbsp;·&nbsp; 🏢 ${u.company||'—'}</div>
             ${u.designation?'<div class="card-meta">'+u.designation+(u.department?' · '+u.department:'')+'</div>':''}
-            <div class="card-meta">${new Date(u.registeredAt).toLocaleString('hi-IN')}</div>
+            <div class="card-meta">${new Date(u.registeredAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN'))}</div>
           </div>
         </div>
         <div class="action-row">
@@ -12993,7 +14131,7 @@ function renderMyTeamApprovals(){
           <div class="card-body">
             <div class="card-name">${u.name} <span style="font-size:10px;background:rgba(96,165,250,.15);color:#60a5fa;padding:2px 6px;border-radius:4px;margin-left:4px">MEMBER</span></div>
             <div class="card-sub">📱 ${u.mobile} &nbsp;·&nbsp; 🏢 ${u.company||'—'}</div>
-            <div class="card-meta">${new Date(u.registeredAt).toLocaleString('hi-IN')}</div>
+            <div class="card-meta">${new Date(u.registeredAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN'))}</div>
           </div>
         </div>
         <div class="action-row">
@@ -13067,13 +14205,14 @@ function renderAdminTeamHierarchy(){
         '<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">इस Manager के अंतर्गत कोई Member नहीं</div>';
       return `
       <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden">
-        <div style="padding:12px;background:rgba(249,115,22,.06);display:flex;align-items:center;gap:8px">
+        <div style="padding:12px;background:rgba(249,115,22,.06);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <div style="flex:1;min-width:0">
             <div style="font-size:14px;font-weight:900;color:var(--text)">👔 ${mgr.name} <span style="font-size:10px;color:#64748b;font-weight:600">(${members.length} members)</span></div>
             <div style="font-size:11px;color:#64748b">📱 ${mgr.mobile} &nbsp;·&nbsp; 🏢 ${mgr.company||'—'}</div>
           </div>
           ${statusBadge}
           ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}
+          ${members.length?`<button onclick="openAdminSetExpiryModal('${mgrKey}','${String(mgr.name||'').replace(/'/g,"\'")}',true)" style="font-size:10px;padding:6px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer;white-space:nowrap">📅 All members expiry</button>`:''}
         </div>
         ${membersHtml}
       </div>`;
@@ -13114,13 +14253,14 @@ function _mobileStatusBadge(u){
 }
 
 function _mobileActionButtons(key,name,status){
-  const safeName=name.replace(/'/g,"\\'");
+  const safeName=String(name||'').replace(/'/g,"\\'");
   if(status==='revoked'){
     return `<button onclick="adminRestoreMobileUser('${key}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);color:#22c55e;font-weight:700;cursor:pointer;white-space:nowrap">↺ Restore</button>`;
   }
-  if(status==='approved'){
-    return `<div style="display:flex;gap:4px">
-      <button onclick="adminExtendMobileValidity('${key}','${safeName}',30)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);color:#60a5fa;font-weight:700;cursor:pointer;white-space:nowrap">+30d</button>
+  if(status==='approved' || status==='pending'){
+    return `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+      <button onclick="openAdminSetExpiryModal('${key}','${safeName}',false)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);color:#60a5fa;font-weight:700;cursor:pointer;white-space:nowrap">📅 Expiry</button>
+      <button onclick="adminExtendMobileValidity('${key}','${safeName}',30)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.08);color:#38bdf8;font-weight:700;cursor:pointer;white-space:nowrap">+30d</button>
       <button onclick="adminRevokeMobileUser('${key}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(244,63,94,.3);background:rgba(244,63,94,.08);color:#f43f5e;font-weight:700;cursor:pointer;white-space:nowrap">🚫 Revoke</button>
     </div>`;
   }
@@ -13151,10 +14291,156 @@ async function adminExtendMobileValidity(mobile,name,days){
     const base=rec&&rec.validTill&&new Date(rec.validTill)>new Date()?new Date(rec.validTill):new Date();
     const newExp=new Date(base.getTime()+days*86400000);
     await fbUpdate('mobileUsers/'+mobile,{validTill:newExp.toISOString(),extendedBy:SESSION.name,extendedAt:new Date().toISOString()});
+    // Also deviceApprovals if we can resolve emp
+    try{
+      const empObjId = (rec&&rec.empObjId)||'';
+      if(empObjId) await fbUpdate('deviceApprovals/'+empObjId,{ validTill:newExp.toISOString(), extendedBy:SESSION.name, extendedAt:new Date().toISOString() });
+    }catch(e2){}
     toast('✅ '+name+' की expiry '+days+' दिन बढ़ाई → '+newExp.toLocaleDateString('en-IN'));
     renderAdminTeamHierarchy();
   }catch(e){ toast('❌ Error: '+e.message); }
 }
+
+/** Admin: set exact expiry date for one mobile user OR all members under a manager */
+function openAdminSetExpiryModal(key, name, bulkForManager){
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  const safeKey = String(key||'');
+  const defaultDate = new Date(Date.now()+365*86400000).toISOString().slice(0,10);
+  const title = bulkForManager
+    ? ('📅 All members under '+name+' — set Expiry')
+    : ('📅 Set Expiry — '+name);
+  const sub = bulkForManager
+    ? 'This Manager की पूरी team के members की app expiry date एक साथ बदलें।'
+    : 'इस user की app access expiry date set करें।';
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">${escHtml(title)}</div>
+  <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">${sub}</div>
+  <div class="field"><label>Expiry date</label>
+    <input type="date" class="inp-field" id="adm_exp_date" value="${defaultDate}">
+  </div>
+  <div class="field"><label>या days जोड़ें (optional quick)</label>
+    <select class="inp-field" id="adm_exp_days" onchange="(function(s){var d=new Date();d.setDate(d.getDate()+parseInt(s.value||365,10));var el=document.getElementById('adm_exp_date');if(el)el.value=d.toISOString().slice(0,10);})(this)">
+      <option value="30">+30 days</option>
+      <option value="90">+90 days</option>
+      <option value="180">+180 days</option>
+      <option value="365" selected>+365 days (1 year)</option>
+      <option value="730">+730 days (2 years)</option>
+    </select>
+  </div>
+  <button class="submit-btn" onclick="adminApplyExpiryDate('${safeKey.replace(/'/g,"\'")}','${String(name||'').replace(/'/g,"\'")}',${bulkForManager?'true':'false'})">💾 Save Expiry</button>
+  <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
+}
+
+async function adminApplyExpiryDate(key, name, bulkForManager){
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  const dateStr = (document.getElementById('adm_exp_date')||{}).value;
+  if(!dateStr){ toast('⚠️ Date चुनें'); return; }
+  const d = new Date(dateStr);
+  if(isNaN(d.getTime())){ toast('⚠️ Invalid date'); return; }
+  d.setHours(23,59,59,999);
+  const validTill = d.toISOString();
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Phone/auth verify करें'); return; }
+    }
+  }catch(e){}
+
+  if(!bulkForManager){
+    try{
+      await fbUpdate('mobileUsers/'+key, {
+        validTill,
+        extendedBy: SESSION.name||'admin',
+        extendedAt: new Date().toISOString()
+      });
+      const rec = await fbGet('mobileUsers/'+key).catch(()=>null);
+      const empObjId = (rec && rec.empObjId) || '';
+      if(empObjId){
+        await fbUpdate('deviceApprovals/'+empObjId, {
+          validTill,
+          extendedBy: SESSION.name||'admin',
+          extendedAt: new Date().toISOString()
+        });
+      }
+      // Try match employee by phone
+      try{
+        const emp = (getEmps()||[]).find(e=>_normMobileKey(e.phone||e.mobile||'')===_normMobileKey(key));
+        if(emp && emp.id) await fbUpdate('deviceApprovals/'+emp.id, { validTill, extendedBy: SESSION.name||'admin', extendedAt: new Date().toISOString() });
+      }catch(e2){}
+      closeModal();
+      toast('✅ '+name+' expiry → '+d.toLocaleDateString('en-IN'));
+      try{ renderAdminTeamHierarchy(); }catch(e){}
+      try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+    }catch(err){
+      toast('❌ '+ (err.message||err));
+    }
+    return;
+  }
+
+  // Bulk: all members under this manager key
+  try{
+    const allMu = await fbGet('mobileUsers') || {};
+    const mk = _normMobileKey(key);
+    const targets = Object.entries(allMu).filter(([k,v])=>{
+      if(!v || v.role!=='member') return false;
+      if(v.status==='rejected' || v.status==='left_team') return false;
+      const mid = _normMobileKey(v.managerId||'');
+      return mid === mk || v.managerId === key;
+    });
+    if(!targets.length){ toast('⚠️ इस Manager के under कोई member नहीं'); return; }
+    let okN = 0, failN = 0;
+    for(const [memKey, mem] of targets){
+      try{
+        await fbUpdate('mobileUsers/'+memKey, {
+          validTill,
+          extendedBy: SESSION.name||'admin',
+          extendedAt: new Date().toISOString(),
+          bulkExpiryFromManager: key
+        });
+        const empObjId = mem.empObjId || '';
+        if(empObjId){
+          await fbUpdate('deviceApprovals/'+empObjId, {
+            validTill,
+            extendedBy: SESSION.name||'admin',
+            extendedAt: new Date().toISOString()
+          });
+        }
+        try{
+          const emp = (getEmps()||[]).find(e=>_normMobileKey(e.phone||e.mobile||'')===_normMobileKey(memKey));
+          if(emp && emp.id) await fbUpdate('deviceApprovals/'+emp.id, { validTill, extendedBy: SESSION.name||'admin', extendedAt: new Date().toISOString() });
+        }catch(e2){}
+        okN++;
+      }catch(e){ failN++; }
+    }
+    closeModal();
+    toast('✅ '+okN+' members expiry → '+d.toLocaleDateString('en-IN')+(failN?' · ❌ '+failN+' failed':''));
+    try{ renderAdminTeamHierarchy(); }catch(e){}
+    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+  }catch(err){
+    toast('❌ Bulk failed: '+(err.message||err));
+  }
+}
+
+/** From Team member card — Admin sets expiry by employee id */
+function openTeamMemberExpiryModal(empId, empName){
+  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  const emp = (getEmps()||[]).find(e=>e.id===empId);
+  const mob = emp ? _normMobileKey(emp.phone||emp.mobile||'') : '';
+  if(mob){
+    openAdminSetExpiryModal(mob, empName||emp?.name||'', false);
+    return;
+  }
+  // No mobile — still set deviceApprovals
+  const defaultDate = new Date(Date.now()+365*86400000).toISOString().slice(0,10);
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">📅 Set Expiry — ${escHtml(empName||'')}</div>
+  <div class="field"><label>Expiry date</label>
+    <input type="date" class="inp-field" id="adm_exp_date" value="${defaultDate}">
+  </div>
+  <button class="submit-btn" onclick="(async()=>{const ds=(document.getElementById('adm_exp_date')||{}).value;if(!ds){toast('Date चुनें');return;}const ok=await extendUserExpiry('${empId}',ds);if(ok){closeModal();try{renderTeam();}catch(e){}}})()">💾 Save</button>
+  <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
+}
+
 
 
 // ── Login Request Approval (new flow) ──
@@ -13246,7 +14532,7 @@ function renderPending(){
             <div class="card-body">
               <div class="card-name">${v.empName||v.phone||'Member'}</div>
               <div class="card-sub">${isMgrAppr?'Manager login approval':('Code: '+(v.empId||'—'))}${v.phone?' · 📱 '+v.phone:''}</div>
-              <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
+              <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN')):''}</div>
               ${isMgrAppr?'<div style="font-size:11px;color:#38bdf8;font-weight:700">Registered member — approve to login without OTP</div>':''}
               ${v.isNewReg?'<div style="font-size:11px;color:#f97316;font-weight:700">&#128100; Newly Registered Employee</div>':''}
               ${v.selfieUrl?`<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><img src="${v.selfieUrl}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid rgba(249,115,22,.5);cursor:pointer" onclick="window.open('${v.selfieUrl}','_blank')"><span style="font-size:11px;color:#94a3b8">📸 Selfie</span></div>`:''}
@@ -13273,7 +14559,7 @@ function renderPending(){
         <div class="card-body">
           <div class="card-name">${r.name||r.empId}</div>
           <div class="card-sub">Code: ${r.empId} · ${secName(r.sec)||r.dept||''} ${r.phone?'· 📱 '+r.phone:''}</div>
-          <div class="card-meta">${new Date(r.requestedAt).toLocaleString('hi-IN')}</div>
+          <div class="card-meta">${new Date(r.requestedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN'))}</div>
           ${r.selfieUrl?`<div style="margin-top:8px;display:flex;align-items:center;gap:8px"><img src="${r.selfieUrl}" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid rgba(249,115,22,.5);cursor:pointer" onclick="window.open('${r.selfieUrl}','_blank')"><span style="font-size:11px;color:#94a3b8">📸 Selfie<br><span style="font-size:10px;color:#64748b">Tap to zoom</span></span></div>`:'<div style="margin-top:6px;font-size:11px;color:#f43f5e">⚠️ कोई Selfie नहीं</div>'}
         </div>
       </div>
@@ -13296,7 +14582,7 @@ function renderPending(){
       <div class="card-row">
         <div class="card-ico" style="background:var(--daybg)">📅</div>
         <div class="card-body">
-          <div class="card-name">${l.empName}</div>
+          <div class="card-name">${l.empName}${(()=>{ const c=l.empCode||l.empNo||''; if(c) return ` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(c))}</span>`; const emp=(getEmps()||[]).find(e=>e.id===l.empId||e.empId===l.empId); const code=emp&&emp.empId?emp.empId:''; return code?` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(code))}</span>`:''; })()}</div>
           <div class="card-sub">${l.leaveType} · ${l.days} दिन${l.coffDate?` · <span style="color:#f97316">📅 Shift था: ${l.coffDate}</span>`:''}</div>
           <div class="card-meta">${fmtDate(l.from)}${l.from!==l.to?' → '+fmtDate(l.to):''}</div>
           ${l.reason?`<div style="margin-top:6px;padding:7px 10px;background:var(--card2);border-left:3px solid var(--day);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);font-weight:600">📝 ${escHtml(l.reason)}</div>`:'<div style="margin-top:4px;font-size:11px;color:var(--lv);font-weight:600">⚠️ कारण नहीं दिया गया</div>'}
@@ -13305,6 +14591,8 @@ function renderPending(){
       <div class="action-row">
         <button type="button" class="act-btn approve" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','approved')">✅ Approve</button>
         <button type="button" class="act-btn reject"  data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();actLeave(this.getAttribute('data-leave-key')||'','rejected')">❌ Reject</button>
+        <button type="button" class="act-btn edit" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();openEditLeaveForm(this.getAttribute('data-leave-key')||'')">✏️ Edit</button>
+        <button type="button" class="act-btn reject" data-leave-key="${l._key||l.id||''}" onclick="event.stopPropagation();deleteLeaveRecord(this.getAttribute('data-leave-key')||'')">🗑️ Delete</button>
       </div>
     </div>`).join('') :
     '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी पेंडिंग नहीं</div></div>';
@@ -13404,11 +14692,11 @@ function setTeamSec(s,el){ _teamSec=s; document.querySelectorAll('#teamFilter .c
 
 function classifyResponsibility(resp){
   const r=(resp||'').toString().toLowerCase();
-  if(/manag/.test(r)) return _lang==='en'?'Managers':'Managers';
-  if(/engineer/.test(r)) return _lang==='en'?'Engineers':'Engineers';
-  if(/assist/.test(r)) return _lang==='en'?'Assistants':'Assistants';
-  if(/operat/.test(r)) return _lang==='en'?'Operators':'Operators';
-  return _lang==='en'?'Others':'Others';
+  if(/manag/.test(r)) return L('Managers','Managers');
+  if(/engineer/.test(r)) return L('Engineers','Engineers');
+  if(/assist/.test(r)) return L('Assistants','Assistants');
+  if(/operat/.test(r)) return L('Operators','Operators');
+  return L('Others','Others');
 }
 
 function renderTeam(search=''){
@@ -13424,7 +14712,7 @@ function renderTeam(search=''){
     }
   }catch(e){}
 
-  _renderDynamicChips('teamFilter', _buildMachineChips('team'), _teamSec, 'setTeamSec');
+  _renderDynamicChips('teamFilter', _buildTeamSectionChips(), _teamSec, 'setTeamSec');
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
     ? `<div style="display:flex;gap:8px;margin-bottom:14px">
         <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ नया कर्मचारी जोड़ें</button>
@@ -13434,7 +14722,10 @@ function renderTeam(search=''){
   // Active employees only — those in the shift schedule (have ms array)
   let list = getEmps().filter(e => e.status !== 'resigned' && e.status !== 'left' && Array.isArray(e.ms) && e.ms.length > 0);
   const totalAll = list.length;
-  if(_teamSec !== 'ALL') list = list.filter(e => e.sec === _teamSec);
+  if(_teamSec !== 'ALL') list = list.filter(e => {
+    const sec = (typeof getEmpSection==='function') ? getEmpSection(e) : (e.section||e.sec||'');
+    return sec === _teamSec || e.sec === _teamSec || e.section === _teamSec;
+  });
   if(search) list = list.filter(e => e.name.toLowerCase().includes(search.toLowerCase()) || (e.empId||'').includes(search));
 
   // Show total count
@@ -13447,45 +14738,67 @@ function renderTeam(search=''){
   else {
     const tc = document.createElement('div');
     tc.id = 'teamCount';
-    tc.style.cssText = 'font-size:14px;color:var(--muted2);margin-bottom:10px;font-weight:700';
-    tc.innerHTML = totalLabel;
-    const teamFilter = document.getElementById('teamFilter');
-    if(teamFilter) teamFilter.after(tc);
-  }
-
-  // Build groups in fixed order: M1 → M2 → S1 → S2 → SUP → MGR → OTHER
-  const SEC_ORDER = ['M1','M2','S1','S2','SUP','MGR'];
-  const groups = {};
-  SEC_ORDER.forEach(k => { groups[k] = []; });
-  list.forEach(e => {
-    const k = e.sec || 'OTHER';
-    if(!groups[k]) groups[k] = [];
-    groups[k].push(e);
+    tc.style.cssText = 'font-size:14px;color:var(--muted2);margin-bottom:1  // Build groups: Excel Section → Responsibility → Name (all collapsed by default)
+  const secMap = new Map(); // secLabel -> Map(respLabel -> emps[])
+  list.forEach(e=>{
+    const sec = ((typeof getEmpSection==='function') ? getEmpSection(e) : '') || String(e.section||e.sec||'').trim() || ((typeof L==='function')?L('अन्य','Other'):'Other');
+    const resp = ((typeof getEmpResp==='function') ? getEmpResp(e) : '') || String(e.resp||e.responsibility||'').trim() || '—';
+    if(!secMap.has(sec)) secMap.set(sec, new Map());
+    const rMap = secMap.get(sec);
+    if(!rMap.has(resp)) rMap.set(resp, []);
+    rMap.get(resp).push(e);
   });
+  // Sort each resp group by name
+  secMap.forEach(rMap=>{
+    rMap.forEach((arr, k)=>{
+      arr.sort((a,b)=> String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base'}));
+    });
+  });
+  const secKeys = Array.from(secMap.keys()).sort((a,b)=> String(a).localeCompare(String(b), undefined, {sensitivity:'base'}));
 
   let html = '';
-  // Render in fixed order, skip empty sections
-  const renderOrder = [...SEC_ORDER, ...Object.keys(groups).filter(k => !SEC_ORDER.includes(k))];
-  renderOrder.forEach(sec => {
-    const members = groups[sec];
-    if(!members || !members.length) return;
-    const s = getSectionMeta(sec);
-    html += `<div class="stitle">${s.icon||'👤'} ${s.hi||sec} <span style="color:${s.color||'#94a3b8'};font-size:13px">(${members.length})</span></div>`;
-    // Sub-group by Responsibility: Operators → Assistants → Engineers → Managers → Others
-    const RESP_ORDER=['Operators','Assistants','Engineers','Managers','Others'];
-    const respGroups={};
-    RESP_ORDER.forEach(k=>{ respGroups[k]=[]; });
-    members.forEach(e=>respGroups[classifyResponsibility(e.resp)].push(e));
-    RESP_ORDER.forEach(respKey=>{
-      const subMembers=respGroups[respKey];
-      if(!subMembers.length) return;
-      if(RESP_ORDER.filter(k=>respGroups[k].length).length>1){
-        html += `<div style="font-size:11px;font-weight:800;color:#64748b;margin:8px 0 4px 4px;letter-spacing:.5px">${respKey} (${subMembers.length})</div>`;
-      }
-      html += _renderTeamMemberCards(subMembers, s);
+  secKeys.forEach(sec=>{
+    const rMap = secMap.get(sec);
+    const membersCount = Array.from(rMap.values()).reduce((n,a)=>n+a.length, 0);
+    if(!membersCount) return;
+    const s = (typeof getSectionMeta==='function') ? getSectionMeta(sec) : {icon:'👤', color:'#94a3b8', bg:'rgba(148,163,184,.1)', hi:sec};
+    const secLabel = (s && (s.label||s.hi)) ? (s.label||s.hi) : sec;
+    html += `<div class="team-fold" data-open="0" style="margin-bottom:10px;border:1px solid var(--border2);border-radius:12px;overflow:hidden;background:var(--panel)">
+      <div class="team-fold-hdr" onclick="_toggleTeamFold(this)" style="display:flex;align-items:center;gap:8px;padding:12px 14px;cursor:pointer;user-select:none;background:rgba(255,255,255,.02)">
+        <span class="team-fold-chev" style="font-size:11px;color:var(--muted2);width:14px">▶</span>
+        <span style="font-size:16px">${s.icon||'👤'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:900;color:var(--text)">${secLabel}</div>
+          <div style="font-size:10px;color:var(--muted2)">${membersCount} ${(typeof L==='function')?L('सदस्य','members'):'members'}</div>
+        </div>
+        <span style="font-size:12px;font-weight:800;color:${s.color||'#94a3b8'}">${membersCount}</span>
+      </div>
+      <div class="team-fold-body" style="display:none;padding:6px 8px 10px">`;
+
+    const respKeys = Array.from(rMap.keys()).sort((a,b)=>{
+      if(a==='—') return 1;
+      if(b==='—') return -1;
+      return String(a).localeCompare(String(b), undefined, {sensitivity:'base'});
     });
-    return;
+    respKeys.forEach(resp=>{
+      const subMembers = rMap.get(resp) || [];
+      if(!subMembers.length) return;
+      html += `<div class="team-fold" data-open="0" style="margin:6px 0;border:1px solid var(--border2);border-radius:10px;overflow:hidden">
+        <div class="team-fold-hdr" onclick="_toggleTeamFold(this)" style="display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;background:rgba(148,163,184,.06)">
+          <span class="team-fold-chev" style="font-size:10px;color:var(--muted2);width:12px">▶</span>
+          <span style="font-size:12px">🎯</span>
+          <div style="flex:1;font-size:12px;font-weight:800;color:var(--text)">${resp}</div>
+          <span style="font-size:11px;font-weight:800;color:var(--muted2)">${subMembers.length}</span>
+        </div>
+        <div class="team-fold-body" style="display:none;padding:6px">
+          ${_renderTeamMemberCards(subMembers, s)}
+        </div>
+      </div>`;
+    });
+
+    html += `</div></div>`;
   });
+
   function _renderTeamMemberCards(members, s){
     return members.map(e=>{
       const ini=e.name.split(' ').map(n=>n[0]).join('').substring(0,2);
@@ -13520,6 +14833,7 @@ function renderTeam(search=''){
           </div>
           ${(isAdmin() || isMgr())?`<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
             <button class="act-btn edit" style="padding:7px 10px;font-size:11px" onclick="openEditEmpForm('${e.id}')" title="Edit">✏️</button>
+            ${isAdmin()?`<button style="padding:7px 10px;font-size:11px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.35);border-radius:7px;color:#60a5fa;cursor:pointer;font-weight:800" onclick="openTeamMemberExpiryModal('${e.id}','${String(e.name||'').replace(/'/g,"\'")}')" title="App expiry">📅</button>`:''}
             ${isAdminOrMgr()?`<button class="act-btn del"  style="padding:7px 10px;font-size:11px" onclick="confirmDelEmp('${e.id}','${e.name}')">🗑️</button>`:''}
             <button style="padding:7px 10px;font-size:11px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);border-radius:7px;color:#38bdf8;cursor:pointer" onclick="openDeviceManager('${e.id}','${e.name}')">📱</button>
           </div>`:''}
@@ -13578,6 +14892,26 @@ function renderTeam(search=''){
   }
 }
 
+
+/** True if schedule cell is Absent (Ab / AB / Absent / अनुपस्थित) */
+function _isAbsentShift(sh){
+  if(sh == null || sh === '') return false;
+  const s = String(sh).trim();
+  if(s === 'Ab' || s === 'AB') return true;
+  if(/^Ab\b/i.test(s)) return true;
+  if(/^Absent/i.test(s)) return true;
+  if(/अनुपस्थित/i.test(s)) return true;
+  return false;
+}
+
+/** Resolve monthly salary from employee record (salary or monthlySalary) */
+function _empMonthlySalary(emp){
+  if(!emp) return 0;
+  const raw = emp.monthlySalary != null && emp.monthlySalary !== '' ? emp.monthlySalary : emp.salary;
+  const n = Number(String(raw != null ? raw : '').replace(/[^\d.]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+
 // ════════════════════════════════════════
 // SALARY COST CALCULATOR — Admin only
 // Formula: Net = Monthly Salary - (Ab days × Monthly Salary ÷ 26)
@@ -13599,36 +14933,42 @@ function renderSalaryCost(){
     allDates.push(`${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
   }
 
-  const emps      = getEmps().filter(e => e.status !== 'resigned' && e.monthlySalary);
-  const overrides = getOverrides();
-  const schedules = getSchedules();
+  // Include anyone with salary field (monthlySalary OR salary)
+  const emps = getEmps().filter(e => {
+    if(!e || e.status === 'resigned' || e.status === 'left' || e.status === 'left_team' || e.status === 'removed') return false;
+    return _empMonthlySalary(e) > 0;
+  });
 
-  const getShiftForCalc = (emp, date) => {
-    const ovKey = emp.id + '_' + date;
-    if(overrides[ovKey]) return overrides[ovKey];
-    const sched = schedules[emp.id];
-    if(sched && sched[date]) return sched[date];
-    const dayOfMonth = new Date(date).getDate() - 1;
-    if(emp.ms && emp.ms[dayOfMonth]) return emp.ms[dayOfMonth];
-    return null;
-  };
-
+  // Use getShift() — same source as Schedule grid (overrides + Firebase month grid + Excel)
+  // Old bug: looked up schedules[emp.id][date] which does not exist (real path is schedules[YYYY_MM][id][dayIdx])
   const WORKING_DAYS = 26;
   const rows = [];
   let totalGross = 0, totalDeduct = 0, totalNet = 0;
 
   emps.forEach(emp => {
-    const monthlySalary = Number(emp.monthlySalary) || 0;
+    const monthlySalary = _empMonthlySalary(emp);
     if(!monthlySalary) return;
     const perDaySalary = monthlySalary / WORKING_DAYS;
     let absentDays = 0;
-    allDates.forEach(date => { if(getShiftForCalc(emp, date) === 'Ab') absentDays++; });
+    const abDates = [];
+    allDates.forEach(date => {
+      let sh = '';
+      try{ sh = (typeof getShift === 'function') ? getShift(emp, date) : ''; }catch(e){ sh = ''; }
+      if(_isAbsentShift(sh)){
+        absentDays++;
+        abDates.push(date);
+      }
+    });
     const deduction = Math.round(perDaySalary * absentDays);
     const netSalary  = monthlySalary - deduction;
     totalGross  += monthlySalary;
     totalDeduct += deduction;
     totalNet    += netSalary;
-    rows.push({ emp, monthlySalary, absentDays, deduction, netSalary, perDaySalary });
+    const mobile = String(emp.phone || emp.mobile || '').replace(/\D/g,'').slice(-10);
+    rows.push({
+      emp, monthlySalary, absentDays, deduction, netSalary, perDaySalary, abDates,
+      mobile, name: emp.name || '', empCode: emp.empId || '', section: (typeof getEmpSection==='function'?getEmpSection(emp):'') || emp.section || emp.sec || ''
+    });
   });
 
   rows.sort((a,b) => {
@@ -13641,13 +14981,26 @@ function renderSalaryCost(){
     month: monthVal, year: yr, monthNum: mo,
     workingDays: WORKING_DAYS,
     totalGross, totalDeduct, totalNet,
+    generatedAt: new Date().toISOString(),
+    generatedBy: (SESSION && SESSION.name) || 'Manager',
+    company: (SESSION && (SESSION.company || SESSION.companyId)) || '',
     perEmployee: rows.map(r=>({
-      id: r.emp.id, empId: r.emp.empId, name: r.emp.name, section: r.emp.sec,
-      monthlySalary: r.monthlySalary, perDaySalary: Math.round(r.perDaySalary),
-      absentDays: r.absentDays, deduction: r.deduction, netSalary: r.netSalary,
-    })),
-    generatedAt: new Date().toISOString(), generatedBy: SESSION.name
+      empId: r.empCode || (r.emp && r.emp.empId) || '',
+      id: r.emp && r.emp.id,
+      name: r.name || (r.emp && r.emp.name) || '',
+      mobile: r.mobile || '',
+      section: r.section || '',
+      monthlySalary: r.monthlySalary,
+      perDaySalary: Math.round(r.perDaySalary),
+      absentDays: r.absentDays,
+      abDates: r.abDates || [],
+      deduction: r.deduction,
+      netSalary: r.netSalary,
+      cost: r.netSalary
+    }))
   };
+  // Archive finished months so historical team roster is preserved for download
+  try{ _archiveManpowerCostIfPast(window._manpowerCostData); }catch(e){ console.warn('[cost archive]', e); }
 
   // ── Summary cards ──
   const fmt = n => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -13699,7 +15052,7 @@ function renderSalaryCost(){
         <div style="font-size:9px;color:var(--muted)">${r.emp.empId||'—'}</div>
       </td>
       <td style="padding:8px 6px;text-align:right;color:#fbbf24;font-weight:700">₹${r.monthlySalary.toLocaleString('en-IN')}</td>
-      <td style="padding:8px 6px;text-align:center">${ab?`<span style="background:rgba(244,63,94,.15);color:var(--lv);border-radius:5px;padding:2px 8px;font-weight:800">${r.absentDays}</span>`:`<span style="color:var(--muted)">0</span>`}</td>
+      <td style="padding:8px 6px;text-align:center" title="${ab && r.abDates && r.abDates.length ? ('Ab: '+r.abDates.map(d=>d.slice(8)).join(', ')) : ''}">${ab?`<span style="background:rgba(244,63,94,.15);color:var(--lv);border-radius:5px;padding:2px 8px;font-weight:800">${r.absentDays}</span>`:`<span style="color:var(--muted)">0</span>`}</td>
       <td style="padding:8px 6px;text-align:right;color:${ab?'var(--lv)':'var(--muted)'}">${ab?`−₹${r.deduction.toLocaleString('en-IN')}`:'—'}</td>
       <td style="padding:8px 10px;text-align:right;font-weight:800;color:${ab?'var(--green)':'var(--muted2)'}">₹${r.netSalary.toLocaleString('en-IN')}</td>
     </tr>`;
@@ -13721,24 +15074,165 @@ function renderSalaryCost(){
   tableEl.innerHTML = html;
 }
 
-function exportSalaryCost(){
-  if(!window._manpowerCostData){ toast('⚠️ पहले month select करें'); return; }
-  const d = window._manpowerCostData;
+
+/** Firebase path for monthly cost snapshot (preserves employees as of that month) */
+function _manpowerCostArchivePath(monthKey){
+  const cid = (typeof _normCompanyId==='function')
+    ? _normCompanyId(SESSION.companyId || SESSION.company || 'default')
+    : String(SESSION.companyId || SESSION.company || 'default');
+  const mgr = (typeof _normMobileKey==='function')
+    ? _normMobileKey(SESSION.mobile || SESSION.uid || 'mgr')
+    : String(SESSION.mobile||'mgr').replace(/\D/g,'').slice(-10);
+  return 'manpowerCostArchive/'+cid+'/'+mgr+'/'+String(monthKey).replace(/-/g,'_');
+}
+
+/** Save snapshot when viewing a past (finished) month */
+function _archiveManpowerCostIfPast(data){
+  if(!data || !data.month) return;
+  if(!isAdminOrMgr()) return;
+  const now = new Date();
+  const [y,m] = String(data.month).split('-').map(Number);
+  // Finished = strictly before current calendar month
+  const isPast = (y < now.getFullYear()) || (y === now.getFullYear() && m < (now.getMonth()+1));
+  if(!isPast) return;
+  const path = _manpowerCostArchivePath(data.month);
+  const payload = {
+    ...data,
+    archivedAt: new Date().toISOString(),
+    archivedBy: SESSION.name || '',
+    archivedByMobile: SESSION.mobile || ''
+  };
+  try{
+    if(typeof fbSet === 'function'){
+      fbSet(path, payload).catch(e=>console.warn('[archive cost]', e));
+    }
+  }catch(e){}
+  try{ localStorage.setItem('mp_cost_'+data.month, JSON.stringify(payload)); }catch(e){}
+}
+
+async function _loadManpowerCostArchive(monthKey){
+  try{
+    const path = _manpowerCostArchivePath(monthKey);
+    if(typeof fbGet === 'function'){
+      const remote = await fbGet(path);
+      if(remote && remote.perEmployee) return remote;
+    }
+  }catch(e){}
+  try{
+    const raw = localStorage.getItem('mp_cost_'+monthKey);
+    if(raw) return JSON.parse(raw);
+  }catch(e){}
+  return null;
+}
+
+/**
+ * Manager download — branded Excel (Man Power + VKS Tech)
+ * Columns: Name, Mobile, Salary, Ab Days, Deduction, Cost (Net)
+ */
+async function exportSalaryCost(){
+  if(!isAdminOrMgr()){ toast('❌ Only Manager/Admin'); return; }
+  let d = window._manpowerCostData;
+  if(!d || !d.perEmployee){
+    // try archive for selected month
+    const monthInput = document.getElementById('salaryCostMonth');
+    const mk = monthInput && monthInput.value;
+    if(mk) d = await _loadManpowerCostArchive(mk);
+  }
+  if(!d || !d.perEmployee){ toast('⚠️ पहले month select करें / Cost calculate करें'); return; }
+
   const monthName = new Date(d.year, d.monthNum-1, 1).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
-  let csv = `Manpower Cost Report — ${monthName}\n`;
-  csv += `Generated: ${new Date(d.generatedAt).toLocaleString('en-IN')} by ${d.generatedBy}\n`;
-  csv += `Working Days Basis: ${d.workingDays}\n\n`;
-  csv += `Employee Code,Name,Section,Monthly Salary,Per Day Salary,Absent Days,Deduction,Net Payable\n`;
-  d.perEmployee.forEach(r => {
-    csv += `${r.empId},${r.name},${r.section},${r.monthlySalary},${r.perDaySalary},${r.absentDays},${r.deduction},${r.netSalary}\n`;
-  });
-  const totalAb = d.perEmployee.reduce((s,r)=>s+r.absentDays,0);
-  csv += `\nTOTAL,,,${d.totalGross},,${totalAb},${d.totalDeduct},${d.totalNet}\n`;
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a'); a.href=url; a.download=`Salary_Cost_${d.month}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  toast('📤 CSV export हो गई!');
+  const genAt = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const company = d.company || SESSION.company || '';
+  const fileBase = 'ManPower_Cost_'+String(d.month).replace(/-/g,'_');
+
+  try{ await _ensureXlsxLib(); }catch(e){}
+
+  // Prefer SheetJS xlsx
+  try{
+    if(window.XLSX){
+      const aoa = [];
+      aoa.push(['Man Power App — Manpower Cost Report']);
+      aoa.push(['VKS Tech — Technology is power · vkstech.com']);
+      aoa.push(['Month', monthName, 'Company', company]);
+      aoa.push(['Generated', genAt, 'By', d.generatedBy || SESSION.name || '']);
+      aoa.push(['Working days basis', d.workingDays || 26]);
+      aoa.push([]);
+      aoa.push(['#','Employee Code','Name','Mobile','Section','Monthly Salary (₹)','Per Day (₹)','Ab Days','Ab Deduction (₹)','Cost / Net Payable (₹)']);
+      d.perEmployee.forEach((r,i)=>{
+        aoa.push([
+          i+1,
+          r.empId || '',
+          r.name || '',
+          r.mobile ? ("'"+String(r.mobile)) : '',
+          r.section || '',
+          r.monthlySalary || 0,
+          r.perDaySalary || 0,
+          r.absentDays || 0,
+          r.deduction || 0,
+          r.netSalary != null ? r.netSalary : r.cost || 0
+        ]);
+      });
+      const totalAb = d.perEmployee.reduce((s,r)=>s+(r.absentDays||0),0);
+      aoa.push([]);
+      aoa.push(['','','TOTAL','','', d.totalGross||0, '', totalAb, d.totalDeduct||0, d.totalNet||0]);
+      aoa.push([]);
+      aoa.push(['Formula: Net = Monthly Salary − (Ab days × Monthly ÷ 26)']);
+      aoa.push(['© Man Power App · Powered by VKS Tech']);
+
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+      ws['!cols'] = [
+        {wch:4},{wch:12},{wch:20},{wch:12},{wch:14},
+        {wch:14},{wch:10},{wch:8},{wch:14},{wch:16}
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Manpower Cost');
+      XLSX.writeFile(wb, fileBase + '.xlsx');
+      toast('📤 Excel downloaded · Man Power + VKS Tech');
+      return;
+    }
+  }catch(e){ console.warn('[exportSalaryCost xlsx]', e); }
+
+  // HTML .xls fallback with logo
+  try{
+    let logoDataUrl = null;
+    try{ logoDataUrl = await _loadVksLogoDataUrl(); }catch(e){}
+    const rowsHtml = d.perEmployee.map((r,i)=>`<tr>
+      <td>${i+1}</td>
+      <td>${r.empId||''}</td>
+      <td>${r.name||''}</td>
+      <td>${r.mobile||''}</td>
+      <td>${r.section||''}</td>
+      <td style="text-align:right">${r.monthlySalary||0}</td>
+      <td style="text-align:center">${r.absentDays||0}</td>
+      <td style="text-align:right">${r.deduction||0}</td>
+      <td style="text-align:right">${r.netSalary!=null?r.netSalary:r.cost||0}</td>
+    </tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${fileBase}</title>
+<style>body{font-family:Arial,sans-serif;font-size:12px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #cbd5e1;padding:6px 8px}th{background:#0f172a;color:#fff}h1{color:#ea580c;margin:0} .sub{color:#64748b;font-size:11px}</style></head><body>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+  ${logoDataUrl?`<img src="${logoDataUrl}" width="48" height="48" style="border-radius:10px"/>`:''}
+  <div>
+    <h1>Man Power App — Manpower Cost</h1>
+    <div class="sub">VKS Tech — Technology is power · ${monthName} · ${company}</div>
+  </div>
+</div>
+<table>
+<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Mobile</th><th>Section</th><th>Salary</th><th>Ab Days</th><th>Deduction</th><th>Cost (Net)</th></tr></thead>
+<tbody>${rowsHtml}</tbody>
+</table>
+<p class="sub">Generated ${genAt} by ${d.generatedBy||''} · © Man Power · VKS Tech</p>
+</body></html>`;
+    const blob = new Blob([html], {type:'application/vnd.ms-excel;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = fileBase + '.xls';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    toast('📤 Excel downloaded · Man Power + VKS Tech');
+  }catch(e2){
+    console.warn(e2);
+    toast('❌ Download failed');
+  }
 }
 
 async function loadDeviceInfoForCard(empId, empName){
@@ -13922,7 +15416,7 @@ function showEmpNcrs(empId){
   const sorted = [...ncrs].sort((a,b)=>b.date.localeCompare(a.date));
 
   const rows = sorted.map(n=>{
-    const d = new Date(n.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+    const d = new Date(n.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
     const yr = n.year||n.date.substring(0,4);
     return `<div style="background:rgba(244,63,94,.05);border:1px solid rgba(244,63,94,.2);border-radius:10px;padding:11px 13px;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
@@ -14254,16 +15748,16 @@ function _showEmpUploadPreview(parsed, errors){
   const conflictRows = parsed.filter(p => p._skipSave);
   const newCount = okRows.filter(p => p._isNew).length;
   const updCount = okRows.length - newCount;
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
 
   const rows = parsed.map(p => {
     const conflict = !!p._skipSave;
     const badge = conflict
       ? (p._otherTeam
-          ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${isEn?'Other team':'दूसरी team'}</span>`
+          ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('दूसरी team','Other team')}</span>`
           : p._fileDup
-            ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${isEn?'Dup in file':'File में Dup'}</span>`
-            : `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${isEn?'Phone taken':'Phone लिया'}</span>`)
+            ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('File में Dup','Dup in file')}</span>`
+            : `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('Phone लिया','Phone taken')}</span>`)
       : `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;${p._isNew?'background:rgba(34,197,94,.15);color:#22c55e':'background:rgba(59,130,246,.15);color:#60a5fa'}">${p._isNew ? '🆕 New' : '✏️ Update'}</span>`;
     const tip = conflict
       ? (isEn
@@ -14302,20 +15796,18 @@ function _showEmpUploadPreview(parsed, errors){
       </div>
       <div style="flex:1;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#f97316">${okRows.length}</div>
-        <div style="font-size:10px;color:var(--muted2)">${isEn?'OK to save':'सेव होंगे'}</div>
+        <div style="font-size:10px;color:var(--muted2)">${L('सेव होंगे','OK to save')}</div>
       </div>
       ${conflictRows.length?`<div style="flex:1;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#fb7185">${conflictRows.length}</div>
-        <div style="font-size:10px;color:var(--muted2)">${isEn?'Blocked':'ब्लॉक'}</div>
+        <div style="font-size:10px;color:var(--muted2)">${L('ब्लॉक','Blocked')}</div>
       </div>`:''}
     </div>
 
     ${errors.length ? `<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:10px;font-size:11px;color:#f87171;margin-bottom:12px">⚠️ ${errors.length} row(s) skip हुई: ${escHtml(errors.slice(0,3).join(', '))}${errors.length>3?' ...':''}</div>` : ''}
     ${conflictRows.length ? `<div style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.4);border-radius:10px;padding:12px;font-size:12px;color:#fda4af;margin-bottom:12px;line-height:1.5">
-      <b style="color:#fb7185">🚫 ${conflictRows.length} ${isEn?'row(s) blocked — mobile already used':'row(s) ब्लॉक — मोबाइल पहले से इस्तेमाल'}</b><br>
-      ${isEn
-        ? 'These members will <b>not</b> be added/updated because their mobile number belongs to another employee (often another team). Highlighted in red below.'
-        : 'ये members <b>add/update नहीं</b> होंगे क्योंकि उनका मोबाइल नंबर दूसरे employee (अक्सर दूसरी team) के पास है। नीचे red में highlight हैं।'}
+      <b style="color:#fb7185">🚫 ${conflictRows.length} ${L('row(s) ब्लॉक — मोबाइल पहले से इस्तेमाल','row(s) blocked — mobile already used')}</b><br>
+      ${L('ये members <b>add/update नहीं</b> होंगे क्योंकि उनका मोबाइल नंबर दूसरे employee (अक्सर दूसरी team) के पास है। नीचे red में highlight हैं।','These members will <b>not</b> be added/updated because their mobile number belongs to another employee (often another team). Highlighted in red below.')}
       <div style="margin-top:6px;font-size:11px;opacity:.9">${conflictRows.slice(0,5).map(p=>escHtml(p.name)+' ('+(p.phone||'')+') → '+escHtml(p._conflictWith||'?')).join('<br>')}${conflictRows.length>5?'<br>…':''}</div>
     </div>` : ''}
 
@@ -14414,7 +15906,7 @@ async function _confirmEmpUpload(){
 
   _empUploadParsed = [];
   closeModal();
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   let msg = isEn ? `✅ ${saved} employees saved!` : `✅ ${saved} कर्मचारी save हो गए!`;
   if(skipped) msg += isEn ? ` ${skipped} blocked (duplicate mobile).` : ` ${skipped} ब्लॉक (duplicate mobile)।`;
   if(failed) msg += isEn ? ` ${failed} failed.` : ` ${failed} failed.`;
@@ -14981,7 +16473,7 @@ function _buildRespOptions(selected){
   return list.map(r=>`<option value="${r}"${selected===r?' selected':''}>${r}</option>`).join('');
 }
 function openAddEmpForm(){
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const mcOpts=_buildMachineOptions(null);
   const desigOpts=_buildDesignationOptions('Team Member');
   const respOpts=_buildRespOptions('Operation');
@@ -14992,8 +16484,8 @@ function openAddEmpForm(){
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ne_code" placeholder="30000XXX"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${isEn?'Section':'सेक्शन'} <span style="color:var(--lv)">*</span></label>
-      <input class="inp-field" id="ne_section" placeholder="${isEn?'e.g. Line-1 / Warehouse / ICU':'जैसे: Line-1 / Warehouse / ICU'}" maxlength="40" oninput="this.value=this.value.trimStart()">
+    <div class="field"><label>${L('सेक्शन','Section')} <span style="color:var(--lv)">*</span></label>
+      <input class="inp-field" id="ne_section" placeholder="${L('जैसे: Line-1 / Warehouse / ICU','e.g. Line-1 / Warehouse / ICU')}" maxlength="40" oninput="this.value=this.value.trimStart()">
     </div>
     <div class="field"><label>Designation</label><select id="ne_designation">${desigOpts}</select></div>
   </div>
@@ -15012,7 +16504,7 @@ function openAddEmpForm(){
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ne_dob" type="date"></div>
   </div>
   <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="number" min="0" step="1" placeholder="e.g. 15000"></div>
-  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section = team group for schedule filters (not the same as Machine).':'Section = schedule फ़िल्टर के लिए समूह (Machine से अलग)।'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${L('Section = schedule फ़िल्टर के लिए समूह (Machine से अलग)।','Section = team group for schedule filters (not the same as Machine).')}</div>
   <button class="submit-btn" onclick="addEmployee()">✅ ${typeof t==='function'?t('जोड़ें'):'Add'}</button>
   <button class="cancel-btn" onclick="closeModal()">${typeof t==='function'?t('रद्द करें'):'Cancel'}</button>`);
 }
@@ -15032,16 +16524,14 @@ async function addEmployee(){
   // Prefer explicit Section; fallback to machine mapping only if empty
   const sec = sectionRaw || _secFromMachine(mc, designation) || mc || 'General';
   if(!name||!code){ toast('नाम और कोड जरूरी है'); return; }
-  if(!sectionRaw){ toast((typeof _lang!=='undefined'&&_lang==='en')?'⚠️ Section is required':'⚠️ Section जरूरी है'); return; }
-  if(!mc){ toast((typeof _lang!=='undefined'&&_lang==='en')?'⚠️ Select a Machine':'⚠️ मशीन चुनें'); return; }
+  if(!sectionRaw){ toast(L('⚠️ Section जरूरी है','⚠️ Section is required')); return; }
+  if(!mc){ toast(L('⚠️ मशीन चुनें','⚠️ Select a Machine')); return; }
   // Only Admin can add Manager-section employees
   if(sec==='MGR' && !isAdmin()){ toast('❌ Manager section में सिर्फ Admin जोड़ सकते हैं'); return; }
   // Duplicate employee code
   const codeClash = (getEmps()||[]).find(e => e.status !== 'resigned' && e.empId && String(e.empId).trim().toUpperCase() === code.toUpperCase());
   if(codeClash){
-    toast((typeof _lang!=='undefined'&&_lang==='en')
-      ? `⚠️ Employee code already exists: ${codeClash.name}`
-      : `⚠️ Employee code पहले से है: ${codeClash.name}`);
+    toast(L('⚠️ Employee code पहले से है: ','⚠️ Employee code already exists: ') + codeClash.name);
     return;
   }
   // Duplicate mobile (especially other team)
@@ -15050,13 +16540,9 @@ async function addEmployee(){
     if(clash){
       const nm = clash.emp.name || clash.emp.empId || '';
       if(clash.otherTeam){
-        toast((typeof _lang!=='undefined'&&_lang==='en')
-          ? `📱 Mobile already belongs to another team's member (${nm}). Not added.`
-          : `📱 यह मोबाइल नंबर पहले से दूसरे team के member (${nm}) के पास है। Add नहीं किया।`);
+        toast(L('📱 यह मोबाइल नंबर पहले से दूसरे team के member के पास है। Add नहीं किया।','📱 Mobile already belongs to another team\'s member. Not added.') + ' ('+nm+')');
       } else {
-        toast((typeof _lang!=='undefined'&&_lang==='en')
-          ? `📱 Mobile already registered to ${nm}. Not added.`
-          : `📱 यह मोबाइल नंबर पहले से ${nm} के पास registered है। Add नहीं किया।`);
+        toast(L('📱 यह मोबाइल नंबर पहले से registered है। Add नहीं किया।','📱 Mobile already registered. Not added.') + ' ('+nm+')');
       }
       return;
     }
@@ -15074,12 +16560,12 @@ async function addEmployee(){
   if(salaryRaw) emp.monthlySalary=parseFloat(salaryRaw);
   await fbUpdate(`employees/${id}`,emp);
   closeModal();
-  toast((typeof _lang!=='undefined'&&_lang==='en') ? `✅ ${name} added` : `✅ ${name} जोड़ा गया`);
+  toast('✅ ' + name + ' ' + L('जोड़ा गया','added'));
 }
 
 function openEditEmpForm(empId){
   const e=getEmps().find(x=>x.id===empId); if(!e) return;
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const mcOpts=_buildMachineOptions(e.mc||'');
   const desigOpts=_buildDesignationOptions(e.designation||'');
   const respOpts=_buildRespOptions(e.resp||'');
@@ -15087,20 +16573,20 @@ function openEditEmpForm(empId){
   if(e.resp && !respOpts.includes(`value="${e.resp}"`)) respExtra=`<option value="${e.resp}" selected>${e.resp}</option>`;
   const statusSel = ['active','resigned'].map(s=>`<option value="${s}"${(e.status||'active')===s?' selected':''}>${s}</option>`).join('');
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">✏️ ${isEn?'Edit':'संपादित करें'} ${e.name}</div>
+  <div class="modal-title">✏️ ${L('संपादित करें','Edit')} ${e.name}</div>
   <div class="grid2">
-    <div class="field"><label>${isEn?'Name':'नाम'}</label><input class="inp-field" id="ee_name" value="${e.name}"></div>
+    <div class="field"><label>${L('नाम','Name')}</label><input class="inp-field" id="ee_name" value="${e.name}"></div>
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ee_code" value="${e.empId||''}"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${isEn?'Section':'सेक्शन'}</label>
-      <input class="inp-field" id="ee_sec" value="${(e.section||e.sec||'').replace(/"/g,'&quot;')}" maxlength="40" placeholder="${isEn?'e.g. Line-1 / Warehouse':'जैसे: Line-1 / Warehouse'}">
+    <div class="field"><label>${L('सेक्शन','Section')}</label>
+      <input class="inp-field" id="ee_sec" value="${(e.section||e.sec||'').replace(/"/g,'&quot;')}" maxlength="40" placeholder="${L('जैसे: Line-1 / Warehouse','e.g. Line-1 / Warehouse')}">
     </div>
     <div class="field"><label>Designation</label><select id="ee_designation">${desigOpts}</select></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${isEn?'Machine':'मशीन'}</label><select id="ee_mc">${mcOpts}</select></div>
-    <div class="field"><label>${isEn?'Responsibility':'ज़िम्मेदारी'}</label><select id="ee_resp">${respExtra}${respOpts}</select></div>
+    <div class="field"><label>${L('मशीन','Machine')}</label><select id="ee_mc">${mcOpts}</select></div>
+    <div class="field"><label>${L('ज़िम्मेदारी','Responsibility')}</label><select id="ee_resp">${respExtra}${respOpts}</select></div>
   </div>
   <div class="grid2">
     <div class="field"><label>Week Off</label>
@@ -15112,11 +16598,11 @@ function openEditEmpForm(empId){
     const lockPhone = isManagerSelfRecord(e);
     const ph = e.phone||e.mobile||'';
     if(lockPhone){
-      return `<div class="field"><label>📱 ${isEn?'Mobile (login — locked)':'मोबाइल (लॉगिन — लॉक)'}</label>
+      return `<div class="field"><label>📱 ${L('मोबाइल (लॉगिन — लॉक)','Mobile (login — locked)')}</label>
         <input class="inp-field" id="ee_phone" value="${ph}" readonly style="opacity:.85;cursor:not-allowed;background:rgba(148,163,184,.12)">
-        <div style="font-size:11px;color:#fbbf24;margin-top:4px">${isEn?'Manager mobile must match login number and cannot be changed here.':'Manager का मोबाइल लॉगिन नंबर से जुड़ा है — यहाँ नहीं बदल सकते।'}</div></div>`;
+        <div style="font-size:11px;color:#fbbf24;margin-top:4px">${L('Manager का मोबाइल लॉगिन नंबर से जुड़ा है — यहाँ नहीं बदल सकते।','Manager mobile must match login number and cannot be changed here.')}</div></div>`;
     }
-    return `<div class="field"><label>📱 ${isEn?'Mobile':'मोबाइल नंबर'}</label><input class="inp-field" id="ee_phone" value="${ph}" placeholder="10-digit" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>`;
+    return `<div class="field"><label>📱 ${L('मोबाइल नंबर','Mobile')}</label><input class="inp-field" id="ee_phone" value="${ph}" placeholder="10-digit" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>`;
   })()}
   <div class="grid2">
     <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ee_joining" type="date" value="${e.joiningDate||''}"></div>
@@ -15129,32 +16615,44 @@ function openEditEmpForm(empId){
   ${isAdmin()?`<div class="field"><label>Access Level</label><select id="ee_accessLevel"><option value="worker"${(e.accessLevel||'worker')==='worker'?' selected':''}>Worker</option><option value="manager"${e.accessLevel==='manager'?' selected':''}>Manager</option></select></div>`:'<input type="hidden" id="ee_accessLevel" value="'+(e.accessLevel||'worker')+'">'}
   ${(isMgr()||isAdmin()) && !isManagerSelfRecord(e) ? `
   <div style="margin:12px 0;padding:12px;border-radius:12px;border:1px solid rgba(168,85,247,.35);background:rgba(168,85,247,.08)">
-    <div style="font-size:12px;font-weight:800;color:#c084fc;margin-bottom:8px">🔐 ${isEn?'Team authorization (delegate)':'टीम अधिकार (सौंपें)'}</div>
-    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.4">${isEn?'Allow this member to help manage the team:':'इस सदस्य को टीम मैनेज करने की अनुमति दें:'}</div>
+    <div style="font-size:12px;font-weight:800;color:#c084fc;margin-bottom:8px">🔐 ${L('टीम अधिकार (सौंपें)','Team authorization (delegate)')}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.4">${L('इस सदस्य को टीम मैनेज करने की अनुमति दें:','Allow this member to help manage the team:')}</div>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
       <input type="checkbox" id="ee_perm_schedule" ${(e.perms&&e.perms.schedule)?'checked':''} style="width:18px;height:18px;accent-color:#a855f7">
-      📅 ${isEn?'Make / edit shift schedule':'Shift schedule बनाएं / बदलें'}
+      📅 ${L('Shift schedule बनाएं / बदलें','Make / edit shift schedule')}
     </label>
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
       <input type="checkbox" id="ee_perm_leave" ${(e.perms&&e.perms.leave)?'checked':''} style="width:18px;height:18px;accent-color:#22c55e">
-      🏖️ ${isEn?'Approve / manage leave':'Leave approve / manage'}
+      🏖️ ${L('Leave approve / manage','Approve / manage leave')}
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
       <input type="checkbox" id="ee_perm_reports" ${(e.perms&&e.perms.reports)?'checked':''} style="width:18px;height:18px;accent-color:#38bdf8">
-      📋 ${isEn?'Manage team reports':'Team reports manage'}
+      📋 ${L('Team reports manage','Manage team reports')}
     </label>
     <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text);cursor:pointer">
       <input type="checkbox" id="ee_perm_pending" ${(e.perms&&e.perms.pending)?'checked':''} style="width:18px;height:18px;accent-color:#a78bfa">
-      ⏳ ${isEn?'See Pending approvals (delegate)':'Pending approvals (delegate)'}
+      ⏳ ${L('Pending approvals (delegate)','See Pending approvals (delegate)')}
     </label>
-    <div style="font-size:10px;color:var(--muted2);margin-top:6px">${isEn?'Leave tick = can approve team leave & C-Off':'Leave ✓ = team leave / C-Off approve कर सकते हैं'}</div>
+    <div style="font-size:10px;color:var(--muted2);margin-top:6px">${L('Leave ✓ = team leave / C-Off approve कर सकते हैं','Leave tick = can approve team leave & C-Off')}</div>
   </div>` : ''}
-  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${isEn?'Section comes from Excel / edit form (not from Machine).':'Section Excel / form से (Machine से नहीं)।'}</div>
-  <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();saveEmployee('${empId}')">💾 ${isEn?'Save':'सेव करें'}</button>
-  <button type="button" class="cancel-btn" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+  <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${L('Section Excel / form से (Machine से नहीं)।','Section comes from Excel / edit form (not from Machine).')}</div>
+  <div class="field"><label>🌐 ${L('WhatsApp भाषा / Preferred language','WhatsApp / Preferred language')}</label>
+    <select class="inp-field" id="ee_preferredLang" style="width:100%">
+      ${['hi','en','gu','ta','te','kn','bn','or','ar','ur','zh','de','it','es','tr','pt','th','id','vi'].map(c=>{
+        const titles={hi:'हिन्दी',en:'English',gu:'ગુજરાતી',ta:'தமிழ்',te:'తెలుగు',kn:'ಕನ್ನಡ',bn:'বাংলা',or:'ଓଡ଼ିଆ',ar:'العربية',ur:'اردو',zh:'中文',de:'Deutsch',it:'Italiano',es:'Español',tr:'Türkçe',pt:'Português',th:'ไทย',id:'Indonesia',vi:'Tiếng Việt'};
+        const sel=(e.preferredLang||e.lang||'')===c?'selected':'';
+        return '<option value="'+c+'" '+sel+'>'+(titles[c]||c)+'</option>';
+      }).join('')}
+    </select>
+    <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('इस भाषा में WhatsApp messages जाएंगे','WhatsApp messages will use this language')}</div>
+  </div>
+  <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();saveEmployee('${empId}')">💾 ${L('सेव करें','Save')}</button>
+  <button type="button" class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
 async function saveEmployee(empId){
+  // preferredLang captured early via val() after fields exist
+
   try{
   const e = (getEmps().find(x=>x.id===empId))
     || ((_cache.employees||[]).find(x=>x.id===empId))
@@ -15166,9 +16664,7 @@ async function saveEmployee(empId){
   if(typeof _ensureWriteAuth === 'function'){
     const ok = await _ensureWriteAuth();
     if(!ok){
-      toast((_lang==='en')
-        ? '❌ Phone verify on this device (other devices stay logged in)'
-        : '❌ इस device पर Phone verify करें (दूसरा device logout नहीं होगा)');
+      toast(L('❌ इस device पर Phone verify करें (दूसरा device logout नहीं होगा)','❌ Phone verify on this device (other devices stay logged in)'));
       return;
     }
   }
@@ -15241,13 +16737,9 @@ async function saveEmployee(empId){
       const clash = _findPhoneConflict(update.phone, empId, update.empId);
       if(clash && clash.emp && clash.emp.id !== empId){
         const nm = clash.emp.name || clash.emp.empId || '';
-        toast((typeof _lang!=='undefined'&&_lang==='en')
-          ? (clash.otherTeam
-              ? `📱 Mobile already belongs to another team's member (${nm}).`
-              : `📱 Mobile already registered to ${nm}.`)
-          : (clash.otherTeam
-              ? `📱 यह मोबाइल नंबर पहले से दूसरे team के member (${nm}) के पास है।`
-              : `📱 यह मोबाइल नंबर पहले से ${nm} के पास registered है।`));
+        toast((clash.otherTeam
+          ? L('📱 यह मोबाइल नंबर पहले से दूसरे team के member के पास है।','📱 Mobile already belongs to another team\'s member.')
+          : L('📱 यह मोबाइल नंबर पहले से registered है।','📱 Mobile already registered.')) + ' ('+nm+')');
         return;
       }
     }
@@ -15255,7 +16747,8 @@ async function saveEmployee(empId){
 
   // Prefer multi-path update for nested perms reliability
   try{
-    await fbUpdate('employees/'+empId, update);
+      try{ const pl=document.getElementById('ee_preferredLang'); if(pl) update.preferredLang=pl.value||''; }catch(e){}
+  await fbUpdate('employees/'+empId, update);
   }catch(err1){
     console.warn('saveEmployee fbUpdate failed, retry set merge', err1);
     // Fallback: write perms fields flat if nested blocked
@@ -15282,9 +16775,56 @@ async function saveEmployee(empId){
     else _cache.employees.push({...update, id: empId});
   }catch(e){}
 
+  // Sync mobileUsers + deviceApprovals to CURRENT name/phone; clear old mobile if phone changed
+  try{
+    const oldPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
+    const newPhone = _normMobileKey(update.phone||'');
+    if(oldPhone && oldPhone.length===10 && oldPhone !== newPhone){
+      // Phone moved away — strip old member identity from previous mobileUsers key
+      try{
+        await fbUpdate('mobileUsers/'+oldPhone, {
+          name: '',
+          empId: null,
+          empCode: null,
+          empObjId: null,
+          employeeId: null,
+          status: 'left_team',
+          leftAt: new Date().toISOString(),
+          leftReason: 'phone_reassigned',
+          reassignedToEmp: empId
+        });
+      }catch(e2){ console.warn('[saveEmp] clear old mobile', e2); }
+    }
+    if(newPhone && newPhone.length===10){
+      try{
+        const existingMu = await fbGet('mobileUsers/'+newPhone) || {};
+        await fbUpdate('mobileUsers/'+newPhone, {
+          name: update.name || nameVal,
+          empId: update.empId || '',
+          empCode: update.empId || '',
+          empObjId: empId,
+          employeeId: empId,
+          phone: newPhone,
+          mobile: newPhone,
+          company: (e && e.company) || existingMu.company || SESSION.company || '',
+          section: update.section || update.sec || '',
+          syncedAt: new Date().toISOString()
+        });
+      }catch(e2){ console.warn('[saveEmp] sync mobileUsers', e2); }
+      try{
+        await fbUpdate('deviceApprovals/'+empId, {
+          empName: update.name || nameVal,
+          empId: update.empId || '',
+          mobile: newPhone,
+          updatedAt: new Date().toISOString()
+        });
+      }catch(e2){}
+    }
+  }catch(eSync){ console.warn('[saveEmp] mobile sync', eSync); }
+
   closeModal();
   try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
-  toast((typeof _lang!=='undefined'&&_lang==='en') ? '✅ Details updated' : '✅ जानकारी अपडेट हो गई');
+  toast(L('✅ जानकारी अपडेट हो गई','✅ Details updated'));
   }catch(err){
     console.error('saveEmployee', err);
     toast('❌ Save error: '+(err.message||err));
@@ -15335,6 +16875,33 @@ async function archiveEmployee(id, name){
 
   // Remove from active employees
   await fbRemove('employees/' + id);
+
+  // Clear mobileUsers identity so next login does not show this old name
+  try{
+    await _unlinkMobileUserOnLeave({ ...empData, id, status: reason||'removed', phone: empData.phone||empData.mobile });
+  }catch(e){}
+  try{
+    const mob = _normMobileKey(empData.phone||empData.mobile||'');
+    if(mob){
+      await fbUpdate('mobileUsers/'+mob, {
+        name: '',
+        empId: null,
+        empCode: null,
+        empObjId: null,
+        employeeId: null,
+        status: 'left_team',
+        leftAt: new Date().toISOString(),
+        leftReason: reason||'removed'
+      });
+    }
+  }catch(e){}
+  try{
+    await fbUpdate('deviceApprovals/'+id, {
+      empName: (name||'')+' (left)',
+      validTill: new Date(0).toISOString(),
+      leftAt: new Date().toISOString()
+    });
+  }catch(e){}
 
   closeModal();
   toast('🚪 ' + name + ' Left Members में चले गए');
@@ -16661,7 +18228,7 @@ function openModal(html){
   document.getElementById('overlay').classList.add('open');
   try{ history.pushState({ mp:true, tab:_currentTab, kind:'modal' }, ''); }catch(e){}
   // Translate all modal text when English is active
-  if(typeof _lang !== 'undefined' && _lang === 'en'){
+  if(typeof _lang !== 'undefined' && _lang !== 'hi'){
     setTimeout(()=>{
       try{
         if(typeof _translateDOM === 'function') _translateDOM();
@@ -16682,7 +18249,10 @@ function openModal(html){
     }, 40);
   }
 }
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); }
+function closeModal(){
+  try{ document.getElementById('overlay').classList.remove('open'); }catch(e){}
+  try{ if(document.body.classList.contains('sb-builder-open')) _sbLockLandscape(false); }catch(e){}
+}
 
 // ════════════════════════════════════════
 // TOAST
@@ -17278,6 +18848,10 @@ const _i18n_HI_EN = {
   'Slit (सभी Slitter)': 'Slit (All Slitter)',
   'NCR रिपोर्ट': 'NCR Report',
   'अनुपस्थिति': 'Absence',
+  'अनुपस्थित': 'Absentees',
+  'W-Off पर': 'on W off',
+  'ड्यूटी पर': 'On duty',
+  'अवकाश पर': 'On leave',
   'चेतावनी / अनुशासनहीनता': 'Warning / Indiscipline',
   'प्रशंसा': 'Appreciation',
   'Imp. Information': 'Imp. Information',
@@ -17339,20 +18913,167 @@ const _i18n_HI_EN = {
 
 /**
  * t(str) — translate a string based on current language.
- * If _lang === 'en' and str exists in dictionary, returns English.
- * Otherwise returns original. Safe for any string (Hindi or English).
+ * Supports all Indian languages via _i18n_ML + classic _i18n_HI_EN fallback.
+ * Fallback chain: selected lang → en → original (Hindi).
  */
+
+/**
+ * L(hi, en) — multi-language UI string helper (replaces isEn ? en : hi).
+ * Uses mlT/t when available so gu/ta/kn/ar/de/... all work; never leaves Hindi when lang≠hi if EN exists.
+ */
+
+/** BCP47 locale for Intl APIs from app _lang */
+
+/** Load script-specific webfont only when needed (saves bandwidth on shop networks) */
+function loadLangFont(lang){
+  lang = lang || (typeof _lang!=='undefined'?_lang:'hi');
+  var map = {
+    ar: 'Noto+Sans+Arabic:wght@400;700',
+    ur: 'Noto+Sans+Arabic:wght@400;700',
+    gu: 'Noto+Sans+Gujarati:wght@400;700',
+    ta: 'Noto+Sans+Tamil:wght@400;700',
+    te: 'Noto+Sans+Telugu:wght@400;700',
+    kn: 'Noto+Sans+Kannada:wght@400;700',
+    bn: 'Noto+Sans+Bengali:wght@400;700',
+    or: 'Noto+Sans+Oriya:wght@400;700',
+    mr: 'Noto+Sans+Devanagari:wght@400;700',
+    ml: 'Noto+Sans+Malayalam:wght@400;700',
+    pa: 'Noto+Sans+Gurmukhi:wght@400;700',
+    zh: 'Noto+Sans+SC:wght@400;700',
+    th: 'Noto+Sans+Thai:wght@400;700'
+  };
+  var fam = map[lang];
+  var link = document.getElementById('mp-fonts-lang');
+  if(!link){
+    link = document.createElement('link');
+    link.id = 'mp-fonts-lang';
+    link.rel = 'stylesheet';
+    document.head.appendChild(link);
+  }
+  if(!fam){
+    link.removeAttribute('href');
+    return;
+  }
+  var href = 'https://fonts.googleapis.com/css2?family='+fam+'&display=swap';
+  if(link.getAttribute('href') !== href) link.setAttribute('href', href);
+}
+
+function mpLocale(lang){
+  lang = lang || (typeof _lang !== 'undefined' ? _lang : 'en');
+  var map = {hi:'hi-IN',en:'en-IN',gu:'gu-IN',ta:'ta-IN',te:'te-IN',kn:'kn-IN',bn:'bn-IN',or:'or-IN',
+    ar:'ar-AE',ur:'ur-PK',zh:'zh-CN',de:'de-DE',it:'it-IT',es:'es-ES',tr:'tr-TR',pt:'pt-BR',th:'th-TH',id:'id-ID',vi:'vi-VN'};
+  return map[lang] || 'en-IN';
+}
+/** Format date for current language */
+function mpFormatDate(d, opts){
+  try{
+    var dt = (d instanceof Date) ? d : new Date(d);
+    if(isNaN(dt.getTime())) return String(d||'');
+    return dt.toLocaleDateString(mpLocale(), opts || {day:'2-digit',month:'short',year:'numeric'});
+  }catch(e){ return String(d||''); }
+}
+/** Simple plural: mpPlural(n, oneHi, manyHi, oneEn, manyEn) */
+function mpPlural(n, oneHi, manyHi, oneEn, manyEn){
+  n = Number(n)||0;
+  var hi = (n === 1) ? oneHi : manyHi;
+  var en = (n === 1) ? oneEn : manyEn;
+  if(typeof L === 'function') return L(hi, en).replace('{n}', String(n));
+  var lang = (typeof _lang !== 'undefined') ? _lang : 'hi';
+  return (lang === 'hi' ? hi : en).replace('{n}', String(n));
+}
+/** Export i18n table as JSON for translators */
+function mpExportI18n(){
+  try{
+    var data = {lang: _lang, country: _country, supported: window._i18n_SUPPORTED||[], sample: {}};
+    if(window._i18n_ML){
+      var keys = Object.keys(window._i18n_ML).slice(0, 50);
+      keys.forEach(function(k){ data.sample[k] = window._i18n_ML[k]; });
+    }
+    var blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'manpower-i18n-export.json';
+    a.click();
+    if(typeof toast==='function') toast('📥 i18n export downloaded');
+  }catch(e){ console.warn(e); }
+}
+function mpToggleI18nDebug(){
+  try{
+    var on = localStorage.getItem('mp_i18n_debug') === '1';
+    localStorage.setItem('mp_i18n_debug', on ? '0' : '1');
+    if(typeof toast==='function') toast(on ? 'i18n debug OFF' : 'i18n debug ON — missing keys highlighted');
+    if(typeof applyLang==='function') applyLang();
+  }catch(e){}
+}
+
+
+/** Time-of-day greeting in current (or given) language — feels personal */
+function mpGreeting(lang){
+  lang = lang || (typeof _lang!=='undefined'?_lang:'hi');
+  var h = new Date().getHours();
+  var map = {
+    hi: h<12?'सुप्रभात':h<17?'नमस्कार':'शुभ संध्या',
+    en: h<12?'Good morning':h<17?'Good afternoon':'Good evening',
+    gu: h<12?'સુપ્રભાત':h<17?'નમસ્કાર':'શુભ સાંજ',
+    kn: h<12?'ಶುಭೋದಯ':h<17?'ನಮಸ್ಕಾರ':'ಶುಭ ಸಂಜೆ',
+    ta: h<12?'காலை வணக்கம்':h<17?'வணக்கம்':'மாலை வணக்கம்',
+    te: h<12?'శుభోదయం':h<17?'నమస్కారం':'శుభ సాయంత్రం',
+    bn: h<12?'সুপ্রভাত':h<17?'নমস্কার':'শুভ সন্ধ্যা',
+    or: h<12?'ଶୁଭ ସକାଳ':h<17?'ନମସ୍କାର':'ଶୁଭ ସନ୍ଧ୍ୟା',
+    ar: h<12?'صباح الخير':h<17?'مرحباً':'مساء الخير',
+    ur: h<12?'صبح بخیر':h<17?'السلام علیکم':'شام بخیر',
+    zh: h<12?'早上好':h<17?'你好':'晚上好',
+    de: h<12?'Guten Morgen':h<17?'Guten Tag':'Guten Abend',
+    es: h<12?'Buenos días':h<17?'Buenas tardes':'Buenas noches',
+    tr: h<12?'Günaydın':h<17?'Merhaba':'İyi akşamlar',
+    pt: h<12?'Bom dia':h<17?'Boa tarde':'Boa noite',
+    th: h<12?'อรุณสวัสดิ์':h<17?'สวัสดี':'สวัสดีตอนเย็น',
+    id: h<12?'Selamat pagi':h<17?'Selamat siang':'Selamat malam',
+    vi: h<12?'Chào buổi sáng':h<17?'Xin chào':'Chào buổi tối',
+    it: h<12?'Buongiorno':h<17?'Buon pomeriggio':'Buonasera'
+  };
+  return map[lang] || map.en;
+}
+
+function L(hi, en){
+  if(typeof _lang === 'undefined' || _lang === 'hi') return hi;
+  if(typeof mlT === 'function'){
+    var v = mlT(hi, _lang);
+    if(v && v !== hi) return v;
+  }
+  if(typeof t === 'function'){
+    var v2 = t(hi);
+    if(v2 && v2 !== hi) return v2;
+  }
+  if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[hi]) return _i18n_HI_EN[hi];
+  // Non-Hindi UI: prefer explicit English arg over leftover Hindi
+  if(en != null && en !== '') return en;
+  return hi;
+}
+
 function t(str){
-  if(typeof _lang === 'undefined' || _lang !== 'en') return str;
   if(!str || typeof str !== 'string') return str;
-  // Direct lookup
-  if(_i18n_HI_EN[str]) return _i18n_HI_EN[str];
-  // Try prefix match for strings with appended dynamic content (e.g. "✅ Login हो गया! Welcome NITISH")
-  for(const key of Object.keys(_i18n_HI_EN)){
-    if(key.length > 5 && str.startsWith(key)){
-      return _i18n_HI_EN[key] + str.slice(key.length);
+  if(typeof _lang === 'undefined' || _lang === 'hi') return str;
+  // Multi-lang meaning map + Brahmic script fallback (via mlT)
+  if(typeof mlT === 'function'){
+    const ml = mlT(str, _lang);
+    if(ml !== str) return ml;
+  }
+  // Classic HI→EN dictionary
+  if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[str]) return _i18n_HI_EN[str];
+  // Prefix match for dynamic suffixes
+  if(typeof _i18n_HI_EN === 'object'){
+    for(const key of Object.keys(_i18n_HI_EN)){
+      if(key.length > 5 && str.startsWith(key)){
+        let tail = _i18n_HI_EN[key] + str.slice(key.length);
+        // Script-convert leftover Devanagari in dynamic tail when needed
+        if(typeof mlScript === 'function') tail = mlScript(tail, _lang);
+        return tail;
+      }
     }
   }
+  // Last resort: script-convert free Hindi text for Brahmic UI languages
+  if(typeof mlScript === 'function') return mlScript(str, _lang);
   return str;
 }
 
@@ -17360,7 +19081,7 @@ function t(str){
 /** User-facing Firebase / network errors (no raw PERMISSION_DENIED) */
 function friendlyFbError(err){
   const msg = String((err && (err.message||err.code)) || err || '');
-  const en = (typeof _lang!=='undefined' && _lang==='en');
+  const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
   if(/PERMISSION_DENIED|permission_denied/i.test(msg))
     return en
       ? 'Action not allowed. Try Phone verify once on this device, or ask Admin/Manager.'
@@ -17453,7 +19174,7 @@ let _holidayDraft = { items: [], snapshotUrl: null };
 
 async function openHolidayListModal(){
   // profile menu entry
-  if(!isAdmin() && !isMgr()){ toast((_lang==='en')?'❌ Manager only':'❌ Manager only'); return; }
+  if(!isAdmin() && !isMgr()){ toast(L('❌ Manager only','❌ Manager only')); return; }
   try{ closeModal(); }catch(e){}
   try{
     const data = await loadHolidayList();
@@ -17468,10 +19189,10 @@ async function openHolidayListModal(){
 }
 
 function _renderHolidayListModal(){
-  const isEn = (_lang==='en');
+  const isEn = (_lang !== 'hi');
   const items = _holidayDraft.items||[];
   const rows = items.length ? items.map((it,i)=>{
-    const fmt = (()=>{ try{ return new Date(it.date+'T12:00:00').toLocaleDateString(isEn?'en-IN':'hi-IN',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return it.date; }})();
+    const fmt = (()=>{ try{ return new Date(it.date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'2-digit',month:'short',year:'numeric'}); }catch(e){ return it.date; }})();
     return `<tr>
       <td style="padding:8px 6px;font-weight:800;color:var(--text);white-space:nowrap">${fmt}</td>
       <td style="padding:8px 6px;color:var(--text);font-size:13px">${(it.reason||'').replace(/</g,'&lt;')}</td>
@@ -17479,21 +19200,21 @@ function _renderHolidayListModal(){
         <button type="button" onclick="_removeHolidayItem(${i})" style="background:rgba(244,63,94,.12);border:1px solid rgba(244,63,94,.35);color:#f43f5e;border-radius:8px;padding:6px 10px;font-weight:800;cursor:pointer;font-size:12px">✕</button>
       </td>
     </tr>`;
-  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--muted2);font-size:13px">${isEn?'No holidays yet — add below, Excel, or Auto-fetch':'अभी कोई holiday नहीं — नीचे जोड़ें, Excel, या Auto-fetch करें'}</td></tr>`;
+  }).join('') : `<tr><td colspan="3" style="padding:16px;text-align:center;color:var(--muted2);font-size:13px">${L('अभी कोई holiday नहीं — नीचे जोड़ें, Excel, या Auto-fetch करें','No holidays yet — add below, Excel, or Auto-fetch')}</td></tr>`;
 
   const yNow = new Date().getFullYear();
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">📅 ${isEn?'Holiday List':'Holiday List'}</div>
+  <div class="modal-title">📅 ${L('Holiday List','Holiday List')}</div>
   <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-    ${isEn?'Add <b>Date + Reason</b>, upload Excel (<code>Date | Reason</code>), or <b>Auto-fetch</b> All-India public holidays for a year.':'Manager यहाँ <b>Date + Reason</b> जोड़ सकता है, Excel upload कर सकता है, या <b>Auto-fetch</b> से All-India holidays ला सकता है।'}
+    ${L('Manager यहाँ <b>Date + Reason</b> जोड़ सकता है, Excel upload कर सकता है, या <b>Auto-fetch</b> से All-India holidays ला सकता है।','Add <b>Date + Reason</b>, upload Excel (<code>Date | Reason</code>), or <b>Auto-fetch</b> All-India public holidays for a year.')}
   </div>
 
   <div style="overflow-x:auto;border:1px solid var(--border2);border-radius:12px;margin-bottom:12px">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead>
         <tr style="background:var(--card2)">
-          <th style="text-align:left;padding:10px 6px;font-size:11px;color:var(--muted2)">${isEn?'Date':'Date'}</th>
-          <th style="text-align:left;padding:10px 6px;font-size:11px;color:var(--muted2)">${isEn?'Reason':'Reason'}</th>
+          <th style="text-align:left;padding:10px 6px;font-size:11px;color:var(--muted2)">${L('Date','Date')}</th>
+          <th style="text-align:left;padding:10px 6px;font-size:11px;color:var(--muted2)">${L('Reason','Reason')}</th>
           <th style="width:44px"></th>
         </tr>
       </thead>
@@ -17501,47 +19222,47 @@ function _renderHolidayListModal(){
     </table>
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#f59e0b;margin:4px 0 8px">➕ ${isEn?'Add holiday':'Add holiday'}</div>
+  <div style="font-size:12px;font-weight:800;color:#f59e0b;margin:4px 0 8px">➕ ${L('Add holiday','Add holiday')}</div>
   <div style="display:grid;grid-template-columns:1fr 1.4fr auto;gap:8px;margin-bottom:14px;align-items:end">
     <div>
-      <div style="font-size:10px;color:var(--muted2);margin-bottom:4px">${isEn?'Date':'Date'}</div>
+      <div style="font-size:10px;color:var(--muted2);margin-bottom:4px">${L('Date','Date')}</div>
       <input type="date" id="hl_date" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;box-sizing:border-box">
     </div>
     <div>
-      <div style="font-size:10px;color:var(--muted2);margin-bottom:4px">${isEn?'Reason':'Reason'}</div>
-      <input type="text" id="hl_reason" placeholder="${isEn?'e.g. Diwali / Company holiday':'e.g. Diwali / Company holiday'}" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;box-sizing:border-box">
+      <div style="font-size:10px;color:var(--muted2);margin-bottom:4px">${L('Reason','Reason')}</div>
+      <input type="text" id="hl_reason" placeholder="${L('e.g. Diwali / Company holiday','e.g. Diwali / Company holiday')}" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;box-sizing:border-box">
     </div>
     <button type="button" onclick="_addHolidayItem()" style="padding:10px 14px;border-radius:10px;border:none;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-weight:800;cursor:pointer;font-size:13px">Add</button>
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#22c55e;margin:4px 0 8px">🇮🇳 ${isEn?'Auto-fetch All-India holidays':'Auto-fetch All-India holidays'}</div>
+  <div style="font-size:12px;font-weight:800;color:#22c55e;margin:4px 0 8px">🇮🇳 ${L('Auto-fetch All-India holidays','Auto-fetch All-India holidays')}</div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
     <select id="hl_year" style="padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700">
       <option value="${yNow-1}">${yNow-1}</option>
       <option value="${yNow}" selected>${yNow}</option>
       <option value="${yNow+1}">${yNow+1}</option>
     </select>
-    <button type="button" class="submit-btn" style="margin:0;flex:1;min-width:160px;padding:10px 14px" onclick="_autoFetchIndiaHolidays()">⚡ ${isEn?'Auto Fetch':'Auto Fetch'}</button>
+    <button type="button" class="submit-btn" style="margin:0;flex:1;min-width:160px;padding:10px 14px" onclick="_autoFetchIndiaHolidays()">⚡ ${L('Auto Fetch','Auto Fetch')}</button>
   </div>
-  <div style="font-size:11px;color:var(--muted2);margin:-6px 0 14px;line-height:1.4">${isEn?'Fetches official public holidays (Republic Day, Holi, Diwali, etc.) for the selected year. Merges with your list (same date = update). Works offline if previously fetched.':'चयनित वर्ष की आधिकारिक सार्वजनिक छुट्टियाँ (Republic Day, Holi, Diwali आदि)। सूची में merge होती हैं। पहले fetch हो चुकी हों तो offline भी चलती हैं।'}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:-6px 0 14px;line-height:1.4">${L('चयनित वर्ष की आधिकारिक सार्वजनिक छुट्टियाँ (Republic Day, Holi, Diwali आदि)। सूची में merge होती हैं। पहले fetch हो चुकी हों तो offline भी चलती हैं।','Fetches official public holidays (Republic Day, Holi, Diwali, etc.) for the selected year. Merges with your list (same date = update). Works offline if previously fetched.')}</div>
 
-  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:4px 0 8px">📂 ${isEn?'Excel / CSV import':'Excel / CSV import'}</div>
-  <div style="font-size:11px;color:var(--muted2);margin-bottom:8px">${isEn?'Columns: <b>Date</b> | <b>Reason</b>':'Columns: <b>Date</b> | <b>Reason</b>'}</div>
+  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:4px 0 8px">📂 ${L('Excel / CSV import','Excel / CSV import')}</div>
+  <div style="font-size:11px;color:var(--muted2);margin-bottom:8px">${L('Columns: <b>Date</b> | <b>Reason</b>','Columns: <b>Date</b> | <b>Reason</b>')}</div>
   <input type="file" id="hl_excel" accept=".xlsx,.xls,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none" onchange="_importHolidayExcel(this)">
-  <button type="button" class="cancel-btn" style="margin-bottom:12px" onclick="document.getElementById('hl_excel').click()">📂 ${isEn?'Choose Excel / CSV':'Choose Excel / CSV'}</button>
+  <button type="button" class="cancel-btn" style="margin-bottom:12px" onclick="document.getElementById('hl_excel').click()">📂 ${L('Choose Excel / CSV','Choose Excel / CSV')}</button>
 
-  <button class="submit-btn" style="margin-top:8px" onclick="_saveHolidayListUI()">✅ ${isEn?'Save Holiday List':'Save Holiday List'}</button>
-  <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${isEn?'Cancel':'रद्द करें'}</button>`);
+  <button class="submit-btn" style="margin-top:8px" onclick="_saveHolidayListUI()">✅ ${L('Save Holiday List','Save Holiday List')}</button>
+  <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
 function _addHolidayItem(){
-  const isEn = (_lang==='en');
+  const isEn = (_lang !== 'hi');
   const dateEl = document.getElementById('hl_date');
   const reasonEl = document.getElementById('hl_reason');
   const date = (dateEl&&dateEl.value||'').trim();
   const reason = (reasonEl&&reasonEl.value||'').trim();
-  if(!date){ toast(isEn?'⚠️ Select a date':'⚠️ Date चुनें'); return; }
-  if(!reason){ toast(isEn?'⚠️ Enter reason':'⚠️ Reason लिखें'); return; }
+  if(!date){ toast(L('⚠️ Date चुनें','⚠️ Select a date')); return; }
+  if(!reason){ toast(L('⚠️ Reason लिखें','⚠️ Enter reason')); return; }
   _holidayDraft.items = (_holidayDraft.items||[]).filter(x=>x.date!==date);
   _holidayDraft.items.push({ id:'h_'+Date.now(), date, reason });
   _holidayDraft.items.sort((a,b)=>String(a.date).localeCompare(String(b.date)));
@@ -17906,7 +19627,7 @@ const _INDIA_HOLIDAYS_BUILTIN = {
 };
 
 async function _autoFetchIndiaHolidays(){
-  const isEn = (_lang==='en');
+  const isEn = (_lang !== 'hi');
   const yearEl = document.getElementById('hl_year');
   const year = parseInt(yearEl && yearEl.value ? yearEl.value : new Date().getFullYear(), 10);
   const cacheKey = 'mp_india_holidays_'+year;
@@ -18042,7 +19763,7 @@ function _updateSaveBar(){
 
   // List each pending change
   list.innerHTML = entries.map(e=>{
-    const fmtD = new Date(e.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short'});
+    const fmtD = new Date(e.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'});
     const shiftBg = {'D':'#f59e0b','N':'#4f46e5','O':'#334155','L':'#be123c','G':'#0284c7','C/O':'#92400e','HLF':'#ea580c','Ab':'#7f1d1d','H':'#ea580c','OD':'#0d9488','GP':'#6d28d9','A':'#16a34a','B':'#db2777','C':'#0891b2'};
     const bg = shiftBg[e.newShift] || '#444';
     return `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px">
@@ -18208,8 +19929,8 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
         if(phone && phone.length===10 && typeof openWA==='function'){
           const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
           const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-          let tpl = cfg.waCOffTemplate || def.waCOffTemplate || '';
-          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
+          let tpl = getWATemplate('waCOffTemplate', cfg.waCOffTemplate);
+          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
           const msg = (tpl||'🔄 *C-Off*\n*{name}*\n📅 {coffDate}\n{reason}\n_— {manager}_')
             .replace(/\{name\}/g, emp.name||'')
             .replace(/\{date\}/g, fmtD)
@@ -18240,9 +19961,8 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
         if(phone && phone.length===10 && typeof openWA==='function'){
           const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
           const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-          let tpl = cfg.waCOffTemplate || def.waCOffTemplate ||
-            '🔄 *Man Power — C-Off*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपको *C-Off* दिया गया है।\n📅 *C-Off Date:* {coffDate}\n📝 {reason}\n_— {manager}_';
-          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
+          let tpl = getWATemplate('waCOffTemplate', cfg.waCOffTemplate);
+          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
           const msg = tpl
             .replace(/\{name\}/g, emp.name||'')
             .replace(/\{date\}/g, fmtD)
@@ -18350,7 +20070,7 @@ async function saveAllShiftChanges(opts){
         // ── IN-APP notification (always — members see this in the bell) ──
         try{
           const changeLines = changes.map(c=>{
-            const fmtD = new Date(c.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+            const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
             const oldS = c.currentShift || c.oldShift || '—';
             const newS = c.newShift || '—';
             return `${fmtD}: ${shiftNames[oldS]||oldS} → ${shiftNames[newS]||newS}`;
@@ -18402,28 +20122,26 @@ async function saveAllShiftChanges(opts){
         let msgLines;
 
         const _datesList = changes.map(c => {
-          const fmtD = new Date(c.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+          const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
           return '• ' + fmtD;
         }).join('\n');
         const _defTpl = (typeof getDefaultShiftConfig==='function' ? getDefaultShiftConfig() : _defaultShiftConfig());
 
         if(allCO){
-          msgLines = `🎁 *Man Power — Comp Off*\n_${todayFmt}_\n\nनमस्ते *${emp.name}*,\n\nआपको Compensatory Off मिला है!\n\n`;
-          for(const c of changes){
-            const fmtD = new Date(c.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
-            msgLines += `🗓️ *C-Off:* ${fmtD}\n`;
-            if(c.coMeta){
-              if(c.coMeta.workedDate){
-                const wFmt = new Date(c.coMeta.workedDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
-                msgLines += `💼 काम किया: ${wFmt}\n`;
-              }
-              if(c.coMeta.reason) msgLines += `📝 ${c.coMeta.reason}\n`;
-            }
-            msgLines += '\n';
-          }
-          msgLines += `_— ${SESSION.name||'Manager'}_`;
+          msgLines = (typeof buildWAForEmp==='function')
+            ? buildWAForEmp('waCOffTemplate', emp, {
+                date: todayFmt,
+                coffDate: changes.map(c=>{
+                  const fmtD = new Date(c.date).toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short',year:'numeric'});
+                  let s = fmtD;
+                  if(c.coMeta && c.coMeta.workedDate) s += ' (worked ' + new Date(c.coMeta.workedDate).toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short'}) + ')';
+                  return s;
+                }).join(', '),
+                reason: (changes.map(c=>c.coMeta&&c.coMeta.reason).filter(Boolean).join('; ')) || ''
+              })
+            : ('🔄 C-Off\n'+_datesList);
         } else if(allAb){
-          const tpl = _waCfg.waAbsentTemplate || _defTpl.waAbsentTemplate || '';
+          const tpl = getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
           msgLines = _fillNotifTemplate(tpl, {
             name: emp.name, date: todayFmt, dates: _datesList,
             manager: SESSION.name||'Manager', changes: _datesList
@@ -18433,7 +20151,7 @@ async function saveAllShiftChanges(opts){
               const abKey = await fbPush('reports', {
                 type: 'absent', empId: emp.id, empName: emp.name,
                 aboutName: emp.name, section: emp.sec||'', date: c.date,
-                description: `${emp.name} बिना अनुमति अनुपस्थित — ${new Date(c.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short'})}`,
+                description: `${emp.name} बिना अनुमति अनुपस्थित — ${new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'})}`,
                 reportedByName: SESSION.name||'Manager', reportedById: SESSION.empObjId||'',
                 status: 'approved', autoGenerated: true, createdAt: new Date().toISOString()
               });
@@ -18441,7 +20159,7 @@ async function saveAllShiftChanges(opts){
             }catch(re){ console.warn('[Auto absent report]', re); }
           }
         } else if(allL){
-          const tpl = _waCfg.waLeaveTemplate || _defTpl.waLeaveTemplate || '';
+          const tpl = getWATemplate('waLeaveTemplate', _waCfg.waLeaveTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
           msgLines = _fillNotifTemplate(tpl, {
             name: emp.name, date: todayFmt, dates: _datesList,
             manager: SESSION.name||'Manager', changes: _datesList
@@ -18449,14 +20167,14 @@ async function saveAllShiftChanges(opts){
         } else if(allGP){
           const gpMax = Math.max(1, Number(_waCfg.gpMaxPerMonth)||2);
           const gpCount = _countGPInMonth(emp.id, changes[0].date);
-          const tpl = _waCfg.waGPTemplate || _defTpl.waGPTemplate || '';
+          const tpl = getWATemplate('waGPTemplate', _waCfg.waGPTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
           msgLines = _fillNotifTemplate(tpl, {
             name: emp.name, date: todayFmt, dates: _datesList,
             manager: SESSION.name||'Manager', changes: _datesList,
             gpCount, gpMax
           });
         } else if(allH){
-          const tpl = _waCfg.waHolidayTemplate || _defTpl.waHolidayTemplate || '';
+          const tpl = getWATemplate('waHolidayTemplate', _waCfg.waHolidayTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
           msgLines = _fillNotifTemplate(tpl, {
             name: emp.name, date: todayFmt, dates: _datesList,
             manager: SESSION.name||'Manager', changes: _datesList
@@ -18464,12 +20182,12 @@ async function saveAllShiftChanges(opts){
         } else {
           let changeLines = '';
           for(const c of changes){
-            const fmtD = new Date(c.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+            const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
             const oldL = shiftNames[c.currentShift]||c.currentShift||'—';
             const newL = shiftNames[c.newShift]||c.newShift;
             changeLines += `• ${fmtD}: ${oldL} → *${newL}*\n`;
           }
-          const tpl = (_waCfg.waShiftTemplate || _defTpl.waShiftTemplate || '')
+          const tpl = (getWATemplate('waShiftTemplate', _waCfg.waShiftTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined)) || '')
             .replace(/\{name\}/g, emp.name||'')
             .replace(/\{manager\}/g, SESSION.name||'Manager')
             .replace(/\{date\}/g, todayFmt)
@@ -18622,7 +20340,7 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
 }
 
 async function openLeaveReasonModal(empId, empName, date, currentShift){
-  const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   // Leave types from Manager quota settings
   const _labelForLq = (c)=>{
     const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other'};
@@ -18817,8 +20535,8 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
     if(phone && phone.length===10){
       const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
       const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-      let tpl = cfg.waLeaveTemplate || def.waLeaveTemplate || '🏖️ *Man Power — Leave*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपकी *Leave* mark की गई है:\n{dates}\n\n_— {manager}_';
-      const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return date; }})();
+      let tpl = getWATemplate('waLeaveTemplate', cfg.waLeaveTemplate);
+      const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return date; }})();
       const msg = tpl
         .replace(/\{name\}/g, empName||'')
         .replace(/\{date\}/g, fmtD)
@@ -18890,7 +20608,7 @@ function editShiftCell(empId, empName, date, currentShift){
     {v:'Ab',  label:'Absent',           bg:'#7f1d1d', color:'#fca5a5'},
   ];
 
-  const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const pendingKey = empId+'__'+date;
   const alreadyPending = _pendingShiftChanges[pendingKey];
   const effectiveCurrent = alreadyPending ? alreadyPending.newShift : currentShift;
@@ -19014,7 +20732,7 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
     }
   }
   
-  const coDateFmt = new Date(coDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const coDateFmt = new Date(coDate).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   
   const modalDiv = document.createElement('div');
   modalDiv.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9998;display:flex;align-items:flex-end;justify-content:center;padding:0';
@@ -19173,7 +20891,7 @@ function confirmCompOff(empId, empName, coDate, currentShift){
 // Stage a shift change — adds to pending, updates cell in table visually, shows save bar
 // ── OD (Other Department) Details Modal ──
 function openODDetails(empId, empName, odDate, currentShift){
-  const fmtD = new Date(odDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const fmtD = new Date(odDate).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const emps = getEmps().filter(e=>e.status!=='resigned');
   const machines = [...new Set(emps.map(e=>e.mc||'Other'))].sort();
   const machineOpts = machines.map(m=>`<option value="${m}">${m}</option>`).join('');
@@ -19262,6 +20980,70 @@ function _countGPInMonth(empId, dateStr){
 }
 
 /** Apply notification template placeholders. */
+
+/** Resolve WhatsApp template in current UI language.
+ *  Prefer translated default from _i18n_WA when config still has stock Hindi/English default.
+ *  Custom manager-edited templates are left as-is.
+ */
+
+/** Preferred language for WhatsApp to this employee (profile → UI lang → hi) */
+function getEmpPreferredLang(emp){
+  if(!emp) return (typeof _lang!=='undefined'?_lang:'hi');
+  var p = emp.preferredLang || emp.lang || emp.language || '';
+  if(p && typeof _i18n_SUPPORTED!=='undefined' && _i18n_SUPPORTED.indexOf(p)>=0) return p;
+  if(p && ['hi','en','gu','ta','te','kn','bn','or','ar','ur','zh','de','it','es','tr','pt','th','id','vi'].indexOf(p)>=0) return p;
+  return (typeof _lang!=='undefined'?_lang:'hi');
+}
+
+
+/**
+ * Build WhatsApp message for an employee in THEIR preferred language.
+ * type: waShiftTemplate | waLeaveTemplate | waAbsentTemplate | waGPTemplate |
+ *       waHolidayTemplate | waCOffTemplate | waTaskTemplate | waLeaveApproved | waLeaveRejected
+ */
+function buildWAForEmp(type, emp, vars, cfgVal){
+  const lang = (typeof getEmpPreferredLang==='function') ? getEmpPreferredLang(emp) : ((typeof _lang!=='undefined')?_lang:'hi');
+  let tpl = '';
+  if(typeof getWATemplate==='function'){
+    tpl = getWATemplate(type, cfgVal, lang) || '';
+  }
+  if(!tpl && typeof mlWA==='function'){
+    tpl = mlWA(type, lang) || '';
+  }
+  if(!tpl) tpl = (typeof mlWA==='function' && mlWA(type, 'en')) || '';
+  const map = Object.assign({
+    name: (emp && (emp.name||emp.empId)) || '',
+    manager: (typeof SESSION!=='undefined' && SESSION.name) || 'Manager',
+    date: '', dates: '', changes: '', gpCount: '', gpMax: '',
+    coffDate: '', reason: '', title: '', desc: '', priority: '', assigner: '', due: '',
+    leaveType: '', currentShift: '', newShift: ''
+  }, vars||{});
+  let out = String(tpl||'');
+  Object.keys(map).forEach(function(k){
+    out = out.replace(new RegExp('\\{'+k+'\\}','g'), map[k]==null?'':String(map[k]));
+  });
+  // clean empty due fragment
+  out = out.replace(/\{due\}/g, '');
+  return out;
+}
+
+function getWATemplate(key, cfgVal, preferredLang){
+  const lang = preferredLang || ((typeof _lang !== 'undefined') ? _lang : 'hi');
+  const def = (typeof _defaultShiftConfig === 'function') ? _defaultShiftConfig() : {};
+  const stock = def[key] || '';
+  // If manager customized the template, keep their text
+  if(cfgVal && stock && cfgVal !== stock){
+    // Still allow pure-English stock to be replaced by mlWA for non-en
+    const isStockEn = (key === 'waMemberLeaveToMgrTemplate' || key === 'waMemberShiftToMgrTemplate');
+    if(!isStockEn) return cfgVal;
+  }
+  if(typeof mlWA === 'function'){
+    const tr = mlWA(key, lang);
+    if(tr) return tr;
+  }
+  return cfgVal || stock || '';
+}
+
 function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, gpMax}){
   return String(tpl||'')
     .replace(/\{name\}/g, name||'')
@@ -19319,7 +21101,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
     _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
     // Auto-save this change in place; skip WhatsApp when only own shift
     const skipWA = isOwn;
-    toast((_lang==='en')?'⏳ Saving shift…':'⏳ Shift save हो रही है…');
+    toast(L('⏳ Shift save हो रही है…','⏳ Saving shift…'));
     saveAllShiftChanges({ skipWhatsApp: skipWA, stayOnMyShift: true }).catch(e=>{
       toast('❌ '+(e&&e.message||e));
     });
@@ -19347,14 +21129,14 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
 
 /** Member requests own shift change → assigned manager only */
 async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, newShift, coMeta){
-  const isEn = (typeof _lang!=='undefined' && _lang==='en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   try{
-    toast(isEn?'⏳ Sending request to Manager…':'⏳ Manager को request भेजी जा रही है…');
+    toast(L('⏳ Manager को request भेजी जा रही है…','⏳ Sending request to Manager…'));
     try{ await window._fbSignInAnon && window._fbSignInAnon(); }catch(e){}
     const me = myEmp() || {};
     const managerId = SESSION.managerId || me.managerId || '';
     if(!managerId){
-      toast(isEn?'❌ No manager linked — ask Admin':'❌ Manager link नहीं है — Admin से संपर्क करें');
+      toast(L('❌ Manager link नहीं है — Admin से संपर्क करें','❌ No manager linked — ask Admin'));
       return;
     }
     const req = {
@@ -19378,7 +21160,7 @@ async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, 
     // Notify assigned manager only
     const notif = {
       type: 'shift_change_request',
-      title: isEn ? '📅 Shift change request' : '📅 Shift बदलने का अनुरोध',
+      title: L('📅 Shift बदलने का अनुरोध','📅 Shift change request'),
       body: (empName||'')+' · '+date+' · '+(currentShift||'—')+' → '+(newShift||''),
       reqKey, empObjId: empId, date, newShift, currentShift,
       managerId: String(managerId),
@@ -19450,13 +21232,13 @@ async function _renderPendingShiftChangeRequests(){
         (SESSION.empObjId && v.managerId===SESSION.empObjId) || (SESSION.uid && v.managerId===SESSION.uid));
     }
     if(!list.length){ host.innerHTML=''; return; }
-    const isEn = (typeof _lang!=='undefined' && _lang==='en');
-    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#38bdf8;margin:12px 0 8px">📅 ${isEn?'Shift change requests':'Shift बदलने के अनुरोध'}</div>` +
+    const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
+    host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#38bdf8;margin:12px 0 8px">📅 ${L('Shift बदलने के अनुरोध','Shift change requests')}</div>` +
       list.map(([k,v])=>`
         <div class="card" style="margin-bottom:8px;border-left:3px solid #38bdf8">
           <div class="card-name">${(v.empName||'').replace(/</g,'')}</div>
           <div class="card-sub">${v.date||''} · <b>${v.currentShift||'—'}</b> → <b style="color:#38bdf8">${v.newShift||''}</b></div>
-          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString('hi-IN'):''}</div>
+          <div class="card-meta">${v.requestedAt?new Date(v.requestedAt).toLocaleString((typeof mpLocale==='function'?mpLocale():'en-IN')):''}</div>
           <div class="action-row" style="margin-top:8px;display:flex;gap:8px">
             <button class="act-btn approve" onclick="approveShiftChangeRequest('${k}')">✅ Approve</button>
             <button class="act-btn reject" onclick="rejectShiftChangeRequest('${k}')">❌ Reject</button>
@@ -19535,6 +21317,42 @@ async function resetShiftOverride(empId, date){
 
 const SHIFT_QUICK = ['D','N','A','B','C','O','L','G','C/O','HLF','Ab'];
 
+
+/** Active work shifts from Profile (hide unticked A/B/C etc.) */
+function _sbActiveShiftCodes(){
+  try{
+    const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+    const shifts = (cfg.shifts||[]).filter(s=>s && s.code && s.active!==false);
+    let codes = shifts.map(s=>String(s.code).toUpperCase());
+    // If Profile hid A/B/C summary, drop those codes even if present
+    if(cfg.hideSummaryABC){
+      codes = codes.filter(c=>c!=='A' && c!=='B' && c!=='C');
+    }
+    // Always allow at least D/N if nothing configured
+    if(!codes.length) codes = ['D','N'];
+    return codes;
+  }catch(e){ return ['D','N']; }
+}
+
+function _sbLockLandscape(on){
+  try{
+    if(on){
+      document.body.classList.add('sb-builder-open');
+      const o = screen.orientation || screen.mozOrientation || screen.msOrientation;
+      if(screen.orientation && screen.orientation.lock){
+        screen.orientation.lock('landscape').catch(()=>{});
+      } else if(screen.lockOrientation){
+        try{ screen.lockOrientation('landscape'); }catch(e){}
+      }
+    } else {
+      document.body.classList.remove('sb-builder-open');
+      if(screen.orientation && screen.orientation.unlock){
+        try{ screen.orientation.unlock(); }catch(e){}
+      }
+    }
+  }catch(e){}
+}
+
 function openScheduleBuilder(){
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
@@ -19544,24 +21362,24 @@ function openScheduleBuilder(){
   for(let i=-1; i<=6; i++){
     const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-    const label = d.toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{month:'long',year:'numeric'});
+    const label = d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
     months.push({key, label});
   }
   const monthOpts = months.map(m=>`<option value="${m.key}"${m.key===defaultKey?' selected':''}>${m.label}</option>`).join('');
-  const isEn = (typeof _lang !== 'undefined' && _lang === 'en');
+  const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const L = {
-    title: isEn ? '📋 Schedule Builder' : '📋 Schedule Builder',
-    month: isEn ? 'Select Month' : 'महीना चुनें',
-    section: isEn ? 'Section' : 'Section',
-    allSec: isEn ? 'All Sections' : 'सभी Section',
-    dateRange: isEn ? 'Date Range' : 'तारीख रेंज',
-    fullMonth: isEn ? '📅 Full Month' : '📅 पूरा महीना',
-    customDates: isEn ? '🗓️ Custom Dates' : '🗓️ कस्टम तारीख',
-    from: isEn ? 'From' : 'से (From)',
-    to: isEn ? 'To' : 'तक (To)',
-    hint: isEn ? 'e.g. 11 to 20 — only these days will appear in the schedule' : 'उदा. 11 से 20 — केवल ये दिन Schedule में दिखेंगे',
-    open: isEn ? '📋 Open Schedule' : '📋 Schedule खोलें',
-    cancel: isEn ? 'Cancel' : 'रद्द करें',
+    title: L('📋 Schedule Builder','📋 Schedule Builder'),
+    month: L('महीना चुनें','Select Month'),
+    section: L('Section','Section'),
+    allSec: L('सभी Section','All Sections'),
+    dateRange: L('तारीख रेंज','Date Range'),
+    fullMonth: L('📅 पूरा महीना','📅 Full Month'),
+    customDates: L('🗓️ कस्टम तारीख','🗓️ Custom Dates'),
+    from: L('से (From)','From'),
+    to: L('तक (To)','To'),
+    hint: L('उदा. 11 से 20 — केवल ये दिन Schedule में दिखेंगे','e.g. 11 to 20 — only these days will appear in the schedule'),
+    open: L('📋 Schedule खोलें','📋 Open Schedule'),
+    cancel: L('रद्द करें','Cancel'),
   };
   const secOpts = Object.entries(SEC).map(([k,v])=>{
     const name = isEn ? (v.label||k) : (v.hi||v.label||k);
@@ -19696,41 +21514,41 @@ async function loadScheduleBuilder(){
   let emps = (getEmps() || []).filter(e => e && e.status !== 'resigned');
   if(secFilter !== 'ALL') emps = emps.filter(e => e.sec === secFilter);
 
-  // ── Sort employees in same order as main Schedule view ──
-  // Mirror DISPLAY_ORDER from renderSchedule(): Main Ops → Relievers → Team,
-  // grouped by Metalliser → Slitter → Supervisor → Manager
-  const _GROUP_RANK = (e) => {
-    const role = getEmpRole(e).role;
-    if(['M1','M2'].includes(e.sec)){
-      if(role==='main')     return 1;
-      if(role==='reliever') return 2;
-      return 3; // assist/team
-    }
-    if(['S1','S2'].includes(e.sec)){
-      if(role==='main')     return 4;
-      if(role==='slit_rel') return 5;
-      return 6; // team
-    }
-    if(e.sec==='SUP'){
-      if(role==='sup_slit') return 7;
-      if(role==='sup_met')  return 8;
-      return 9;
-    }
-    if(e.sec==='MGR') return 10;
-    return 99;
+  // ── Sort: Excel Section → Responsibility → Weekly Off (MON…SUN) → Name ──
+  const _WOFF_ORDER = {MON:0,TUE:1,WED:2,THU:3,FRI:4,SAT:5,SUN:6};
+  const _secLabel = (e) => {
+    const s = (typeof getEmpSection==='function') ? getEmpSection(e) : '';
+    return (s || String(e.section||e.sec||'').trim() || 'zzz').toLowerCase();
+  };
+  const _respLabel = (e) => {
+    const r = (typeof getEmpResp==='function') ? getEmpResp(e) : '';
+    return (r || String(e.resp||e.responsibility||'').trim() || 'zzz').toLowerCase();
+  };
+  const _woffRank = (e) => {
+    const w = String(e.woff || 'SUN').toUpperCase().slice(0,3);
+    return _WOFF_ORDER[w] != null ? _WOFF_ORDER[w] : 99;
   };
   emps.sort((a,b) => {
-    const rA = _GROUP_RANK(a), rB = _GROUP_RANK(b);
-    if(rA !== rB) return rA - rB;
-    return getEmpDisplayOrder(a) - getEmpDisplayOrder(b);
+    const sCmp = _secLabel(a).localeCompare(_secLabel(b));
+    if(sCmp) return sCmp;
+    const rCmp = _respLabel(a).localeCompare(_respLabel(b));
+    if(rCmp) return rCmp;
+    const wA = _woffRank(a), wB = _woffRank(b);
+    if(wA !== wB) return wA - wB;
+    return String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base'});
   });
 
   // Build grid — date header is a SEPARATE sticky row (table thead sticky breaks under overflow-x)
   const headerDays = dayNums.map(d=>{
     const dt = new Date(yr, mo-1, d);
+    const dayIdx = d - 1;
     const dow = ['S','M','T','W','T','F','S'][dt.getDay()];
     const sun = dt.getDay()===0;
-    return `<div data-sb-date-col="${d}" style="flex:0 0 32px;width:32px;min-width:32px;text-align:center;padding:4px 2px;font-size:10px;font-weight:800;color:${sun?'#f87171':'#94a3b8'};line-height:1.15">${d}<br><span style="font-size:9px;font-weight:700">${dow}</span></div>`;
+    return `<div data-sb-date-col="${d}" style="flex:0 0 32px;width:32px;min-width:32px;text-align:center;padding:2px 1px;font-size:10px;font-weight:800;color:${sun?'#f87171':'#94a3b8'};line-height:1.1">
+      ${d}<br><span style="font-size:9px;font-weight:700">${dow}</span>
+      <button type="button" class="sb-col-cp" data-day="${dayIdx}" onclick="event.stopPropagation();_sbColBtnClick(${dayIdx})"
+        title="Copy/Paste column" style="display:block;margin:2px auto 0;width:18px;height:16px;line-height:14px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:9px;font-weight:900;cursor:pointer">C</button>
+    </div>`;
   }).join('');
 
   const rows = emps.map((emp,rowIdx) => {
@@ -19782,18 +21600,23 @@ async function loadScheduleBuilder(){
         </div>
       </td>`;
     }).join('');
-    const s = SEC[emp.sec];
+    const s = SEC[emp.sec] || {};
     return `<tr>
-      <td style="padding:4px 8px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:1;min-width:90px">
-        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s?.color||'#fff'};margin-right:4px"></span>
-        ${emp.name.split(' ')[0]}
-        ${emp.woff?`<span style="font-size:8px;color:#f97316;font-weight:600;display:block;margin-top:1px">${emp.woff} off</span>`:''}
+      <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:1;min-width:98px">
+        <div style="display:flex;align-items:center;gap:4px">
+          <button type="button" class="sb-row-cp" data-row="${rowIdx}" onclick="event.stopPropagation();_sbRowBtnClick(${rowIdx})"
+            title="Copy/Paste row" style="flex-shrink:0;width:18px;height:18px;line-height:16px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:9px;font-weight:900;cursor:pointer">C</button>
+          <div style="min-width:0">
+            <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s.color||'#fff'};margin-right:3px"></span>${emp.name.split(' ')[0]}
+            ${emp.woff?`<span style="font-size:8px;color:#f97316;font-weight:600;display:block;margin-top:1px">${emp.woff} off</span>`:''}
+          </div>
+        </div>
       </td>
       ${cells}
     </tr>`;
   }).join('');
 
-  const monthLabel = new Date(yr, mo-1, 1).toLocaleDateString(_lang==='en'?'en-IN':'hi-IN',{month:'long',year:'numeric'});
+  const monthLabel = new Date(yr, mo-1, 1).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
   const rangeLabel = (dayFrom === 1 && dayTo === daysInMonth)
     ? monthLabel
     : `${dayFrom}–${dayTo} ${monthLabel}`;
@@ -19831,9 +21654,17 @@ async function loadScheduleBuilder(){
       <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 Save करें</button>
       <button class="cancel-btn" style="flex:1" onclick="closeModal()">रद्द करें</button>
     </div>`);
+  try{ _sbLockLandscape(true); }catch(e){}
   setTimeout(initSBSelection, 50);
   setTimeout(_sbPositionStickyTableHeader, 60);
   setTimeout(_sbSyncDateHdrScroll, 70);
+  setTimeout(()=>{ try{ _sbRefreshRowColButtons(); }catch(e){} }, 80);
+  // Hint rotate if still portrait on phone
+  try{
+    if(window.matchMedia && window.matchMedia('(orientation: portrait) and (max-width: 900px)').matches){
+      toast((typeof L==='function')?L('📱 बेहतर व्यू के लिए फ़ोन Landscape घुमाएँ','📱 Rotate phone to Landscape for best view'):'📱 Rotate to Landscape');
+    }
+  }catch(e){}
   }catch(err){console.error('loadScheduleBuilder error:',err);toast('❌ Error: '+err.message);}
 }
 
@@ -19841,7 +21672,8 @@ async function loadScheduleBuilder(){
 let _sbData = {};
 
 function cycleSBCell(el, empId, dayIdx, monthKey){
-  const order = ['D','N','O','L','G','C/O','H','OD','HLF','Ab',''];
+  const work = (typeof _sbActiveShiftCodes==='function') ? _sbActiveShiftCodes() : ['D','N'];
+  const order = [...work, 'O','L','G','C/O','H','OD','HLF','Ab',''];
   const cur = el.dataset.val || '';
   const next = order[(order.indexOf(cur)+1) % order.length];
   _sbSetCellValue(el, next);
@@ -19995,9 +21827,9 @@ function _sbShowToolbar(){
   const bar=document.getElementById('sbToolbar');
   if(!bar) return;
   if(!_sbSelectedCells.length){ bar.innerHTML=''; bar.style.display='none'; setTimeout(_sbPositionStickyTableHeader,10); return; }
-  const cfgShifts=(getShiftConfigSync().shifts||[{code:'D',label:'D'},{code:'N',label:'N'}]);
+  const activeCodes = (typeof _sbActiveShiftCodes==='function') ? _sbActiveShiftCodes() : ['D','N'];
   const values=[
-    ...cfgShifts.map(s=>({v:s.code,l:s.code})),
+    ...activeCodes.map(c=>({v:c,l:c})),
     {v:'O',l:'O'},{v:'L',l:'L'},
     {v:'G',l:'G'},{v:'C/O',l:'CO'},{v:'H',l:'H'},{v:'OD',l:'OD'},
     {v:'HLF',l:'½'},{v:'Ab',l:'Ab'},{v:'',l:'✖ साफ'}
@@ -20039,24 +21871,149 @@ function _sbCopySelection(){
     }
     grid.push(rowVals);
   }
-  _sbClipboard={grid, rows:r2-r1+1, cols:d2-d1+1};
+  _sbClipboard={grid, rows:r2-r1+1, cols:d2-d1+1, source:'cells', sourceRow:null, sourceCol:null};
   toast(`📋 ${_sbClipboard.rows}×${_sbClipboard.cols} Cells Copy हुए`);
+  try{ _sbRefreshRowColButtons(); }catch(e){}
   _sbShowToolbar();
 }
 
 function _sbPasteSelection(){
-  if(!_sbClipboard || !_sbSelStart || !_sbSelEnd) return;
-  const r1=Math.min(_sbSelStart.row,_sbSelEnd.row), r2=Math.max(_sbSelStart.row,_sbSelEnd.row);
-  const d1=Math.min(_sbSelStart.day,_sbSelEnd.day), d2=Math.max(_sbSelStart.day,_sbSelEnd.day);
-  for(let r=r1;r<=r2;r++){
-    for(let d=d1;d<=d2;d++){
-      const srcVal=_sbClipboard.grid[(r-r1)%_sbClipboard.rows][(d-d1)%_sbClipboard.cols];
-      const cell=document.querySelector(`#sb_tbody .shc[data-row="${r}"][data-day="${d}"][data-isleave="0"]`);
-      if(cell) _sbSetCellValue(cell, srcVal);
+  // Excel-style: paste full clipboard from top-left of current selection (even 1 cell)
+  if(!_sbClipboard || !_sbClipboard.grid || !_sbClipboard.grid.length){
+    toast('⚠️ पहले Copy करें'); return;
+  }
+  if(!_sbSelStart){ toast('⚠️ जहाँ Paste करना है वहाँ cell चुनें'); return; }
+  const end = _sbSelEnd || _sbSelStart;
+  const r0 = Math.min(_sbSelStart.row, end.row);
+  const d0 = Math.min(_sbSelStart.day, end.day);
+  const rows = _sbClipboard.rows || _sbClipboard.grid.length;
+  const cols = _sbClipboard.cols || (_sbClipboard.grid[0]||[]).length;
+  let filled = 0;
+  for(let ri=0; ri<rows; ri++){
+    for(let ci=0; ci<cols; ci++){
+      const srcVal = (_sbClipboard.grid[ri] && _sbClipboard.grid[ri][ci] != null) ? _sbClipboard.grid[ri][ci] : '';
+      const cell = document.querySelector(`#sb_tbody .shc[data-row="${r0+ri}"][data-day="${d0+ci}"][data-isleave="0"]`);
+      if(cell){ _sbSetCellValue(cell, srcVal); filled++; }
     }
   }
-  toast('✅ Paste हो गया');
+  _sbSelStart = {row:r0, day:d0};
+  _sbSelEnd = {row:r0+rows-1, day:d0+cols-1};
+  try{ _sbUpdateSelectionVisual(); }catch(e){}
+  try{ _sbShowToolbar(); }catch(e){}
+  toast(filled ? ('✅ Paste · '+rows+'×'+cols) : '⚠️ Paste target नहीं मिला');
 }
+
+/** Copy entire employee row */
+function _sbCopyEntireRow(rowIdx){
+  const cells = [...document.querySelectorAll('#sb_tbody .shc[data-row="'+rowIdx+'"]')];
+  if(!cells.length){ toast('⚠️ Row खाली'); return; }
+  cells.sort((a,b)=> (+a.dataset.day) - (+b.dataset.day));
+  const grid = [cells.map(c=>c.dataset.val||'')];
+  _sbClipboard = { grid, rows:1, cols:grid[0].length, source:'row', sourceRow:rowIdx, sourceCol:null };
+  _sbSelStart = {row:rowIdx, day:+cells[0].dataset.day};
+  _sbSelEnd = {row:rowIdx, day:+cells[cells.length-1].dataset.day};
+  try{ _sbUpdateSelectionVisual(); }catch(e){}
+  try{ _sbRefreshRowColButtons(); }catch(e){}
+  try{ _sbShowToolbar(); }catch(e){}
+  toast('📋 Row Copy · '+grid[0].length+' days');
+}
+
+/** Paste clipboard into entire target row (from first day) */
+function _sbPasteEntireRow(rowIdx){
+  if(!_sbClipboard || !_sbClipboard.grid){ toast('⚠️ पहले कोई Row/Cells Copy करें'); return; }
+  const cells = [...document.querySelectorAll('#sb_tbody .shc[data-row="'+rowIdx+'"][data-isleave="0"]')];
+  if(!cells.length) return;
+  cells.sort((a,b)=> (+a.dataset.day) - (+b.dataset.day));
+  const srcRows = _sbClipboard.rows || _sbClipboard.grid.length;
+  const srcCols = _sbClipboard.cols || (_sbClipboard.grid[0]||[]).length;
+  // If clipboard is multi-row, paste only first row of clipboard into this employee row
+  const srcRow = _sbClipboard.grid[0] || [];
+  cells.forEach((cell, i)=>{
+    const srcVal = srcRow[i % srcCols] != null ? srcRow[i % srcCols] : '';
+    _sbSetCellValue(cell, srcVal);
+  });
+  _sbSelStart = {row:rowIdx, day:+cells[0].dataset.day};
+  _sbSelEnd = {row:rowIdx, day:+cells[cells.length-1].dataset.day};
+  try{ _sbUpdateSelectionVisual(); }catch(e){}
+  try{ _sbRefreshRowColButtons(); }catch(e){}
+  toast('✅ Row Paste');
+}
+
+function _sbRowBtnClick(rowIdx){
+  rowIdx = +rowIdx;
+  // If we already copied a row and this is a different row → Paste
+  if(_sbClipboard && _sbClipboard.source==='row' && _sbClipboard.sourceRow != null && +_sbClipboard.sourceRow !== rowIdx){
+    _sbPasteEntireRow(rowIdx);
+    return;
+  }
+  // Same row again or fresh → Copy
+  _sbCopyEntireRow(rowIdx);
+}
+
+/** Copy entire day column */
+function _sbCopyEntireCol(dayIdx){
+  dayIdx = +dayIdx;
+  const cells = [...document.querySelectorAll('#sb_tbody .shc[data-day="'+dayIdx+'"]')];
+  if(!cells.length){ toast('⚠️ Column खाली'); return; }
+  cells.sort((a,b)=> (+a.dataset.row) - (+b.dataset.row));
+  const grid = cells.map(c=>[c.dataset.val||'']);
+  _sbClipboard = { grid, rows:grid.length, cols:1, source:'col', sourceCol:dayIdx, sourceRow:null };
+  _sbSelStart = {row:+cells[0].dataset.row, day:dayIdx};
+  _sbSelEnd = {row:+cells[cells.length-1].dataset.row, day:dayIdx};
+  try{ _sbUpdateSelectionVisual(); }catch(e){}
+  try{ _sbRefreshRowColButtons(); }catch(e){}
+  try{ _sbShowToolbar(); }catch(e){}
+  toast('📋 Column Copy · '+grid.length+' emp');
+}
+
+function _sbPasteEntireCol(dayIdx){
+  dayIdx = +dayIdx;
+  if(!_sbClipboard || !_sbClipboard.grid){ toast('⚠️ पहले Copy करें'); return; }
+  const cells = [...document.querySelectorAll('#sb_tbody .shc[data-day="'+dayIdx+'"][data-isleave="0"]')];
+  if(!cells.length) return;
+  cells.sort((a,b)=> (+a.dataset.row) - (+b.dataset.row));
+  // Prefer first column of clipboard
+  cells.forEach((cell, i)=>{
+    const ri = i % (_sbClipboard.rows || _sbClipboard.grid.length);
+    const srcVal = (_sbClipboard.grid[ri] && _sbClipboard.grid[ri][0] != null) ? _sbClipboard.grid[ri][0] : '';
+    _sbSetCellValue(cell, srcVal);
+  });
+  try{ _sbRefreshRowColButtons(); }catch(e){}
+  toast('✅ Column Paste');
+}
+
+function _sbColBtnClick(dayIdx){
+  dayIdx = +dayIdx;
+  if(_sbClipboard && _sbClipboard.source==='col' && _sbClipboard.sourceCol != null && +_sbClipboard.sourceCol !== dayIdx){
+    _sbPasteEntireCol(dayIdx);
+    return;
+  }
+  _sbCopyEntireCol(dayIdx);
+}
+
+function _sbRefreshRowColButtons(){
+  try{
+    document.querySelectorAll('.sb-row-cp').forEach(btn=>{
+      const r = +btn.getAttribute('data-row');
+      const isSrc = _sbClipboard && _sbClipboard.source==='row' && +_sbClipboard.sourceRow === r;
+      const canPaste = _sbClipboard && _sbClipboard.source==='row' && _sbClipboard.sourceRow != null && +_sbClipboard.sourceRow !== r;
+      btn.textContent = isSrc ? 'C' : (canPaste ? 'P' : 'C');
+      btn.style.background = isSrc ? 'rgba(34,197,94,.25)' : (canPaste ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.12)');
+      btn.style.color = isSrc ? '#22c55e' : (canPaste ? '#60a5fa' : '#94a3b8');
+      btn.title = isSrc ? 'Copied row' : (canPaste ? 'Paste here' : 'Copy entire row');
+    });
+    document.querySelectorAll('.sb-col-cp').forEach(btn=>{
+      const d = +btn.getAttribute('data-day');
+      const isSrc = _sbClipboard && _sbClipboard.source==='col' && +_sbClipboard.sourceCol === d;
+      const canPaste = _sbClipboard && _sbClipboard.source==='col' && _sbClipboard.sourceCol != null && +_sbClipboard.sourceCol !== d;
+      btn.textContent = isSrc ? 'C' : (canPaste ? 'P' : 'C');
+      btn.style.background = isSrc ? 'rgba(34,197,94,.25)' : (canPaste ? 'rgba(96,165,250,.2)' : 'rgba(148,163,184,.12)');
+      btn.style.color = isSrc ? '#22c55e' : (canPaste ? '#60a5fa' : '#94a3b8');
+      btn.title = isSrc ? 'Copied column' : (canPaste ? 'Paste here' : 'Copy entire column');
+    });
+  }catch(e){}
+}
+
 
 function _sbHandleDoubleClick(cell){
   const row=+cell.dataset.row, day=+cell.dataset.day;
@@ -20299,7 +22256,7 @@ function _applyScheduleToGrid(empId, schedule, cells, empLeaves, yr, mo){
 }
 
 function _confirmLeaveOverride(cell, empId, dayIdx, dateStr){
-  const fmtD = new Date(dateStr).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+  const fmtD = new Date(dateStr).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const empName = (getEmps().find(e=>e.id===empId)||{}).name || empId;
 
   openModal(`<div class="modal-handle"></div>
@@ -20395,7 +22352,7 @@ function printSched(){
   const viewGroups = _buildSchedDisplayGroups(roster);
   const mode = _schedGroupMode();
   const modeHint = {section:'Sections', machine:'Machines', responsibility:'Responsibility', designation:'Designation'}[mode]||mode;
-  const isEn = _lang==='en';
+  const isEn = (_lang !== 'hi');
 
   try{ window._printViewGroups = viewGroups; }catch(e){}
 
@@ -20409,7 +22366,7 @@ function printSched(){
   if(!activeGroups.length){
     activeGroups = [{
       id:'current',
-      label: isEn ? '📋 Current View' : '📋 वर्तमान दृश्य',
+      label: L('📋 वर्तमान दृश्य','📋 Current View'),
       checked:true,
       filter:e=>getSchedFilteredEmps().some(x=>x.id===e.id)
     }];
@@ -20427,24 +22384,24 @@ function printSched(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="font-size:28px">🖨️</div>
       <div>
-        <div style="font-size:17px;font-weight:900;color:var(--text)">${isEn?'Print — Current View':'Print — वर्तमान दृश्य'}</div>
-        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${isEn?'Grouped by':'ग्रुप'}: <b style="color:var(--m1)">${modeHint}</b> — ${isEn?'same as screen':'स्क्रीन जैसा'}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text)">${L('Print — वर्तमान दृश्य','Print — Current View')}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('ग्रुप','Grouped by')}: <b style="color:var(--m1)">${modeHint}</b> — ${L('स्क्रीन जैसा','same as screen')}</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=true)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ ${isEn?'All':'सभी'}</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ ${L('सभी','All')}</button>
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=false)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">⬜ ${isEn?'None':'कोई नहीं'}</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">⬜ ${L('कोई नहीं','None')}</button>
     </div>
     <div style="max-height:50vh;overflow-y:auto;margin-bottom:14px">${rowsHtml}</div>
     <div style="display:flex;gap:10px">
       <button type="button" onclick="_execPrint()" style="flex:1;padding:14px;border-radius:12px;border:none;
         background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${isEn?'Print':'Print करें'}</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${L('Print करें','Print')}</button>
       <button type="button" onclick="closeModal()" style="padding:12px 16px;border-radius:12px;
         border:1px solid var(--border2);background:var(--card);color:var(--muted2);
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">${isEn?'Cancel':'रद्द'}</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">${L('रद्द','Cancel')}</button>
     </div>`);
 }
 
@@ -21146,20 +23103,18 @@ window.closeTimeStudy = function(){
 // ── METCOST PRO: Generate manpower data ──
 window._generateManpowerForMetCost = function(){
   try{
-  const emps      = getEmps().filter(e => e.status !== 'resigned' && e.monthlySalary);
-  const overrides = getOverrides();
-  const schedules = getSchedules();
+  const emps = getEmps().filter(e => {
+    if(!e || e.status === 'resigned' || e.status === 'left') return false;
+    return (typeof _empMonthlySalary==='function' ? _empMonthlySalary(e) : Number(e.monthlySalary||e.salary||0)) > 0;
+  });
   const WORKING_DAYS = 26;
   console.log('[MetCost] Generating manpower: '+emps.length+' employees with salary');
 
   const getShiftForCalc = (emp, date) => {
-    const ovKey = emp.id + '_' + date;
-    if(overrides[ovKey]) return overrides[ovKey];
-    const sched = schedules[emp.id];
-    if(sched && sched[date]) return sched[date];
-    const dayOfMonth = new Date(date).getDate() - 1;
-    if(emp.ms && emp.ms[dayOfMonth]) return emp.ms[dayOfMonth];
-    return null;
+    try{
+      if(typeof getShift === 'function') return getShift(emp, date) || '';
+    }catch(e){}
+    return '';
   };
 
   const months = {};
@@ -21180,7 +23135,7 @@ window._generateManpowerForMetCost = function(){
     const perEmployee = [];
 
     metEmps.forEach(emp => {
-      const monthlySalary = Number(emp.monthlySalary) || 0;
+      const monthlySalary = (typeof _empMonthlySalary==='function') ? _empMonthlySalary(emp) : (Number(emp.monthlySalary)||0);
       if(!monthlySalary) return;
       const perDaySalary = monthlySalary / WORKING_DAYS;
       let absentDays = 0;
@@ -21189,7 +23144,7 @@ window._generateManpowerForMetCost = function(){
       allDates.forEach(date => {
         const sh = getShiftForCalc(emp, date) || '';
         shifts[date] = sh;
-        if(sh === 'Ab') absentDays++;
+        if((typeof _isAbsentShift==='function') ? _isAbsentShift(sh) : (sh==='Ab'||sh==='AB')) absentDays++;
       });
       const deduction = Math.round(perDaySalary * absentDays);
       const netSalary = monthlySalary - deduction;
@@ -24920,7 +26875,7 @@ function renderTodoCard(t){
     if(diff<0) dueBadge=`<span class="todo-due overdue">⚠️ ${Math.abs(diff)}d पहले था</span>`;
     else if(diff===0) dueBadge=`<span class="todo-due today">🔥 आज</span>`;
     else if(diff<=3) dueBadge=`<span class="todo-due upcoming">${diff}d बाकी</span>`;
-    else dueBadge=`<span class="todo-due normal">📅 ${new Date(t.dueDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short'})}</span>`;
+    else dueBadge=`<span class="todo-due normal">📅 ${new Date(t.dueDate).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'})}</span>`;
   }
 
   const prioMap={high:'🔴 Urgent',medium:'🟡 Normal',low:'🟢 Low'};
@@ -24950,7 +26905,7 @@ function renderTodoCard(t){
     </div>`:''}
     <div style="font-size:9px;color:var(--muted);margin-top:6px">
           ${t.assignedTo&&!isAdminOrMgr()?'<span style="color:#fb923c;font-weight:700">📌 '+escHtml(t.createdByName||'Admin')+' ने assign किया</span> · ':''}
-          ${t.createdByName?'👤 '+escHtml(t.createdByName):''} ${t.createdAt?'· '+new Date(t.createdAt).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}):''}
+          ${t.createdByName?'👤 '+escHtml(t.createdByName):''} ${t.createdAt?'· '+new Date(t.createdAt).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}):''}
         </div>
   </div>`;
 }
@@ -25151,16 +27106,14 @@ async function saveTodo(editId){
         // WhatsApp notification
         if(emp && emp.phone && emp.phone.length === 10){
           const prioLabel = priority==='high' ? '🔴 Urgent' : priority==='low' ? '🟢 Low' : '🟡 Normal';
-          const dueFmt = dueDate ? new Date(dueDate).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
-          let waMsg = `📌 *Man Power — Task Assigned*\n\n`;
-          waMsg += `*${emp.name}*, आपको यह काम पूरा करना है`;
-          if(dueFmt) waMsg += ` *${dueFmt}* तक`;
-          waMsg += `:\n\n`;
-          waMsg += `📝 *${title}*\n`;
-          if(desc) waMsg += `${desc}\n`;
-          waMsg += `\n⚡ ${prioLabel}`;
-          if(section) waMsg += ` · 🏭 ${section}`;
-          waMsg += `\n👤 Assigned by: ${SESSION.name||'Admin'}\n_— Man Power System_`;
+          const dueFmt = dueDate ? (typeof mpFormatDate==='function'?mpFormatDate(dueDate):new Date(dueDate).toLocaleDateString()) : '';
+          let waMsg = (typeof buildWAForEmp==='function')
+            ? buildWAForEmp('waTaskTemplate', emp, {
+                title: title, desc: (desc||'') + (section?('\n🏭 '+section):''),
+                priority: prioLabel, assigner: SESSION.name||'Admin',
+                due: dueFmt ? (' *'+dueFmt+'*') : ''
+              })
+            : ('📌 *Task*\n'+title);
           setTimeout(()=>{ openWA(emp.phone, waMsg); }, 400);
         }
       }catch(ne){ console.warn('[Todo WA notify] error:', ne); }
@@ -25339,7 +27292,7 @@ function openUserNotifications(){
       const timeAgo = _timeAgo(n.at);
       const shiftBg = {'D':'#f59e0b','N':'#4f46e5','O':'#334155','L':'#be123c','G':'#0284c7','CO':'#92400e','HLF':'#ea580c','Ab':'#7f1d1d','H':'#ea580c','OD':'#0d9488'}[n.newShift] || '#334155';
       const oldBg = {'D':'#f59e0b','N':'#4f46e5','O':'#334155','L':'#be123c','G':'#0284c7','CO':'#92400e','HLF':'#ea580c','Ab':'#7f1d1d','H':'#ea580c','OD':'#0d9488'}[n.oldShift] || '#334155';
-      const fmtD = n.date ? new Date(n.date).toLocaleDateString('hi-IN',{day:'numeric',month:'short'}) : '';
+      const fmtD = n.date ? new Date(n.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'}) : '';
       
       return `<div style="background:${isRead?'var(--card)':'rgba(249,115,22,.06)'};border:1px solid ${isRead?'var(--border)':'rgba(249,115,22,.25)'};border-radius:14px;padding:14px;margin-bottom:8px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -25464,12 +27417,12 @@ function _timeAgo(dateStr){
   if(hrs < 24) return hrs + ' घंटे पहले';
   const days = Math.floor(hrs/24);
   if(days < 7) return days + ' दिन पहले';
-  return new Date(dateStr).toLocaleDateString('hi-IN',{day:'numeric',month:'short'});
+  return new Date(dateStr).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'});
 }
 
 async function pushShiftNotification(empObjId, empName, date, oldShift, newShift, changedBy){
   try{
-    const fmtD = new Date(date).toLocaleDateString('hi-IN',{day:'numeric',month:'short',year:'numeric'});
+    const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
     const shiftNames = {D:'Day',N:'Night',A:'A',B:'B',C:'C',O:'Off',L:'Leave',G:'General','C/O':'C-Off',CO:'C-Off',HLF:'Half Day',Ab:'Absent',GP:'Gate Pass',H:'Holiday',OD:'Other Dept'};
     const body = `${fmtD} को आपकी shift ${shiftNames[oldShift]||oldShift} से ${shiftNames[newShift]||newShift} में बदली गई`;
     const payload = {

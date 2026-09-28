@@ -14,7 +14,10 @@ window.MT_LOCALES = {
       {code:'te', label:'తె', title:'తెలుగు'},
       {code:'kn', label:'ಕ', title:'ಕನ್ನಡ'},
       {code:'bn', label:'বা', title:'বাংলা'},
-      {code:'or', label:'ଓ', title:'ଓଡ଼ିଆ'}
+      {code:'or', label:'ଓ', title:'ଓଡ଼ିଆ'},
+      {code:'mr', label:'मर', title:'मराठी'},
+      {code:'ml', label:'മ', title:'മലയാളം'},
+      {code:'pa', label:'ਪੰ', title:'ਪੰਜਾਬੀ'}
     ]
   },
   GULF: {
@@ -41,7 +44,8 @@ window.MT_LOCALES = {
       {code:'de', label:'DE', title:'Deutsch'},
       {code:'it', label:'IT', title:'Italiano'},
       {code:'es', label:'ES', title:'Español'},
-      {code:'tr', label:'TR', title:'Türkçe'}
+      {code:'tr', label:'TR', title:'Türkçe'},
+      {code:'fr', label:'FR', title:'Français'}
     ]
   },
   AM: {

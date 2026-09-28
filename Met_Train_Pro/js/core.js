@@ -5,26 +5,35 @@ var ckState={};
 var _tc=0;
 
 // Sidebar labels per language
+
+/** Met Train string helper — uses SB_LABELS then English */
+function mtT(key){
+  var L = SB_LABELS[LANG]||SB_LABELS.en||SB_LABELS.hi||{};
+  if(L[key]) return L[key];
+  if(SB_LABELS.en && SB_LABELS.en[key]) return SB_LABELS.en[key];
+  if(SB_LABELS.hi && SB_LABELS.hi[key]) return SB_LABELS.hi[key];
+  return key;
+}
 var SB_LABELS={
   hi:{home:'होम',met:'Metalliser',slit:'Slitter',safety:'सुरक्षा प्रशिक्षण',sops:'SOPs & WIs',sap:'SAP Entry',maint:'रखरखाव (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'औद्योगिक शब्दावली',quiz:'ज्ञान परीक्षा',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plan',s1:'संचालन',s2:'प्रशिक्षण मॉड्यूल',s3:'🔥 धाकड़ ज्ञान',s4:'मूल्यांकन'},
   en:{home:'Home',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  or:{home:'ହୋମ',met:'Metalliser',slit:'Slitter',safety:'ସୁରକ୍ଷା',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  ta:{home:'முகப்பு',met:'Metalliser',slit:'Slitter',safety:'பாதுகாப்பு',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  te:{home:'హోమ్',met:'Metalliser',slit:'Slitter',safety:'భద్రత',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  gu:{home:'હોમ',met:'Metalliser',slit:'Slitter',safety:'સુરક્ષા',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  bn:{home:'হোম',met:'Metalliser',slit:'Slitter',safety:'নিরাপত্তা',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  kn:{home:'ಹೋಮ್',met:'Metalliser',slit:'Slitter',safety:'ಸುರಕ್ಷತೆ',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  ar:{home:'الرئيسية',met:'Metalliser',slit:'Slitter',safety:'السلامة',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  ur:{home:'ہوم',met:'Metalliser',slit:'Slitter',safety:'سیفٹی',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  zh:{home:'首页',met:'Metalliser',slit:'Slitter',safety:'安全',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  de:{home:'Home',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  it:{home:'Home',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  es:{home:'Inicio',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  pt:{home:'Início',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  tr:{home:'Ana Sayfa',met:'Metalliser',slit:'Slitter',safety:'Safety & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  th:{home:'หน้าหลัก',met:'Metalliser',slit:'Slitter',safety:'ความปลอดภัย',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  id:{home:'Beranda',met:'Metalliser',slit:'Slitter',safety:'Keselamatan',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'},
-  vi:{home:'Trang chủ',met:'Metalliser',slit:'Slitter',safety:'An toàn',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Maintenance (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Industrial Terms',quiz:'Knowledge Check',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operations',s2:'Training Modules',s3:'🔥 Dhakad Gyaan',s4:'Assessment'}
+  gu:{home:'હોમ',met:'Metalliser',slit:'Slitter',safety:'સુરક્ષા',sops:'SOPs & WIs',sap:'SAP Entry',maint:'જાળવણી (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'ઔદ્યોગિક શબ્દો',quiz:'જ્ઞાન પરીક્ષા',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'સંચાલન',s2:'તાલીમ મોડ્યુલ',s3:'🔥 Dhakad Gyaan',s4:'મૂલ્યાંકન'},
+  ta:{home:'முகப்பு',met:'Metalliser',slit:'Slitter',safety:'பாதுகாப்பு',sops:'SOPs & WIs',sap:'SAP Entry',maint:'பராமரிப்பு (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'தொழில் சொற்கள்',quiz:'அறிவுத் தேர்வு',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'செயல்பாடு',s2:'பயிற்சி',s3:'🔥 Dhakad Gyaan',s4:'மதிப்பீடு'},
+  te:{home:'హోమ్',met:'Metalliser',slit:'Slitter',safety:'భద్రత',sops:'SOPs & WIs',sap:'SAP Entry',maint:'నిర్వహణ (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'పారిశ్రామిక పదాలు',quiz:'జ్ఞాన పరీక్ష',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'ఆపరేషన్స్',s2:'శిక్షణ',s3:'🔥 Dhakad Gyaan',s4:'మూల్యాంకనం'},
+  kn:{home:'ಹೋಮ್',met:'Metalliser',slit:'Slitter',safety:'ಸುರಕ್ಷತೆ',sops:'SOPs & WIs',sap:'SAP Entry',maint:'ನಿರ್ವಹಣೆ (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'ಕೈಗಾರಿಕಾ ಪದಗಳು',quiz:'ಜ್ಞಾನ ಪರೀಕ್ಷೆ',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'ಕಾರ್ಯಾಚರಣೆ',s2:'ತರಬೇತಿ',s3:'🔥 Dhakad Gyaan',s4:'ಮೌಲ್ಯಮಾಪನ'},
+  bn:{home:'হোম',met:'Metalliser',slit:'Slitter',safety:'নিরাপত্তা',sops:'SOPs & WIs',sap:'SAP Entry',maint:'রক্ষণাবেক্ষণ (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'শিল্প শব্দ',quiz:'জ্ঞান পরীক্ষা',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'অপারেশন',s2:'প্রশিক্ষণ',s3:'🔥 Dhakad Gyaan',s4:'মূল্যায়ন'},
+  or:{home:'ହୋମ',met:'Metalliser',slit:'Slitter',safety:'ସୁରକ୍ଷା',sops:'SOPs & WIs',sap:'SAP Entry',maint:'ରକ୍ଷଣାବେକ୍ଷଣ (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'ଶିଳ୍ପ ଶବ୍ଦ',quiz:'ଜ୍ଞାନ ପରୀକ୍ଷା',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'ସଞ୍ଚାଳନ',s2:'ତାଲିମ',s3:'🔥 Dhakad Gyaan',s4:'ମୂଲ୍ୟାଙ୍କନ'},
+  ar:{home:'الرئيسية',met:'Metalliser',slit:'Slitter',safety:'السلامة',sops:'SOPs & WIs',sap:'SAP Entry',maint:'الصيانة (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'مصطلحات صناعية',quiz:'اختبار المعرفة',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'التشغيل',s2:'التدريب',s3:'🔥 Dhakad Gyaan',s4:'التقييم'},
+  ur:{home:'ہوم',met:'Metalliser',slit:'Slitter',safety:'سیفٹی',sops:'SOPs & WIs',sap:'SAP Entry',maint:'مینٹیننس (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'صنعتی اصطلاحات',quiz:'علمی ٹیسٹ',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'آپریشنز',s2:'ٹریننگ',s3:'🔥 Dhakad Gyaan',s4:'تشخیص'},
+  zh:{home:'首页',met:'Metalliser',slit:'Slitter',safety:'安全培训',sops:'SOPs & WIs',sap:'SAP Entry',maint:'维护 (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'工业术语',quiz:'知识测验',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'操作',s2:'培训模块',s3:'🔥 Dhakad Gyaan',s4:'评估'},
+  de:{home:'Start',met:'Metalliser',slit:'Slitter',safety:'Sicherheit & GMP',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Wartung (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Fachbegriffe',quiz:'Wissenstest',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Betrieb',s2:'Schulung',s3:'🔥 Dhakad Gyaan',s4:'Bewertung'},
+  it:{home:'Home',met:'Metalliser',slit:'Slitter',safety:'Sicurezza',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Manutenzione (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Termini industriali',quiz:'Verifica conoscenze',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operazioni',s2:'Formazione',s3:'🔥 Dhakad Gyaan',s4:'Valutazione'},
+  es:{home:'Inicio',met:'Metalliser',slit:'Slitter',safety:'Seguridad',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Mantenimiento (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Términos industriales',quiz:'Prueba de conocimientos',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operaciones',s2:'Formación',s3:'🔥 Dhakad Gyaan',s4:'Evaluación'},
+  tr:{home:'Ana Sayfa',met:'Metalliser',slit:'Slitter',safety:'Güvenlik',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Bakım (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Endüstriyel terimler',quiz:'Bilgi testi',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operasyonlar',s2:'Eğitim',s3:'🔥 Dhakad Gyaan',s4:'Değerlendirme'},
+  pt:{home:'Início',met:'Metalliser',slit:'Slitter',safety:'Segurança',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Manutenção (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Termos industriais',quiz:'Teste de conhecimento',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operações',s2:'Treinamento',s3:'🔥 Dhakad Gyaan',s4:'Avaliação'},
+  th:{home:'หน้าหลัก',met:'Metalliser',slit:'Slitter',safety:'ความปลอดภัย',sops:'SOPs & WIs',sap:'SAP Entry',maint:'บำรุงรักษา (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'คำศัพท์อุตสาหกรรม',quiz:'ทดสอบความรู้',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'การดำเนินงาน',s2:'การฝึกอบรม',s3:'🔥 Dhakad Gyaan',s4:'การประเมิน'},
+  id:{home:'Beranda',met:'Metalliser',slit:'Slitter',safety:'Keselamatan',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Pemeliharaan (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Istilah industri',quiz:'Tes pengetahuan',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Operasi',s2:'Pelatihan',s3:'🔥 Dhakad Gyaan',s4:'Penilaian'},
+  vi:{home:'Trang chủ',met:'Metalliser',slit:'Slitter',safety:'An toàn',sops:'SOPs & WIs',sap:'SAP Entry',maint:'Bảo trì (PM)',genmet:'Vacuum Metallisation',genslit:'Slitting Technique',terms:'Thuật ngữ công nghiệp',quiz:'Kiểm tra kiến thức',check:'Pre-Start Checklist',askai:'AI Expert',manuals:'OEM Manuals',defect:'Defect Action Plans',s1:'Vận hành',s2:'Đào tạo',s3:'🔥 Dhakad Gyaan',s4:'Đánh giá'}
 };
 
 function lb(k){
@@ -144,16 +153,16 @@ function setLang(l, silent){
       var title = l;
       langs.forEach(function(x){ if(x.code===l) title=x.title; });
       var msg='🌐 '+title;
-      if(l==='en') msg+=' — English';
-      else if(l!=='hi') msg+=' — English';
       if(typeof showToast==='function') showToast(msg);
     }catch(e){}
   }
 }
 function applyLangChrome(){
-  document.documentElement.setAttribute('lang', LANG==='hi'?'hi':(LANG||'en'));
-  document.body.classList.toggle('lang-en', LANG!=='hi');
+  document.documentElement.setAttribute('lang', LANG||'en');
+  document.documentElement.setAttribute('dir', (LANG==='ar'||LANG==='ur') ? 'rtl' : 'ltr');
+  document.body.classList.toggle('lang-en', LANG==='en');
   document.body.classList.toggle('lang-hi', LANG==='hi');
+  document.body.setAttribute('data-lang', LANG||'en');
   // Language buttons: match by data-lang (reliable)
   document.querySelectorAll('.lb').forEach(function(b){
     var code=b.getAttribute('data-lang')||'';
@@ -168,14 +177,26 @@ function applyLangChrome(){
   // Back button label
   var back=document.getElementById('tb-back-btn');
   if(back){
-    back.textContent = (LANG==='hi') ? '← वापस' : '← Back';
+    var backMap={hi:'← वापस',en:'← Back',gu:'← પાછા',ta:'← பின்',te:'← వెనుక',kn:'← ಹಿಂದೆ',bn:'← ফিরে',or:'← ପଛକୁ',ar:'← رجوع',ur:'← واپس',zh:'← 返回',de:'← Zurück',it:'← Indietro',es:'← Atrás',tr:'← Geri',pt:'← Voltar',th:'← กลับ',id:'← Kembali',vi:'← Quay lại'};
+    back.textContent = backMap[LANG]||backMap.en;
   }
   // Apply bilingual swap on visible content
   applyBilingualContent(document.getElementById('content')||document.body);
+
+  // Translate [data-mt-key] using SB_LABELS / mtT
+  try{
+    document.querySelectorAll('[data-mt-key]').forEach(function(el){
+      var k = el.getAttribute('data-mt-key');
+      if(k && typeof mtT==='function') el.textContent = mtT(k);
+    });
+  }catch(e){}
+
 }
 /** Swap Hindi + <span class="en"> blocks when LANG is en */
 function applyBilingualContent(root){
   if(!root) return;
+  // Multi-lang: if LANG not hi/en, prefer English blocks already in HTML
+
   var nodes=root.querySelectorAll('.fs, .st, .ph-desc, .card-desc, .ban-txt, .lock-txt, .gdesc');
   nodes.forEach(function(el){
     var enEl=el.querySelector('.en');

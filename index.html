@@ -45,12 +45,33 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/svg+xml" href="MP-logo.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700;800;900&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 
 <script type="module" src="js/firebase-init.js?v=240"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
+<link id="mp-fonts-lang" rel="stylesheet" href="">
 <link rel="stylesheet" href="css/app.css?v=252">
+
+<style id="mp-i18n-css">
+  body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
+  html[lang="ar"] body, html[lang="ur"] body { font-family: 'Noto Sans Arabic', 'Noto Sans', system-ui, sans-serif; }
+  html[lang="gu"] body { font-family: 'Noto Sans Gujarati', 'Noto Sans', sans-serif; }
+  html[lang="ta"] body { font-family: 'Noto Sans Tamil', 'Noto Sans', sans-serif; }
+  html[lang="te"] body { font-family: 'Noto Sans Telugu', 'Noto Sans', sans-serif; }
+  html[lang="kn"] body { font-family: 'Noto Sans Kannada', 'Noto Sans', sans-serif; }
+  html[lang="bn"] body { font-family: 'Noto Sans Bengali', 'Noto Sans', sans-serif; }
+  html[lang="or"] body { font-family: 'Noto Sans Oriya', 'Noto Sans', sans-serif; }
+  html[lang="ml"] body { font-family: 'Noto Sans Malayalam', 'Noto Sans', sans-serif; }
+  html[lang="pa"] body { font-family: 'Noto Sans Gurmukhi', 'Noto Sans', sans-serif; }
+  html[lang="mr"] body { font-family: 'Noto Sans Devanagari', 'Noto Sans', sans-serif; }
+  html[dir="rtl"] body { direction: rtl; text-align: right; }
+  html[dir="rtl"] .nb, html[dir="rtl"] .nav-bottom { direction: rtl; }
+  html[dir="rtl"] .back-btn { flex-direction: row-reverse; }
+  .i18n-miss { outline: 1px dashed #f472b6; background: rgba(244,114,182,.08); }
+</style>
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -110,15 +131,15 @@ window.addEventListener('appinstalled', function () {
   <!-- STEP 1 - MOBILE NUMBER -->
   <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
     <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-bottom:14px">
-      &#127891; सीखें &mdash; Learn Now
-      <span style="font-size:12px;opacity:1;display:block;font-weight:700;margin-top:3px;color:rgba(255,255,255,.92)">Audio &amp; Video Courses</span>
+      &#127891; <span id="loginLearnTitle">Learn Now</span>
+      <span id="loginLearnSub" style="font-size:12px;opacity:1;display:block;font-weight:700;margin-top:3px;color:rgba(255,255,255,.92)">Audio &amp; Video Courses</span>
     </button>
     <div id="loginPwaBtn" onclick="triggerPWAInstall()" title="App Install करें"
       style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
              padding:12px;margin-bottom:14px;border-radius:12px;cursor:pointer;
              background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
              border:1px solid rgba(249,115,22,.4);font-size:14px;font-weight:800;color:#f97316">
-      📲 App Install करें / Download App
+      📲 <span id="loginPwaLabel">Install App / Download App</span>
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:8px">
       <svg width="80" height="80" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
@@ -136,13 +157,22 @@ window.addEventListener('appinstalled', function () {
     </div>
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:4px">MAN POWER</div>
     <div style="font-size:13px;color:#cbd5e1;margin-bottom:18px;font-weight:600">Team Management Platform</div>
+    <!-- Language on login — preference carries into app via mp_lang -->
+    <button type="button" id="loginLangBtn" onclick="openLocalePicker()"
+      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
+             padding:10px 14px;margin-bottom:14px;border-radius:12px;cursor:pointer;
+             background:rgba(30,41,59,.85);border:1.5px solid rgba(148,163,184,.35);
+             font-size:13px;font-weight:700;color:#e2e8f0">
+      🌐 <span id="loginLangBtnLabel">Language / भाषा</span>
+    </button>
     <div class="login-card" style="width:100%">
       <div class="err-msg" id="loginErr"></div>
-      <div style="font-size:15px;font-weight:800;color:#f8fafc;margin-bottom:8px">&#128241; Mobile Number</div>
-      <div style="font-size:12px;color:#cbd5e1;margin-bottom:8px;line-height:1.45">Member / Manager login — <b style="color:#ffffff">केवल Mobile Number</b> (Employee Code नहीं)</div>
+      <div id="loginMobileTitle" style="font-size:15px;font-weight:800;color:#f8fafc;margin-bottom:4px">📱 Mobile Number</div>
+      <div id="loginMobileTitleHi" style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">मोबाइल नंबर</div>
+      <div id="loginMobileHint" style="font-size:12px;color:#cbd5e1;margin-bottom:8px;line-height:1.45">Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)</div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <div style="background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap">+91</div>
-        <input class="inp-field" type="tel" id="loginMobile" placeholder="10 अंकों का Mobile"
+        <input class="inp-field" type="tel" id="loginMobile" placeholder="10-digit Mobile Number"
           inputmode="numeric" maxlength="10"
           oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value)"
           onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
@@ -151,8 +181,7 @@ window.addEventListener('appinstalled', function () {
           style="flex:1;font-size:18px;letter-spacing:2px">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
-      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">OTP भेजें &#128172;</button>
-
+      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Send OTP &#128172;</button>
     </div>
   </div>
 
@@ -162,8 +191,9 @@ window.addEventListener('appinstalled', function () {
     <div class="login-card" style="width:100%">
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:38px;margin-bottom:6px">&#128172;</div>
-        <div style="font-size:16px;font-weight:900;color:#fff">OTP डालें</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP भेजा गया</div>
+        <div id="loginOtpTitle" style="font-size:16px;font-weight:900;color:#fff">Enter OTP</div>
+        <div id="loginOtpTitleHi" style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:2px">OTP डालें</div>
+        <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP sent</div>
       </div>
       <div class="err-msg" id="loginErr2"></div>
       <input class="inp-field" type="tel" id="otpInput" name="one-time-code" placeholder="- - - - - -"
@@ -174,9 +204,9 @@ window.addEventListener('appinstalled', function () {
       <button class="big-btn" id="verifyOtpBtn" onclick="_verifyOTP()" disabled style="opacity:.5">Verify &#10003;</button>
       <div style="text-align:center;margin-top:10px">
         <span id="otpResendTimer" style="font-size:13px;color:#cbd5e1;font-weight:600"></span>
-        <span id="otpResendBtn" onclick="_sendOTP(true)" style="font-size:12px;color:var(--m1);font-weight:700;cursor:pointer;display:none">OTP फिर भेजें &#8635;</span>
+        <span id="otpResendBtn" onclick="_sendOTP(true)" style="font-size:12px;color:var(--m1);font-weight:700;cursor:pointer;display:none">Resend OTP &#8635;</span>
       </div>
-      <button class="back-btn" onclick="backToStep1()">&larr; वापस</button>
+      <button class="back-btn" id="loginBackBtn2" onclick="backToStep1()">&larr; Back</button>
     </div>
   </div>
 
@@ -186,20 +216,20 @@ window.addEventListener('appinstalled', function () {
     <div class="login-card" style="width:100%">
       <div style="text-align:center;margin-bottom:20px">
         <div style="font-size:36px;margin-bottom:6px">&#128075;</div>
-        <div class="role-pick-heading">आप कौन हैं?</div>
-        <div style="font-size:12px;color:#64748b;margin-top:3px">अपनी भूमिका चुनें</div>
+        <div class="role-pick-heading" id="loginRoleHeading">Who are you?</div>
+        <div id="loginRoleSub" style="font-size:12px;color:#64748b;margin-top:3px">Choose your role</div>
       </div>
       <div class="err-msg" id="loginErr3"></div>
       <div style="display:grid;gap:12px;margin-bottom:16px">
         <div id="roleCard_manager" class="role-pick-card" onclick="_selectRole('manager')">
           <div class="role-pick-ico">🏅</div>
           <div class="role-pick-title">Manager</div>
-          <div class="role-pick-sub">मैं Manager हूं — अपनी team manage करता हूं</div>
+          <div class="role-pick-sub" id="loginRoleMgrSub">I am a Manager — I manage my team</div>
         </div>
         <div id="roleCard_member" class="role-pick-card" onclick="_selectRole('member')">
           <div class="role-pick-ico">👤</div>
           <div class="role-pick-title">Team Member</div>
-          <div class="role-pick-sub">मैं एक Member हूं — अपने Manager की team में शामिल हूं</div>
+          <div class="role-pick-sub" id="loginRoleMemSub">I am a Member — I join my Manager's team</div>
         </div>
       </div>
       <button class="back-btn" onclick="backToStep1()">&larr; वापस</button>
@@ -443,12 +473,10 @@ window.addEventListener('appinstalled', function () {
                border:1px solid rgba(249,115,22,.4);font-size:20px">
         📲
       </div>
-      <div class="user-chip" onclick="showProfile()">
+      <div class="user-chip user-chip-profile" onclick="showProfile()" title="Profile" aria-label="Profile">
         <div class="user-av" id="userAv" style="background:linear-gradient(135deg,var(--m1),var(--s1))">?</div>
-        <div>
-          <div style="font-size:19px;font-weight:900;line-height:1.2" id="userHdrName">—</div>
-          <div class="role-tag" id="roleTag">user</div>
-        </div>
+        <div class="role-tag" id="roleTag">USER</div>
+        <div id="userHdrName" class="user-hdr-name-sr" aria-hidden="true">—</div>
       </div>
     </div>
   </div>
@@ -498,6 +526,7 @@ window.addEventListener('appinstalled', function () {
   <!-- Same Home for everyone: manpower summary + personal shift calendar -->
   <div id="homeAdminView">
     <div class="stats-grid" id="homeStats"></div>
+    <div id="homeGreeting" style="font-size:15px;font-weight:800;color:var(--text);margin:0 0 6px"></div>
     <div class="stitle" id="homeSectionTitle">आज की स्थिति — सेक्शन वार</div>
     <div id="homeSections"></div>
     <div id="homeRoster"></div>
@@ -1324,7 +1353,8 @@ window.__sectionsReady = (async function loadSections(){
 </script>
 
 <script src="js/i18n_locale.js"></script>
-<script src="js/app.js?v=258"></script>
+<script src="js/i18n_ml.js"></script>
+<script src="js/app.js?v=276-sched-member-view"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
