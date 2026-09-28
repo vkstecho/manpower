@@ -1,3 +1,12 @@
+# v2.4.7 — Notification badge stuck after read
+
+Redeploy `database.rules.json` so mark-as-read works:
+
+- `userNotifications` write: `auth != null`
+- `adminNotifications` read/write: `auth != null`
+
+Without this, open-app badge count can return after reopen even when user opened notifications.
+
 # Deploy rules (required for Approve Login)
 
 ## v2.4.6 — fixes PERMISSION_DENIED on Manager login approve

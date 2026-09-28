@@ -4060,3 +4060,39 @@ body.light .nav-more-item { background: #f5f6f8; color: var(--text); }
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* v2.4.8 — Admin chip / header buttons must not crop off-screen */
+.hdr-top{ gap:6px; flex-wrap:nowrap; }
+.hdr-right{
+  display:flex; align-items:center; gap:6px;
+  flex-shrink:1; min-width:0; max-width:62%;
+  overflow:hidden;
+}
+.hdr-right .user-chip{
+  max-width:110px; min-width:0; flex-shrink:1;
+  overflow:hidden;
+}
+.hdr-right .user-chip > div:last-child{
+  min-width:0; overflow:hidden;
+}
+.hdr-right #userHdrName{
+  max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:14px !important;
+}
+.hdr-right .role-tag{
+  max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  font-size:9px;
+}
+.hdr-right .notif-btn,
+.hdr-right #langToggleBtn,
+.hdr-right #themeToggleBtn,
+.hdr-right #shareAppBtn,
+.hdr-right #pwaInstallBtn{
+  flex-shrink:0;
+}
+@media (max-width:400px){
+  .hdr-right{ gap:4px; max-width:68%; }
+  .hdr-right .user-chip{ max-width:88px; padding:4px 6px 4px 4px !important; }
+  .hdr-right #userHdrName{ max-width:48px; font-size:12px !important; }
+}

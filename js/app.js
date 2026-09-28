@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.6';
+const APP_VERSION = '2.4.8';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -786,7 +786,25 @@ function _refreshTabs(tabs){
   }
 }
 
-function _normCompanyId(s){ return (s||'').toString().trim().toLowerCase() || 'default'; }
+function _normCompanyId(s){
+  // Case-insensitive, collapse spaces; empty → default
+  let t = (s||'').toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  if(!t) return 'default';
+  return t;
+}
+/** True if company fields refer to the same org (case/space insensitive; empty matches any filter for team members). */
+function _companyMatchesView(company, viewCid){
+  if(!viewCid || viewCid === 'ALL') return true;
+  const n = _normCompanyId(company);
+  const v = _normCompanyId(viewCid);
+  if(n === v) return true;
+  // empty / default on record → still show under manager when admin filters a company
+  if(!company || n === 'default') return true;
+  return false;
+}
+function _sameCompany(a, b){
+  return _normCompanyId(a) === _normCompanyId(b);
+}
 function myCompanyId(){
   if(isAdmin()) return SESSION.viewCompanyId || 'ALL';
   if(SESSION.companyId) return SESSION.companyId;
@@ -796,36 +814,44 @@ function listAllCompanies(){
   const ids=new Set();
   const labels={};
   const counts={};
-  // Prefer manager-owned company names (live) over stale employee labels
+  const addCo = (rawId, rawLabel)=>{
+    const cid = _normCompanyId(rawId || rawLabel);
+    if(!cid || cid==='all' || cid==='default') return;
+    ids.add(cid);
+    counts[cid]=(counts[cid]||0)+1;
+    const lbl = String(rawLabel||rawId||'').trim();
+    if(lbl){
+      // Prefer properly cased label (has uppercase) over all-lowercase
+      if(!labels[cid] || (lbl !== lbl.toLowerCase() && labels[cid]===labels[cid].toLowerCase()))
+        labels[cid]=lbl;
+    }
+  };
   try{
-    // mobileUsers may not be fully in _cache; employees carry managerId
     (_cache.employees||[]).forEach(e=>{
-      const cid=_normCompanyId(e.companyId);
-      if(!cid || cid==='all') return;
-      ids.add(cid);
-      counts[cid]=(counts[cid]||0)+1;
-      const lbl = (e.companyLabel||e.company||'').trim();
-      // Prefer non-empty labels; if multiple, prefer the most common later
-      if(lbl){
-        if(!labels[cid]) labels[cid]=lbl;
-        // If this employee is a manager-designation, prefer their label
-        const des = String(e.designation||'').toLowerCase();
-        if(/manager|mgr/.test(des) && lbl) labels[cid]=lbl;
-      }
+      addCo(e.companyId, e.companyLabel||e.company||e.companyId);
+      const des = String(e.designation||'').toLowerCase();
+      if(/manager|mgr/.test(des) && (e.companyLabel||e.company))
+        addCo(e.companyId||e.company, e.companyLabel||e.company);
     });
   }catch(e){}
-  // Also scan SESSION if admin has company map
+  // Mobile registration managers/members — source of "GLS Polyfilms" on Team tab
   try{
-    if(SESSION && SESSION.companyId && SESSION.company){
-      const cid=_normCompanyId(SESSION.companyId);
-      ids.add(cid);
-      labels[cid]=SESSION.company;
+    const mu = (_cache.mobileUsers && typeof _cache.mobileUsers==='object') ? _cache.mobileUsers : null;
+    // mobileUsers may only be on demand; also try window cache
+    const scan = mu || {};
+    Object.values(scan).forEach(u=>{
+      if(u && u.company) addCo(u.company, u.company);
+    });
+  }catch(e){}
+  try{
+    if(SESSION && (SESSION.companyId || SESSION.company)){
+      addCo(SESSION.companyId||SESSION.company, SESSION.company||SESSION.companyId);
     }
   }catch(e){}
   return Array.from(ids).map(cid=>({
-    id:cid,
-    label: labels[cid] || (cid==='default'?'Man Power':cid.toUpperCase())
-  })).sort((a,b)=>a.label.localeCompare(b.label));
+    id: cid, // always normalized lowercase — case-insensitive select value
+    label: labels[cid] || (cid==='default'?'Man Power':cid)
+  })).sort((a,b)=>a.label.localeCompare(b.label, undefined, {sensitivity:'base'}));
 }
 
 /** When manager changes company name, update all team employees' companyLabel so Admin list stays in sync. */
@@ -859,7 +885,8 @@ function renderCompanySwitcher(){
   sel.value=current;
 }
 function switchViewCompany(companyId){
-  SESSION.viewCompanyId=companyId;
+  // Store normalized id so "GLS" / "gls" / "GLS Polyfilms" comparisons stay consistent
+  SESSION.viewCompanyId = (!companyId || companyId==='ALL') ? 'ALL' : _normCompanyId(companyId);
   saveSession();
   toast(companyId==='ALL'?'🌐 सभी Companies दिख रही हैं':'🏢 अब सिर्फ इस Company का data दिख रहा है');
   refreshAll();
@@ -12231,21 +12258,47 @@ function renderAdminTeamHierarchy(){
   block.style.display='block';
   fbGet('mobileUsers').then(data=>{
     if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई registered Manager नहीं</div>'; return; }
-    let all=Object.entries(data);
-    const viewCid=SESSION.viewCompanyId;
-    if(viewCid && viewCid!=='ALL'){
-      all=all.filter(([k,v])=>_normCompanyId(v.company)===viewCid);
-    }
-    const managers=all.filter(([k,v])=>v.role==='manager'&&v.status!=='rejected');
-    const managerKeys=new Set(managers.map(([k])=>k));
-    const uncategorised=all.filter(([k,v])=>v.role==='member'&&v.status!=='rejected'&&(!v.managerId||!managerKeys.has(v.managerId)));
+    try{ _cache.mobileUsers = data; }catch(e){}
+    // Always start from full list — do NOT pre-filter members by company (they may have blank/different casing)
+    const allRaw = Object.entries(data);
+    const viewCid = SESSION.viewCompanyId || 'ALL';
+    const mgrKeyNorm = (k)=> (typeof _normMobileKey==='function' ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10));
+
+    // Managers: match company case-insensitively (empty company still shows when filter is ALL only)
+    const managers = allRaw.filter(([k,v])=>{
+      if(v.role!=='manager' || v.status==='rejected') return false;
+      if(!viewCid || viewCid==='ALL') return true;
+      const n = _normCompanyId(v.company);
+      const vcid = _normCompanyId(viewCid);
+      // Manager must belong to selected company (or have no company set but we still show if name soft-match)
+      return n === vcid || n === 'default';
+    });
+    const managerKeys = new Set(managers.map(([k])=>mgrKeyNorm(k)));
+    // Also keep original keys for display
+    const managerKeySet = new Set(managers.map(([k])=>k));
+
+    // Uncategorised: members not linked to a visible manager
+    const uncategorised = allRaw.filter(([k,v])=>{
+      if(v.role!=='member' || v.status==='rejected') return false;
+      if(!_companyMatchesView(v.company, viewCid)) return false;
+      const mk = mgrKeyNorm(v.managerId);
+      if(!v.managerId) return true;
+      return !managerKeys.has(mk) && !managerKeySet.has(v.managerId);
+    });
 
     if(!managers.length && !uncategorised.length){
       el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई registered Manager/Member नहीं</div>'; return;
     }
 
     let html=managers.map(([mgrKey,mgr])=>{
-      const members=all.filter(([k,v])=>v.role==='member'&&v.managerId===mgrKey&&v.status!=='rejected');
+      const mk = mgrKeyNorm(mgrKey);
+      // Members under this manager by mobile key (normalized) — company filter is soft
+      const members=allRaw.filter(([k,v])=>{
+        if(v.role!=='member' || v.status==='rejected') return false;
+        const mid = mgrKeyNorm(v.managerId);
+        if(!(mid === mk || v.managerId === mgrKey)) return false;
+        return _companyMatchesView(v.company, viewCid);
+      });
       const statusBadge=_mobileStatusBadge(mgr);
       const membersHtml=members.length?members.map(([memKey,mem])=>`
           <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px">
@@ -24183,14 +24236,36 @@ function listenUserShiftNotifications(){
 
   const mergeNotifs = (v, prefix) => {
     const items = v ? Object.entries(v).map(([k,n])=>({...n,_key:k,_path:prefix})) : [];
-    // Merge with existing cache from other path (dedupe by at+title+body)
+    // Merge paths (empId + mobile). Prefer read:true so one marked copy clears the badge.
     const prev = _userNotifCache || [];
     const map = new Map();
+    const dedupeKey = (n)=> (n.at||'')+'|'+(n.title||'')+'|'+(n.body||'')+'|'+(n.type||'')+'|'+(n.date||'');
     [...prev, ...items].forEach(n=>{
-      const key = (n.at||'')+'|'+(n.title||'')+'|'+(n.body||'');
-      if(!map.has(key)) map.set(key, n);
+      const key = dedupeKey(n);
+      const existing = map.get(key);
+      if(!existing){
+        map.set(key, n);
+      } else {
+        // Prefer read; keep both path keys for mark-all
+        const prefer = (n.read && !existing.read) ? n : existing;
+        const other = prefer === n ? existing : n;
+        prefer._alsoPaths = prefer._alsoPaths || [];
+        if(other._path && other._key){
+          prefer._alsoPaths.push({ path: other._path, key: other._key });
+        }
+        if(n.read) prefer.read = true;
+        if(existing.read) prefer.read = true;
+        map.set(key, prefer);
+      }
     });
-    const merged = [...map.values()].sort((a,b)=> new Date(b.at||0) - new Date(a.at||0));
+    // Local "seen" set survives if Firebase mark-read once failed
+    let localSeen = {};
+    try{ localSeen = JSON.parse(localStorage.getItem('mp_notif_seen')||'{}'); }catch(e){}
+    const merged = [...map.values()].map(n=>{
+      const key = dedupeKey(n);
+      if(localSeen[key]) n = {...n, read:true};
+      return n;
+    }).sort((a,b)=> new Date(b.at||0) - new Date(a.at||0));
     _userNotifCache = merged;
     _userNotifUnread = merged.filter(n=>!n.read).length;
     _updateUserNotifBadge();
@@ -24270,29 +24345,78 @@ function openUserNotifications(){
 }
 
 async function markAllNotifsRead(){
-  const unread = (_userNotifCache||[]).filter(n=>!n.read);
+  const all = (_userNotifCache||[]).slice();
+  const unread = all.filter(n=>!n.read);
   const mob = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||SESSION.uid||'') : '';
   const empId = SESSION.empObjId||'';
-  for(const n of unread){
+  if(typeof _ensureWriteAuth==='function'){ try{ await _ensureWriteAuth(); }catch(e){} }
+
+  // Persist locally so badge stays clear after reopen even if one FB write fails
+  let localSeen = {};
+  try{ localSeen = JSON.parse(localStorage.getItem('mp_notif_seen')||'{}'); }catch(e){}
+  const dedupeKey = (n)=> (n.at||'')+'|'+(n.title||'')+'|'+(n.body||'')+'|'+(n.type||'')+'|'+(n.date||'');
+
+  for(const n of all){
     try{
-      const paths = [];
-      if(n._path && n._key) paths.push(n._path+'/'+n._key);
-      if(empId && n._key) paths.push('userNotifications/'+empId+'/'+n._key);
-      if(mob && n._key) paths.push('userNotifications/'+mob+'/'+n._key);
-      // admin notifications
-      if(n._adminKey) paths.push('adminNotifications/'+n._adminKey);
-      for(const p of paths){ try{ await fbUpdate(p, {read:true}); }catch(e){} }
+      const paths = new Set();
+      if(n._path && n._key) paths.add('userNotifications/'+n._path+'/'+n._key);
+      // _path may already be full prefix without userNotifications
+      if(n._path && n._key && !String(n._path).startsWith('userNotifications')){
+        paths.add('userNotifications/'+n._path+'/'+n._key);
+      }
+      if(n._path && n._key && String(n._path).includes('/')){
+        paths.add(n._path+'/'+n._key);
+      }
+      // Standard paths: under empObjId and under mobile (duplicates are often stored both places)
+      if(empId && n._key) paths.add('userNotifications/'+empId+'/'+n._key);
+      if(mob && n._key) paths.add('userNotifications/'+mob+'/'+n._key);
+      if(n._alsoPaths){
+        n._alsoPaths.forEach(ap=>{
+          if(ap.path && ap.key) paths.add('userNotifications/'+ap.path+'/'+ap.key);
+        });
+      }
+      if(n._adminKey) paths.add('adminNotifications/'+n._adminKey);
+      for(const p of paths){
+        try{ await fbUpdate(p, {read:true}); }catch(e){}
+      }
       n.read = true;
+      localSeen[dedupeKey(n)] = 1;
     }catch(e){}
   }
+
+  // Sweep entire trees under my keys (covers keys not in cache / wrong _key)
+  try{
+    const markTree = async (base)=>{
+      if(!base) return;
+      const data = await fbGet('userNotifications/'+base)||{};
+      for(const [k,v] of Object.entries(data)){
+        if(v && !v.read){
+          try{ await fbUpdate('userNotifications/'+base+'/'+k, {read:true}); }catch(e){}
+        }
+      }
+    };
+    await markTree(empId);
+    if(mob && mob!==empId) await markTree(mob);
+  }catch(e){}
+
+  try{
+    // Keep last ~200 seen keys
+    const keys = Object.keys(localSeen);
+    if(keys.length > 200){
+      keys.slice(0, keys.length-200).forEach(k=> delete localSeen[k]);
+    }
+    localStorage.setItem('mp_notif_seen', JSON.stringify(localSeen));
+  }catch(e){}
+
   try{
     if(_userNotifCache) _userNotifCache.forEach(n=>{ n.read=true; });
+    _userNotifUnread = 0;
     const badge = document.getElementById('notifCount');
     if(badge){ badge.textContent=''; badge.style.display='none'; }
     const bell = document.getElementById('notifBtn');
     if(bell){ bell.classList.remove('has-unread'); bell.style.animation=''; }
   }catch(e){}
-  // Also mark adminNotifications as read for managers
+
   try{
     if(isAdmin()||isMgr()){
       const an = await fbGet('adminNotifications')||{};
