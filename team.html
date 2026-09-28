@@ -1,12 +1,7 @@
 <!-- ── TEAM ── -->
 <div class="tab" id="tab-team">
   <div class="page-title" id="pageTitleTeam">टीम</div>
-  <div class="page-sub">Members · sections from Excel</div>
-  <div class="industry-hint">💡 Sections / machines come from <b>Team Excel upload</b> (any industry). Use custom section names — not only M1/S1.</div>
-  <div class="team-subtabs" id="teamSubtabs">
-    <button type="button" class="on" onclick="document.querySelectorAll('#teamSubtabs button').forEach(b=>b.classList.remove('on'));this.classList.add('on');const a=document.getElementById('teamListArea');const b=document.getElementById('teamUploadHint');if(a)a.style.display='';if(b)b.style.display='none';">📋 List</button>
-    <button type="button" onclick="document.querySelectorAll('#teamSubtabs button').forEach(b=>b.classList.remove('on'));this.classList.add('on');if(typeof openTeamExcelUpload==='function')openTeamExcelUpload();">📤 Excel</button>
-  </div>
+  <div class="page-sub">Members · team roster</div>
   <div id="teamListArea">
   <div id="adminTeamHierarchyBlock" style="display:none">
     <div style="font-size:12px;font-weight:800;color:#22c55e;letter-spacing:.5px;margin:0 0 8px">

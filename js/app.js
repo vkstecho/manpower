@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.8';
+const APP_VERSION = '2.4.12';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -8417,6 +8417,102 @@ function resetCustomRange(){
 // ════════════════════════════════════════
 // EXCEL UPLOAD
 // ════════════════════════════════════════
+
+/** Download Schedule Excel template: 10 sample employees + date/shift columns + Hindi/English notes */
+function downloadScheduleExcelTemplate(){
+  try{ toast('⬇️ Schedule template downloading…'); }catch(e){}
+  // Fixed person columns — same order as Team Excel + Schedule export
+  const FIXED = ['Name','Emp ID','Designation','Weekly Off','Mobile','Section','Machine','Responsibility','Salary','Joining Date','Date of Birth'];
+  // 7 sample date columns (today-ish style labels)
+  const base = new Date();
+  const dates = [];
+  for(let i=0;i<7;i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate()+i);
+    const lab = String(d.getDate()).padStart(2,'0')+'-'+d.toLocaleString('en',{month:'short'})+'-'+String(d.getFullYear()).slice(2);
+    dates.push(lab);
+  }
+  const headers = FIXED.concat(dates);
+
+  // 10 sample employees with varied shifts D/N/O
+  const people = [
+    ['RAHUL MEHTA','41001201','Team Member','MON','9810011223','Production A','Line-1','Operation','32000','12-03-2024','15-08-1995'],
+    ['PRIYA SHARMA','41001202','Sr. Team Member','WED','9823344556','Production A','Line-1','Setup','38500','01-06-2023','22-11-1992'],
+    ['AMIT KUMAR','41001203','Trainee','FRI','9876512340','Production B','Line-2','Assistant','21000','05-01-2026','03-04-2001'],
+    ['NEHA GUPTA','41001204','Team Member','TUE','9900112233','Quality','QC-Desk','Inspection','29500','18-09-2024','09-07-1996'],
+    ['VIKAS PATEL','41001205','Jr. Team Member','SAT','9911223344','Warehouse','Bay-3','Handling','26000','20-11-2025','11-02-1998'],
+    ['SONIA VERMA','41001206','Operator','SUN','9922334455','Metalliser','M-1','Machine Op','28000','10-02-2024','21-09-1994'],
+    ['RAJESH YADAV','41001207','Supervisor','MON','9933445566','Slitter','S-2','Supervision','42000','03-08-2022','14-01-1990'],
+    ['KAVITA DEVI','41001208','Team Member','THU','9944556677','MetProd','Line-3','Packing','27000','19-05-2025','08-12-1997'],
+    ['MOHAN SINGH','41001209','Helper','FRI','9955667788','Production A','Line-1','Helper','22000','22-07-2024','30-03-1999'],
+    ['ANITA RANI','41001210','Team Member','WED','9966778899','Quality','QC-Desk','Checking','30000','11-11-2023','17-06-1993'],
+  ];
+  // Sample shift patterns (7 days)
+  const patterns = [
+    ['D','D','D','D','D','O','O'],
+    ['N','N','N','N','N','O','O'],
+    ['D','D','O','N','N','N','O'],
+    ['O','D','D','D','D','D','O'],
+    ['D','D','D','O','N','N','N'],
+    ['N','N','O','D','D','D','D'],
+    ['D','O','D','D','D','D','O'],
+    ['O','O','D','D','D','D','D'],
+    ['D','D','D','D','O','O','D'],
+    ['N','N','N','O','O','D','D'],
+  ];
+  const dataRows = people.map((p,i)=> p.concat(patterns[i]));
+
+  const esc = (v)=>{
+    const s = String(v??'');
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+
+  // Notes below data (Hindi + English) — column purpose for the app
+  const blank = ()=> Array(headers.length).fill('');
+  const noteRows = [];
+  const pushNote = (text)=>{
+    const r = blank();
+    r[0] = text;
+    noteRows.push(r);
+  };
+  pushNote('');
+  pushNote('========== NOTES / नोट (Hindi + English) — do not delete this section; app ignores rows without Emp ID ==========');
+  pushNote('');
+  pushNote('EN: You can fill whatever team information you need. Extra columns are optional; required ones help the app match people and shifts.');
+  pushNote('HI: आप टीम की जो भी जानकारी देना चाहें दे सकते हैं। अतिरिक्त कॉलम वैकल्पिक हैं; ज़रूरी कॉलम से App लोगों और शिफ्ट को सही जोड़ती है।');
+  pushNote('');
+  pushNote('--- Column purpose / कॉलम का उद्देश्य ---');
+  pushNote('Name | नाम: Employee full name (display in Schedule & Team).');
+  pushNote('Emp ID | कर्मचारी कोड: REQUIRED to match rows when uploading shifts. Keep stable (do not change often).');
+  pushNote('Designation | पद: Role title (Operator, Supervisor…). Not used as Section.');
+  pushNote('Weekly Off | साप्ताहिक छुट्टी: MON–SUN preferred (or full day name).');
+  pushNote('Mobile | मोबाइल: 10-digit number for WhatsApp / login link (optional but useful).');
+  pushNote('Section | सेक्शन: REQUIRED for Home section-wise view (Metalliser, Slitter, Production A…). Free text — any industry.');
+  pushNote('Machine | मशीन: Machine / line name (M-1, Line-1…). Used in filters & min staff.');
+  pushNote('Responsibility | जिम्मेदारी: Job duty text (optional).');
+  pushNote('Salary | वेतन: Monthly salary number (optional; for cost reports).');
+  pushNote('Joining Date | जॉइनिंग: Optional date.');
+  pushNote('Date of Birth | जन्म तिथि: Optional date.');
+  pushNote('Date columns (01-Sep-26 …) | तारीख कॉलम: Shift codes only — D=Day, N=Night, O=Off, L=Leave, C/O=Comp Off, G=General, Ab=Absent, HLF=Half, GP=Gate Pass, H=Holiday, OD=Other Dept.');
+  pushNote('');
+  pushNote('EN: How to use — (1) Edit sample names/Emp IDs to your team OR delete sample rows and paste your people. (2) Fill shift cells under each date. (3) Upload this file in Schedule → Upload Excel. (4) For people/section only without shifts, use Team → Excel instead.');
+  pushNote('HI: उपयोग — (1) सैंपल नाम/Emp ID अपनी टीम से बदलें या हटाकर अपनी सूची लगाएँ। (2) हर तारीख के नीचे शिफ्ट भरें (D/N/O…)। (3) Schedule → Upload Excel से अपलोड करें। (4) केवल लोग/सेक्शन अपडेट के लिए Team → Excel उपयोग करें।');
+  pushNote('');
+  pushNote('EN: Tip — Prefer Download Excel from Schedule (live data), edit shifts, re-upload. This template is only a starter with 10 example employees.');
+  pushNote('HI: सुझाव — असली डेटा के लिए Schedule से Download Excel लें, शिफ्ट एडिट करें, फिर अपलोड करें। यह फ़ाइल सिर्फ 10 उदाहरण कर्मचारियों वाला टेम्पलेट है।');
+
+  const allRows = [headers, ...dataRows, ...noteRows];
+  const csv = allRows.map(r=>r.map(esc).join(',')).join('\n');
+  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ManPower_Schedule_Template_10Emp.csv';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 2000);
+  try{ toast('✅ Template: 10 employees + dates + Hindi/English notes'); }catch(e){}
+}
+try{ window.downloadScheduleExcelTemplate = downloadScheduleExcelTemplate; }catch(e){}
+
 function openExcelUpload(){
   try{ /* exposed for Schedule toolbar */ }catch(e){}
   document.getElementById('excelUploadOverlay').classList.add('open');
@@ -14933,16 +15029,16 @@ function _mapExcelColumns(headerRow){
   const header = (headerRow||[]).map(_normHeaderCell);
   const aliases = {
     name:        ['name','naam','employee name','emp name','full name','worker name'],
-    code:        ['emp id','empid','emp code','employee code','employee id','e code','ecode','code','id','emp no','emp number','employee no'],
-    mobile:      ['mobile','mobile no','mobile number','phone','phone no','phone number','contact','contact no','मोबाइल'],
+    code:        ['emp id','empid','emp code','employee code','employee id','e code','ecode','code','id','emp no','emp number','employee no','e. code','emp. code'],
+    mobile:      ['mobile','mobile no','mobile number','phone','phone no','phone number','contact','contact no','मोबाइल','mobile no.'],
     designation: ['designation','desig','role','position','post','पद'],
     machine:     ['machine','mc','machine name','section machine','मशीन'],
-    section:     ['section','sec','department section','dept section','सेक्शन','area','unit'],
+    section:     ['section','sec','department section','dept section','सेक्शन','area','unit','dept','department'],
     responsibility: ['responsibility','responsibilities','duty','job'],
     doj:         ['joining date','joining','date of joining','doj','join date'],
     dob:         ['date of birth','dob','birth date','d.o.b','birthdate'],
-    woff:        ['weekly off','weekly off day','woff','week off','off day','w off'],
-    salary:      ['salary','monthly salary','basic salary','ctc','gross','net pay','wage','pay','वेतन','sal'],
+    woff:        ['weekly off','weekly off day','woff','week off','off day','w off','weeklyoff'],
+    salary:      ['salary','monthly salary','basic salary','ctc','gross','net pay','wage','pay','वेतन','sal','salary (₹/month)','salary (rs/month)'],
   };
   const colMap = {};
   Object.entries(aliases).forEach(([key, list])=>{
@@ -14977,9 +15073,10 @@ function closeTeamExcelUpload(){
 
 /** Download sample Team Excel matching Manager snapshot format */
 function downloadTeamExcelTemplate(){
-  // Template columns match Manager team Excel (Section / Machine / Responsibility free-text)
+  // IMPORTANT: Section column is required for Home section-wise view & min staff
+  // Order matches Schedule Download Excel (uniform)
   const headers = ['Name','Emp ID','Designation','Weekly Off','Mobile','Section','Machine','Responsibility','Salary','Joining Date','Date of Birth'];
-  // Randomized sample only — not real plant staff
+  // Randomized sample only — not real plant staff (Section = free text: Metalliser, Slitter, MetProd, Production A…)
   const sample = [
     ['RAHUL MEHTA','41001201','Team Member','MON','9810011223','Production A','Line-1','Operation','32000','12-03-2024','15-08-1995'],
     ['PRIYA SHARMA','41001202','Sr. Team Member','WED','9823344556','Production A','Line-1','Setup','38500','01-06-2023','22-11-1992'],
@@ -14987,6 +15084,7 @@ function downloadTeamExcelTemplate(){
     ['NEHA GUPTA','41001204','Team Member','TUE','9900112233','Quality','QC-Desk','Inspection','29500','18-09-2024','09-07-1996'],
     ['VIKAS PATEL','41001205','Jr. Team Member','SAT','9911223344','Warehouse','Bay-3','Handling','26000','20-11-2025','11-02-1998'],
   ];
+  try{ toast('⬇️ Template includes Section column — do not remove it'); }catch(e){}
   const esc = v => {
     const s = String(v??'');
     return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
