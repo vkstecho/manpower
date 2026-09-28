@@ -1,3 +1,15 @@
+# Deploy rules (required for Approve Login)
+
+## v2.4.6 — fixes PERMISSION_DENIED on Manager login approve
+
+Update these RTDB paths (included in this package `database.rules.json`):
+
+- `loginRequests/$rid` write: `auth != null`
+- `deviceApprovals` write: `auth != null`
+- `managers/$uid` write: `auth != null && auth.uid === $uid`
+
+Without redeploying rules, Approve/Reject on Pending will show **Permission denied**.
+
 ## v2.4.4 rules change
 
 `overrides`, `schedules`, `shiftConfigs` write rule is now `auth != null` (MET-like trusted Save).

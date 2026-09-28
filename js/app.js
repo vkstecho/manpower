@@ -636,7 +636,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.5';
+const APP_VERSION = '2.4.6';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -1373,7 +1373,7 @@ async function saveShiftConfig(cfg,keyOverride){
     await fbSet('shiftConfigs/'+key.replace(/[:.#$\[\]]/g,'_'),cfg);
     _shiftConfigCache[key]=cfg;
     return true;
-  }catch(e){ toast('❌ Error: '+e.message); return false; }
+  }catch(e){ toast('❌ '+(String(e.message||e).includes('PERMISSION_DENIED')||String(e.message||e).includes('Permission denied')?'Permission denied — redeploy database.rules.json (v2.4.6) then retry':e.message)); return false; }
 }
 
 function getSchedules(){ return _cache.schedules   || {}; }
@@ -3791,6 +3791,7 @@ async function fallbackManagerLoginOTP(){
 
 async function approveManagerLoginRequest(reqKey){
   try{
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast('❌ Auth required'); return; } }
     await fbUpdate('loginRequests/'+reqKey, {
       status:'approved',
       approvedAt: new Date().toISOString(),
@@ -3803,6 +3804,7 @@ async function approveManagerLoginRequest(reqKey){
 }
 async function rejectManagerLoginRequest(reqKey){
   try{
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast('❌ Auth required'); return; } }
     await fbUpdate('loginRequests/'+reqKey, {
       status:'rejected',
       rejectedAt: new Date().toISOString(),
@@ -12350,6 +12352,10 @@ async function adminExtendMobileValidity(mobile,name,days){
 // ── Login Request Approval (new flow) ──
 async function approveLoginRequest(reqKey, empObjId, deviceId, empName){
   try{
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast('❌ Login/auth required — try again'); return; }
+    }
     // Get login request data to fetch selfieUrl and phone
     let selfieUrl = '';
     let phone = '';
@@ -12386,6 +12392,7 @@ async function approveLoginRequest(reqKey, empObjId, deviceId, empName){
 
 async function rejectLoginRequest(reqKey, empName){
   try{
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast('❌ Auth required'); return; } }
     await fbUpdate('loginRequests/'+reqKey, {
       status:'rejected', rejectedBy:SESSION.name, rejectedAt:new Date().toISOString()
     });
