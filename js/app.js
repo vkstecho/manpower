@@ -3370,8 +3370,10 @@ async function pushShiftNotification(empObjId, empName, date, oldShift, newShift
 // ════════════════════════════════════════
 function initPWA(){
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('/sw.js').then(reg=>{
-      console.log('SW registered:', reg.scope);
+    // Prefer absolute root scope so SW controls all app routes
+    const swUrl = (location.pathname.startsWith('/') ? '' : '') + '/sw.js';
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(reg=>{
+      console.log('[SW] registered v2.4.96 scope:', reg.scope);
 
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {

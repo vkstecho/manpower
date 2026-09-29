@@ -54,7 +54,7 @@ const CFG = {
   adminCreds:[], // Empty — all auth goes through Firebase
   supervisorInstructor: 'MOHIT',
   minShift: { default:2 },
-  shiftLabels: { D:'दिन (7AM-7PM)', N:'रात (7PM-7AM)', A:'A Shift', B:'B Shift', C:'C Shift', O:'साप्ताहिक छुट्टी', L:'लीव', G:'जनरल', 'C/O':'Comp Off' },
+  shiftLabels: { D:'Day (7AM-7PM)', N:'Night (7PM-7AM)', A:'A Shift', B:'B Shift', C:'C Shift', O:'Weekly Off', L:'Leave', G:'General', 'C/O':'Comp Off' },
   // ── Contact numbers (update here, applies everywhere) ──
   contactManagerName: 'Manager',   // shown in device-approval / expiry UI (override in Firebase settings if needed)
   contactVivek:  '+918168771239',   // Manager contact — device approvals, access extensions
@@ -433,7 +433,7 @@ async function _roSaveOrder(){
     _customEmpOrder = newOrder;
     _customEmpRoles = newRoles;
     closeModal();
-    toast('✅ क्रम & Group save हो गया! Schedule update हो रही है...');
+    toast(L('✅ क्रम & Group save हो गया! Schedule update हो रही है...','✅ Order & groups saved! Updating schedule...'));
     renderSchedule();
   }catch(e){ toast('❌ Save failed: ' + e.message); }
 }
@@ -447,7 +447,7 @@ async function _roResetOrder(){
     _customEmpOrder = {};
     _customEmpRoles = {};
     closeModal();
-    toast('🔄 Default order restore हो गया');
+    toast(L('🔄 Default order restore हो गया','🔄 Default order restored'));
     renderSchedule();
   }catch(e){ toast('❌ Reset failed: ' + e.message); }
 }
@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.67';
+const APP_VERSION = '2.4.96';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -735,12 +735,24 @@ async function initData(){
 
   const mergeEmps = (v) => {
     const fbEmps = v ? Object.values(v) : [];
+    // Prefer mobileUsers language so WhatsApp respects profile setting
+    let muMap = (_cache && _cache.mobileUsers) || null;
     return fbEmps.map(e => {
+      let out = e;
       if(!e.phone){
         const def = DEFAULT_EMP.find(d=>d.id===e.id);
-        if(def && def.phone) return {...e, phone: def.phone};
+        if(def && def.phone) out = {...e, phone: def.phone};
       }
-      return e;
+      if(!(out.preferredLang||out.lang||out.language) && muMap){
+        try{
+          const mob = String(out.phone||out.mobile||'').replace(/\D/g,'').slice(-10);
+          const mu = mob && (muMap[mob] || muMap['+91'+mob]);
+          if(mu && (mu.preferredLang||mu.lang||mu.language)){
+            out = {...out, preferredLang: mu.preferredLang||mu.lang||mu.language};
+          }
+        }catch(ex){}
+      }
+      return out;
     });
   };
 
@@ -766,6 +778,19 @@ async function initData(){
     _cache.schedules = schedulesSnap || {};
     _cache.leaves = _normalizeLeavesSnap(leavesSnap);
     _cache.overrides = overridesSnap || {};
+    // Load mobileUsers for preferredLang (WhatsApp language per member)
+    try{
+      const mu = await fbGet('mobileUsers').catch(()=>null);
+      if(mu && typeof mu==='object'){
+        _cache.mobileUsers = mu;
+        // Re-merge so preferredLang sticks on emp objects
+        if(_cache.employees && _cache.employees.length){
+          _cache.employees = mergeEmps(
+            Object.fromEntries((_cache.employees||[]).map(e=>[e.id||e.empId, e]))
+          );
+        }
+      }
+    }catch(e){}
     // Non-blocking UI update with what we have
     try{ refreshAll(); }catch(e){}
 
@@ -790,6 +815,25 @@ async function initData(){
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
     refreshAll();
   });
+  try{
+    fbListen('mobileUsers', v => {
+      _cache.mobileUsers = v || {};
+      // Refresh preferredLang on employees without full re-fetch
+      try{
+        if(_cache.employees && _cache.employees.length){
+          _cache.employees = _cache.employees.map(e=>{
+            if(e.preferredLang||e.lang||e.language) return e;
+            const mob = String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+            const mu = mob && (_cache.mobileUsers[mob]||_cache.mobileUsers['+91'+mob]);
+            if(mu && (mu.preferredLang||mu.lang||mu.language)){
+              return {...e, preferredLang: mu.preferredLang||mu.lang||mu.language};
+            }
+            return e;
+          });
+        }
+      }catch(ex){}
+    });
+  }catch(e){}
   fbListen('schedules', v => {
     _cache.schedules = v || {};
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
@@ -975,7 +1019,7 @@ function switchViewCompany(companyId){
   // Store normalized id so "GLS" / "gls" / "GLS Polyfilms" comparisons stay consistent
   SESSION.viewCompanyId = (!companyId || companyId==='ALL') ? 'ALL' : _normCompanyId(companyId);
   saveSession();
-  toast(companyId==='ALL'?'🌐 सभी Companies दिख रही हैं':'🏢 अब सिर्फ इस Company का data दिख रहा है');
+  toast(companyId==='ALL'?L('🌐 सभी Companies दिख रही हैं','🌐 Showing all companies'):L('🏢 अब सिर्फ इस Company का data दिख रहा है','🏢 Showing only this company'));
   refreshAll();
 }
 function _normMobileKey(m){
@@ -1647,6 +1691,44 @@ function _renderDynamicChips(containerId, chips, activeCode, clickFnName){
 }
 function _renderSchedFilterChips(activeCode){
   const isEn = (_lang !== 'hi');
+  const canEdit = (typeof canEditSchedule==='function') ? canEditSchedule() : true;
+  const secEl = document.getElementById('schedFilterSecondary');
+  const primaryEl = document.getElementById('schedFilter');
+
+  // Members WITHOUT schedule-edit: only section chips, already expanded (no "Sections" category header)
+  if(!canEdit){
+    if(primaryEl){
+      // Single "All" chip only in primary row
+      _renderDynamicChips('schedFilter', [{code:'ALL', label: L('सभी','All')}], (String(activeCode||'')==='ALL' || !activeCode) ? 'ALL' : 'ALL', 'setSchedSec');
+    }
+    // Force section mode when they pick a section; show all section values expanded
+    if(secEl){
+      const list = (typeof _teamFieldValues==='function' ? _teamFieldValues('section') : []).map(v=>({code:'SEC:'+v, label:v}));
+      if(list.length){
+        secEl.style.display = 'flex';
+        secEl.innerHTML = list.map(c=>{
+          const codeEsc = String(c.code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+          const on = ((typeof schedSubMulti!=='undefined' && (schedSubMulti||[]).includes(c.code)) || String(activeCode)===c.code) ? ' on' : '';
+          return '<div class="chip chip-sm'+on+'" onclick="setSchedSec(\''+codeEsc+'\',this)">'+String(c.label).replace(/</g,'&lt;')+'</div>';
+        }).join('');
+      } else {
+        secEl.style.display = 'none';
+        secEl.innerHTML = '';
+      }
+    }
+    // If they somehow landed on machine/resp filter, snap to section view
+    try{
+      if(typeof schedSec!=='undefined'){
+        const s = String(schedSec||'');
+        if(s.startsWith('CAT:machine') || s.startsWith('MC:') || s.startsWith('CAT:responsibility') || s.startsWith('RESP:') || s.startsWith('CAT:designation') || s.startsWith('DESIG:')){
+          schedSec = 'CAT:section';
+        }
+      }
+    }catch(e){}
+    return;
+  }
+
+  // Managers / schedule-edit: full primary categories
   const primary = [
     {code:'ALL', label: L('सभी','All')},
     {code:'CAT:section', label: L('सेक्शन','Sections')},
@@ -1660,7 +1742,6 @@ function _renderSchedFilterChips(activeCode){
   else if(String(activeCode).startsWith('RESP:')) primaryActive = 'CAT:responsibility';
   else if(String(activeCode).startsWith('DESIG:')) primaryActive = 'CAT:designation';
   _renderDynamicChips('schedFilter', primary, primaryActive, 'setSchedSec');
-  const secEl = document.getElementById('schedFilterSecondary');
   if(!secEl) return;
   let list = [];
   const act = String(activeCode||'');
@@ -1669,9 +1750,9 @@ function _renderSchedFilterChips(activeCode){
   } else if(act==='CAT:machine' || act.startsWith('MC:')){
     list = _teamFieldValues('machine').map(v=>({code:'MC:'+v, label:v}));
   } else if(act==='CAT:responsibility' || act.startsWith('RESP:')){
-    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:v})); // raw Excel value — never hardcoded translate
+    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:v}));
   } else if(act==='CAT:designation' || act.startsWith('DESIG:')){
-    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:v})); // raw Excel value — never hardcoded translate
+    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:v}));
   }
   if(list.length){
     secEl.style.display = 'flex';
@@ -1770,7 +1851,7 @@ async function getShiftConfig(keyOverride){
 }
 async function saveShiftConfig(cfg,keyOverride){
   const key=keyOverride||myShiftConfigKey();
-  if(!key){ toast('❌ Company select करें पहले'); return false; }
+  if(!key){ toast(L('❌ Company select करें पहले','❌ Select a company first')); return false; }
   cfg.updatedAt=new Date().toISOString();
   cfg.updatedBy=SESSION.name;
   try{
@@ -2713,7 +2794,7 @@ async function extendUserExpiry(empId, daysOrDate){
     return true;
   }catch(e){
     console.error('[extendUserExpiry]', e);
-    toast('❌ Extend failed: '+(e.message||e)+' — Admin re-login (OTP/password) try करें');
+    toast(L('❌ Extend failed: ','❌ Extend failed: ')+(e.message||e)+L(' — Admin re-login (OTP/password) try करें',' — try Admin re-login (OTP/password)'));
     return false;
   }
 }
@@ -2843,7 +2924,7 @@ function check45DayLogout(){
     // Warn 5 days before
     if(daysDiff >= 40 && !sessionStorage.getItem('expiry_warned')){
       sessionStorage.setItem('expiry_warned','1');
-      setTimeout(()=> toast('⚠️ Session '+(45-daysDiff)+' दिन में expire होगा'), 3000);
+      setTimeout(()=> toast(L('⚠️ Session ','⚠️ Session ')+(45-daysDiff)+L(' दिन में expire होगा',' days until session expires')), 3000);
     }
   }catch(e){ console.log('45day check error:',e); }
 }
@@ -2851,7 +2932,7 @@ function check45DayLogout(){
 function showExpiryWarning(daysLeft){
   if(daysLeft <= 7 && daysLeft > 0){
     setTimeout(()=>{
-      toast('⚠️ आपकी App access ' + daysLeft + ' दिनों में expire होगी!');
+      toast(L('⚠️ आपकी App access ','⚠️ Your app access expires in ') + daysLeft + L(' दिनों में expire होगी!',' days!'));
     }, 2000);
   }
 }
@@ -2947,14 +3028,14 @@ async function refreshLicenseFromServer(){
 
 async function tryUnlock(){
   const k=(document.getElementById('unlockKey').value||'').trim();
-  if(!k){ toast('❌ Key डालें'); return; }
+  if(!k){ toast(L('❌ Key डालें','❌ Enter key')); return; }
   const kh = await hashPass(k);
   let lic = await _loadLicenseFromFirebase(true);
   const hashes = (lic && lic.unlockHashes) || {};
   const masterH = hashes.master || hashes.masterKey || '';
   const extendH = hashes.extend || hashes.extendKey || '';
   if(!masterH && !extendH){
-    toast('❌ License server config missing — Admin Firebase में settings/license सेट करें');
+    toast(L('❌ License server config missing — Admin Firebase में settings/license सेट करें','❌ License server config missing — Admin must set settings/license in Firebase'));
     return;
   }
   if(kh===masterH || kh===extendH){
@@ -2971,6 +3052,6 @@ async function tryUnlock(){
     }catch(e){}
     const el=document.getElementById('expiryScreen');
     if(el) el.classList.remove('show');
-    toast('✅ अनलॉक हो गया');
-  } else { toast('❌ गलत Key'); }
+    toast(L('✅ अनलॉक हो गया','✅ Unlocked'));
+  } else { toast(L('❌ गलत Key','❌ Wrong key')); }
 }

@@ -1,15 +1,15 @@
 <!-- ── LEAVE ── -->
 <div class="tab" id="tab-leave">
-  <div class="page-title" id="pageTitleLeaves">अवकाश (Leaves)</div>
+  <div class="page-title" id="pageTitleLeaves">Leaves</div>
   <div class="action-row-compact">
-    <button class="action-primary" onclick="openLeaveForm()">+ नया अवकाश आवेदन</button>
-    <button class="action-secondary red" onclick="openResignationForm()">📝 Resignation</button>
+    <button class="action-primary" onclick="openLeaveForm()">+ New leave request</button>
+    <button class="action-secondary" type="button" onclick="openCheckMemberLeaveBalance()">🏖️ Leave Balance</button>
   </div>
   <div class="chips" id="leaveFilter">
-    <div class="chip on" onclick="setLF('all',this)" data-i18n-all>सभी <span class="chip-badge" id="lfCountAll">0</span></div>
-    <div class="chip" onclick="setLF('pending',this)">⏳ प्रतीक्षा <span class="chip-badge" id="lfCountPending">0</span></div>
-    <div class="chip" onclick="setLF('approved',this)">✅ मंजूर <span class="chip-badge" id="lfCountApproved">0</span></div>
-    <div class="chip" onclick="setLF('rejected',this)">❌ अस्वीकार <span class="chip-badge" id="lfCountRejected">0</span></div>
+    <div class="chip on" onclick="setLF('all',this)" data-i18n-all>All <span class="chip-badge" id="lfCountAll">0</span></div>
+    <div class="chip" onclick="setLF('pending',this)">⏳ Pending <span class="chip-badge" id="lfCountPending">0</span></div>
+    <div class="chip" onclick="setLF('approved',this)">✅ Approved <span class="chip-badge" id="lfCountApproved">0</span></div>
+    <div class="chip" onclick="setLF('rejected',this)">❌ Rejected <span class="chip-badge" id="lfCountRejected">0</span></div>
   </div>
   <div id="resignList"></div>
   <div id="leaveList"></div>

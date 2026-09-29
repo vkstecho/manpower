@@ -492,7 +492,7 @@ async function exportSalaryCost(){
     const mk = monthInput && monthInput.value;
     if(mk) d = await _loadManpowerCostArchive(mk);
   }
-  if(!d || !d.perEmployee){ toast('⚠️ पहले month select करें / Cost calculate करें'); return; }
+  if(!d || !d.perEmployee){ toast(L('⚠️ पहले month select करें / Cost calculate करें','⚠️ Select month / calculate cost first')); return; }
 
   const monthName = new Date(d.year, d.monthNum-1, 1).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
   const genAt = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -717,7 +717,7 @@ async function adminExtendExpiry(empId, empName, days){
       validTill:newExp.toISOString(), extendedBy:SESSION.name,
       extendedAt:new Date().toISOString()
     });
-    toast('✅ '+empName+' की expiry '+days+' दिन बढ़ाई → '+newExp.toLocaleDateString('en-IN'));
+    toast('✅ '+empName+L(' की expiry ',' expiry extended by ')+days+L(' दिन बढ़ाई → ',' days → ')+newExp.toLocaleDateString('en-IN'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -730,7 +730,7 @@ async function adminRemoveDevice(empId, empName){
     await fbUpdate('deviceApprovals/'+empId,{
       approvedDeviceId:null, removedBy:SESSION.name, removedAt:new Date().toISOString()
     });
-    toast('✅ '+empName+' का device हटाया गया');
+    toast('✅ '+empName+L(' का device हटाया गया',' device removed'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -743,7 +743,7 @@ async function adminRevokeAccess(empId, empName){
     await fbUpdate('userApprovals/'+empId,{
       status:'revoked', revokedBy:SESSION.name, revokedAt:new Date().toISOString()
     });
-    toast('🚫 '+empName+' की access revoke कर दी');
+    toast('🚫 '+empName+L(' की access revoke कर दी',' access revoked'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -754,7 +754,7 @@ async function adminRestoreAccess(empId, empName){
     await fbUpdate('userApprovals/'+empId,{
       status:'active', restoredBy:SESSION.name, restoredAt:new Date().toISOString()
     });
-    toast('✅ '+empName+' की access restore हो गई');
+    toast('✅ '+empName+L(' की access restore हो गई',' access restored'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -764,7 +764,7 @@ function showEmpNcrs(empId){
   const emp = getEmps().find(e=>e.id===empId);
   if(!emp) return;
   const ncrs = getNcrForEmp(empId);
-  if(!ncrs.length){ toast('इस कर्मचारी का कोई NCR नहीं है'); return; }
+  if(!ncrs.length){ toast(L('इस कर्मचारी का कोई NCR नहीं है','No NCR for this employee')); return; }
 
   // Sort newest first
   const sorted = [...ncrs].sort((a,b)=>b.date.localeCompare(a.date));
@@ -1198,7 +1198,7 @@ function _showEmpUploadPreview(parsed, errors){
 }
 
 async function _confirmEmpUpload(){
-  if(!_empUploadParsed.length){ toast('⚠️ कोई data नहीं'); return; }
+  if(!_empUploadParsed.length){ toast(L('⚠️ कोई data नहीं','⚠️ No data')); return; }
   const btn = document.querySelector('#overlay .submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Saving...'; }
 
@@ -1958,11 +1958,11 @@ async function addEmployee(){
   const salaryRaw=document.getElementById('ne_salary')?.value?.trim();
   const sectionRaw=_resolveDynField('ne_section','ne_section_other');
   const sec = sectionRaw || (typeof _secFromMachine==='function' ? _secFromMachine(mc, designation) : '') || mc || 'General';
-  if(!name||!code){ toast('नाम और कोड जरूरी है'); return; }
+  if(!name||!code){ toast(L('नाम और कोड जरूरी है','Name and code are required')); return; }
   if(!sectionRaw){ toast(L('⚠️ Section जरूरी है','⚠️ Section is required')); return; }
   if(!mc){ toast(L('⚠️ मशीन चुनें','⚠️ Select a Machine')); return; }
   // Only Admin can add Manager-section employees
-  if(sec==='MGR' && !isAdmin()){ toast('❌ Manager section में सिर्फ Admin जोड़ सकते हैं'); return; }
+  if(sec==='MGR' && !isAdmin()){ toast(L('❌ Manager section में सिर्फ Admin जोड़ सकते हैं','❌ Only Admin can add to Manager section')); return; }
   // Duplicate employee code
   const codeClash = (getEmps()||[]).find(e => e.status !== 'resigned' && e.empId && String(e.empId).trim().toUpperCase() === code.toUpperCase());
   if(codeClash){
@@ -2075,24 +2075,50 @@ function openEditEmpForm(empId){
     </select>
     <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('इस भाषा में WhatsApp messages जाएंगे','WhatsApp messages will use this language')}</div>
   </div>
-  <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();saveEmployee('${empId}')">💾 ${L('सेव करें','Save')}</button>
-  <button type="button" class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+  <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();event.stopPropagation();saveEmployee('${empId}')">💾 ${L('सेव करें','Save')}</button>
+  <button type="button" class="cancel-btn" onclick="event.preventDefault();closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
 async function saveEmployee(empId){
   // preferredLang captured early via val() after fields exist
 
+  // Instant feedback — Save feels lightning-fast
+  const _saveBtn = document.getElementById('ee_saveBtn');
+  const _setBusy = (busy, label)=>{
+    if(!_saveBtn) return;
+    _saveBtn.disabled = !!busy;
+    _saveBtn.classList.toggle('is-busy', !!busy);
+    if(label) _saveBtn.textContent = label;
+  };
+  if(_saveBtn && !_saveBtn.dataset.prevLabel){
+    _saveBtn.dataset.prevLabel = _saveBtn.textContent || '';
+  }
+  _setBusy(true, (typeof L==='function') ? L('⏳ सेव हो रहा…','⏳ Saving…') : '⏳ Saving…');
+
   try{
   const e = (getEmps().find(x=>x.id===empId))
     || ((_cache.employees||[]).find(x=>x.id===empId))
     || null;
-  if(!isAdmin() && !isMgr()){ toast('❌ Only Admin/Manager can edit'); return; }
-  if(!empId){ toast('❌ Missing employee id'); return; }
+  if(!isAdmin() && !isMgr()){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('❌ Only Admin/Manager can edit'); return; }
+  if(!empId){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('❌ Missing employee id'); return; }
 
   // Multi-device: each browser needs Phone Auth once; does NOT log out other devices
+  // Fast path: skip long waits when device already verified this session
   if(typeof _ensureWriteAuth === 'function'){
-    const ok = await _ensureWriteAuth();
+    let ok = false;
+    try{
+      // Prefer session cache — avoids 1–2s wait loops on every Save
+      if(sessionStorage.getItem('mp_write_auth')==='1' && window._fbAuth && window._fbAuth.currentUser){
+        ok = true;
+      } else {
+        ok = await _ensureWriteAuth();
+      }
+    }catch(authErr){
+      console.warn('[saveEmp] auth', authErr);
+      ok = false;
+    }
     if(!ok){
+      _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
       toast(L('❌ इस device पर Phone verify करें (दूसरा device logout नहीं होगा)','❌ Phone verify on this device (other devices stay logged in)'));
       return;
     }
@@ -2115,7 +2141,7 @@ async function saveEmployee(empId){
     phoneVal = _normMobileKey(SESSION.mobile||SESSION.uid||e.phone||e.mobile||'');
   }
   const nameVal = val('ee_name').toUpperCase();
-  if(!nameVal){ toast('⚠️ Name required'); return; }
+  if(!nameVal){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('⚠️ Name required'); return; }
 
   const secVal = _resolveDynField('ee_sec','ee_sec_other') || (document.getElementById('ee_sec') ? val('ee_sec') : ((e&&(e.section||e.sec)) || ''));
   const respVal = _resolveDynField('ee_resp','ee_resp_other') || val('ee_resp');
@@ -2138,7 +2164,6 @@ async function saveEmployee(empId){
 
   // Team authorization (always write when manager/admin edits a member — not self)
   if((isMgr()||isAdmin()) && !(e && isManagerSelfRecord(e))){
-    // Checkboxes may be missing if UI not shown; still clear/set explicitly when present
     const hasPermUi = !!document.getElementById('ee_perm_schedule');
     if(hasPermUi){
       update.perms = {
@@ -2167,6 +2192,7 @@ async function saveEmployee(empId){
       const clash = _findPhoneConflict(update.phone, empId, update.empId);
       if(clash && clash.emp && clash.emp.id !== empId){
         const nm = clash.emp.name || clash.emp.empId || '';
+        _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
         toast((clash.otherTeam
           ? L('📱 यह मोबाइल नंबर पहले से दूसरे team के member के पास है।','📱 Mobile already belongs to another team\'s member.')
           : L('📱 यह मोबाइल नंबर पहले से registered है।','📱 Mobile already registered.')) + ' ('+nm+')');
@@ -2175,13 +2201,13 @@ async function saveEmployee(empId){
     }
   }
 
-  // Prefer multi-path update for nested perms reliability
+  try{ const pl=document.getElementById('ee_preferredLang'); if(pl) update.preferredLang=pl.value||''; }catch(e){}
+
+  // Primary write — only this must complete before UI closes
   try{
-      try{ const pl=document.getElementById('ee_preferredLang'); if(pl) update.preferredLang=pl.value||''; }catch(e){}
-  await fbUpdate('employees/'+empId, update);
+    await fbUpdate('employees/'+empId, update);
   }catch(err1){
     console.warn('saveEmployee fbUpdate failed, retry set merge', err1);
-    // Fallback: write perms fields flat if nested blocked
     const flat = {...update};
     if(flat.perms){
       flat.permSchedule = !!flat.perms.schedule;
@@ -2192,12 +2218,13 @@ async function saveEmployee(empId){
       await fbUpdate('employees/'+empId, flat);
     }catch(err2){
       console.error('saveEmployee failed', err2);
+      _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
       toast('❌ Save failed: '+(err2.message||err2.code||'permission/network'));
       return;
     }
   }
 
-  // Patch local cache so UI updates immediately
+  // Patch local cache so UI updates immediately (before modal closes)
   try{
     if(!_cache.employees) _cache.employees = [];
     const ix = _cache.employees.findIndex(x=>x.id===empId);
@@ -2205,58 +2232,63 @@ async function saveEmployee(empId){
     else _cache.employees.push({...update, id: empId});
   }catch(e){}
 
-  // Sync mobileUsers + deviceApprovals to CURRENT name/phone; clear old mobile if phone changed
-  try{
-    const oldPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
-    const newPhone = _normMobileKey(update.phone||'');
-    if(oldPhone && oldPhone.length===10 && oldPhone !== newPhone){
-      // Phone moved away — strip old member identity from previous mobileUsers key
-      try{
-        await fbUpdate('mobileUsers/'+oldPhone, {
-          name: '',
-          empId: null,
-          empCode: null,
-          empObjId: null,
-          employeeId: null,
-          status: 'left_team',
-          leftAt: new Date().toISOString(),
-          leftReason: 'phone_reassigned',
-          reassignedToEmp: empId
-        });
-      }catch(e2){ console.warn('[saveEmp] clear old mobile', e2); }
-    }
-    if(newPhone && newPhone.length===10){
-      try{
-        const existingMu = await fbGet('mobileUsers/'+newPhone) || {};
-        await fbUpdate('mobileUsers/'+newPhone, {
-          name: update.name || nameVal,
-          empId: update.empId || '',
-          empCode: update.empId || '',
-          empObjId: empId,
-          employeeId: empId,
-          phone: newPhone,
-          mobile: newPhone,
-          company: (e && e.company) || existingMu.company || SESSION.company || '',
-          section: update.section || update.sec || '',
-          syncedAt: new Date().toISOString()
-        });
-      }catch(e2){ console.warn('[saveEmp] sync mobileUsers', e2); }
-      try{
-        await fbUpdate('deviceApprovals/'+empId, {
-          empName: update.name || nameVal,
-          empId: update.empId || '',
-          mobile: newPhone,
-          updatedAt: new Date().toISOString()
-        });
-      }catch(e2){}
-    }
-  }catch(eSync){ console.warn('[saveEmp] mobile sync', eSync); }
-
+  // Close + toast NOW — secondary sync runs in background (feels instant)
   closeModal();
   try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
   toast(L('✅ जानकारी अपडेट हो गई','✅ Details updated'));
+
+  // Background: mobileUsers + deviceApprovals — no fbGet (was the slow sequential read)
+  (async ()=>{
+    try{
+      const oldPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
+      const newPhone = _normMobileKey(update.phone||'');
+      const jobs = [];
+      if(oldPhone && oldPhone.length===10 && oldPhone !== newPhone){
+        jobs.push(
+          fbUpdate('mobileUsers/'+oldPhone, {
+            name: '',
+            empId: null,
+            empCode: null,
+            empObjId: null,
+            employeeId: null,
+            status: 'left_team',
+            leftAt: new Date().toISOString(),
+            leftReason: 'phone_reassigned',
+            reassignedToEmp: empId
+          }).catch(e2=>console.warn('[saveEmp] clear old mobile', e2))
+        );
+      }
+      if(newPhone && newPhone.length===10){
+        jobs.push(
+          fbUpdate('mobileUsers/'+newPhone, {
+            name: update.name || nameVal,
+            empId: update.empId || '',
+            empCode: update.empId || '',
+            empObjId: empId,
+            employeeId: empId,
+            phone: newPhone,
+            mobile: newPhone,
+            company: (e && e.company) || SESSION.company || '',
+            section: update.section || update.sec || '',
+            syncedAt: new Date().toISOString()
+          }).catch(e2=>console.warn('[saveEmp] sync mobileUsers', e2))
+        );
+        jobs.push(
+          fbUpdate('deviceApprovals/'+empId, {
+            empName: update.name || nameVal,
+            empId: update.empId || '',
+            mobile: newPhone,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>{})
+        );
+      }
+      if(jobs.length) await Promise.all(jobs);
+    }catch(eSync){ console.warn('[saveEmp] mobile sync', eSync); }
+  })();
+
   }catch(err){
     console.error('saveEmployee', err);
+    _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
     toast('❌ Save error: '+(err.message||err));
   }
 }
@@ -2492,13 +2524,13 @@ async function renderLeftMembers(){
 
 async function restoreEmployee(id, name){
   const raw = await fbGet('leftEmployees/' + id).catch(()=>null);
-  if(!raw){ toast('❌ Data नहीं मिला'); return; }
+  if(!raw){ toast(L('❌ Data नहीं मिला','❌ Data not found')); return; }
   // Remove leftAt/leftReason/archivedAt fields and restore to active employees
   const { leftAt, leftReason, archivedAt, ...empData } = raw;
   empData.status = 'active';
   await fbSet('employees/' + id, empData);
   await fbRemove('leftEmployees/' + id);
-  toast('✅ ' + name + ' वापस टीम में आ गए!');
+  toast('✅ ' + name + L(' वापस टीम में आ गए!',' is back on the team!'));
   renderTeam();
   renderLeftMembers();
 }
@@ -2517,7 +2549,7 @@ async function permanentDeleteEmp(id, name){
 async function doPermDelete(id, name){
   await fbRemove('leftEmployees/' + id);
   closeModal();
-  toast('🗑️ ' + name + ' का डेटा हमेशा के लिए हटाया');
+  toast('🗑️ ' + name + L(' का डेटा हमेशा के लिए हटाया',' data permanently deleted'));
   renderLeftMembers();
 }
 
@@ -2591,7 +2623,7 @@ async function startDeleteAllMembersFlow(){
 
 async function _proceedDeleteAllWithEnteredMobile(){
   const mobile = String(document.getElementById('delAllMobileInput')?.value||'').replace(/\D/g,'');
-  if(mobile.length !== 10){ toast('⚠️ 10 अंकों का valid mobile डालें'); return; }
+  if(mobile.length !== 10){ toast(L('⚠️ 10 अंकों का valid mobile डालें','⚠️ Enter a valid 10-digit mobile')); return; }
   const team = getEmps().filter(e => e.status !== 'left' && e.status !== 'resigned');
   _deleteAllMobile = mobile;
   SESSION.mobile = mobile;
@@ -2819,7 +2851,7 @@ function downloadTeamExcelTemplate(){
   document.body.appendChild(a);
   a.click();
   setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
-  toast('⬇️ Template downloaded — Excel में खोलकर Save as .xlsx भी कर सकते हैं');
+  toast(L('⬇️ Template downloaded — Excel में खोलकर Save as .xlsx भी कर सकते हैं','⬇️ Template downloaded — open in Excel and Save as .xlsx if needed'));
 }
 
 async function handleTeamExcelFile(file){
@@ -3171,10 +3203,10 @@ function _parseWoff(val){
 
 async function confirmTeamExcelUpdate(){
   const parsed=window._teamExcelParsed;
-  if(!parsed||!parsed.length){ toast('❌ कोई data नहीं है'); return; }
+  if(!parsed||!parsed.length){ toast(L('❌ कोई data नहीं है','❌ No data')); return; }
 
   const matched=parsed.filter(p=>p.matched);
-  if(!matched.length){ toast('❌ कोई match नहीं'); return; }
+  if(!matched.length){ toast(L('❌ कोई match नहीं','❌ No matches')); return; }
 
   const preview=document.getElementById('teamExcelPreview');
   preview.innerHTML='<div style="text-align:center;padding:20px"><div style="font-size:28px;margin-bottom:8px">⏳</div><div style="color:var(--muted2)">'+matched.length+' कर्मचारी update हो रहे हैं...</div></div>';
@@ -3217,7 +3249,7 @@ async function confirmTeamExcelUpdate(){
     </div>`;
 
   window._teamExcelParsed=null;
-  toast('✅ '+updated+' कर्मचारी update हुए!');
+  toast('✅ '+updated+L(' कर्मचारी update हुए!',' employees updated!'));
 }
 
 // ════════════════════════════════════════
@@ -3424,7 +3456,7 @@ async function saveInstructions(){
   _cache.instructions = newInst;
   closeModal();
   renderInstructions();
-  toast('✅ निर्देश सहेज लिए गए!');
+  toast(L('✅ निर्देश सहेज लिए गए!','✅ Instructions saved!'));
 }
 
 
@@ -3609,10 +3641,10 @@ async function updateTabToggle(role, tabId, isOn){
   try{
     if(role === 'guest'){
       await fbSet(`settings/guestTabs/${tabId}`, isOn);
-      toast(`✅ Guest: ${TAB_META[tabId]?.lbl} ${isOn?'दिखेगा':'हटाया'}`);
+      toast(`✅ Guest: ${TAB_META[tabId]?.lbl} ${isOn?L('दिखेगा','shown'):L('हटाया','hidden')}`);
     } else {
       await fbSet(`settings/workerTabsHidden/${tabId}`, !isOn);
-      toast(`✅ Worker: ${TAB_META[tabId]?.lbl} ${isOn?'दिखेगा':'हटाया'}`);
+      toast(`✅ Worker: ${TAB_META[tabId]?.lbl} ${isOn?L('दिखेगा','shown'):L('हटाया','hidden')}`);
     }
   }catch(e){ toast('❌ Save failed: '+e.message); }
 }
@@ -3626,7 +3658,7 @@ async function toggleManagerSalaryAccess(isOn){
     await fbSet('settings/showSalaryToManager', isOn);
     if(!_cache.settings) _cache.settings = {};
     _cache.settings.showSalaryToManager = isOn;
-    toast(isOn ? '✅ Manager अब Salary देख सकेंगे' : '🔒 Manager से Salary छुपाई गई');
+    toast(isOn ? L('✅ Manager अब Salary देख सकेंगे','✅ Managers can view Salary now') : L('🔒 Manager से Salary छुपाई गई','🔒 Salary hidden from Managers'));
   }catch(e){ toast('❌ Save failed: '+e.message); }
 }
 
@@ -4574,9 +4606,122 @@ function friendlyFbError(err){
   return msg.length > 120 ? msg.slice(0,120)+'…' : msg;
 }
 
+const _TOAST_HI_EN = {
+  '⏳ Manager approve होने तक सिर्फ Home / To-Do / Learn उपलब्ध हैं': '⏳ Until Manager approves, only Home / To-Do / Learn are available',
+  'Install रद्द किया — ऊपर address bar में Install भी try करें': 'Install cancelled — try Install in the address bar too',
+  '⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)': '⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)',
+  'ℹ️ Password बाद में Profile से सेट कर सकते हैं': 'ℹ️ You can set password later from Profile',
+  '⚠️ Display error — कृपया page refresh करें': '⚠️ Display error — please refresh the page',
+  '📱 Member login: पहले Mobile Number डालें': '📱 Member login: first Mobile Number',
+  '⚠️ शुरू की तारीख अंत से पहले होनी चाहिए': '⚠️ Start date must be before end date',
+  '❌ Write auth missing — OTP verify करें': '❌ Write auth missing — verify OTP',
+  '⚠️ C-Off के लिए Shift Date जरूरी है': '⚠️ Shift date is required for C-Off',
+  '❌ Schedule edit permission नहीं है': '❌ No schedule edit permission',
+  '❌ Leave approve permission नहीं है': '❌ Leave approve permission No है',
+  '⚠️ 10 अंकों का Mobile Number डालें': '⚠️ Enter a 10-digit mobile number',
+  '✅ Fingerprint login set up हो गया!': '✅ Fingerprint login set up done!',
+  '❌ Leave delete permission नहीं है': '❌ Leave delete permission No है',
+  '⚠️ 10 अंकों का valid mobile डालें': '⚠️ Enter a valid 10-digit mobile',
+  '⚠️ Schedule Builder open नहीं है': '⚠️ Schedule Builder open No है',
+  '⚠️ C-Off के लिए Shift Date जरूरी': '⚠️ Shift date is required for C-Off',
+  '✅ Schedule image download हो गई!': '✅ Schedule image download done!',
+  '❌ Leave edit permission नहीं है': '❌ Leave edit permission No है',
+  '🔄 Original shift restore हो गई': '🔄 Original shift restore done',
+  'इस कर्मचारी का कोई NCR नहीं है': 'No NCR for this employee',
+  '🔄 Default order restore हो गया': '🔄 Default order restore done',
+  '👆 Fingerprint से login हो गया!': '👆 Fingerprint से login done!',
+  '📲 OTP SMS से auto-fill हो गया': '📲 OTP SMS से auto-fill done',
+  '⚠️ EL Limit पार! Available: ': '⚠️ EL Limit पार! Available:',
+  '⚠️ कृपया दोनों तारीखें चुनें': '⚠️ Please select both dates',
+  '⏳ Install तैयार हो रहा है...': '⏳ Preparing install...',
+  '❌ Department / Machine चुनें': '❌ Department / Machine',
+  '⚠️ सही 10 अंक का नंबर डालें': '⚠️ Enter a correct 10-digit number',
+  'नाम और link दोनों जरूरी हैं': 'Name and link are both required',
+  '❌ Report permission नहीं है': '❌ Report permission No है',
+  '⚠️ 10MB से छोटी फोटो चुनें': '⚠️ Choose a photo under 10MB',
+  '✅ SMS Settings save हो गई': '✅ SMS Settings saved',
+  '❌ Employee add नहीं हुआ: ': '❌ Employee add No हुआ:',
+  '✅ Dedication save हो गई!': '✅ Dedication save done!',
+  '✅ Login हो गया! Welcome ': '✅ Login done! Welcome',
+  '⏳ Excel तैयार हो रहा है…': '⏳ Preparing Excel…',
+  '⚠️ From / To date चुनें': '⚠️ From / To date',
+  '⚠️ 6 अंकों का OTP डालें': '⚠️ Enter the 6-digit OTP',
+  '✅ Schedule save हो गई!': '✅ Schedule saved!',
+  '🗑️ Report delete हो गई': '🗑️ Report delete done',
+  '⏳ Verify हो रहा है...': '⏳ Verifying...',
+  '✅ Content add हो गया!': '✅ Content add done!',
+  '⚠️ पहले API Key डालें': '⚠️ Enter API Key first',
+  '✅ Price update हो गई!': '✅ Price update done!',
+  'सही मोबाइल नंबर डालें': 'Enter a valid mobile number',
+  '⏳ Excel पढ़ रहे हैं…': '⏳ Reading Excel…',
+  '❌ Permission नहीं है': '❌ Permission No है',
+  '✅ UPI ID Copy हो गई!': '✅ UPI ID Copy done!',
+  'नाम और कोड जरूरी है': 'Name and code are required',
+  '⚠️ API Key खाली है': '⚠️ API Key is empty',
+  'कर्मचारी नहीं मिला': 'Employee not found',
+  'Content नहीं मिला': 'Content not found',
+  '⚠️ Title जरूरी है': '⚠️ Title is required',
+  '⚠️ कर्मचारी चुनें': '⚠️ Select employee',
+  'कोई बदलाव नहीं है': 'No changes to save',
+  'सभी जानकारी भरें': 'Fill in all details',
+  'जल्द आ रहा है! ⏳': 'Coming soon! ⏳',
+  '⚠️ कोई data नहीं': '⚠️ कोई data No',
+  '❌ कोई match नहीं': '❌ कोई match No',
+  '🗑️ Delete हो गया': '🗑️ Delete done',
+  'सही price डालें': 'Enter a valid price',
+  'पहले plan चुनें': 'Select a plan first',
+  'अंतिम दिन चुनें': 'Select end date',
+  'कर्मचारी चुनें': 'Select employee',
+  '⚠️ महीना चुनें': '⚠️ Select month',
+  '⚠️ Column खाली': '⚠️ Column is empty',
+  '⚠️ Month चुनें': '⚠️ Month',
+  '⚠️ Date चुनें': '⚠️ Select date',
+  'URL खाली है': 'URL is empty',
+  '❌ Key डालें': '❌ Key',
+  '⚠️ Row खाली': '⚠️ Row empty',
+  'तारीख भरें': 'Enter date',
+  'कारण चुनें': 'Select reason',
+  'Plan चुनें': 'Select plan',
+  'Title भरें': 'Enter title',
+  'Date चुनें': 'Select date',
+  'नाम भरें': 'Enter name',
+};
+
 function toast(msg){
+  let out = msg;
+  try{
+    if(typeof t === 'function') out = t(String(msg==null?'':msg));
+    // Extra toast dictionary for mixed Hindi left in English mode
+    if(typeof _lang !== 'undefined' && _lang !== 'hi' && typeof out === 'string'){
+      if(typeof _TOAST_HI_EN === 'object' && _TOAST_HI_EN[out]) out = _TOAST_HI_EN[out];
+      else if(typeof _TOAST_HI_EN === 'object'){
+        // Longest-key prefix / contains replace for dynamic toasts
+        const keys = Object.keys(_TOAST_HI_EN).sort((a,b)=>b.length-a.length);
+        for(const k of keys){
+          if(k.length >= 6 && out.indexOf(k) >= 0){
+            out = out.split(k).join(_TOAST_HI_EN[k]);
+          }
+        }
+      }
+      // Strip leftover common Hindi fragments in EN mode
+      if(/[\u0900-\u097F]/.test(out)){
+        const frag = [
+          ['नहीं है',' not available'],['नहीं मिला',' not found'],['जरूरी है',' required'],
+          ['कृपया','Please'],['डालें',''],['चुनें',''],['भरें',''],
+          ['हो गई',' saved'],['हो गया',' done'],['सेव','save'],
+          ['रद्द करें','Cancel'],['सेव करें','Save'],['बंद करें','Close'],
+          ['permission नहीं','no permission'],['verify करें','verify'],
+          ['page refresh करें','refresh the page'],['महीना','month'],
+          ['तारीख','date'],['कर्मचारी','employee'],['नाम','name'],
+        ];
+        for(const [h,e] of frag){ if(out.indexOf(h)>=0) out = out.split(h).join(e); }
+        out = out.replace(/\s{2,}/g,' ').trim();
+      }
+    }
+  }catch(e){ out = msg; }
   const t_el = document.getElementById('toast');
-  t_el.textContent = (typeof t === 'function') ? t(msg) : msg;
+  if(!t_el){ console.log('[toast]', out); return; }
+  t_el.textContent = out;
   t_el.classList.add('show');
   setTimeout(()=>t_el.classList.remove('show'),3000);
 }
@@ -5019,7 +5164,7 @@ async function _importHolidayExcel(input){
   const file = input.files && input.files[0];
   if(!file) return;
   try{
-    toast('⏳ Excel पढ़ रहे हैं…');
+    toast(L('⏳ Excel पढ़ रहे हैं…','⏳ Reading Excel…'));
     const rows = await _readHolidayFileToRows(file);
     const parsed = parseHolidayExcelRows(rows);
 
@@ -5298,7 +5443,7 @@ function discardAllShiftChanges(){
   });
   _pendingShiftChanges = {};
   _updateSaveBar();
-  toast('🗑️ सभी बदलाव रद्द किए गए');
+  toast(L('🗑️ सभी बदलाव रद्द किए गए','🗑️ All changes cancelled'));
 }
 
 async function _retrySaveAfterReauth(){
@@ -5479,7 +5624,7 @@ async function saveAllShiftChanges(opts){
   const skipWhatsApp = !!opts.skipWhatsApp;
   const stayOnMyShift = !!opts.stayOnMyShift;
   const entries = Object.values(_pendingShiftChanges);
-  if(!entries.length){ toast('कोई बदलाव नहीं है'); return; }
+  if(!entries.length){ toast(L('कोई बदलाव नहीं है','No changes to save')); return; }
 
   // Get save button — specifically the green one
   const saveBtn = document.querySelector('#schedSaveBar button[onclick*="saveAllShiftChanges"]') ||
@@ -5516,7 +5661,7 @@ async function saveAllShiftChanges(opts){
     const okAuth = await _ensureWriteAuth();
     if(!okAuth){
       restoreBtn();
-      toast('❌ Phone verify करें — Logout ज़रूरी नहीं');
+      toast(L('❌ Phone verify करें — Logout ज़रूरी नहीं','❌ Verify phone — logout not required'));
       try{
         const list = document.getElementById('saveBarList');
         if(list){
@@ -5548,7 +5693,7 @@ async function saveAllShiftChanges(opts){
     try{ renderSchedule(); }catch(e){}
     try{ if(stayOnMyShift || _currentTab==='myshift') renderMyShift(); }catch(e){}
 
-    toast(`✅ ${savedEntries.length} बदलाव save हुए`);
+    toast(`✅ ${savedEntries.length} ${L('बदलाव save हुए','changes saved')}`);
 
     try{ await _processAutoCompOffRules(savedEntries); }catch(e){ console.warn(e); }
 
@@ -5751,7 +5896,7 @@ async function saveAllShiftChanges(opts){
     }
 
     if(inAppCount){
-      toast(`🔔 ${inAppCount} सदस्य को app notification भेजी`);
+      toast(`🔔 ${inAppCount} ${L('सदस्य को app notification भेजी','members notified in app')}`);
     }
 
     // ── Sequential WhatsApp sender ──
@@ -5767,9 +5912,9 @@ async function saveAllShiftChanges(opts){
       // no WhatsApp
     } else if(waQueue.length === 1){
       openWA(waQueue[0].emp.phone, waQueue[0].msgLines);
-      toast(`📲 ${waQueue[0].emp.name} को WhatsApp भेजा`);
+      toast(`📲 ${waQueue[0].emp.name} ${L('को WhatsApp भेजा','— WhatsApp sent')}`);
     } else if(waQueue.length > 1){
-      toast(`📲 ${waQueue.length} कर्मचारियों को WhatsApp भेजना है`);
+      toast(`📲 ${waQueue.length} ${L('कर्मचारियों को WhatsApp भेजना है','employees to message on WhatsApp')}`);
       _sendWASequential(waQueue, 0);
     }
 
@@ -6028,7 +6173,7 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   if(!reason){
     const ta=document.getElementById('lrReasonText');
     if(ta){ ta.style.borderColor='var(--lv)'; ta.focus(); }
-    toast('⚠️ कारण / Leave Type अनिवार्य है'); return;
+    toast(L('⚠️ कारण / Leave Type अनिवार्य है','⚠️ Reason / leave type is required')); return;
   }
   let typeCode = (document.getElementById('lrTypeCode')?.value||'').trim().toUpperCase();
   if(!typeCode){
@@ -6540,7 +6685,7 @@ async function submitOD(empId, empName, date, currentShift){
   const reason = (document.getElementById('odReason')?.value||'').trim();
   const toDept = deptSel==='__OTHER__' ? customDept : deptSel;
 
-  if(!toDept){ toast('❌ Department / Machine चुनें'); return; }
+  if(!toDept){ toast(L('❌ Department / Machine चुनें','❌ Select department / machine')); return; }
 
   // Save OD record to Firebase under reports (accessible to Manager)
   try{
@@ -6591,13 +6736,76 @@ function _countGPInMonth(empId, dateStr){
  *  Custom manager-edited templates are left as-is.
  */
 
-/** Preferred language for WhatsApp to this employee (profile → UI lang → hi) */
+/** Normalize any language label/code to short code (hi/en/…). */
+function _normPreferredLangCode(raw){
+  if(raw==null || raw==='') return '';
+  var s = String(raw).trim().toLowerCase();
+  if(!s) return '';
+  // already a code
+  var codes = ['hi','en','gu','ta','te','kn','bn','or','ar','ur','zh','de','it','es','tr','pt','th','id','vi','ml','pa','mr','fr'];
+  if(codes.indexOf(s)>=0) return s;
+  // common display names / native names
+  var map = {
+    'hindi':'hi','हिन्दी':'hi','हिंदी':'hi','hin':'hi',
+    'english':'en','eng':'en','अंग्रेज़ी':'en','अंग्रेजी':'en',
+    'gujarati':'gu','ગુજરાતી':'gu',
+    'tamil':'ta','தமிழ்':'ta',
+    'telugu':'te','తెలుగు':'te',
+    'kannada':'kn','ಕನ್ನಡ':'kn',
+    'bengali':'bn','bangla':'bn','বাংলা':'bn',
+    'odia':'or','oriya':'or','ଓଡ଼ିଆ':'or',
+    'arabic':'ar','العربية':'ar',
+    'urdu':'ur','اردو':'ur',
+    'chinese':'zh','中文':'zh',
+    'german':'de','deutsch':'de',
+    'italian':'it','italiano':'it',
+    'spanish':'es','español':'es',
+    'turkish':'tr','türkçe':'tr',
+    'portuguese':'pt','português':'pt',
+    'thai':'th','ไทย':'th',
+    'indonesian':'id','indonesia':'id',
+    'vietnamese':'vi','tiếng việt':'vi'
+  };
+  if(map[s]) return map[s];
+  // Devanagari-only short labels
+  if(/[\u0900-\u097F]/.test(String(raw)) && /हिंद|हिन्द/.test(String(raw))) return 'hi';
+  return '';
+}
+
+/** Preferred language for WhatsApp to this employee.
+ *  Order: emp.preferredLang → mobileUsers/{phone}.preferredLang → cache → default hi
+ *  NEVER fall back to manager UI language (_lang) — that caused English WA when manager used English UI.
+ */
 function getEmpPreferredLang(emp){
-  if(!emp) return (typeof _lang!=='undefined'?_lang:'hi');
-  var p = emp.preferredLang || emp.lang || emp.language || '';
-  if(p && typeof _i18n_SUPPORTED!=='undefined' && _i18n_SUPPORTED.indexOf(p)>=0) return p;
-  if(p && ['hi','en','gu','ta','te','kn','bn','or','ar','ur','zh','de','it','es','tr','pt','th','id','vi'].indexOf(p)>=0) return p;
-  return (typeof _lang!=='undefined'?_lang:'hi');
+  var codes = ['hi','en','gu','ta','te','kn','bn','or','ar','ur','zh','de','it','es','tr','pt','th','id','vi','ml','pa','mr','fr'];
+  function ok(c){
+    if(!c) return '';
+    if(typeof _i18n_SUPPORTED!=='undefined' && _i18n_SUPPORTED.indexOf(c)>=0) return c;
+    if(codes.indexOf(c)>=0) return c;
+    return '';
+  }
+  if(emp){
+    var p = ok(_normPreferredLangCode(emp.preferredLang || emp.lang || emp.language || emp.waLang || ''));
+    if(p) return p;
+    // Resolve from mobileUsers by phone (often where profile language is saved)
+    try{
+      var mob = (typeof _normMobileKey==='function')
+        ? _normMobileKey(emp.phone||emp.mobile||'')
+        : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+      if(mob && mob.length===10){
+        var mu = null;
+        if(_cache && _cache.mobileUsers){
+          mu = _cache.mobileUsers[mob] || _cache.mobileUsers['+91'+mob];
+        }
+        if(mu){
+          p = ok(_normPreferredLangCode(mu.preferredLang || mu.lang || mu.language || ''));
+          if(p) return p;
+        }
+      }
+    }catch(e){}
+  }
+  // Default for WhatsApp: Hindi (India team default) — do NOT use manager UI lang
+  return 'hi';
 }
 
 
@@ -6607,7 +6815,15 @@ function getEmpPreferredLang(emp){
  *       waHolidayTemplate | waCOffTemplate | waTaskTemplate | waLeaveApproved | waLeaveRejected
  */
 function buildWAForEmp(type, emp, vars, cfgVal){
-  const lang = (typeof getEmpPreferredLang==='function') ? getEmpPreferredLang(emp) : ((typeof _lang!=='undefined')?_lang:'hi');
+  // Always member preferred language (never manager UI lang)
+  const lang = (typeof getEmpPreferredLang==='function') ? getEmpPreferredLang(emp) : 'hi';
+  // Pull manager template from shift config when caller omitted cfgVal
+  if(cfgVal==null || cfgVal===''){
+    try{
+      const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+      if(cfg && cfg[type]) cfgVal = cfg[type];
+    }catch(e){}
+  }
   let tpl = '';
   if(typeof getWATemplate==='function'){
     tpl = getWATemplate(type, cfgVal, lang) || '';
@@ -6615,7 +6831,8 @@ function buildWAForEmp(type, emp, vars, cfgVal){
   if(!tpl && typeof mlWA==='function'){
     tpl = mlWA(type, lang) || '';
   }
-  if(!tpl) tpl = (typeof mlWA==='function' && mlWA(type, 'en')) || '';
+  // Last resort: Hindi stock (not English) for India-first teams
+  if(!tpl) tpl = (typeof mlWA==='function' && (mlWA(type, 'hi') || mlWA(type, 'en'))) || '';
   const map = Object.assign({
     name: (emp && (emp.name||emp.empId)) || '',
     manager: (typeof SESSION!=='undefined' && SESSION.name) || 'Manager',
@@ -6633,19 +6850,26 @@ function buildWAForEmp(type, emp, vars, cfgVal){
 }
 
 function getWATemplate(key, cfgVal, preferredLang){
-  const lang = preferredLang || ((typeof _lang !== 'undefined') ? _lang : 'hi');
+  // preferredLang must be the MEMBER language — never default to manager UI
+  const lang = preferredLang || 'hi';
   const def = (typeof _defaultShiftConfig === 'function') ? _defaultShiftConfig() : {};
   const stock = def[key] || '';
-  // If manager customized the template, keep their text
-  if(cfgVal && stock && cfgVal !== stock){
-    // Still allow pure-English stock to be replaced by mlWA for non-en
+  // Normalize whitespace for stock comparison (unicode dash variants etc.)
+  const _normTpl = (s) => String(s||'').replace(/[\u2013\u2014\u2212]/g,'-').replace(/\s+/g,' ').trim();
+  const isCustom = !!(cfgVal && stock && _normTpl(cfgVal) !== _normTpl(stock));
+  // Custom manager template: still localize via mlWA when member lang is set and
+  // custom text is just a slight edit of stock Hindi — but if clearly customized, keep as-is.
+  if(isCustom){
     const isStockEn = (key === 'waMemberLeaveToMgrTemplate' || key === 'waMemberShiftToMgrTemplate');
     if(!isStockEn) return cfgVal;
   }
+  // Stock template → multilingual pack for MEMBER language
   if(typeof mlWA === 'function'){
     const tr = mlWA(key, lang);
     if(tr) return tr;
   }
+  // Prefer Hindi stock over English when lang is hi
+  if(lang === 'hi' && stock) return stock;
   return cfgVal || stock || '';
 }
 
@@ -6689,7 +6913,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
     if(gpCount > gpMax){
       if(prev) _pendingShiftChanges[key] = prev;
       else delete _pendingShiftChanges[key];
-      toast(`⛔ Gate Pass limit: महीने में अधिकतम ${gpMax} GP। ${empName} के पास पहले से limit पूरी है।`);
+      toast(`⛔ Gate Pass limit: ${L('महीने में अधिकतम','max per month')} ${gpMax} GP. ${empName} ${L('के पास पहले से limit पूरी है।','already at the limit.')}`);
       return;
     }
   }
@@ -6729,7 +6953,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   }catch(e){}
 
   _updateSaveBar();
-  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — Save दबाएँ`);
+  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — ${L('Save दबाएँ','press Save')}`);
 }
 
 /** Member requests own shift change → assigned manager only */
@@ -6857,10 +7081,10 @@ async function approveShiftChangeRequest(reqKey){
     const rec = await fbGet('shiftChangeRequests/'+reqKey);
     if(!rec || rec.status!=='pending'){ toast('Already handled'); return; }
     if(!canEditSchedule() && !(typeof isAdmin==='function' && isAdmin())){
-      toast('❌ Permission नहीं है'); return;
+      toast(L('❌ Permission नहीं है','❌ Permission denied')); return;
     }
     const okAuth = await _ensureWriteAuth();
-    if(!okAuth){ toast('❌ Phone verify करें'); return; }
+    if(!okAuth){ toast(L('❌ Phone verify करें','❌ Verify phone')); return; }
     const ovKey = rec.empObjId+'_'+rec.date;
     await fbUpdate('overrides', { [ovKey]: rec.newShift });
     try{
@@ -6918,7 +7142,7 @@ async function resetShiftOverride(empId, date){
     const existing = {...getOverrides()};
     delete existing[empId+'_'+date];
     await fbSet('overrides', existing);
-    toast('🔄 Original shift restore हो गई');
+    toast(L('🔄 Original shift restore हो गई','🔄 Original shift restored'));
     renderSchedule();
   }catch(e){ toast('❌ Error: '+e.message); }
 }
@@ -7036,8 +7260,8 @@ function openScheduleBuilder(){
       </div>
       <div style="font-size:11px;color:var(--muted2);margin-top:6px">${lb.hint}</div>
     </div>
-    <button class="submit-btn" onclick="loadScheduleBuilder()">${lb.open}</button>
-    <button class="cancel-btn" onclick="closeModal()">${lb.cancel}</button>`);
+    <button type="button" class="submit-btn" id="sbOpenBtn" onclick="event.preventDefault();event.stopPropagation();loadScheduleBuilder()">${lb.open}</button>
+    <button type="button" class="cancel-btn" id="sbCancelBtn" onclick="event.preventDefault();closeModal()">${lb.cancel}</button>`);
   setTimeout(_sbUpdateDayOptions, 30);
 }
 
@@ -7098,10 +7322,23 @@ const WOFF_DOW = {SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
 
 async function loadScheduleBuilder(){
   try{
+  // Instant UI feedback — button feels responsive on whole surface
+  const _openBtn = document.getElementById('sbOpenBtn');
+  if(_openBtn){
+    _openBtn.classList.add('is-busy');
+    _openBtn.disabled = true;
+    const _prev = _openBtn.textContent;
+    _openBtn.dataset.prevLabel = _prev || '';
+    _openBtn.textContent = (typeof L==='function') ? L('⏳ खोल रहे हैं…','⏳ Opening…') : '⏳ Opening…';
+  }
   _sbSelStart=null; _sbSelEnd=null; _sbSelectedCells=[]; _sbSelecting=false;
-  const monthKey = document.getElementById('sb_month').value;
+  const monthKey = document.getElementById('sb_month') && document.getElementById('sb_month').value;
   const secFilter = document.getElementById('sb_sec').value;
-  if(!monthKey){toast('⚠️ महीना चुनें');return;}
+  if(!monthKey){
+    const b=document.getElementById('sbOpenBtn');
+    if(b){ b.disabled=false; b.classList.remove('is-busy'); if(b.dataset.prevLabel) b.textContent=b.dataset.prevLabel; }
+    toast(L('⚠️ महीना चुनें','⚠️ Select month'));return;
+  }
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
   // Custom date range support (e.g. 11–20 Oct)
@@ -7331,7 +7568,12 @@ async function loadScheduleBuilder(){
       toast((typeof L==='function')?L('📱 बेहतर व्यू के लिए फ़ोन Landscape घुमाएँ','📱 Rotate phone to Landscape for best view'):'📱 Rotate to Landscape');
     }
   }catch(e){}
-  }catch(err){console.error('loadScheduleBuilder error:',err);toast('❌ Error: '+err.message);}
+  }catch(err){
+    console.error('loadScheduleBuilder error:',err);
+    const b=document.getElementById('sbOpenBtn');
+    if(b){ b.disabled=false; b.classList.remove('is-busy'); if(b.dataset.prevLabel) b.textContent=b.dataset.prevLabel; }
+    toast('❌ Error: '+err.message);
+  }
 }
 
 // _sbData holds current edits: { empId: [array of shifts] }
@@ -7505,7 +7747,7 @@ function _sbShowToolbar(){
 
 function _sbFillSelection(val){
   _sbSelectedCells.forEach(cell=>_sbSetCellValue(cell,val));
-  toast(val?`✅ ${_sbSelectedCells.length} cells में '${cellDisp(val)}' भरा गया`:'✅ Cells साफ हो गए');
+  toast(val?`✅ ${_sbSelectedCells.length} ${L("cells में",'cells set to')} '${cellDisp(val)}'`:L('✅ Cells साफ हो गए','✅ Cells cleared'));
 }
 
 function _sbCopySelection(){
@@ -7522,7 +7764,7 @@ function _sbCopySelection(){
     grid.push(rowVals);
   }
   _sbClipboard={grid, rows:r2-r1+1, cols:d2-d1+1, source:'cells', sourceRow:null, sourceCol:null};
-  toast(`📋 ${_sbClipboard.rows}×${_sbClipboard.cols} Cells Copy हुए`);
+  toast(`📋 ${_sbClipboard.rows}×${_sbClipboard.cols} ${L('Cells Copy हुए','cells copied')}`);
   try{ _sbRefreshRowColButtons(); }catch(e){}
   _sbShowToolbar();
 }
@@ -7530,9 +7772,9 @@ function _sbCopySelection(){
 function _sbPasteSelection(){
   // Excel-style: paste full clipboard from top-left of current selection (even 1 cell)
   if(!_sbClipboard || !_sbClipboard.grid || !_sbClipboard.grid.length){
-    toast('⚠️ पहले Copy करें'); return;
+    toast(L('⚠️ पहले Copy करें','⚠️ Copy first')); return;
   }
-  if(!_sbSelStart){ toast('⚠️ जहाँ Paste करना है वहाँ cell चुनें'); return; }
+  if(!_sbSelStart){ toast(L('⚠️ जहाँ Paste करना है वहाँ cell चुनें','⚠️ Select the cell where you want to paste')); return; }
   const end = _sbSelEnd || _sbSelStart;
   const r0 = Math.min(_sbSelStart.row, end.row);
   const d0 = Math.min(_sbSelStart.day, end.day);
@@ -7550,13 +7792,13 @@ function _sbPasteSelection(){
   _sbSelEnd = {row:r0+rows-1, day:d0+cols-1};
   try{ _sbUpdateSelectionVisual(); }catch(e){}
   try{ _sbShowToolbar(); }catch(e){}
-  toast(filled ? ('✅ Paste · '+rows+'×'+cols) : '⚠️ Paste target नहीं मिला');
+  toast(filled ? ('✅ Paste · '+rows+'×'+cols) : L('⚠️ Paste target नहीं मिला','⚠️ Paste target not found'));
 }
 
 /** Copy entire employee row */
 function _sbCopyEntireRow(rowIdx){
   const cells = [...document.querySelectorAll('#sb_tbody .shc[data-row="'+rowIdx+'"]')];
-  if(!cells.length){ toast('⚠️ Row खाली'); return; }
+  if(!cells.length){ toast(L('⚠️ Row खाली','⚠️ Row is empty')); return; }
   cells.sort((a,b)=> (+a.dataset.day) - (+b.dataset.day));
   const grid = [cells.map(c=>c.dataset.val||'')];
   _sbClipboard = { grid, rows:1, cols:grid[0].length, source:'row', sourceRow:rowIdx, sourceCol:null };
@@ -7616,7 +7858,7 @@ function _sbRowBtnClick(rowIdx){
 function _sbCopyEntireCol(dayIdx){
   dayIdx = +dayIdx;
   const cells = [...document.querySelectorAll('#sb_tbody .shc[data-day="'+dayIdx+'"]')];
-  if(!cells.length){ toast('⚠️ Column खाली'); return; }
+  if(!cells.length){ toast(L('⚠️ Column खाली','⚠️ Column is empty')); return; }
   cells.sort((a,b)=> (+a.dataset.row) - (+b.dataset.row));
   const grid = cells.map(c=>[c.dataset.val||'']);
   _sbClipboard = { grid, rows:grid.length, cols:1, source:'col', sourceCol:dayIdx, sourceRow:null };
@@ -7630,7 +7872,7 @@ function _sbCopyEntireCol(dayIdx){
 
 function _sbPasteEntireCol(dayIdx){
   dayIdx = +dayIdx;
-  if(!_sbClipboard || !_sbClipboard.grid){ toast('⚠️ पहले Copy करें'); return; }
+  if(!_sbClipboard || !_sbClipboard.grid){ toast(L('⚠️ पहले Copy करें','⚠️ Copy first')); return; }
   const cells = [...document.querySelectorAll('#sb_tbody .shc[data-day="'+dayIdx+'"][data-isleave="0"]')];
   if(!cells.length) return;
   cells.sort((a,b)=> (+a.dataset.row) - (+b.dataset.row));
@@ -7894,11 +8136,11 @@ function autoGenSchedule(monthKey){
   const emps = getEmps().filter(e => e.status !== 'resigned');
 
   const sbTbody = document.getElementById('sb_tbody');
-  if(!sbTbody){ toast('⚠️ पहले Schedule खोलें'); return; }
+  if(!sbTbody){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
 
   const firstEmp = emps[0];
   const testCells = firstEmp ? sbTbody.querySelectorAll(`[data-empid="${firstEmp.id}"]`) : [];
-  if(!testCells.length){ toast('⚠️ पहले Schedule खोलें'); return; }
+  if(!testCells.length){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
 
   // Visible custom range (e.g. 1–10 Oct) or full month
   let dayFrom = (typeof window._sbDayFrom === 'number') ? window._sbDayFrom : 1;
@@ -7955,7 +8197,7 @@ function autoGenSchedule(monthKey){
   const rotationOrder = configShiftCodes.length===3
     ? [configShiftCodes[0], configShiftCodes[2], configShiftCodes[1]]
     : configShiftCodes.slice();
-  if(!rotationOrder.length){ toast('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)'); return; }
+  if(!rotationOrder.length){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
 
   const nextShiftAfter = (lastSh)=>{
     if(!lastSh) return rotationOrder[0];
@@ -8739,7 +8981,7 @@ function _forceOverrideLeaveCell(empId, dayIdx){
     _sbData[empId] = Array.from(allCells).map(c => c.dataset.val || '');
   }
   _sbData[empId][dayIdx] = 'D';
-  toast('⚠️ Leave override — D shift set। Save करने पर लागू होगा।');
+  toast(L('⚠️ Leave override — D shift set। Save करने पर लागू होगा।','⚠️ Leave override — D shift set. Applies on Save.'));
 }
 
 async function saveScheduleBuilder(monthKey){
@@ -8749,7 +8991,7 @@ async function saveScheduleBuilder(monthKey){
   // FIX: scope to modal tbody only — background schedule grid also has
   // cells with [data-empid] which would corrupt saved data
   const sbTbody = document.getElementById('sb_tbody');
-  if(!sbTbody){ toast('⚠️ Schedule Builder open नहीं है'); return; }
+  if(!sbTbody){ toast(L('⚠️ Schedule Builder open नहीं है','⚠️ Schedule Builder is not open')); return; }
 
   // Merge with existing saved data (for sections / days not loaded)
   const existing = (getSchedules() || {})[monthKey.replace('-','_')] || {};
@@ -8791,7 +9033,7 @@ async function saveScheduleBuilder(monthKey){
     const from = window._sbDayFrom || 1;
     const to = window._sbDayTo || daysInMonth;
     const rangeMsg = (from === 1 && to === daysInMonth) ? '' : ` (${from}–${to})`;
-    toast('✅ Schedule save हो गई!' + rangeMsg);
+    toast(L('✅ Schedule save हो गई!','✅ Schedule saved!') + rangeMsg);
     closeModal();
     renderSchedule();
   } catch(e){
@@ -8871,7 +9113,7 @@ async function _execPrint(){
     selectedIds = ['current'];
   }
   if(typeof html2canvas !== 'function'){
-    toast('❌ Print library load नहीं हुई — page refresh करके फिर try करें');
+    toast(L('❌ Print library load नहीं हुई — page refresh करके फिर try करें','❌ Print library failed to load — refresh and try again'));
     return;
   }
   closeModal();
@@ -9037,7 +9279,7 @@ async function _execPrint(){
 
   document.body.appendChild(printDiv);
 
-  toast('📸 Image बन रही है... रुकिए');
+  toast(L('📸 Image बन रही है... रुकिए','📸 Creating image… please wait'));
   try{
     // Wait for logo images to load before capturing (else they appear blank)
     const imgs = printDiv.querySelectorAll('img');
@@ -9062,7 +9304,7 @@ async function _execPrint(){
     link.download = `METPower_Schedule_${safeLbl}_${sectionLabel.replace(/[^a-zA-Z0-9]/g,'_')}.jpg`;
     link.href = canvas.toDataURL('image/jpeg', 0.95);
     link.click();
-    toast('✅ Schedule image download हो गई!');
+    toast(L('✅ Schedule image download हो गई!','✅ Schedule image downloaded!'));
   }catch(e){
     console.error(e);
     toast('❌ Error: '+e.message);
@@ -9160,7 +9402,7 @@ async function exportSchedExcel(){
     ];
   });
 
-  toast('⏳ Excel तैयार हो रहा है…');
+  toast(L('⏳ Excel तैयार हो रहा है…','⏳ Preparing Excel…'));
   const logoDataUrl = await _loadVksLogoDataUrl();
   const fileBase = 'VKS-Tech-ManPower-Schedule-'+(dates[0]||'export')+'-to-'+(dates[dates.length-1]||'');
 
@@ -9284,9 +9526,9 @@ function editPlanPrice(plan){
 
 async function savePlanPrice(plan){
   const val = parseInt(document.getElementById('editPriceVal').value);
-  if(isNaN(val)||val<0){ toast('सही price डालें'); return; }
+  if(isNaN(val)||val<0){ toast(L('सही price डालें','Enter a valid price')); return; }
   await fbSet('learnPrices/'+plan, {price:val, updatedAt:new Date().toISOString(), updatedBy:SESSION.name});
-  toast('✅ Price update हो गई!');
+  toast(L('✅ Price update हो गई!','✅ Price updated!'));
   closeModal();
   renderLearnScreen();
 }
@@ -9989,7 +10231,7 @@ window.openSupSkillVideoAdmin = function(){
 };
 
 window.saveSupSkillVideoLink = function(key, url, btn){
-  if(!url||!url.trim()){ toast('URL खाली है'); return; }
+  if(!url||!url.trim()){ toast(L('URL खाली है','URL is empty')); return; }
   const orig = btn.textContent;
   btn.textContent='...'; btn.disabled=true;
   window._fbAccess('update','supskillVideoLinks',{[key]:url.trim()})
@@ -10086,7 +10328,7 @@ function selectPlan(plan){
 }
 
 function proceedToPayment(){
-  if(!_selectedPlan){ toast('पहले plan चुनें'); return; }
+  if(!_selectedPlan){ toast(L('पहले plan चुनें','Select a plan first')); return; }
   const pi = PLAN_INFO[_selectedPlan];
   document.getElementById('paymentForm').style.display='block';
   document.getElementById('proceedBtn').style.display='none';
@@ -10110,9 +10352,9 @@ function cancelPayment(){
 function initiatePayment(){
   const name  = (document.getElementById('payName').value||'').trim();
   const phone = (document.getElementById('payPhone').value||'').trim();
-  if(!name){ toast('नाम भरें'); return; }
-  if(!phone||phone.length<10){ toast('सही मोबाइल नंबर डालें'); return; }
-  if(!_selectedPlan){ toast('Plan चुनें'); return; }
+  if(!name){ toast(L('नाम भरें','Enter name')); return; }
+  if(!phone||phone.length<10){ toast(L('सही मोबाइल नंबर डालें','Enter a valid mobile number')); return; }
+  if(!_selectedPlan){ toast(L('Plan चुनें','Select plan')); return; }
 
   const pi_check = PLAN_INFO[_selectedPlan]||PLAN_INFO.met_operation;
   const amount = getPrice(_selectedPlan) * 100;
@@ -10148,7 +10390,7 @@ function showUPIFallback(name, phone, amount){
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#a855f7;letter-spacing:1px">
           8168771239-2@ibl
         </div>
-        <button onclick="navigator.clipboard.writeText('8168771239-2@ibl').then(()=>toast('✅ UPI ID Copy हो गई!'))"
+        <button onclick="navigator.clipboard.writeText('8168771239-2@ibl').then(()=>toast(L('✅ UPI ID Copy हो गई!','✅ UPI ID copied!')))"
           style="background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.4);border-radius:7px;
           color:#a855f7;font-size:12px;padding:5px 10px;cursor:pointer;font-weight:700">
           📋 Copy
@@ -10207,7 +10449,7 @@ function manualPaymentDone(name, phone){
   });
 
   closeModal();
-  toast('✅ Request भेज दी! Manager verify करेंगे।');
+  toast(L('✅ Request भेज दी! Manager verify करेंगे।','✅ Request sent! Manager will verify.'));
   document.getElementById('paymentForm').style.display='none';
 }
 
@@ -10225,7 +10467,7 @@ function onPaymentSuccess(response, plan, name, phone){
     userId: SESSION.empObjId||SESSION.empId||phone
   });
 
-  toast('🎉 ' + (pi.icon||'✅') + ' ' + (pi.name||plan) + ' का access मिल गया!');
+  toast('🎉 ' + (pi.icon||'✅') + ' ' + (pi.name||plan) + L(' का access मिल गया!',' access granted!'));
   closeModal();
   renderLearnScreen();
 }
@@ -10346,7 +10588,7 @@ function getLearnContent(){
 function playContent(id){
   const content = getLearnContent();
   const item = content.find(c=>c.id===id);
-  if(!item){ toast('Content नहीं मिला'); return; }
+  if(!item){ toast(L('Content नहीं मिला','Content not found')); return; }
 
   let playerHTML = `<div class="modal-handle"></div>
   <div style="font-size:26px;font-weight:900;color:#fff;margin-bottom:14px">${item.title}</div>`;
@@ -10495,17 +10737,17 @@ async function addLearnButton(){
   const label = document.getElementById('lb_label')?.value?.trim();
   const url   = document.getElementById('lb_url')?.value?.trim();
   const color = document.getElementById('lb_color')?.value||'#f97316';
-  if(!label||!url){ toast('नाम और link दोनों जरूरी हैं'); return; }
+  if(!label||!url){ toast(L('नाम और link दोनों जरूरी हैं','Name and link are both required')); return; }
   const key = await fbPush('learnButtons',{icon,label,url,color,addedAt:new Date().toISOString(),addedBy:SESSION.name});
   await fbUpdate('learnButtons/'+key,{id:key});
-  toast('✅ Button जोड़ दिया गया!');
+  toast(L('✅ Button जोड़ दिया गया!','✅ Button added!'));
   openManageLearnButtons(); // refresh
   renderLearnButtons();
 }
 
 async function deleteLearnButton(key){
   await fbGet('learnButtons/'+key).then(()=>fbSet('learnButtons/'+key,null));
-  toast('🗑️ Button हटा दिया');
+  toast(L('🗑️ Button हटा दिया','🗑️ Button removed'));
   openManageLearnButtons();
   renderLearnButtons();
 }
@@ -10538,12 +10780,12 @@ async function submitContent(){
   const dur   = document.getElementById('ct_dur').value.trim();
   const url   = document.getElementById('ct_url').value.trim();
   const desc  = document.getElementById('ct_desc').value.trim();
-  if(!title){ toast('Title भरें'); return; }
+  if(!title){ toast(L('Title भरें','Enter title')); return; }
   const cat = document.getElementById('ct_cat')?.value||'met_operation';
   const key = await fbPush('learnContent',{title,type,category:cat,topic,duration:dur,url,description:desc,addedAt:new Date().toISOString(),addedBy:SESSION.name});
   await fbUpdate('learnContent/'+key,{id:key});
   closeModal();
-  toast('✅ Content add हो गया!');
+  toast(L('✅ Content add हो गया!','✅ Content added!'));
 }
 
 

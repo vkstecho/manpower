@@ -1,19 +1,19 @@
 <!-- ── REPORTS ── -->
 <div class="tab" id="tab-reports">
   <div class="page-title" id="pageTitleReports">रिपोर्ट</div>
-  <div class="page-sub">NCR, अनुपस्थिति, चेतावनी, प्रशंसा, Imp Info &nbsp;·&nbsp; <span id="reportTotalBadge" style="color:#38bdf8;font-weight:800"></span></div>
+  <div class="page-sub">NCR, Absent, Warning, Appreciation, Imp Info &nbsp;·&nbsp; <span id="reportTotalBadge" style="color:#38bdf8;font-weight:800"></span></div>
   <div class="action-row-compact">
-    <button id="impInfoBtn" class="action-primary" style="display:inline-flex" onclick="openImpInfoForm()">📢 महत्वपूर्ण जानकारी</button>
-    <button class="action-secondary" onclick="openReportForm()">+ नई रिपोर्ट</button>
+    <button id="impInfoBtn" class="action-primary" style="display:inline-flex" onclick="openImpInfoForm()">📢 Important info</button>
+    <button class="action-secondary" onclick="openReportForm()">+ New report</button>
   </div>
   <div class="chips" id="reportFilter">
-    <div class="chip on" onclick="setRF('imp_info',this)">📢 महत्वपूर्ण जानकारी</div>
-    <div class="chip" onclick="setRF('all',this)" data-i18n-all>सभी</div>
+    <div class="chip on" onclick="setRF('imp_info',this)">📢 Important info</div>
+    <div class="chip" onclick="setRF('all',this)" data-i18n-all>All</div>
     <div class="chip" onclick="setRF('ncr',this)">⚠️ NCR</div>
-    <div class="chip" onclick="setRF('absent',this)">📵 अनुपस्थित</div>
-    <div class="chip" onclick="setRF('warning',this)">⚡ चेतावनी</div>
-    <div class="chip" onclick="setRF('appreciation',this)">🌟 प्रशंसा</div>
-    <div class="chip" id="odChip" style="display:none" onclick="setRF('od',this)">🔄 OD रिकॉर्ड</div>
+    <div class="chip" onclick="setRF('absent',this)">📵 Absent</div>
+    <div class="chip" onclick="setRF('warning',this)">⚡ Warning</div>
+    <div class="chip" onclick="setRF('appreciation',this)">🌟 Appreciation</div>
+    <div class="chip" id="odChip" style="display:none" onclick="setRF('od',this)">🔄 OD records</div>
   </div>
   <div id="reportList"></div>
 </div>

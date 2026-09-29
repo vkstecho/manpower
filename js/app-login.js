@@ -156,7 +156,7 @@ async function _sendOTP(isResend){
   }
   const mobileEl=document.getElementById('loginMobile');
   const mobile=(mobileEl?.value||'').trim().replace(/\D/g,'');
-  if(mobile.length!==10){ toast('⚠️ 10 अंकों का Mobile Number डालें'); return; }
+  if(mobile.length!==10){ toast(L('⚠️ 10 अंकों का Mobile Number डालें','⚠️ Enter a 10-digit mobile number')); return; }
   const fullPhone='+91'+mobile;
   _loginMobile=fullPhone;
   const errEl=document.getElementById('loginErr');
@@ -273,7 +273,7 @@ async function _sendOTP(isResend){
   window._forceOtpAfterMgrWait = false;
 
   try{
-    toast(isResend ? '⏳ Resending OTP…' : 'OTP भेजा जा रहा है...');
+    toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
@@ -283,7 +283,7 @@ async function _sendOTP(isResend){
     _startWebOtpListen('otpInput', code=>{
       if(code && code.length===6) setTimeout(()=>{ try{ _verifyOTP(); }catch(e){} }, 250);
     });
-    toast('✅ OTP भेज दिया!');
+    toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('OTP error:',err);
     const msg = '❌ '+_fbOtpErrorMessage(err);
@@ -571,10 +571,10 @@ async function _verifyOTP(){
     return _verifyDeviceOTP();
   }
   const otp=(document.getElementById('otpInput')?.value||'').trim().replace(/\D/g,'');
-  if(otp.length!==6){ toast('⚠️ 6 अंकों का OTP डालें'); return; }
-  if(!_loginConfirmResult){ toast('⚠️ OTP पहले भेजें'); return; }
+  if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
+  if(!_loginConfirmResult){ toast(L('⚠️ OTP पहले भेजें','⚠️ Send OTP first')); return; }
   try{
-    toast('⏳ Verify हो रहा है...');
+    toast(L('⏳ Verify हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
     toast('✅ Mobile Verified!');
     await _checkUserAfterOTP();
@@ -750,14 +750,14 @@ async function _checkUserAfterOTP(){
         return;
       }
       if(userData.status==='rejected'){
-        toast('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।'); return;
+        toast(L('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।','❌ Your registration was rejected. Contact VKS Tech.')); return;
       }
       if(userData.status==='revoked'){
-        toast('🚫 आपकी access revoke कर दी गई है। VKS Tech से संपर्क करें: +91-8929394920'); return;
+        toast(L('🚫 आपकी access revoke कर दी गई है। VKS Tech से संपर्क करें: +91-8929394920','🚫 Your access was revoked. Contact VKS Tech: +91-8929394920')); return;
       }
       if(userData.status==='left_team' || userData.status==='left' || userData.status==='removed'){
         try{ await fbRemove('mobileUsers/'+mobile); }catch(e){}
-        toast('👋 Team से हटा दिए गए — दोबारा Manager/Member register करें');
+        toast(L('👋 Team से हटा दिए गए — दोबारा Manager/Member register करें','👋 Removed from team — register again as Manager/Member'));
         showStep(3);
         return;
       }
@@ -766,14 +766,14 @@ async function _checkUserAfterOTP(){
         const empHit = allEmp.find(e => _normMobileKey(e.phone||e.mobile||'')===mobile);
         if(empHit && (empHit.status==='resigned'||empHit.status==='left'||empHit.status==='left_team'||empHit.status==='removed')){
           try{ await fbUpdate('mobileUsers/'+mobile, { status:'left_team', managerId:null, leftAt:new Date().toISOString() }); }catch(e){}
-          toast('👋 आप team से remove हो चुके हैं — दोबारा register करें');
+          toast(L('👋 आप team से remove हो चुके हैं — दोबारा register करें','👋 You were removed from the team — register again'));
           showStep(3);
           return;
         }
       }catch(e){}
       if(userData.status==='approved'){
         if(userData.validTill && new Date(userData.validTill)<new Date()){
-          toast('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920'); return;
+          toast(L('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920','⏰ Your access has expired. Ask Admin to extend: +91-8929394920')); return;
         }
         // Mobile-first login: never ask Emp Code — but if another device already active, request approve there
         try{
@@ -925,18 +925,18 @@ function _watchApprovalStatus(mobile){
         SESSION.name=userData.name||SESSION.name;
         SESSION.managerId=userData.managerId||SESSION.managerId;
         saveSession();
-        toast('✅ Manager ने approve कर दिया — full access!');
+        toast(L('✅ Manager ने approve कर दिया — full access!','✅ Manager approved — full access!'));
         try{ buildNav().then(()=>{ goTab('home'); renderAll(); }); }catch(e){
           try{ location.reload(); }catch(e2){}
         }
         return true;
       }
-      toast('✅ Approve हो गया! Login हो रहा है...');
+      toast(L('✅ Approve हो गया! Login हो रहा है...','✅ Approved! Logging in...'));
       _launchAsNewUser(userData);
       return true;
     }else if(userData.status==='rejected'){
       _stopApprovalWatch();
-      toast('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।');
+      toast(L('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।','❌ Your registration was rejected. Contact VKS Tech.'));
       return true;
     }
     return false;
@@ -1031,7 +1031,7 @@ async function _submitManagerReg(){
   }
   if(invite.toUpperCase() !== expectedCode.toUpperCase()){
     if(errEl){ errEl.textContent='❌ गलत Invite Code — Admin से Code माँगें'; errEl.classList.add('show'); }
-    toast('❌ Invite Code गलत है');
+    toast(L('❌ Invite Code गलत है','❌ Wrong invite code'));
     return;
   }
   if(!_loginMobile){
@@ -1627,7 +1627,7 @@ async function tryAdminLogin(){
 
 async function proceedFromCode(){
   // Emp-code login removed — Mobile Number is the only entry point
-  toast('📱 Member login: पहले Mobile Number डालें');
+  toast(L('📱 Member login: पहले Mobile Number डालें','📱 Member login: enter mobile number first'));
   try{ showStep(1); document.getElementById('loginMobile')?.focus(); }catch(e){}
 }
 
@@ -2110,14 +2110,14 @@ async function _submitSetPassword(){
   const ctx = window._pwSetupCtx || {};
   const p1=(document.getElementById('spw1')?.value||'');
   const p2=(document.getElementById('spw2')?.value||'');
-  if(p1.length<5 || p1!==p2){ toast('⚠️ Password check करें'); return; }
+  if(p1.length<5 || p1!==p2){ toast(L('⚠️ Password check करें','⚠️ Check password')); return; }
   const emp = ctx.emp || {};
   const empId = emp.id || '';
   const mobile = ctx.mobile10 || String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
   const h = await hashPass(p1+'mp_salt_v24');
   _setDevicePasswordHash(empId, mobile, h);
   const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
-  toast('✅ Password save हो गया — अगली बार OTP नहीं लगेगा');
+  toast(L('✅ Password save हो गया — अगली बार OTP नहीं लगेगा','✅ Password saved — OTP not needed next time'));
   if(ctx.afterApproval){
     // Already logged in — open app
     if(typeof launchApp==='function') launchApp();
@@ -2136,11 +2136,11 @@ function _skipSetPassword(){
   const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
   if(ctx.afterApproval){
     // Already authenticated this session — app works; next login may need OTP again
-    toast('ℹ️ Password बाद में Profile से सेट कर सकते हैं');
+    toast(L('ℹ️ Password बाद में Profile से सेट कर सकते हैं','ℹ️ You can set password later from Profile'));
     if(typeof launchApp==='function') launchApp();
   } else {
     // Need OTP once to establish session
-    toast('📱 Password नहीं — OTP से login करें');
+    toast(L('📱 Password नहीं — OTP से login करें','📱 No password — login with OTP'));
     window._forceOtpAfterPwForgot = true;
     _sendOTP(false);
   }
@@ -2218,7 +2218,7 @@ async function _submitPwLogin(empId, empName, deviceId){
   _markWriteAuthFromLogin(mobile);
   writeIntegrityToken();
   saveSession();
-  toast('✅ Login हो गया! Welcome '+(emp.name||empName));
+  toast(L('✅ Login हो गया! Welcome ','✅ Login successful! Welcome ')+(emp.name||empName));
   launchApp();
 }
 
@@ -2226,7 +2226,7 @@ function _forgotPw(empId, empName, mobile){
   _clearDevicePassword(empId, mobile);
   const ov=document.getElementById('pwLoginOverlay'); if(ov) ov.remove();
   const ov2=document.getElementById('pwMobileOverlay'); if(ov2) ov2.remove();
-  toast('🔑 Password हटाया — OTP से दोबारा verify करें');
+  toast(L('🔑 Password हटाया — OTP से दोबारा verify करें','🔑 Password removed — verify with OTP again'));
   window._forceOtpAfterPwForgot = true;
   try{
     const el=document.getElementById('loginMobile');
@@ -2323,7 +2323,7 @@ function _forgotMobilePw(){
   const mobile = ctx.mobile10 || '';
   _clearDevicePassword(userData.empObjId||userData.employeeId||'', mobile);
   const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
-  toast('🔑 Password हटाया — OTP भेजा जा रहा है');
+  toast(L('🔑 Password हटाया — OTP भेजा जा रहा है','🔑 Password removed — sending OTP'));
   window._forceOtpAfterPwForgot = true;
   try{
     const el=document.getElementById('loginMobile');
@@ -2377,7 +2377,7 @@ function _startWebOtpListen(inputId, onFilled){
         input.value = code;
         input.dispatchEvent(new Event('input', { bubbles:true }));
       }
-      toast('📲 OTP SMS से auto-fill हो गया');
+      toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS'));
       if(typeof onFilled === 'function') onFilled(code);
       else if(code.length === 6){
         // Auto-verify after short delay so UI updates
@@ -2676,7 +2676,7 @@ async function _sendDeviceOTP(isResend){
   const btn = document.getElementById('sendOtpBtn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Sending…'; }
   try{
-    toast(isResend?'⏳ Resending OTP…':'OTP भेजा जा रहा है...');
+    toast(isResend?L('⏳ Resending OTP…','⏳ Resending OTP…'):L('OTP भेजा जा रहा है...','Sending OTP...'));
     _deviceOtpConfirm = await _fbSendPhoneOtp('+91'+mobile, 'recaptcha-container-device', '_fbRecaptchaDevice');
     const s1=document.getElementById('otpStep1');
     const s2=document.getElementById('otpStep2');
@@ -2684,7 +2684,7 @@ async function _sendDeviceOTP(isResend){
     if(s2) s2.style.display='block';
     document.getElementById('otpInput')?.focus();
     _startWebOtpListen('otpInput', code=>{ if(code&&code.length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
-    toast('✅ OTP भेज दिया!');
+    toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('Device OTP send', err);
     toast('❌ '+_fbOtpErrorMessage(err));
@@ -2699,8 +2699,8 @@ async function _verifyDeviceOTP(){
 
   if(_deviceOtpBusy) return;
   const otp=(document.getElementById('otpInput')?.value||'').replace(/\D/g,'').slice(0,6);
-  if(otp.length!==6){ toast('⚠️ 6 अंकों का OTP डालें'); return; }
-  if(!_deviceOtpConfirm){ toast('⚠️ पहले OTP भेजें'); return; }
+  if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
+  if(!_deviceOtpConfirm){ toast(L('⚠️ पहले OTP भेजें','⚠️ Send OTP first')); return; }
   _deviceOtpBusy=true;
   const btn=document.getElementById('verifyOtpBtn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Verifying…'; }
@@ -2915,7 +2915,7 @@ async function submitNewEmpReg(code){
     const ov=document.getElementById('newRegOverlay');
     if(ov) ov.style.display='none';
     showPendingBox();
-    toast('✅ Request भेजी! WhatsApp से Admin को notification जाएगी।');
+    toast(L('✅ Request भेजी! WhatsApp से Admin को notification जाएगी।','✅ Request sent! Admin will get a WhatsApp notification.'));
   }catch(e){
     if(errEl) errEl.textContent='❌ Error: '+e.message;
     if(btn){btn.innerHTML='📲 Submit → WhatsApp से Admin को जाएगी';btn.style.opacity='1';btn.style.pointerEvents='auto';}
@@ -3006,7 +3006,7 @@ async function requestDeviceChange(empObjId, empName, newDeviceId){
   });
   await fbUpdate('deviceChangeRequests/'+key, {_key:key});
   closeModal();
-  toast('✅ Request भेज दी! Manager approve करेंगे।');
+  toast(L('✅ Request भेज दी! Manager approve करेंगे।','✅ Request sent! Manager will approve.'));
 }
 
 function showLoginErr(msg){
@@ -3152,9 +3152,10 @@ async function _ensureWriteAuth(){
   // Device cache: wait briefly for Phone Auth restore from IndexedDB
   try{
     if(_isTrustedDeviceForWrite()){
-      for(let i=0;i<20;i++){
+      // Short poll only — avoid multi-second lag on every Save
+      for(let i=0;i<6;i++){
         if(_hasElevatedFirebaseAuth()) break;
-        await new Promise(r=>setTimeout(r, 100));
+        await new Promise(r=>setTimeout(r, 50));
         try{
           if(typeof window._fbAuthStateReady === 'function') await window._fbAuthStateReady();
         }catch(e){}
@@ -3177,12 +3178,12 @@ async function _ensureWriteAuth(){
     }catch(e){}
     // Brief wait if auth still null (slow mobile network)
     if(!(window._fbAuth && window._fbAuth.currentUser)){
-      for(let i=0;i<15;i++){
+      for(let i=0;i<5;i++){
         if(window._fbAuth && window._fbAuth.currentUser) break;
         try{
           if(typeof window._fbSignInAnon === 'function') await window._fbSignInAnon();
         }catch(e){}
-        await new Promise(r=>setTimeout(r, 120));
+        await new Promise(r=>setTimeout(r, 60));
       }
     }
     try{ await _syncAuthRoleNodes(); }catch(e){}
@@ -3279,7 +3280,7 @@ async function _reauthSendOtp(mobile10){
     if(inp){ inp.style.display = 'block'; inp.focus(); }
     if(vbtn) vbtn.style.display = 'block';
     if(btn){ btn.textContent = 'OTP फिर भेजें'; btn.disabled = false; }
-    toast('✅ OTP भेज दिया');
+    toast(L('✅ OTP भेज दिया','✅ OTP sent'));
     if(typeof _startWebOtpListen === 'function'){
       _startWebOtpListen('reauthOtpInput', code=>{
         if(code && code.length===6) setTimeout(()=>_reauthVerifyOtp(), 200);
@@ -3504,7 +3505,7 @@ async function launchApp(){
       if(!expiry.valid){
         showHardExpiry();
       } else if(expiry.daysLeft <= 10){
-        setTimeout(()=>{ toast('⏳ App access ' + expiry.daysLeft + ' दिनों में expire होगी!'); }, 800);
+        setTimeout(()=>{ toast(L('⏳ App access ','⏳ App access expires in ') + expiry.daysLeft + L(' दिनों में expire होगी!',' days!')); }, 800);
       }
     }).catch(()=>{}); // swallow — never black screen due to expiry check failure
   }
@@ -3527,6 +3528,8 @@ async function buildNav(){
     {id:'schedule',  ico:'📅', lbl:'शेड्यूल',   lblEn:'Schedule',  roles:['worker','manager','supervisor','member']},
     {id:'leave',     ico:'🏖️', lbl:'अवकाश',    lblEn:'Leave',     roles:['worker','manager','member']},
     {id:'reports',   ico:'📋', lbl:'रिपोर्ट',   lblEn:'Reports',   roles:['worker','manager','supervisor','member']},
+    // Action (not a tab page) — sits beside Reports in nav / More sheet
+    {id:'resign',    ico:'📝', lbl:'त्यागपत्र',  lblEn:'Resign',    roles:['worker','manager','supervisor','member'], action:true},
     {id:'todo',      ico:'✅', lbl:'कार्य सूची',  lblEn:'To-Do',     roles:['guest','worker','manager','supervisor','member','pending_member']},
     {id:'pending',   ico:'⏳', lbl:'पेंडिंग',   lblEn:'Pending',   roles:['admin','manager']},
     {id:'team',      ico:'👥', lbl:'टीम',        lblEn:'Team',      roles:['admin','manager']},
@@ -3550,8 +3553,8 @@ async function buildNav(){
     : 'worker';
   let tabs;
   if(effectiveRole === 'admin'){
-    // Admin: no Reports tab
-    tabs = ALL_TABS.filter(t => (t.roles.includes('admin') || t.roles.includes('manager') || t.roles.includes('worker')) && t.id!=='reports');
+    // Admin: no Reports tab — still show Resign beside Team/More
+    tabs = ALL_TABS.filter(t => (t.roles.includes('admin') || t.roles.includes('manager') || t.roles.includes('worker') || t.id==='resign') && t.id!=='reports');
     const seen=new Set();
     tabs = tabs.filter(t => { if(seen.has(t.id)) return false; seen.add(t.id); return true; });
   } else if(effectiveRole === 'manager'){
@@ -3583,7 +3586,8 @@ async function buildNav(){
   if(!tabs || !tabs.length){
     tabs = [{id:'home', ico:'🏠', lbl:'होम', lblEn:'Home', roles:['worker']}];
   }
-  const firstTab = (effectiveRole==='admin' && tabs.some(t=>t.id==='pending')) ? 'pending' : (tabs[0]&&tabs[0].id) || 'home';
+  const _realTabs = tabs.filter(t=>!(t.action||t.id==='resign'));
+  const firstTab = (effectiveRole==='admin' && _realTabs.some(t=>t.id==='pending')) ? 'pending' : (_realTabs[0]&&_realTabs[0].id) || 'home';
   _currentTab = firstTab;
 
   // Hide sync row for guest users (irrelevant for guests)
@@ -3593,7 +3597,7 @@ async function buildNav(){
   if(syncRow) syncRow.style.display = isGuest() ? 'none' : '';
 
   // Prefer primary tabs; overflow into More sheet (max 5 bottom items)
-  const PRIMARY_ORDER = ['home','myshift','schedule','leave','pending','team','todo','reports'];
+  const PRIMARY_ORDER = ['home','myshift','schedule','leave','pending','team','todo','reports','resign'];
   tabs = tabs.slice().sort((a,b)=>PRIMARY_ORDER.indexOf(a.id)-PRIMARY_ORDER.indexOf(b.id));
   const maxPrimary = 4;
   const primaryTabs = tabs.length <= 5 ? tabs : tabs.slice(0, maxPrimary);
@@ -3602,6 +3606,12 @@ async function buildNav(){
 
   const _nbHtml = (t, on)=>{
     const label = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
+    // Action items (e.g. Resign) sit beside Reports — open form, do not switch tab
+    if(t.action || t.id==='resign'){
+      return `<button class="nb" id="nb-${t.id}" type="button" onclick="event.preventDefault();try{closeNavMoreSheet&&closeNavMoreSheet()}catch(e){};try{openResignationForm()}catch(e){console.warn(e)}" aria-label="${label}">
+      <span class="nb-ico">${t.ico}</span><span style="font-size:12px;font-weight:800">${label}</span>
+    </button>`;
+    }
     return `<button class="nb${on?' on':''}" id="nb-${t.id}" onclick="goTab('${t.id}')" aria-label="${label}">
       <span class="nb-ico">${t.ico}</span><span style="font-size:12px;font-weight:800">${label}</span>
       ${t.id==='pending'?'<span class="nb-badge" id="pendingBadge" style="display:none">0</span>':''}
@@ -3640,14 +3650,18 @@ async function buildNav(){
     // Insert before divider
     tabs.forEach((t,i)=>{
       const btn = document.createElement('button');
-      btn.className = 'pc-nav-btn' + (t.id===firstTab?' on':'');
+      btn.className = 'pc-nav-btn' + (t.id===firstTab && !(t.action||t.id==='resign')?' on':'');
       btn.id = 'pc-nb-'+t.id;
       const sLabel = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
       btn.setAttribute('aria-label', sLabel);
       btn.innerHTML = `<span class="pc-nav-ico">${t.ico}</span><span class="pc-nav-lbl">${sLabel}</span>`
         + (t.id==='pending' ? `<span class="pc-nav-badge" id="pcPendingBadge" style="display:none">0</span>` : '')
         + (t.id==='todo'    ? `<span class="pc-nav-badge" id="pcTodoBadge" style="display:none">0</span>` : '');
-      btn.onclick = ()=>goTab(t.id);
+      if(t.action || t.id==='resign'){
+        btn.onclick = ()=>{ try{ openResignationForm(); }catch(e){ console.warn(e); } };
+      } else {
+        btn.onclick = ()=>goTab(t.id);
+      }
       sidebar.insertBefore(btn, divider);
     });
   }
@@ -3676,7 +3690,7 @@ function doLogout(){
   try{
     const logoutBtn = document.querySelector('.profile-action[onclick*="doLogout"]');
     if(logoutBtn){ logoutBtn.style.opacity='.5'; logoutBtn.style.pointerEvents='none'; logoutBtn.querySelector('.pa-label').textContent='Logout हो रहा है...'; }
-    toast('🚪 Logout हो रहा है...');
+    toast(L('🚪 Logout हो रहा है...','🚪 Logging out...'));
   }catch(e){}
 
   // ── 2. Clear ALL session stores synchronously — do this FIRST ──
@@ -3732,7 +3746,7 @@ async function openShiftSettings(){
   try{ await _loadWaAppLinkSettings(); }catch(e){}
 
   if(isAdmin() && (!SESSION.viewCompanyId || SESSION.viewCompanyId==='ALL')){
-    toast('⚠️ पहले header से एक Company चुनें');
+    toast(L('⚠️ पहले header से एक Company चुनें','⚠️ Select a company from the header first'));
     return;
   }
   toast('⏳ Loading...');
@@ -4070,10 +4084,10 @@ async function _saveShiftSettings(){
   if(!_shiftDraft.metallisers) _shiftDraft.metallisers = [];
   if(!_shiftDraft.slitters) _shiftDraft.slitters = [];
   for(const s of _shiftDraft.shifts){
-    if(!s.code||!s.label){ toast('⚠️ सभी Shift की Code और नाम भरें'); return; }
+    if(!s.code||!s.label){ toast(L('⚠️ सभी Shift की Code और नाम भरें','⚠️ Fill code and name for every shift')); return; }
   }
   const activeCount = (_shiftDraft.shifts||[]).filter(s=>s.active!==false).length;
-  if(activeCount < 1){ toast('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)'); return; }
+  if(activeCount < 1){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
   _shiftDraft.shiftCount = activeCount;
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
@@ -4325,7 +4339,7 @@ async function saveProfileEdits(){
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast('❌ Phone OTP verify करें — फिर Save दबाएँ'); return; }
+      if(!ok){ toast(L('❌ Phone OTP verify करें — फिर Save दबाएँ','❌ Verify phone OTP — then press Save')); return; }
     }
   }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
 
@@ -4495,7 +4509,7 @@ async function openLeaveQuotaSettings(){
 function _addCustomLeaveQuotaRow(){
   const name = (document.getElementById('lq_new_name')?.value||'').trim();
   const days = Number(document.getElementById('lq_new_days')?.value)||0;
-  if(!name){ toast('⚠️ Leave type name लिखें'); return; }
+  if(!name){ toast(L('⚠️ Leave type name लिखें','⚠️ Enter leave type name')); return; }
   const key = name.replace(/[^a-zA-Z0-9_\u0900-\u097F]+/g,'_').slice(0,24);
   const host = document.getElementById('lq_fields');
   if(!host) return;
@@ -4528,14 +4542,20 @@ async function saveLeaveQuotas(){
     closeModal();
   }catch(e){ toast('❌ '+e.message); }
 }
-async function openLeaveBalanceModal(){
+async function openLeaveBalanceModal(empId){
   let q = _defaultLeaveQuotas();
   try{
     const k2 = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.managerId||SESSION.mobile)||'default');
     const r = await fbGet(k2);
     if(r) q = {...q, ...r};
   }catch(e){}
-  const emp = myEmp();
+  // Optional: view another member's balance (manager / leave-approver / self)
+  let emp = null;
+  if(empId){
+    emp = (typeof getEmps==='function'?getEmps():[]).find(e=>e && (e.id===empId || e.empId===empId)) || null;
+  }
+  if(!emp) emp = (typeof myEmp==='function'?myEmp():null);
+
   const year = new Date().getFullYear();
   const yStart = q.yearStart || (year+'-01-01');
   const yEnd = q.yearEnd || (year+'-12-31');
@@ -4651,12 +4671,37 @@ async function openLeaveBalanceModal(){
     </div>`;
   }).join('');
 
+  const who = emp ? (emp.name || emp.empId || '') : (SESSION.name||'');
+  const titleName = who ? (' — ' + who) : '';
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🏖️ Leave Balance ${year}</div>
-    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Quota from Manager · Used from approved leave applications (calendar only if no apps)</div>
-    <div style="display:grid;gap:10px;margin:12px 0">${cards||'<div style="color:var(--muted2)">No quotas — Manager sets Team Leave Quota</div>'}</div>
-    <button class="cancel-btn" onclick="closeModal()">Close</button>`);
+    <div class="modal-title">🏖️ ${L('Leave Balance','Leave Balance')}${titleName} ${year}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">${L('Quota Manager से · Approved leave applications से used','Quota from Manager · Used from approved leave applications')}</div>
+    <div style="display:grid;gap:10px;margin:12px 0">${cards||`<div style="color:var(--muted2)">${L('No quotas — Manager sets Team Leave Quota','No quotas — Manager sets Team Leave Quota')}</div>`}</div>
+    <button class="cancel-btn" onclick="closeModal()">${L('बंद करें','Close')}</button>`);
 }
+
+/** Leave tab: pick any team member and show same Leave Balance cards as Profile */
+function openCheckMemberLeaveBalance(){
+  const emps = (typeof getEmps==='function'?getEmps():[]).filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+  if(!emps.length){ toast(L('⚠️ कोई सदस्य नहीं','⚠️ No members')); return; }
+  // Managers / leave approvers / admins can check anyone; members see own team roster if loaded
+  const canPick = (typeof isAdmin==='function'&&isAdmin()) || (typeof isMgr==='function'&&isMgr()) || (typeof canApproveLeave==='function'&&canApproveLeave());
+  const list = canPick ? emps : emps.filter(e=>{
+    try{ return e.id===(typeof myEmp==='function'&&myEmp()&&myEmp().id); }catch(x){ return false; }
+  });
+  const opts = (canPick?emps:list).map(e=>{
+    const sec = (typeof secName==='function'?secName(e.sec||e.section):'') || e.sec||e.section||'';
+    return `<option value="${e.id}">${(e.name||'—')} (${e.empId||'—'}) ${sec?('· '+sec):''}</option>`;
+  }).join('');
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🏖️ ${L('सदस्य Leave Balance','Member Leave Balance')}</div>
+    <div class="field"><label>${L('सदस्य चुनें','Select member')}</label>
+      <select class="inp-field" id="lvBal_emp">${opts}</select>
+    </div>
+    <button type="button" class="submit-btn" onclick="(function(){ var id=document.getElementById('lvBal_emp')&&document.getElementById('lvBal_emp').value; if(id) openLeaveBalanceModal(id); })()">${L('देखें','View')}</button>
+    <button type="button" class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+}
+
 
 async function openHolidayListSettings(){
   if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
@@ -5213,7 +5258,7 @@ async function showProfile(){
       })()}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openLeaveBalanceModal()">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">🏖️</div>
-        <div><div class="pa-label">${L('छुट्टी बैलेंस','Leave Balance')}</div><div class="pa-sub">${L('सभी प्रकार की छुट्टियाँ व शेष','All leave types & remaining')}</div></div>
+        <div><div class="pa-label">${L('Leave Balance','Leave Balance')}</div><div class="pa-sub">${L('All leave types & remaining','All leave types & remaining')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openEditProfileModal()">
@@ -5355,7 +5400,7 @@ async function saveChangeCompanyName(){
     try{ showProfile(); }catch(e){}
   }catch(e){
     console.error('[saveChangeCompanyName]', e);
-    toast('❌ '+(e.message||e)+' — Phone OTP verify करके फिर try करें');
+    toast('❌ '+(e.message||e)+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
   }
 }
 
@@ -5619,7 +5664,7 @@ function openExtendAccessModal(){
 
 async function doExtendAccess(){
   const val = document.getElementById('ext_emp').value;
-  if(!val){ toast('⚠️ कर्मचारी चुनें'); return; }
+  if(!val){ toast(L('⚠️ कर्मचारी चुनें','⚠️ Select employee')); return; }
   const [empObjId] = val.split('|');
   const dateStr = (document.getElementById('ext_date')||{}).value;
   if(dateStr){
@@ -5734,6 +5779,11 @@ function openNavMoreSheet(){
   const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
   grid.innerHTML = tabs.map(t=>{
     const label = en ? (t.lblEn||t.lbl) : t.lbl;
+    if(t.action || t.id==='resign'){
+      return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();try{openResignationForm()}catch(e){}" aria-label="${label}">
+      <span style="font-size:22px">${t.ico}</span>${label}
+    </button>`;
+    }
     return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();goTab('${t.id}')" aria-label="${label}">
       <span style="font-size:22px">${t.ico}</span>${label}
     </button>`;
@@ -5747,11 +5797,13 @@ function closeNavMoreSheet(){
 
 function goTab(t){
   try{ if(typeof closeNavMoreSheet==='function') closeNavMoreSheet(); }catch(e){}
+  // Resign is an action, not a page tab
+  if(t==='resign'){ try{ openResignationForm(); }catch(e){} return; }
 
   if(typeof isPendingMember==='function' && isPendingMember()){
     const allowed = ['home','todo'];
     if(t && !allowed.includes(t)){
-      toast('⏳ Manager approve होने तक सिर्फ Home / To-Do / Learn उपलब्ध हैं');
+      toast(L('⏳ Manager approve होने तक सिर्फ Home / To-Do / Learn उपलब्ध हैं','⏳ Until Manager approves, only Home / To-Do / Learn are available'));
       t = 'home';
     }
   }
@@ -5813,7 +5865,7 @@ function renderAll(){
     try{ _mpInitHistory(); }catch(e){}
   }catch(e){
     console.error('[renderAll] error:', e);
-    try{ toast('⚠️ Display error — कृपया page refresh करें'); }catch(te){}
+    try{ toast(L('⚠️ Display error — कृपया page refresh करें','⚠️ Display error — please refresh the page')); }catch(te){}
   }
 }
 
@@ -6834,7 +6886,7 @@ async function updateHomeTodoSummary(){
 
 async function submitHomeTodo(){
   const title=(document.getElementById('htdTitle')?.value||'').trim();
-  if(!title){ toast('❌ काम का नाम डालें'); return; }
+  if(!title){ toast(L('❌ काम का नाम डालें','❌ Enter task name')); return; }
   const desc=(document.getElementById('htdDesc')?.value||'').trim();
   const priority=document.getElementById('htdPriority')?.value||'medium';
   const dueDate=document.getElementById('htdDue')?.value||'';
@@ -6880,7 +6932,7 @@ async function submitHomeTodo(){
     }
     document.getElementById('htdTitle').value='';
     document.getElementById('htdDesc').value='';
-    toast('✅ काम जोड़ा गया!');
+    toast(L('✅ काम जोड़ा गया!','✅ Task added!'));
     updateHomeTodoSummary();
     goTab('todo');
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -6950,17 +7002,17 @@ async function downloadMyShiftRecords(){
   const typeEl = document.getElementById('msLdType');
   const fromEl = document.getElementById('msLdFrom');
   const toEl = document.getElementById('msLdTo');
-  if(!typeEl || !fromEl || !toEl){ toast('⚠️ Panel open करें'); return; }
+  if(!typeEl || !fromEl || !toEl){ toast(L('⚠️ Panel open करें','⚠️ Open the panel')); return; }
   // Temporarily map to ld* ids expected by downloadLeaveOrShiftRecords OR inline
   const type = typeEl.value || 'shift_all';
   const from = fromEl.value || '';
   const to = toEl.value || '';
-  if(!from || !to){ toast('⚠️ From / To date चुनें'); return; }
-  if(from > to){ toast('⚠️ From date, To से पहले हो'); return; }
+  if(!from || !to){ toast(L('⚠️ From / To date चुनें','⚠️ Select From / To dates')); return; }
+  if(from > to){ toast(L('⚠️ From date, To से पहले हो','⚠️ From date must be before To')); return; }
 
   const emp = (typeof myEmp==='function' ? myEmp() : null)
     || (getEmps()||[]).find(e=>e.id===SESSION.empObjId || e.empId===SESSION.empId);
-  if(!emp){ toast('⚠️ Employee profile नहीं मिला'); return; }
+  if(!emp){ toast(L('⚠️ Employee profile नहीं मिला','⚠️ Employee profile not found')); return; }
   const myMobile = String(SESSION.mobile||emp.phone||'').replace(/\D/g,'').slice(-10);
   const genAt = new Date().toLocaleString('en-IN');
   const want = type.replace('shift_','');
@@ -7040,7 +7092,7 @@ async function downloadMyShiftCalendar(){
   const emp = (typeof myEmp==='function' ? myEmp() : null);
   if(!emp){ toast('⚠️ Profile not found'); return; }
   const mk = (document.getElementById('scDlMonth')||{}).value || '';
-  if(!mk){ toast('⚠️ Month चुनें'); return; }
+  if(!mk){ toast(L('⚠️ Month चुनें','⚠️ Select month')); return; }
   const [yr, mo] = mk.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
   const first = new Date(yr, mo-1, 1);

@@ -57,8 +57,8 @@ function _quickRange(days){
 function applyCustomRange(){
   const f=document.getElementById('customDateFrom').value;
   const t=document.getElementById('customDateTo').value;
-  if(!f||!t){ toast('⚠️ कृपया दोनों तारीखें चुनें'); return; }
-  if(f>t){ toast('⚠️ शुरू की तारीख अंत से पहले होनी चाहिए'); return; }
+  if(!f||!t){ toast(L('⚠️ कृपया दोनों तारीखें चुनें','⚠️ Please select both dates')); return; }
+  if(f>t){ toast(L('⚠️ शुरू की तारीख अंत से पहले होनी चाहिए','⚠️ Start date must be before end date')); return; }
   const days = Math.round((new Date(t)-new Date(f))/86400000)+1;
   if(days>366*5){ toast((typeof L==='function')?L('⚠️ अधिकतम 5 साल का range चुनें','⚠️ Maximum 5 years range'):'⚠️ Max 5 years'); return; }
   _customRangeActive=true; _customDateFrom=f; _customDateTo=t;
@@ -499,7 +499,7 @@ async function handleExcelFile(file){
         const okAuth = await _ensureWriteAuth();
         if(!okAuth){
           statusEl.innerHTML='<span style="color:var(--lv)">❌ Phone OTP verify करें — फिर Upload दोबारा करें</span>';
-          toast('❌ Write auth missing — OTP verify करें');
+          toast(L('❌ Write auth missing — OTP verify करें','❌ Write auth missing — verify OTP'));
           return;
         }
       }
@@ -660,12 +660,12 @@ async function loadSmsSettings(){
 async function saveSmsSettings(){
   const key = document.getElementById('smsApiKey').value.trim();
   const enabled = document.getElementById('smsEnabled').checked;
-  if(!key){ toast('⚠️ API Key खाली है'); return; }
+  if(!key){ toast(L('⚠️ API Key खाली है','⚠️ API Key is empty')); return; }
   _smsSettings = { apiKey: key, enabled };
   try{
     await fbSet('smsSettings', { apiKey: key, enabled });
     closeSmsSettings();
-    toast('✅ SMS Settings save हो गई');
+    toast(L('✅ SMS Settings save हो गई','✅ SMS Settings saved'));
   }catch(e){ toast('❌ Save error: '+e.message); }
 }
 
@@ -685,8 +685,8 @@ async function testSmsApi(){
   const key = document.getElementById('smsApiKey').value.trim();
   const phone = document.getElementById('smsTestPhone').value.trim();
   const statusEl = document.getElementById('smsTestStatus');
-  if(!key){ toast('⚠️ पहले API Key डालें'); return; }
-  if(!phone||phone.length!==10){ toast('⚠️ सही 10 अंक का नंबर डालें'); return; }
+  if(!key){ toast(L('⚠️ पहले API Key डालें','⚠️ Enter API Key first')); return; }
+  if(!phone||phone.length!==10){ toast(L('⚠️ सही 10 अंक का नंबर डालें','⚠️ Enter a valid 10-digit number')); return; }
   statusEl.style.display='block';
   statusEl.style.background='rgba(251,191,36,.08)';
   statusEl.style.border='1px solid rgba(251,191,36,.3)';
@@ -1160,7 +1160,7 @@ function _updateMultiSelectShiftButtons(){
 }
 
 function toggleSelectMode(){
-  if(!canEditSchedule()){ toast('❌ Schedule edit permission नहीं है'); return; }
+  if(!canEditSchedule()){ toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission')); return; }
   if(_msActive){ clearMultiSelect(); return; }
   _msActive = true;
   const btn = document.getElementById('msToggleBtn');
@@ -1176,7 +1176,7 @@ function toggleSelectMode(){
 }
 
 function applyMultiShift(shiftVal){
-  if(!canEditSchedule()){ toast('❌ Schedule edit permission नहीं है'); return; }
+  if(!canEditSchedule()){ toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission')); return; }
   if(!_msSelected.size) return;
   if(shiftVal === 'L'){
     // L needs reason — show reason modal for bulk
@@ -1242,7 +1242,7 @@ function confirmBulkLeave(){
   if(!reason){
     const ta=document.getElementById('blrText');
     if(ta){ ta.style.borderColor='var(--lv)'; ta.focus(); }
-    toast('⚠️ कारण लिखना अनिवार्य है'); return;
+    toast(L('⚠️ कारण लिखना अनिवार्य है','⚠️ Reason is required')); return;
   }
   const attachment=_leaveImgBase64||null;
   _leaveImgBase64=null;
@@ -1251,7 +1251,7 @@ function confirmBulkLeave(){
 }
 
 function _msCommit(shiftVal, leaveReason, attachment){
-  if(!canEditSchedule()){ toast('❌ Schedule edit permission नहीं है'); clearMultiSelect(); return; }
+  if(!canEditSchedule()){ toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission')); clearMultiSelect(); return; }
   const cells = [..._msSelected];
   for(const key of cells){
     const [empId, date] = key.split('|');
@@ -1276,7 +1276,7 @@ function _msCommit(shiftVal, leaveReason, attachment){
     }
   }
   clearMultiSelect();
-  toast(`✅ ${cells.length} cells में ${shiftVal} लगाया`);
+  toast(L('✅ ','✅ ') + cells.length + L(' cells में ',' cells set to ') + shiftVal);
 }
 
 // Attach touch events to schedule table after render
@@ -1534,15 +1534,17 @@ function renderScheduleLegend(emps, dates){
     const label = s.label || code;
     html+=`<div class="leg"><span class="shc ${cellClass(code)}" data-no-i18n="1">${cellDisp(code)}</span> ${label}${time}</div>`;
   });
+  const _enLeg = (typeof _lang!=='undefined' && _lang!=='hi');
+  const _Lleg = (hi,en)=> (typeof L==='function'?L(hi,en):(_enLeg?en:hi));
   const statusLegs = [
-    {code:'O', label:'छुट्टी', cls:'O'},
-    {code:'L', label:'लीव', cls:'L'},
+    {code:'O', label:_Lleg('छुट्टी','Weekly Off'), cls:'O'},
+    {code:'L', label:_Lleg('लीव','Leave'), cls:'L'},
     {code:'C/O', label:'C-Off', cls:'CO', alt:['CO']},
-    {code:'G', label:'जनरल', cls:'G'},
-    {code:'HLF', label:'Half Day', cls:'HLF'},
-    {code:'Ab', label:'Absent', cls:'Ab'},
-    {code:'H', label:'Holiday', cls:'H'},
-    {code:'OD', label:'Other Dept', cls:'OD'},
+    {code:'G', label:_Lleg('जनरल','General'), cls:'G'},
+    {code:'HLF', label:_Lleg('आधा दिन','Half Day'), cls:'HLF'},
+    {code:'Ab', label:_Lleg('अनुपस्थित','Absent'), cls:'Ab'},
+    {code:'H', label:_Lleg('हॉलिडे','Holiday'), cls:'H'},
+    {code:'OD', label:_Lleg('अन्य विभाग','Other Dept'), cls:'OD'},
   ];
   statusLegs.forEach(item=>{
     const hit = used.has(item.code) || (item.alt||[]).some(a=>used.has(a));
@@ -2393,7 +2395,7 @@ function renderShiftTrends(emps, dates){
   }).join('');
 
   const rangeLabel = dates.length > 0
-    ? `${fmtShort(dates[0])} – ${fmtShort(dates[dates.length-1])} (${dates.length} दिन)`
+    ? `${fmtShort(dates[0])} – ${fmtShort(dates[dates.length-1])} (${dates.length} ${(typeof L==='function'?L('दिन','days'):'days')})`
     : '';
 
   // ── BAR CHART: build bar data for current metric ──
@@ -2465,7 +2467,7 @@ function renderShiftTrends(emps, dates){
           </table>
         </div>
         <div style="font-size:10px;color:var(--muted);margin-top:6px;text-align:center">
-          किसी भी column header पर tap करें — Low→High या High→Low sort होगा
+          ${(typeof L==='function')?L('किसी भी column header पर tap करें — Low→High या High→Low sort होगा','Tap any column header to sort Low→High or High→Low'):'Tap any column header to sort Low→High or High→Low'}
         </div>
       </div>
     </div>
@@ -2622,7 +2624,7 @@ async function downloadTrendBar(){
   }
 }
 let _lvFilter='all';
-function setLF(f,el){ _lvFilter=f; document.querySelectorAll('#leaveFilter .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderLeaves(); renderResignations(); }
+function setLF(f,el){ _lvFilter=f; document.querySelectorAll('#leaveFilter .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderLeaves(); }
 
 
 function updateLeaveFilterCounts(){
@@ -2706,8 +2708,8 @@ async function downloadLeaveOrShiftRecords(){
   const type = (document.getElementById('ldType')||{}).value || 'leaves_all';
   const from = (document.getElementById('ldFrom')||{}).value || '';
   const to = (document.getElementById('ldTo')||{}).value || '';
-  if(!from || !to){ toast('⚠️ From / To date चुनें'); return; }
-  if(from > to){ toast('⚠️ From date, To से पहले हो'); return; }
+  if(!from || !to){ toast(L('⚠️ From / To date चुनें','⚠️ Select From / To dates')); return; }
+  if(from > to){ toast(L('⚠️ From date, To से पहले हो','⚠️ From date must be before To')); return; }
 
   const myId = SESSION.empObjId || SESSION.empId || '';
   const myName = SESSION.name || 'Member';
@@ -2766,7 +2768,7 @@ async function downloadLeaveOrShiftRecords(){
     // Shift history for logged-in employee
     const emp = (typeof myEmp==='function' ? myEmp() : null)
       || (getEmps()||[]).find(e=>e.id===SESSION.empObjId || e.empId===SESSION.empId);
-    if(!emp){ toast('⚠️ Employee profile नहीं मिला'); return; }
+    if(!emp){ toast(L('⚠️ Employee profile नहीं मिला','⚠️ Employee profile not found')); return; }
     const want = type.replace('shift_',''); // H, Ab, L, O, D, N, G, CO, all
     sheetTitle = 'Shifts_'+want;
     rows.push(['Man Power App — Shift History']);
@@ -2861,7 +2863,7 @@ function renderLeaves(){
   document.getElementById('leaveList').innerHTML = list.length ? list.map(l=>{
     const s=SEC[l.section]||SEC.M1;
     const ra = l.reallocations&&l.reallocations.length ? `<div style="background:var(--bg2);border:1px solid rgba(163,230,53,.2);border-radius:10px;padding:10px;margin-top:10px">
-      <div style="font-size:10px;font-weight:700;color:var(--sup);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">🔄 शिफ्ट पुनर्आवंटन</div>
+      <div style="font-size:10px;font-weight:700;color:var(--sup);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">${L('🔄 शिफ्ट पुनर्आवंटन','🔄 Shift reallocation')}</div>
       ${l.reallocations.map(r=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border)"><span style="color:var(--muted2)">${fmtShort(r.date)}</span><span style="font-weight:700">${r.coveredBy}</span><span style="color:var(--sup)">${r.fromShift}→${r.toShift}</span></div>`).join('')}
     </div>`:'' ;
     return `<div class="card">
@@ -2869,10 +2871,10 @@ function renderLeaves(){
         <div class="card-ico" style="background:var(--daybg)">📅</div>
         <div class="card-body">
           <div class="card-name">${l.empName}${(()=>{ const c=l.empCode||l.empNo||''; if(c) return ` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(c))}</span>`; const emp=(getEmps()||[]).find(e=>e.id===l.empId||e.empId===l.empId); const code=emp&&emp.empId?emp.empId:''; return code?` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(code))}</span>`:''; })()}</div>
-          <div class="card-tags"><span class="badge ${l.section}">${s.hi}</span><span class="badge ${l.status}">${{pending:L('⏳ प्रतीक्षा','⏳ Pending'),approved:L('✅ मंजूर','✅ Approved'),rejected:L('❌ अस्वीकार','❌ Rejected')}[l.status]}</span></div>
-          <div class="card-sub" style="margin-top:6px">${l.leaveType||'छुट्टी'} · <b>${l.days}</b> दिन${l.coffDate?` · <span style="color:#f97316;font-weight:700">📅 Shift: ${l.coffDate}</span>`:''}</div>
+          <div class="card-tags"><span class="badge ${l.section}">${(typeof secName==='function'?secName(l.section):null)||s.label||s.hi||l.section||''}</span><span class="badge ${l.status}">${{pending:L('⏳ प्रतीक्षा','⏳ Pending'),approved:L('✅ मंजूर','✅ Approved'),rejected:L('❌ अस्वीकार','❌ Rejected')}[l.status]}</span></div>
+          <div class="card-sub" style="margin-top:6px">${l.leaveType||L('छुट्टी','Leave')} · <b>${l.days}</b> ${L('दिन','days')}${l.coffDate?` · <span style="color:#f97316;font-weight:700">📅 Shift: ${l.coffDate}</span>`:''}</div>
           <div class="card-meta">${fmtDate(l.from)}${l.from!==l.to?' → '+fmtDate(l.to):''}</div>
-          ${l.reason?`<div style="margin-top:6px;padding:7px 10px;background:var(--card2);border-left:3px solid var(--day);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);font-weight:600">📝 ${escHtml(l.reason)}</div>`:'<div style="margin-top:4px;font-size:11px;color:var(--lv);font-weight:600">⚠️ कारण नहीं दिया गया</div>'}
+          ${l.reason?`<div style="margin-top:6px;padding:7px 10px;background:var(--card2);border-left:3px solid var(--day);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);font-weight:600">📝 ${escHtml(l.reason)}</div>`:`<div style="margin-top:4px;font-size:11px;color:var(--lv);font-weight:600">⚠️ ${L('कारण नहीं दिया गया','No reason given')}</div>`}
         </div>
       </div>${ra}
       ${(() => {
@@ -2896,7 +2898,7 @@ function renderLeaves(){
         return '';
       })()}
     </div>`;
-  }).join('') : '<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">कोई छुट्टी आवेदन नहीं</div></div>';
+  }).join('') : `<div class="empty"><div class="empty-icon">🌴</div><div class="empty-text">${L('कोई छुट्टी आवेदन नहीं','No leave applications')}</div></div>`;
 }
 
 function openLeaveForm(){
@@ -2907,10 +2909,10 @@ function openLeaveForm(){
     : `<option value="${me?.id||''}">${me?.name||SESSION.name}</option>`;
 
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">🌴 छुट्टी आवेदन</div>
-  <div class="field"><label>कर्मचारी</label>
+  <div class="modal-title">🌴 ${L('छुट्टी आवेदन','Leave application')}</div>
+  <div class="field"><label>${L('कर्मचारी','Employee')}</label>
     <select id="lv_emp">${empOptions}</select></div>
-  <div class="field"><label>छुट्टी का प्रकार</label>
+  <div class="field"><label>${L('छुट्टी का प्रकार','Leave type')}</label>
     <select id="lv_type" onchange="onLvTypeChange(this)">
       <option value="Casual Leave">CL — Casual Leave (आकस्मिक)</option>
       <option value="Sick Leave">SL — Sick Leave (बीमारी)</option>
@@ -2992,19 +2994,19 @@ async function submitLeave(){
   const to=document.getElementById('lv_to').value;
   const type=document.getElementById('lv_type').value;
   const reason=document.getElementById('lv_reason').value.trim();
-  if(!empId||!from||!to){ toast('सभी जानकारी भरें'); return; }
+  if(!empId||!from||!to){ toast(L('सभी जानकारी भरें','Fill in all details')); return; }
   if(!reason){
     const ta=document.getElementById('lv_reason');
     if(ta){ ta.style.borderColor='var(--lv)'; ta.focus(); }
-    toast('⚠️ कारण लिखना अनिवार्य है'); return;
+    toast(L('⚠️ कारण लिखना अनिवार्य है','⚠️ Reason is required')); return;
   }
   const emp=getEmps().find(e=>e.id===empId);
-  if(!emp){ toast('कर्मचारी नहीं मिला'); return; }
+  if(!emp){ toast(L('कर्मचारी नहीं मिला','Employee not found')); return; }
   const days=dateRange(from,to).length;
   // C-Off: get the shift date user came on
   const coffDateEl = document.getElementById('lv_coffdate');
   const coffDate = (type==='C-Off' && coffDateEl) ? coffDateEl.value : null;
-  if(type==='C-Off' && !coffDate){ toast('⚠️ C-Off के लिए Shift Date जरूरी है'); return; }
+  if(type==='C-Off' && !coffDate){ toast(L('⚠️ C-Off के लिए Shift Date जरूरी है','⚠️ Shift date is required for C-Off')); return; }
 
   // ── DUPLICATE CHECK: block if any existing leave overlaps same dates ──
   const newDates = dateRange(from, to);
@@ -3014,14 +3016,14 @@ async function submitLeave(){
     const clash = newDates.filter(d => exDates.includes(d));
     if(clash.length){
       const clashStr = clash.map(d=>new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ');
-      toast('⚠️ Duplicate Leave! इन dates पर पहले से application है: '+clashStr); return;
+      toast(L('⚠️ Duplicate Leave! इन dates पर पहले से application है: ','⚠️ Duplicate leave! Already applied for: ') + clashStr); return;
     }
   }
 
   // ── EL CAP: max 20 days Earned Leave per employee ──
   if(type==='Earned Leave'){
     const usedEL = getLeaves().filter(l=>l.empId===empId&&l.leaveType==='Earned Leave'&&l.status!=='rejected').reduce((s,l)=>s+(l.days||1),0);
-    if(usedEL + days > 20){ toast('⚠️ EL Limit पार! Available: '+(20-usedEL)+' दिन'); return; }
+    if(usedEL + days > 20){ toast(L('⚠️ EL Limit पार! Available: ','⚠️ EL limit exceeded! Available: ')+(20-usedEL)+L(' दिन',' days')); return; }
   }
 
   const key=await fbPush('leaves',{
@@ -3033,7 +3035,7 @@ async function submitLeave(){
   // Store the key for reference
   await fbUpdate(`leaves/${key}`, {_key:key});
   closeModal();
-  toast('✅ छुट्टी आवेदन भेज दिया गया!');
+  toast(L('✅ छुट्टी आवेदन भेज दिया गया!','✅ Leave application submitted!'));
   // In-app always + WhatsApp to mapped manager if template ON
   try{
     const mgrId = emp.managerId || SESSION.managerId || '';
@@ -3054,7 +3056,7 @@ async function submitLeave(){
 }
 
 async function actLeave(key, status){
-  if(!canApproveLeave()){ toast('❌ Leave approve permission नहीं है'); return; }
+  if(!canApproveLeave()){ toast(L('❌ Leave approve permission नहीं है','❌ No leave approve permission')); return; }
   key = String(key||'').trim();
   if(!key || key==='undefined' || key==='null'){
     // Last resort: reload leaves from Firebase with keys
@@ -3066,7 +3068,7 @@ async function actLeave(key, status){
     }catch(e){}
   }
   if(!key || key==='undefined' || key==='null'){
-    toast('❌ Leave key missing — app data refresh हो रहा है, 2 सेकंड बाद Approve फिर दबाएँ');
+    toast(L('❌ Leave key missing — app data refresh हो रहा है, 2 सेकंड बाद Approve फिर दबाएँ','❌ Leave key missing — data refreshing, try Approve again in 2 seconds'));
     try{
       const snap = await fbGet('leaves');
       _cache.leaves = _normalizeLeavesSnap(snap);
@@ -3078,7 +3080,7 @@ async function actLeave(key, status){
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast('❌ Phone OTP verify करें — फिर Approve दबाएँ'); return; }
+      if(!ok){ toast(L('❌ Phone OTP verify करें — फिर Approve दबाएँ','❌ Verify phone OTP — then press Approve')); return; }
     }
   }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
 
@@ -3090,7 +3092,7 @@ async function actLeave(key, status){
     }catch(e){}
   }
   if(!leave){
-    toast('❌ Leave record नहीं मिला: '+key);
+    toast(L('❌ Leave record नहीं मिला: ','❌ Leave record not found: ')+key);
     return;
   }
   try{
@@ -3116,16 +3118,16 @@ async function actLeave(key, status){
     }
   }catch(err){
     console.error('[actLeave]', err);
-    toast('❌ Approve failed: '+(err.message||err.code||err)+' — Phone OTP + rules check करें');
+    toast(L('❌ Approve failed: ','❌ Approve failed: ')+(err.message||err.code||err)+L(' — Phone OTP + rules check करें',' — verify Phone OTP + rules'));
   }
 }
 
 /** Manager or leave-authorized member: edit approved/pending leave (dates, reason, type) */
 function openEditLeaveForm(key){
-  if(!canApproveLeave()){ toast('❌ Leave edit permission नहीं है'); return; }
+  if(!canApproveLeave()){ toast(L('❌ Leave edit permission नहीं है','❌ No leave edit permission')); return; }
   key = String(key||'').trim();
   const leave = (getLeaves()||[]).find(l=>l && (l._key===key || l.id===key));
-  if(!leave){ toast('❌ Leave record नहीं मिला'); return; }
+  if(!leave){ toast(L('❌ Leave record नहीं मिला','❌ Leave record not found')); return; }
   const types = ['Casual Leave','Sick Leave','Emergency Leave','Earned Leave','C-Off'];
   const typeOpts = types.map(t=>`<option value="${t}" ${leave.leaveType===t?'selected':''}>${t}</option>`).join('');
   openModal(`<div class="modal-handle"></div>
@@ -3158,22 +3160,22 @@ function openEditLeaveForm(key){
 }
 
 async function saveEditedLeave(key){
-  if(!canApproveLeave()){ toast('❌ Leave edit permission नहीं है'); return; }
+  if(!canApproveLeave()){ toast(L('❌ Leave edit permission नहीं है','❌ No leave edit permission')); return; }
   key = String(key||'').trim();
   const from = (document.getElementById('elv_from')||{}).value;
   const to = (document.getElementById('elv_to')||{}).value;
   const leaveType = (document.getElementById('elv_type')||{}).value;
   const reason = ((document.getElementById('elv_reason')||{}).value||'').trim();
   const coffDate = (document.getElementById('elv_coffdate')||{}).value || null;
-  if(!from||!to){ toast('तारीख भरें'); return; }
-  if(!reason){ toast('⚠️ कारण जरूरी है'); return; }
-  if(new Date(to) < new Date(from)){ toast('❌ To date From से पहले नहीं हो सकती'); return; }
-  if(leaveType==='C-Off' && !coffDate){ toast('⚠️ C-Off के लिए Shift Date जरूरी'); return; }
+  if(!from||!to){ toast(L('तारीख भरें','Enter dates')); return; }
+  if(!reason){ toast(L('⚠️ कारण जरूरी है','⚠️ Reason is required')); return; }
+  if(new Date(to) < new Date(from)){ toast(L('❌ To date From से पहले नहीं हो सकती','❌ To date cannot be before From')); return; }
+  if(leaveType==='C-Off' && !coffDate){ toast(L('⚠️ C-Off के लिए Shift Date जरूरी','⚠️ Shift date is required for C-Off')); return; }
   const days = dateRange(from, to).length;
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast('❌ Phone OTP verify करें'); return; }
+      if(!ok){ toast(L('❌ Phone OTP verify करें','❌ Verify phone OTP')); return; }
     }
   }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
   try{
@@ -3202,10 +3204,10 @@ async function saveEditedLeave(key){
 }
 
 async function deleteLeaveRecord(key){
-  if(!canApproveLeave()){ toast('❌ Leave delete permission नहीं है'); return; }
+  if(!canApproveLeave()){ toast(L('❌ Leave delete permission नहीं है','❌ No leave delete permission')); return; }
   key = String(key||'').trim();
   const leave = (getLeaves()||[]).find(l=>l && (l._key===key || l.id===key));
-  if(!leave){ toast('❌ Leave record नहीं मिला'); return; }
+  if(!leave){ toast(L('❌ Leave record नहीं मिला','❌ Leave record not found')); return; }
   const ok = await confirmModal(
     '🗑️ Delete Leave',
     (leave.empName||'')+' · '+fmtDate(leave.from)+(leave.from!==leave.to?' → '+fmtDate(leave.to):'')+'\n'+(leave.leaveType||'')+' · '+leave.status+'\n\nDelete this leave permanently?',
@@ -3217,7 +3219,7 @@ async function deleteLeaveRecord(key){
   try{
     if(typeof _ensureWriteAuth==='function'){
       const authOk = await _ensureWriteAuth();
-      if(!authOk){ toast('❌ Phone OTP verify करें'); return; }
+      if(!authOk){ toast(L('❌ Phone OTP verify करें','❌ Verify phone OTP')); return; }
     }
   }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
   try{
@@ -3526,7 +3528,7 @@ function openResignationForm(){
 
 function previewResignImg(input){
   const file = input.files[0]; if(!file) return;
-  if(file.size > 10*1024*1024){ toast('⚠️ फोटो 10MB से छोटी होनी चाहिए'); input.value=''; return; }
+  if(file.size > 10*1024*1024){ toast(L('⚠️ फोटो 10MB से छोटी होनी चाहिए','⚠️ Photo must be under 10MB')); input.value=''; return; }
   const reader = new FileReader();
   reader.onload = e => {
     document.getElementById('res_img_thumb').src = e.target.result;
@@ -3546,12 +3548,12 @@ async function submitResignation(){
   const lastDay = document.getElementById('res_lastday').value;
   const notes = document.getElementById('res_notes').value;
   
-  if(!empId){ toast('कर्मचारी चुनें'); return; }
-  if(!reason){ toast('कारण चुनें'); return; }
-  if(!lastDay){ toast('अंतिम दिन चुनें'); return; }
+  if(!empId){ toast(L('कर्मचारी चुनें','Select employee')); return; }
+  if(!reason){ toast(L('कारण चुनें','Select reason')); return; }
+  if(!lastDay){ toast(L('अंतिम दिन चुनें','Select last day')); return; }
   
   const emp = getEmps().find(e=>e.id===empId);
-  if(!emp){ toast('कर्मचारी नहीं मिला'); return; }
+  if(!emp){ toast(L('कर्मचारी नहीं मिला','Employee not found')); return; }
   
   // Check duplicate — block if pending or already approved
   try{
@@ -3604,7 +3606,7 @@ async function submitResignation(){
     const key = await fbPush('resignations', resObj);
     await fbUpdate('resignations/'+key, {_key:key});
     closeModal();
-    toast('📝 Resignation request भेज दी गई!');
+    toast(L('📝 Resignation request भेज दी गई!','📝 Resignation request submitted!'));
     try{ await notifyAdmin('📝 Resignation Request', emp.name+' ('+emp.empId+') ने resignation भेजा — '+reasonLabel); }catch(e){}
     renderResignations();
   }catch(e){
@@ -3619,7 +3621,7 @@ function renderResignations(){
   fbGet('resignations').then(data => {
     let list = data ? Object.values(data) : [];
     if(!isAdmin() && !isMgr()) list = list.filter(r=>r.empId===SESSION.empObjId || r.submittedById===SESSION.empObjId);
-    if(_lvFilter!=='all') list = list.filter(r=>r.status===_lvFilter);
+    // Leave-tab status chips no longer control resignation list (list lives on Reports)
     list.sort((a,b) => new Date(b.submittedAt||0) - new Date(a.submittedAt||0));
     
     if(!list.length){ el.innerHTML=''; return; }
@@ -3635,9 +3637,9 @@ function renderResignations(){
           <div class="card-ico" style="background:var(--lvbg)">📝</div>
           <div class="card-body">
             <div class="card-name" style="color:var(--lv)">${escHtml(r.empName)}</div>
-            <div style="font-size:14px;color:var(--muted2);margin-top:2px">${escHtml(r.empCode||'')} · ${secInfo.hi} · ${escHtml(r.designation||'')}</div>
+            <div style="font-size:14px;color:var(--muted2);margin-top:2px">${escHtml(r.empCode||'')} · ${(typeof secName==='function'?secName(r.section):null)||secInfo.label||secInfo.hi||''} · ${escHtml(r.designation||'')}</div>
             <div class="card-tags" style="margin-top:6px">
-              <span class="badge ${r.section}">${secInfo.hi}</span>
+              <span class="badge ${r.section}">${(typeof secName==='function'?secName(r.section):null)||secInfo.label||secInfo.hi||''}</span>
               <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:5px;font-size:13px;font-weight:700;background:var(--lvbg);color:var(--lv)">RESIGNATION</span>
               <span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:5px;font-size:13px;font-weight:700;color:${statusColor}">${statusMap[r.status]||r.status}</span>
             </div>
@@ -3696,7 +3698,7 @@ const RELIEVING_CHECKLIST = [
 async function approveResignation(key){
   try{
     const res = await fbGet('resignations/'+key);
-    if(!res){ toast('❌ Record नहीं मिला'); return; }
+    if(!res){ toast(L('❌ Record नहीं मिला','❌ Record not found')); return; }
     
     const reasonLabel = res.reasonLabel || res.reason || '';
     const fmtLwd = res.lastWorkingDay ? new Date(res.lastWorkingDay).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}) : '—';
@@ -3842,7 +3844,7 @@ async function confirmRelievingApproval(key){
   
   try{
     const res = await fbGet('resignations/'+key);
-    if(!res){ toast('❌ Record नहीं मिला'); return; }
+    if(!res){ toast(L('❌ Record नहीं मिला','❌ Record not found')); return; }
     
     // 1. Update resignation with checklist + remark + relieving date
     await fbUpdate('resignations/'+key, {
@@ -3887,7 +3889,7 @@ async function confirmRelievingApproval(key){
     }catch(e){}
     
     closeModal();
-    toast('✅ Resignation approved — '+res.empName+' शेड्यूल से हटाया गया');
+    toast(L('✅ Resignation approved — ','✅ Resignation approved — ')+res.empName+L(' शेड्यूल से हटाया गया',' removed from schedule'));
     renderResignations();
     renderAll();
   }catch(e){
@@ -4220,12 +4222,12 @@ async function submitReport(){
     const type=document.getElementById('rpt_type').value;
     const date=document.getElementById('rpt_date').value;
     const desc=document.getElementById('rpt_desc').value;
-    if(!aboutId||!desc){ toast('सभी जानकारी भरें'); _reportSubmitting=false; if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity='1';submitBtn.textContent='📤 रिपोर्ट भेजें';} return; }
+    if(!aboutId||!desc){ toast(L('सभी जानकारी भरें','Fill in all details')); _reportSubmitting=false; if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity='1';submitBtn.textContent='📤 रिपोर्ट भेजें';} return; }
     const me=myEmp();
     let imgData = await getReportImgBase64().catch(()=>null);
     if(imgData){
       try{ imgData = await compressImage(imgData, 800, 0.6); }catch(e){}
-      if(imgData.length > 500000){ toast('⚠️ फोटो बहुत बड़ी है — कृपया छोटी फोटो लें'); _reportSubmitting=false; if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity='1';submitBtn.textContent='📤 रिपोर्ट भेजें';} return; }
+      if(imgData.length > 500000){ toast(L('⚠️ फोटो बहुत बड़ी है — कृपया छोटी फोटो लें','⚠️ Photo too large — please use a smaller one')); _reportSubmitting=false; if(submitBtn){submitBtn.disabled=false;submitBtn.style.opacity='1';submitBtn.textContent='📤 रिपोर्ट भेजें';} return; }
     }
     const reportObj = {
       aboutId, aboutName, empName:aboutName, section:aboutSec,
@@ -4238,7 +4240,7 @@ async function submitReport(){
     if(imgData) reportObj.photo = imgData;
     const key=await fbPush('reports', reportObj);
     await fbUpdate(`reports/${key}`,{_key:key});
-    closeModal(); toast('✅ रिपोर्ट भेज दी गई!');
+    closeModal(); toast(L('✅ रिपोर्ट भेज दी गई!','✅ Report submitted!'));
   }catch(e){
     toast('❌ Error: '+e.message);
     if(submitBtn){ submitBtn.disabled=false; submitBtn.style.opacity='1'; submitBtn.textContent='📤 रिपोर्ट भेजें'; }
@@ -4324,14 +4326,14 @@ if(typeof window !== 'undefined' && !window._rptPhotoPopBound){
 }
 
 async function actReport(key, status){
-  if(!canManageReports() && !isAdmin()){ toast('❌ Report permission नहीं है'); return; }
+  if(!canManageReports() && !isAdmin()){ toast(L('❌ Report permission नहीं है','❌ No report permission')); return; }
   await fbUpdate(`reports/${key}`,{status,actionAt:new Date().toISOString(),actionBy:SESSION.name});
-  toast(status==='approved'?'✅ रिपोर्ट मंजूर':'❌ रिपोर्ट अस्वीकार');
+  toast(status==='approved'?L('✅ रिपोर्ट मंजूर','✅ Report approved'):L('❌ रिपोर्ट अस्वीकार','❌ Report rejected'));
   renderAll();
 }
 
 async function deleteReport(key, name){
-  if(!isAdminOrMgr()){ toast('❌ Permission नहीं है'); return; }
+  if(!isAdminOrMgr()){ toast(L('❌ Permission नहीं है','❌ Permission denied')); return; }
   const ok = await confirmModal(
     'Report Delete करें?',
     `<b>${name||'यह report'}</b> permanently delete होगी।<br>यह action undo नहीं होगी।`,
@@ -4341,7 +4343,7 @@ async function deleteReport(key, name){
   if(!ok) return;
   try{
     await fbRemove('reports/'+key);
-    toast('🗑️ Report delete हो गई');
+    toast(L('🗑️ Report delete हो गई','🗑️ Report deleted'));
     renderReports();
   }catch(e){
     toast('❌ Delete failed: '+e.message);
@@ -4411,7 +4413,7 @@ function clearImpImg(){
 
 function previewImpImg(input){
   const file = input.files && input.files[0]; if(!file) return;
-  if(file.size > 10*1024*1024){ toast('⚠️ 10MB से छोटी फोटो चुनें'); input.value=''; return; }
+  if(file.size > 10*1024*1024){ toast(L('⚠️ 10MB से छोटी फोटो चुनें','⚠️ Choose a photo under 10MB')); input.value=''; return; }
   const reader = new FileReader();
   reader.onload = e => {
     const thumb=document.getElementById('imp_img_thumb');
@@ -4815,7 +4817,7 @@ async function rejectMobileUser(mobile,name){
   if(!ok) return;
   try{
     await fbUpdate('mobileUsers/'+mobile,{status:'rejected',rejectedAt:new Date().toISOString(),rejectedBy:SESSION.name});
-    toast('❌ '+name+' का registration reject हो गया');
+    toast('❌ '+name+L(' का registration reject हो गया',' registration rejected'));
     renderManagerApprovals();
     renderMyTeamApprovals();
   }catch(e){ toast('❌ Error: '+e.message); }
@@ -4869,30 +4871,47 @@ function renderMyTeamApprovals(){
 
 /** Admin: delete a manager and all members under them from mobileUsers */
 function confirmDeleteManagerWithTeam(mgrKey, mgrName, memberCount){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
-  const msg = (typeof L==='function')
-    ? L('🗑️ Manager "'+(mgrName||'')+'" और उनकी पूरी team ('+memberCount+' members) delete करें? यह mobile registration हटा देगा।',
-        '🗑️ Delete Manager "'+(mgrName||'')+'" and their full team ('+memberCount+' members)? This removes mobile registration.')
-    : 'Delete Manager and team?';
-  if(!confirm(msg)) return;
+  if(!isAdmin()){ toast(L('❌ Admin only','❌ Admin only')); return; }
+  const title = L('🗑️ Manager + Team Delete','🗑️ Delete Manager + Team');
+  const msg = L(
+    'Manager <b>'+(mgrName||'')+'</b> और उनकी पूरी team (<b>'+memberCount+'</b> members) delete करें?<br><br>यह mobile registration हटा देगा — अगली बार <b>fresh person</b> की तरह login होगा।',
+    'Delete Manager <b>'+(mgrName||'')+'</b> and their full team (<b>'+memberCount+'</b> members)?<br><br>This removes mobile registration — next login will be treated as a <b>fresh</b> user.'
+  );
+  if(typeof confirmModal==='function'){
+    confirmModal(title, msg, L('🗑️ हाँ, Delete','🗑️ Yes, Delete'), L('रद्द करें','Cancel')).then(ok=>{
+      if(ok) deleteManagerWithTeam(mgrKey, mgrName);
+    });
+    return;
+  }
+  if(!confirm(msg.replace(/<[^>]+>/g,' '))) return;
   deleteManagerWithTeam(mgrKey, mgrName);
 }
 
 async function deleteManagerWithTeam(mgrKey, mgrName){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  if(!isAdmin()){ toast(L('❌ Admin only','❌ Admin only')); return; }
   try{
-    toast('⏳ Deleting…');
-    if(typeof _ensureWriteAuth==='function') await _ensureWriteAuth();
+    toast(L('⏳ Deleting…','⏳ Deleting…'));
+    // Admin delete needs Phone Auth + admins/{uid} for RTDB rules
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){
+        toast(L('❌ Phone OTP verify करें — फिर Delete दबाएँ','❌ Verify phone OTP — then press Delete'));
+        return;
+      }
+    }
+    try{ if(typeof _syncAuthRoleNodes==='function') await _syncAuthRoleNodes(); }catch(e){}
+
     const data = await fbGet('mobileUsers') || {};
     const mk = (typeof _normMobileKey==='function') ? _normMobileKey(mgrKey) : String(mgrKey||'').replace(/\D/g,'').slice(-10);
     let mgrRec = data[mgrKey] || data[mk] || null;
     if(!mgrRec){
       const hit = Object.entries(data).find(([k])=> ((typeof _normMobileKey==='function')?_normMobileKey(k):k)===mk);
-      if(hit) mgrRec = hit[1];
+      if(hit){ mgrRec = hit[1]; }
     }
     const mgrMob = (typeof _normMobileKey==='function')
       ? _normMobileKey((mgrRec && (mgrRec.mobile||mgrRec.phone)) || mk)
       : mk;
+
     const toDelete = new Set();
     Object.entries(data).forEach(([k,v])=>{
       if(!v) return;
@@ -4903,25 +4922,113 @@ async function deleteManagerWithTeam(mgrKey, mgrName){
         : String(v.managerId||'').replace(/\D/g,'').slice(-10);
       if(mid && (mid===mk || mid===mgrMob)) toDelete.add(k);
     });
-    let ok=0, fail=0;
+
+    // Also wipe employees roster rows under this manager (fresh login next time)
+    const empKeys = [];
+    try{
+      const emps = await fbGet('employees') || {};
+      Object.entries(emps).forEach(([id,e])=>{
+        if(!e) return;
+        const em = (typeof _normMobileKey==='function')
+          ? _normMobileKey(e.phone||e.mobile||'')
+          : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+        const mid = (typeof _normMobileKey==='function')
+          ? _normMobileKey(e.managerId||e.managerMobile||e.mgrId||'')
+          : String(e.managerId||'').replace(/\D/g,'').slice(-10);
+        if(em && (em===mk || em===mgrMob)) empKeys.push(id);
+        else if(mid && (mid===mk || mid===mgrMob)) empKeys.push(id);
+      });
+    }catch(e){ console.warn('[deleteMgr] employees scan', e); }
+
+    // Device approvals / pending under these phones
+    const extraPaths = [];
     for(const k of toDelete){
-      try{
-        if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+k);
-        else await fbSet('mobileUsers/'+k, null);
-        ok++;
-      }catch(e){
-        try{
-          await fbUpdate('mobileUsers/'+k, { status:'removed', role:'removed', removedAt:new Date().toISOString(), removedBy:SESSION.name||'admin' });
-          ok++;
-        }catch(e2){ fail++; }
+      const n = (typeof _normMobileKey==='function') ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10);
+      if(n && n.length===10){
+        extraPaths.push('deviceApprovals/'+n);
+        extraPaths.push('pendingMembers/'+n);
+        extraPaths.push('userNotifications/'+n);
       }
     }
-    if(ok) toast('✅ '+(mgrName||'Manager')+' + team removed ('+ok+')'+(fail?(' · '+fail+' failed'):''));
-    else toast('❌ Delete failed — check Firebase rules');
+
+    let ok=0, fail=0;
+    const failKeys = [];
+    // Prefer multi-path null write when available
+    try{
+      if(typeof fbUpdate==='function' && toDelete.size){
+        const patch = {};
+        toDelete.forEach(k=>{ patch['mobileUsers/'+k] = null; });
+        empKeys.forEach(id=>{ patch['employees/'+id] = null; });
+        extraPaths.forEach(path=>{ patch[path] = null; });
+        await fbUpdate('/', patch);
+        ok = toDelete.size;
+      } else {
+        throw new Error('no multipath');
+      }
+    }catch(multiErr){
+      console.warn('[deleteMgr] multipath failed, per-key', multiErr && multiErr.message);
+      for(const k of toDelete){
+        try{
+          if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+k);
+          else await fbSet('mobileUsers/'+k, null);
+          ok++;
+        }catch(e){
+          // Soft tombstone if hard delete blocked by rules
+          try{
+            await fbUpdate('mobileUsers/'+k, {
+              status: 'removed',
+              role: 'removed',
+              name: null,
+              removedAt: new Date().toISOString(),
+              removedBy: SESSION.name||'admin',
+              forceFreshLogin: true
+            });
+            ok++;
+          }catch(e2){
+            fail++;
+            failKeys.push(k);
+            console.warn('[deleteMgr] fail', k, e2 && e2.message);
+          }
+        }
+      }
+      for(const id of empKeys){
+        try{
+          if(typeof fbRemove==='function') await fbRemove('employees/'+id);
+          else await fbSet('employees/'+id, null);
+        }catch(e){ console.warn('[deleteMgr] emp', id, e); }
+      }
+      for(const path of extraPaths){
+        try{
+          if(typeof fbRemove==='function') await fbRemove(path);
+          else await fbSet(path, null);
+        }catch(e){}
+      }
+    }
+
+    // Local cache cleanup so UI updates immediately
+    try{
+      if(_cache && _cache.mobileUsers){
+        toDelete.forEach(k=>{ try{ delete _cache.mobileUsers[k]; }catch(e){} });
+      }
+      if(_cache && Array.isArray(_cache.employees) && empKeys.length){
+        const drop = new Set(empKeys);
+        _cache.employees = _cache.employees.filter(e=>e && !drop.has(e.id) && !drop.has(e.empId));
+      }
+    }catch(e){}
+
+    if(ok && !fail){
+      toast(L('✅ ','✅ ')+(mgrName||'Manager')+L(' + team हटाए — अगली बार fresh login',' + team removed — next login is fresh'));
+    } else if(ok && fail){
+      toast(L('⚠️ आंशिक delete: ','⚠️ Partial delete: ')+ok+L(' ok, ',' ok, ')+fail+L(' failed (Firebase rules)',' failed (Firebase rules)'));
+    } else {
+      toast(L('❌ Delete failed — Admin phone OTP से login करें, या Firebase rules deploy करें','❌ Delete failed — login with Admin phone OTP, or deploy Firebase rules'));
+      if(failKeys.length) console.warn('[deleteMgr] failed keys', failKeys);
+    }
     try{ renderAdminTeamHierarchy(); }catch(e){}
+    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
   }catch(err){
     console.error(err);
-    toast('❌ Delete failed: '+(err.message||err));
+    toast(L('❌ Delete failed: ','❌ Delete failed: ')+(err.message||err));
   }
 }
 
@@ -5099,7 +5206,7 @@ async function adminRevokeMobileUser(mobile,name){
   if(!ok) return;
   try{
     await fbUpdate('mobileUsers/'+mobile,{status:'revoked',revokedBy:SESSION.name,revokedAt:new Date().toISOString()});
-    toast('🚫 '+name+' की access revoke कर दी');
+    toast('🚫 '+name+L(' की access revoke कर दी',' access revoked'));
     renderAdminTeamHierarchy();
   }catch(e){ toast('❌ Error: '+e.message); }
 }
@@ -5107,7 +5214,7 @@ async function adminRevokeMobileUser(mobile,name){
 async function adminRestoreMobileUser(mobile,name){
   try{
     await fbUpdate('mobileUsers/'+mobile,{status:'approved',restoredBy:SESSION.name,restoredAt:new Date().toISOString()});
-    toast('✅ '+name+' की access restore हो गई');
+    toast('✅ '+name+L(' की access restore हो गई',' access restored'));
     renderAdminTeamHierarchy();
   }catch(e){ toast('❌ Error: '+e.message); }
 }
@@ -5123,7 +5230,7 @@ async function adminExtendMobileValidity(mobile,name,days){
       const empObjId = (rec&&rec.empObjId)||'';
       if(empObjId) await fbUpdate('deviceApprovals/'+empObjId,{ validTill:newExp.toISOString(), extendedBy:SESSION.name, extendedAt:new Date().toISOString() });
     }catch(e2){}
-    toast('✅ '+name+' की expiry '+days+' दिन बढ़ाई → '+newExp.toLocaleDateString('en-IN'));
+    toast('✅ '+name+L(' की expiry ',' expiry extended by ')+days+L(' दिन बढ़ाई → ',' days → ')+newExp.toLocaleDateString('en-IN'));
     renderAdminTeamHierarchy();
   }catch(e){ toast('❌ Error: '+e.message); }
 }
@@ -5161,7 +5268,7 @@ function openAdminSetExpiryModal(key, name, bulkForManager){
 async function adminApplyExpiryDate(key, name, bulkForManager){
   if(!isAdmin()){ toast('❌ Admin only'); return; }
   const dateStr = (document.getElementById('adm_exp_date')||{}).value;
-  if(!dateStr){ toast('⚠️ Date चुनें'); return; }
+  if(!dateStr){ toast(L('⚠️ Date चुनें','⚠️ Select date')); return; }
   const d = new Date(dateStr);
   if(isNaN(d.getTime())){ toast('⚠️ Invalid date'); return; }
   d.setHours(23,59,59,999);
@@ -5169,7 +5276,7 @@ async function adminApplyExpiryDate(key, name, bulkForManager){
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast('❌ Phone/auth verify करें'); return; }
+      if(!ok){ toast(L('❌ Phone/auth verify करें','❌ Verify phone/auth')); return; }
     }
   }catch(e){}
 
@@ -5214,7 +5321,7 @@ async function adminApplyExpiryDate(key, name, bulkForManager){
       const mid = _normMobileKey(v.managerId||'');
       return mid === mk || v.managerId === key;
     });
-    if(!targets.length){ toast('⚠️ इस Manager के under कोई member नहीं'); return; }
+    if(!targets.length){ toast(L('⚠️ इस Manager के under कोई member नहीं','⚠️ No members under this Manager')); return; }
     let okN = 0, failN = 0;
     for(const [memKey, mem] of targets){
       try{
@@ -5264,7 +5371,7 @@ function openTeamMemberExpiryModal(empId, empName){
   <div class="field"><label>Expiry date</label>
     <input type="date" class="inp-field" id="adm_exp_date" value="${defaultDate}">
   </div>
-  <button class="submit-btn" onclick="(async()=>{const ds=(document.getElementById('adm_exp_date')||{}).value;if(!ds){toast('Date चुनें');return;}const ok=await extendUserExpiry('${empId}',ds);if(ok){closeModal();try{renderTeam();}catch(e){}}})()">💾 Save</button>
+  <button class="submit-btn" onclick="(async()=>{const ds=(document.getElementById('adm_exp_date')||{}).value;if(!ds){toast(L('Date चुनें','Select date'));return;}const ok=await extendUserExpiry('${empId}',ds);if(ok){closeModal();try{renderTeam();}catch(e){}}})()">💾 Save</button>
   <button class="cancel-btn" onclick="closeModal()">Cancel</button>`);
 }
 
@@ -5462,7 +5569,7 @@ async function actReg(key, status){
   }
 
   if(status === 'approved'){
-    if(!reg){ toast('❌ Data नहीं मिला — page refresh करें'); return; }
+    if(!reg){ toast(L('❌ Data नहीं मिला — page refresh करें','❌ Data not found — refresh the page')); return; }
     const displayName = (reg.name && reg.name !== reg.empId) ? reg.name : reg.empId;
     const newId = 'e' + Date.now().toString(36);
     const newEmp = {
@@ -5480,7 +5587,7 @@ async function actReg(key, status){
     try{
       await fbUpdate('employees/'+newId, newEmp);
     }catch(e){
-      toast('❌ Employee add नहीं हुआ: '+e.message); return;
+      toast(L('❌ Employee add नहीं हुआ: ','❌ Could not add employee: ')+e.message); return;
     }
     if(reg.passHash){
       try{ await fbSet('workerPasswords/'+newId, reg.passHash); }catch(e){}
@@ -5500,13 +5607,13 @@ async function actReg(key, status){
         at: new Date().toISOString()
       });
     }catch(e){}
-    toast('✅ '+displayName+' ('+reg.empId+') approved! Team में add हो गए।');
+    toast('✅ '+displayName+' ('+reg.empId+') '+L('approved! Team में add हो गए।','approved! Added to team.'));
   } else {
     await fbUpdate('regRequests/'+key, {
       status, actionAt: new Date().toISOString(),
       actionBy: SESSION.name || 'admin'
     });
-    toast('❌ रजिस्ट्रेशन अस्वीकार किया');
+    toast(L('❌ रजिस्ट्रेशन अस्वीकार किया','❌ Registration rejected'));
   }
   renderPending();
 }
