@@ -8208,12 +8208,12 @@ function _buildCoverageReport(yr, mo, daysInMonth){
       : !!on;
     if(!enabled) return;
     const map = byField[meta.kind] || {};
+    // Only check a dimension if at least one value has min > 0 (0 = skip)
     const hasMin = Object.keys(map).some(k => Number(map[k]) > 0);
-    // Section: always include when ON (per-shift + mins). Others: only if at least one min>0
-    if(hasMin || meta.kind === 'section') kinds.push(meta);
+    if(hasMin) kinds.push(meta);
   });
   if(!kinds.length){
-    // Nothing toggled — no min coverage errors
+    // No positive mins configured — zero coverage errors
     return { gaps: [], groupsChecked: 0, shiftCodes, S };
   }
 
@@ -8271,13 +8271,15 @@ function _buildCoverageReport(yr, mo, daysInMonth){
         }
       }catch(e){}
 
+      // Profile: min 0 (or unset) = SKIP this value entirely — no empty-shift, no below_min
+      // Only values with min > 0 participate in Auto Schedule coverage errors.
+      if(minReq <= 0) return;
+
       // Per-shift "every code must have ≥1" only when group is large enough to
       // support staggered blocks (≈ 2 people per shift). Block rotation intentionally
       // keeps the same person on one shift for 6 days — small sections cannot fill
       // every code every day without breaking that rule.
       const enforcePerShift = N >= (S * 2);
-      // Still check min headcount if configured, even for small groups
-      if(!enforcePerShift && minReq <= 0) return;
       groupsChecked++;
 
       for(let d = dayFrom - 1; d < dayTo; d++){

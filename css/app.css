@@ -1615,8 +1615,10 @@ body.light .chip.on{
   font-size:13px;font-weight:700;z-index:999;opacity:0;transition:opacity .3s;
   white-space:normal;border:1px solid rgba(255,255,255,.15);max-width:92vw;text-align:center;
   box-shadow:0 8px 28px rgba(0,0,0,.45);line-height:1.4;
+  /* CRITICAL: opacity:0 still receives clicks — blocked center of Cancel/Save buttons */
+  pointer-events:none !important;
 }
-.toast.show{opacity:1;}
+.toast.show{opacity:1;pointer-events:none !important;}
 body.light .toast{
   background:#1a1a2e !important;color:#ffffff !important;border-color:rgba(0,0,0,.2) !important;
 }
@@ -4741,4 +4743,67 @@ body.light #coverageLayerPanel {
   filter: none !important;
   background-color: #1e3251 !important;
   color: #f8fafc !important;
+}
+
+
+/* ══ FIX v2.4.95: Buttons fully clickable (center + edges) ══
+   Invisible fixed layers (toast, recaptcha, loaders) must not steal hits.
+   Buttons always receive pointer events across full box. */
+button,
+.submit-btn,
+.cancel-btn,
+.big-btn,
+.act-btn,
+.action-primary,
+.action-secondary,
+.sched-admin-btn,
+.back-btn,
+.nb,
+.chip,
+.ltb,
+.learn-back,
+.team-btn-add,
+.team-btn-import,
+.team-btn-delete,
+input[type="button"],
+input[type="submit"] {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+}
+/* Children inside buttons (icons/spans) must not create dead zones */
+button > *,
+.submit-btn > *,
+.cancel-btn > *,
+.big-btn > *,
+.act-btn > *,
+.action-primary > *,
+.action-secondary > * {
+  pointer-events: none;
+}
+/* Modal layer above leftover toast / sticky chrome */
+.overlay.open {
+  z-index: 1200 !important;
+}
+.overlay.open .modal,
+.overlay.open #modalBody,
+.overlay.open .modal-box {
+  pointer-events: auto !important;
+  position: relative;
+  z-index: 1;
+}
+/* Loading screen after hide — never steal clicks */
+#loadingScreen[style*="display: none"],
+#loadingScreen[style*="display:none"],
+#loadingScreen[style*="pointer-events:none"] {
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+/* Any opacity-0 fixed toast-like leftovers */
+.toast:not(.show) {
+  pointer-events: none !important;
+  visibility: hidden;
 }
