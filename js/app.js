@@ -1,4 +1,4 @@
-window._schedEditMode = false;
+window._schedEditMode = true; // managers: always editable (View/Edit toggle removed)
 
 // ════════════════════════════════════════════════════
 //  MAN POWER — Multi-Industry Team & Shift Management
@@ -8598,20 +8598,20 @@ function _updateSchedAdminVisibility(){
   // Admin/Manager (or delegated schedule perm): show Create/Upload/Print + View/Edit
   const row = document.getElementById('schedAdminRow');
   if(row) row.style.display = canEdit ? 'flex' : 'none';
-  // Members without schedule permission: hide View/Edit — schedule is view-only for them
+  // View/Edit toggle removed — managers always edit; members always view-only
   const modeToggle = document.getElementById('schModeToggle');
-  if(modeToggle) modeToggle.style.display = canEdit ? '' : 'none';
+  if(modeToggle) modeToggle.style.display = 'none';
   const editBtn = document.getElementById('schModeEdit');
-  if(editBtn) editBtn.style.display = canEdit ? '' : 'none';
+  if(editBtn) editBtn.style.display = 'none';
   const viewBtn = document.getElementById('schModeView');
-  if(viewBtn) viewBtn.style.display = canEdit ? '' : 'none';
-  // Force view mode if not allowed to edit team schedule
+  if(viewBtn) viewBtn.style.display = 'none';
+  const hint = document.getElementById('schedEditHint');
   if(!canEdit){
     window._schedEditMode = false;
-    const hint = document.getElementById('schedEditHint');
     if(hint) hint.style.display = 'none';
-    if(viewBtn) viewBtn.classList.add('on');
-    if(editBtn) editBtn.classList.remove('on');
+  } else {
+    window._schedEditMode = true;
+    if(hint) hint.style.display = 'none'; // no need — always editable
   }
   // Multi-select only for editors
   const msBtn = document.getElementById('msToggleBtn');
@@ -10850,9 +10850,11 @@ let _msLongPressTimer = null;
 // Each cell tap goes here first
 function setSchedEditMode(on){
   // Members without schedule permission cannot enter Edit on team Schedule
-  if(on && typeof canEditSchedule==='function' && !canEditSchedule()){
+  if(typeof canEditSchedule==='function' && !canEditSchedule()){
     on = false;
-    try{ toast(L('Schedule edit की अनुमति नहीं — अपनी शिफ्ट My Shift में बदलें','No schedule edit permission — change your shift in My Shift')); }catch(e){}
+  } else {
+    // Managers/admins: always editable — ignore View mode
+    on = true;
   }
   window._schedEditMode = !!on;
   const v = document.getElementById('schModeView');
@@ -20871,10 +20873,21 @@ async function saveAllShiftChanges(opts){
           else buckets.OTHER.push(c);
         });
         const _defTpl = (typeof getDefaultShiftConfig==='function' ? getDefaultShiftConfig() : _defaultShiftConfig());
+        // One WhatsApp message per employee — combine GP / C-Off / shift sections
+        const _msgParts = [];
         const pushMsg = (msgLines, chSubset) => {
           if(!msgLines) return;
-          msgLines = _appendWaAppLink(msgLines);
-          waQueue.push({ emp: {...emp, phone}, msgLines, changes: chSubset || changes });
+          // Strip trailing app-link if present; we append once at the end
+          let t = String(msgLines).trim();
+          t = t.replace(/\n?📱\s*Check Complete Shift[\s\S]*$/i, '').trim();
+          t = t.replace(/\n?https:\/\/manpower\.vkstech\.com\s*$/i, '').trim();
+          if(t) _msgParts.push(t);
+        };
+        const _flushCombinedWa = () => {
+          if(!_msgParts.length) return;
+          let combined = _msgParts.join('\n\n————————\n\n');
+          combined = _appendWaAppLink(combined);
+          waQueue.push({ emp: {...emp, phone}, msgLines: combined, changes });
         };
 
         // Gate Pass — same template as marking GP alone
@@ -20979,6 +20992,7 @@ async function saveAllShiftChanges(opts){
           const msgLines = tpl || (`🔔 *Shift Update*\n\n${emp.name}\n${changeLines}`);
           pushMsg(msgLines, buckets.OTHER);
         }
+        _flushCombinedWa();
       }catch(ne){ console.warn('notify error:', ne); }
     }
 
@@ -22385,15 +22399,18 @@ async function loadScheduleBuilder(){
   });
 
   // Build grid — date header is a SEPARATE sticky row (table thead sticky breaks under overflow-x)
+  const _sbColW = 30; // must match body cell width for alignment
+  const _sbNameW = 100;
   const headerDays = dayNums.map(d=>{
     const dt = new Date(yr, mo-1, d);
     const dayIdx = d - 1;
     const dow = ['S','M','T','W','T','F','S'][dt.getDay()];
     const sun = dt.getDay()===0;
-    return `<div data-sb-date-col="${d}" style="flex:0 0 32px;width:32px;min-width:32px;text-align:center;padding:2px 1px;font-size:10px;font-weight:800;color:${sun?'#f87171':'#94a3b8'};line-height:1.1">
-      ${d}<br><span style="font-size:9px;font-weight:700">${dow}</span>
+    return `<div data-sb-date-col="${d}" class="sb-date-col" style="flex:0 0 ${_sbColW}px;width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;text-align:center;padding:4px 0 2px;font-size:12px;font-weight:900;color:${sun?'#f87171':'#e2e8f0'};line-height:1.15;font-family:system-ui,-apple-system,sans-serif">
+      <div style="font-size:13px;font-weight:900;letter-spacing:-0.02em">${d}</div>
+      <div style="font-size:10px;font-weight:700;opacity:.9;margin-top:1px">${dow}</div>
       <button type="button" class="sb-col-cp" data-day="${dayIdx}" onclick="event.stopPropagation();_sbColBtnClick(${dayIdx})"
-        title="Copy/Paste column" style="display:block;margin:2px auto 0;width:18px;height:16px;line-height:14px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:9px;font-weight:900;cursor:pointer">C</button>
+        title="Copy/Paste column" aria-label="Copy column" style="display:block;margin:3px auto 0;width:22px;height:18px;line-height:16px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.45);background:rgba(30,41,59,.9);color:#cbd5e1;font-size:10px;font-weight:900;cursor:pointer">↓</button>
     </div>`;
   }).join('');
 
@@ -22439,8 +22456,8 @@ async function loadScheduleBuilder(){
       const isWoffDay = empWoffDow !== -1 && new Date(yr, mo-1, d).getDay() === empWoffDow;
       const leaveStyle = isLeaveDate ? 'outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5);' : '';
       const leaveClick = isLeaveDate ? ` onclick="_confirmLeaveOverride(this,'${emp.id}',${dayIdx},'${dateStr}')"` : '';
-      return `<td style="padding:2px;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
-        <div class="shc ${cls}" style="width:28px;height:24px;font-size:10px;cursor:pointer;min-width:unset;touch-action:none;user-select:none;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
+      return `<td style="padding:0;width:30px;min-width:30px;max-width:30px;box-sizing:border-box;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
+        <div class="shc ${cls}" style="width:30px;height:28px;font-size:12px;font-weight:800;cursor:pointer;min-width:30px;max-width:30px;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
           data-empid="${emp.id}" data-day="${dayIdx}" data-row="${rowIdx}" data-val="${val}" data-isleave="${isLeaveDate?'1':'0'}">
           ${val ? cellDisp(val) : '—'}
         </div>
@@ -22448,13 +22465,13 @@ async function loadScheduleBuilder(){
     }).join('');
     const s = SEC[emp.sec] || {};
     return `<tr>
-      <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:1;min-width:98px">
+      <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:2;min-width:100px;width:100px;max-width:100px;box-sizing:border-box;padding:4px 6px">
         <div style="display:flex;align-items:center;gap:4px">
           <button type="button" class="sb-row-cp" data-row="${rowIdx}" onclick="event.stopPropagation();_sbRowBtnClick(${rowIdx})"
             title="C = Copy row · P = Paste row" style="flex-shrink:0;width:22px;height:28px;line-height:26px;padding:0;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:10px;font-weight:900;cursor:pointer">C</button>
           <div style="min-width:0">
             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s.color||'#fff'};margin-right:3px"></span>${emp.name.split(' ')[0]}
-            ${emp.woff?`<span style="font-size:8px;color:#f97316;font-weight:600;display:block;margin-top:1px">${emp.woff} off</span>`:''}
+            ${emp.woff?`<span style="font-size:9px;color:#fb923c;font-weight:700;display:block;margin-top:2px">${emp.woff} off</span>`:''}
           </div>
         </div>
       </td>
@@ -22470,12 +22487,18 @@ async function loadScheduleBuilder(){
   openModal(`<div class="modal-handle"></div>
     <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="modal-title" style="margin:0">📅 ${rangeLabel}</div>
+        <div class="modal-title" style="margin:0;font-size:18px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
         <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <div id="sbCellLegend" style="font-size:11px;color:var(--muted2);flex:1">${(typeof L==='function')?L('🖱️ Drag करके Cells चुनें · Double-tap करके Copy/Select करें','🖱️ Drag to select cells · Double-tap to copy/select'):'🖱️ Drag to select · Double-tap to copy'}</div>
-        <button onclick="autoGenSchedule('${monthKey}')"
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div id="sbCellLegend" style="font-size:12px;color:#94a3b8;flex:1;min-width:120px;line-height:1.35">${(typeof L==='function')?L('🖱️ Drag से चुनें · Double-tap = Copy','🖱️ Drag to select · Double-tap = Copy'):'🖱️ Drag to select · Double-tap = Copy'}</div>
+        <button type="button" onclick="clearScheduleBuilderGrid()"
+          style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:10px;
+          color:#fb7185;font-size:12px;font-weight:800;padding:8px 12px;cursor:pointer;white-space:nowrap;
+          display:flex;align-items:center;gap:5px;font-family:inherit">
+          🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
+        </button>
+        <button type="button" onclick="autoGenSchedule('${monthKey}')"
           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
           color:#fff;font-size:12px;font-weight:800;padding:8px 14px;cursor:pointer;white-space:nowrap;
           display:flex;align-items:center;gap:5px;font-family:inherit">
@@ -22487,7 +22510,7 @@ async function loadScheduleBuilder(){
     <!-- Sticky date/day header (synced horizontal scroll with body) -->
     <div id="sbDateHdrWrap" style="position:sticky;z-index:8;background:var(--bg);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;border:1px solid var(--border2);border-bottom:none;border-radius:8px 8px 0 0">
       <div id="sbDateHdr" style="display:flex;align-items:stretch;background:#1e293b;min-width:max-content">
-        <div id="sbCornerHeader" style="position:sticky;left:0;z-index:4;flex:0 0 90px;width:90px;min-width:90px;padding:6px 8px;font-size:11px;font-weight:800;color:#94a3b8;background:#1e293b;display:flex;align-items:center;box-shadow:2px 0 6px rgba(0,0,0,.35)">कर्मचारी</div>
+        <div id="sbCornerHeader" style="position:sticky;left:0;z-index:4;flex:0 0 100px;width:100px;min-width:100px;max-width:100px;box-sizing:border-box;padding:6px 8px;font-size:12px;font-weight:900;color:#e2e8f0;background:#1e293b;display:flex;align-items:center;justify-content:center;box-shadow:2px 0 6px rgba(0,0,0,.35)">${(typeof L==='function')?L('कर्मचारी','Employee'):'Employee'}</div>
         ${headerDays}
       </div>
     </div>
@@ -22496,7 +22519,7 @@ async function loadScheduleBuilder(){
         <tbody id="sb_tbody">${rows}</tbody>
       </table>
     </div>
-    <div id="sbFooterBar" style="display:flex;gap:10px">
+    <div id="sbFooterBar" style="display:flex;gap:10px;flex-shrink:0;position:sticky;bottom:0;z-index:10;background:var(--bg);padding-top:8px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))">
       <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save करें','Save'):'Save'}</button>
       <button class="cancel-btn" style="flex:1" onclick="closeModal()">${(typeof L==='function')?L('रद्द करें','Cancel'):'Cancel'}</button>
     </div>`);
@@ -22974,6 +22997,31 @@ function findLastShiftBeforeMonth(emp, targetYr, targetMo, validShiftCodes){
   return { shift: (validShiftCodes&&validShiftCodes[0])||'D', offsAfter: 0 }; // default fallback
 }
 
+
+/** Clear all (non-leave-protected) cells in the open Schedule Builder grid for the visible date range */
+function clearScheduleBuilderGrid(){
+  const sbTbody = document.getElementById('sb_tbody');
+  if(!sbTbody){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open Schedule Builder first')); return; }
+  const msg = (typeof L==='function')
+    ? L('सभी visible dates की shifts क्लियर करें? (Approved Leave सुरक्षित रहेगी)','Clear shifts on all visible dates? (Approved leaves stay protected)')
+    : 'Clear all visible shifts? (Approved leaves stay protected)';
+  if(!confirm(msg)) return;
+  let n = 0;
+  sbTbody.querySelectorAll('.shc').forEach(cell=>{
+    if(cell.dataset.isleave === '1') return; // keep leave
+    const prev = cell.dataset.val || '';
+    if(!prev) return;
+    if(typeof _sbSetCellValue==='function') _sbSetCellValue(cell, '');
+    else {
+      cell.dataset.val = '';
+      cell.textContent = '—';
+      cell.className = 'shc';
+    }
+    n++;
+  });
+  toast((typeof L==='function')?L('🗑️ '+n+' cells क्लियर','🗑️ '+n+' cells cleared'):('🗑️ '+n+' cells cleared'));
+}
+
 function autoGenSchedule(monthKey){
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
@@ -23260,6 +23308,9 @@ function _buildCoverageReport(yr, mo, daysInMonth){
     map.forEach((g, key)=>{
       const N = g.members.length;
       if(N < 1) return;
+      // Skip aggregate / placeholder labels (not real machine/section names)
+      const gl = String(g.label||'').trim().toLowerCase();
+      if(!gl || gl==='all' || gl==='सभी' || gl==='—' || gl==='-') return;
       // Only enforce "one per shift" when group is large enough for all shifts
       const enforcePerShift = N >= S;
       // min staff from config (optional)
@@ -23608,7 +23659,7 @@ function _applyScheduleToGrid(empId, schedule, cells, empLeaves, yr, mo){
 
     cell.dataset.val = val;
     cell.className = 'shc ' + (val ? cellClass(val) : '');
-    cell.style.cssText = 'width:28px;height:24px;font-size:10px;cursor:pointer;min-width:unset;touch-action:none;user-select:none'
+    cell.style.cssText = 'width:30px;height:28px;font-size:12px;font-weight:800;cursor:pointer;min-width:30px;max-width:30px;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center'
       + (isLeaveProtected ? ';outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5)' : '');
     cell.textContent = val ? cellDisp(val) : '—';
 

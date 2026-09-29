@@ -2,9 +2,10 @@
 <div class="tab" id="tab-schedule">
   <div class="sched-toolbar-top">
     <!-- View/Edit: only for Admin/Manager or schedule-permission; hidden for normal members via _updateSchedAdminVisibility -->
-    <div class="sch-mode-toggle" id="schModeToggle" role="group" aria-label="Schedule mode">
-      <button type="button" class="on" id="schModeView" onclick="setSchedEditMode(false)">👁️ View</button>
-      <button type="button" id="schModeEdit" onclick="setSchedEditMode(true)">✏️ Edit</button>
+    <!-- View/Edit removed: managers always edit schedule directly -->
+    <div class="sch-mode-toggle" id="schModeToggle" role="group" aria-label="Schedule mode" style="display:none">
+      <button type="button" id="schModeView" onclick="setSchedEditMode(false)">👁️ View</button>
+      <button type="button" class="on" id="schModeEdit" onclick="setSchedEditMode(true)">✏️ Edit</button>
     </div>
     <div class="sched-nav" style="flex:1;justify-content:center">
       <button class="nav-btn" onclick="moveW(-7)" aria-label="Previous">‹</button>
@@ -16,7 +17,7 @@
     <button id="resetRangeBtn" onclick="resetCustomRange()" style="display:none;padding:8px 12px;border-radius:10px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:12px;cursor:pointer;min-height:36px;font-weight:700">✕</button>
   </div>
 
-  <div id="schedEditHint" class="sched-edit-hint" style="display:none">✏️ Edit mode — tap any cell to change shift. Use Multi-Select for bulk.</div>
+  <div id="schedEditHint" class="sched-edit-hint" style="display:none"></div>
 
   <!-- Admin toolbar: primary actions + More -->
   <div class="sched-admin-row sched-admin-toolbar" id="schedAdminRow" style="display:none">

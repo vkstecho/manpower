@@ -1,8 +1,28 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.69)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.71)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
+
+## What's new in 2.4.71
+
+### Create Schedule builder UX
+- **Full-screen** on laptop and phone (`100dvh`), clearer fonts, date/day header aligned with shift columns (same column width).
+- **Sticky** title + Clear/Auto + date row + Save bar while the grid scrolls.
+- **Clear** button (before Auto Generate) empties visible-date cells; approved leaves stay protected.
+- Column copy control uses a clear ↓ icon (was hard-to-read “C”).
+
+## What's new in 2.4.70
+
+### Schedule — always editable for Manager
+- **View / Edit toggle removed.** Managers and schedule-authorized users edit cells directly (no mode switch).
+- Members remain view-only on team Schedule.
+
+### WhatsApp — one message per employee
+- All changes for one person (C-Off + shift + GP, etc.) go in **a single combined WhatsApp message** (sections separated), not multiple send steps.
+
+### Coverage check
+- Ignores fake groups labeled **All** / सभी so Auto Generate does not spam empty-shift warnings for aggregate chips.
 
 ## What's new in 2.4.69
 
