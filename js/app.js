@@ -12823,7 +12823,7 @@ function renderLeaves(){
         <div class="card-ico" style="background:var(--daybg)">📅</div>
         <div class="card-body">
           <div class="card-name">${l.empName}${(()=>{ const c=l.empCode||l.empNo||''; if(c) return ` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(c))}</span>`; const emp=(getEmps()||[]).find(e=>e.id===l.empId||e.empId===l.empId); const code=emp&&emp.empId?emp.empId:''; return code?` <span style="font-size:12px;font-weight:700;color:var(--muted2)">· #${escHtml(String(code))}</span>`:''; })()}</div>
-          <div class="card-tags"><span class="badge ${l.section}">${s.hi}</span><span class="badge ${l.status}">${{pending:'⏳ प्रतीक्षा',approved:'✅ मंजूर',rejected:'❌ अस्वीकार'}[l.status]}</span></div>
+          <div class="card-tags"><span class="badge ${l.section}">${s.hi}</span><span class="badge ${l.status}">${{pending:L('⏳ प्रतीक्षा','⏳ Pending'),approved:L('✅ मंजूर','✅ Approved'),rejected:L('❌ अस्वीकार','❌ Rejected')}[l.status]}</span></div>
           <div class="card-sub" style="margin-top:6px">${l.leaveType||'छुट्टी'} · <b>${l.days}</b> दिन${l.coffDate?` · <span style="color:#f97316;font-weight:700">📅 Shift: ${l.coffDate}</span>`:''}</div>
           <div class="card-meta">${fmtDate(l.from)}${l.from!==l.to?' → '+fmtDate(l.to):''}</div>
           ${l.reason?`<div style="margin-top:6px;padding:7px 10px;background:var(--card2);border-left:3px solid var(--day);border-radius:0 8px 8px 0;font-size:12px;color:var(--text);font-weight:600">📝 ${escHtml(l.reason)}</div>`:'<div style="margin-top:4px;font-size:11px;color:var(--lv);font-weight:600">⚠️ कारण नहीं दिया गया</div>'}
@@ -13580,7 +13580,7 @@ function renderResignations(){
     
     el.innerHTML = `<div class="stitle" style="margin-top:14px">📝 Resignation Requests</div>` + list.map(r => {
       const secInfo = SEC[r.section] || SEC.M1;
-      const statusMap = {pending:'⏳ प्रतीक्षा',approved:'✅ स्वीकार',rejected:'❌ अस्वीकार'};
+      const statusMap = {pending:L('⏳ प्रतीक्षा','⏳ Pending'),approved:L('✅ स्वीकार','✅ Accepted'),rejected:L('❌ अस्वीकार','❌ Rejected')};
       const statusColor = {pending:'var(--day)',approved:'var(--green)',rejected:'var(--lv)'}[r.status]||'var(--muted)';
       const fmtLwd = r.lastWorkingDay ? new Date(r.lastWorkingDay).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}) : '—';
       
@@ -14800,7 +14800,7 @@ function renderMyTeamApprovals(){
       if(String(midRaw)===String(SESSION.uid) || String(midRaw)===String(SESSION.empObjId)) return true;
       return false;
     });
-    if(!entries.length){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending member नहीं</div>'; return; }
+    if(!entries.length){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+L('कोई pending member नहीं','No pending members')+'</div>'; return; }
     el.innerHTML=entries.map(([mobile,u])=>`
       <div class="card" style="margin-bottom:10px">
         <div class="card-row">
@@ -15302,7 +15302,7 @@ function renderPending(){
       }
       if(!lrEl) return;
       if(!reqs.length){
-        lrEl.innerHTML='<div class="empty" style="padding:16px"><div class="empty-text" style="font-size:12px">&#128100; कोई Login Request नहीं</div></div>'; return;
+        lrEl.innerHTML='<div class="empty" style="padding:16px"><div class="empty-text" style="font-size:12px">'+L('👤 कोई Login Request नहीं','👤 No Login Requests')+'</div></div>'; return;
       }
       lrEl.innerHTML = reqs.map(([k,v])=>{
         const isMgrAppr = v.type==='manager_login_approval';
@@ -15497,8 +15497,8 @@ function renderTeam(search=''){
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
     ? `<div style="display:flex;gap:8px;margin-bottom:14px">
         <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ नया कर्मचारी जोड़ें</button>
-        <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">📊 Excel से Team Import</button>
-      </div>${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">🗑️ सभी Members Delete करें (OTP verify)</button>`:''}` : '';
+        <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 Excel से Team Import','📊 Import Team from Excel')}</button>
+      </div>${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी Members Delete करें (OTP verify)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
 
   // Active employees (not resigned/left). When searching, do NOT require ms[] so name/mobile/code matches still show.
   const q = String(search||'').trim().toLowerCase();
@@ -15529,7 +15529,7 @@ function renderTeam(search=''){
 
   // Show total count
   const totalLabel = _teamSec === 'ALL' 
-    ? `कुल <b style="color:var(--m1)">${list.length}</b> कर्मचारी (Active — Schedule में)` 
+    ? `${L('कुल','Total')} <b style="color:var(--m1)">${list.length}</b> ${L('कर्मचारी','employees')} (Active — ${L('Schedule में','in Schedule')})` 
     : `${secName(_teamSec)}: <b style="color:var(--m1)">${list.length}</b> / ${totalAll} कुल`;
   
   const countDiv = document.getElementById('teamCount');
@@ -28536,7 +28536,7 @@ async function renderTodo(){
     updateTodoBadge();
 
     if(todos.length===0){
-      listEl.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${_todoFilter==='all'?'अभी कोई काम नहीं है':'इस category में कुछ नहीं'}</div></div>`;
+      listEl.innerHTML=`<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">${_todoFilter==='all'?L('अभी कोई काम नहीं है','No tasks yet'):L('इस category में कुछ नहीं','Nothing in this category')}</div></div>`;
       return;
     }
 
