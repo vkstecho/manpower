@@ -18,7 +18,17 @@ function classifyResponsibility(resp){
   return L('Others','Others');
 }
 
-function renderTeam(search=''){
+let _renderTeamTimer = null;
+let _renderTeamLastSearch = '';
+function renderTeam(search){
+  if(arguments.length) _renderTeamLastSearch = search;
+  else search = _renderTeamLastSearch;
+  if(_renderTeamTimer){ clearTimeout(_renderTeamTimer); }
+  const s = search;
+  // Fast path: if called from input, debounce; from listeners still coalesce
+  _renderTeamTimer = setTimeout(()=>{ _renderTeamTimer=null; _renderTeamImpl(s); }, 80);
+}
+function _renderTeamImpl(search=''){
   try{
     const host = document.getElementById('teamPage') || document.getElementById('teamList') || document.getElementById('teamBody');
     if(host && !document.getElementById('mgrEmptyTeamBanner')){

@@ -787,19 +787,22 @@ async function initData(){
   fbListen('employees', v => {
     if(window._empLoadWatch){ clearTimeout(window._empLoadWatch); window._empLoadWatch=null; }
     _cache.employees = mergeEmps(v);
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
     refreshAll();
   });
   fbListen('schedules', v => {
     _cache.schedules = v || {};
-    // Only refresh schedule/home tabs when schedule data changes
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
     _refreshTabs(['home','schedule','myshift']);
   });
   fbListen('leaves', v => {
     _cache.leaves = _normalizeLeavesSnap(v);
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); if(typeof _rebuildLeaveIndex==='function') _rebuildLeaveIndex(); }catch(e){}
     _refreshTabs(['home','leave','pending']);
   });
   fbListen('overrides', v => {
     _cache.overrides = v || {};
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
     _refreshTabs(['home','schedule']);
   });
   fbListen('reports', v => {
@@ -842,12 +845,32 @@ async function initData(){
 }
 
 /** Refresh only if current tab is affected (avoids full app redraw) */
+// Coalesce RTDB bursts — only re-render the visible tab when possible
+let _refreshTabsTimer = null;
+let _refreshTabsPending = null;
 function _refreshTabs(tabs){
   try{ updatePendingBadge(); }catch(e){}
-  const cur = (typeof _currentTab !== 'undefined' && _currentTab) ? _currentTab : 'home';
-  if(!tabs || tabs.includes(cur) || tabs.includes('*')){
-    refreshAll();
-  }
+  _refreshTabsPending = tabs || ['*'];
+  if(_refreshTabsTimer) clearTimeout(_refreshTabsTimer);
+  _refreshTabsTimer = setTimeout(()=>{
+    _refreshTabsTimer = null;
+    const want = _refreshTabsPending || ['*'];
+    _refreshTabsPending = null;
+    try{
+      if(typeof invalidateShiftCache === 'function') invalidateShiftCache();
+    }catch(e){}
+    const cur = (typeof _currentTab !== 'undefined' && _currentTab) ? _currentTab : 'home';
+    if(!want || want.includes('*') || want.includes(cur)){
+      // Prefer lightweight single-tab refresh over full renderAll when possible
+      try{
+        if(cur === 'schedule' && typeof renderSchedule === 'function'){ renderSchedule(); return; }
+        if(cur === 'team' && typeof renderTeam === 'function'){ renderTeam(); return; }
+        if(cur === 'home' && typeof renderHome === 'function'){ renderHome(); return; }
+        if(cur === 'myshift' && typeof renderMyShift === 'function'){ renderMyShift(); return; }
+      }catch(e){}
+      try{ refreshAll(); }catch(e){}
+    }
+  }, 280);
 }
 
 function _normCompanyId(s){

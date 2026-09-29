@@ -858,26 +858,26 @@ function _setSchedAdminCollapsed(hide){
   if(want) row.classList.add('sched-admin-collapsed');
   else row.classList.remove('sched-admin-collapsed');
   // Recalc sticky tops after height change
-  try{ setTimeout(syncStickyTop, 60); }catch(e){}
+  try{ if(!_setSchedAdminCollapsed._stickyT){ _setSchedAdminCollapsed._stickyT=setTimeout(()=>{_setSchedAdminCollapsed._stickyT=null; try{syncStickyTop();}catch(x){}}, 120);} }catch(e){}
 }
 
 function _onSchedContentScroll(e){
-  try{
-    const tab = document.getElementById('tab-schedule');
-    if(!tab || !tab.classList.contains('on')) return;
-    const t = e && e.currentTarget ? e.currentTarget : null;
-    let scrollTop = 0;
-    if(t && typeof t.scrollTop === 'number') scrollTop = t.scrollTop;
-    else scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
-
-    // Hide once user has scrolled into the grid; show again near the top
-    if(scrollTop > 48){
-      _setSchedAdminCollapsed(true);
-    } else if(scrollTop <= 12){
-      _setSchedAdminCollapsed(false);
-    }
-    _schedAdminLastScrollY = scrollTop;
-  }catch(err){}
+  // rAF-throttle: one update per frame max (scroll can fire 60+/sec)
+  if(_onSchedContentScroll._raf) return;
+  _onSchedContentScroll._raf = requestAnimationFrame(function(){
+    _onSchedContentScroll._raf = 0;
+    try{
+      const tab = document.getElementById('tab-schedule');
+      if(!tab || !tab.classList.contains('on')) return;
+      const t = e && e.currentTarget ? e.currentTarget : null;
+      let scrollTop = 0;
+      if(t && typeof t.scrollTop === 'number') scrollTop = t.scrollTop;
+      else scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+      if(scrollTop > 48) _setSchedAdminCollapsed(true);
+      else if(scrollTop <= 12) _setSchedAdminCollapsed(false);
+      _schedAdminLastScrollY = scrollTop;
+    }catch(err){}
+  });
 }
 
 function _bindSchedAdminScrollCollapse(){
@@ -2171,15 +2171,11 @@ function renderSchedule(){
   tbody += `<tr style="border-top:1.5px solid var(--border2)">
     <td class="ecol" style="font-size:10px;font-weight:900;color:#22c55e;padding:5px 6px;white-space:nowrap;background:rgba(34,197,94,.08)">👥 Total</td>
     ${dates.map(d => {
+      // One pass over employees per day (was: codes × employees × getShift)
       let sum = 0;
-      _allSummaryCodes.forEach(code=>{
-        sum += allEmps.filter(e => _shiftCodeMatches(getShift(e,d), code)).length;
-      });
-      // Also include any other codes present that day not in list
-      const counted = new Set(_allSummaryCodes.map(c=>_normShiftCode(c)));
       allEmps.forEach(e=>{
-        const sh = _normShiftCode(getShift(e,d));
-        if(sh && !counted.has(sh)){ sum++; counted.add(sh+'_extra_'+sum); }
+        const sh = getShift(e,d);
+        if(sh && String(sh).trim()) sum++;
       });
       return `<td style="${summaryStyles}color:#22c55e;background:rgba(34,197,94,.08);font-size:14px">${sum||'—'}</td>`;
     }).join('')}
@@ -2278,8 +2274,7 @@ function renderSchedule(){
     syncStickyTop();
     try{ _bindSchedAdminScrollCollapse(); }catch(e){}
     // Second pass after fonts/layout settle
-    requestAnimationFrame(()=>{ _alignSchedColumns(); syncStickyTop(); });
-    setTimeout(()=>{ _alignSchedColumns(); syncStickyTop(); }, 200);
+    requestAnimationFrame(()=>{ try{ _alignSchedColumns(); syncStickyTop(); }catch(e){} });
   }, 80);
   // Render shift trends below the table
   renderShiftTrends(allEmps, dates);

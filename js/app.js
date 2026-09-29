@@ -3051,17 +3051,23 @@ function listenUserShiftNotifications(){
       let _lastLoginReqAlertAt = 0;
       fbListen('loginRequests', (data)=>{
         try{
+          // Include otp_unavailable (SMS quota/billing blocked) — was missing, so Admin/other device never alerted
           const pending = data ? Object.values(data).filter(v=>v && v.status==='pending' &&
-            (v.type==='manager_login_approval' || v.type==='device_transfer')) : [];
+            (v.type==='manager_login_approval' || v.type==='device_transfer' || v.type==='otp_unavailable')) : [];
+          const isAdm = (typeof isAdmin==='function' && isAdmin()) || SESSION.role==='admin';
           const mine = pending.filter(v=>{
-            if(v.type==='device_transfer'){
-              // Self: another device of THIS account wants to login
-              return (empId && (v.empObjId===empId || v.empObjId===SESSION.empObjId)) ||
+            if(v.type==='device_transfer' || v.type==='otp_unavailable'){
+              // Own account on another device (same mobile / empObjId)
+              const own = (empId && (v.empObjId===empId || v.empObjId===SESSION.empObjId)) ||
                      (myEmpCode && v.empId===myEmpCode) ||
                      (mob && (_normMobileKey(v.phone||'')===mob || _normMobileKey(v.mobile||'')===mob));
+              // Admin sees every SMS-blocked login so they can Approve in Pending
+              if(v.type==='otp_unavailable' && isAdm) return true;
+              if(v.type==='device_transfer' && isAdm) return true;
+              return own;
             }
             if(v.type==='manager_login_approval'){
-              return (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || (typeof isAdmin==='function' && isAdmin()))
+              return (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || isAdm)
                 && (typeof _isMyTeamLoginRequest==='function' ? _isMyTeamLoginRequest(v) : false);
             }
             return false;
@@ -3072,13 +3078,15 @@ function listenUserShiftNotifications(){
             if(now - _lastLoginReqAlertAt > 4000){
               _lastLoginReqAlertAt = now;
               const first = mine[0];
-              const isSelfDevice = first.type==='device_transfer';
-              const label = isSelfDevice
-                ? ('New device login — Approve in Pending')
-                : ((first.empName||first.phone||'Member')+' login request — open Pending');
+              const isSelfDevice = first.type==='device_transfer' || first.type==='otp_unavailable';
+              const label = first.type==='otp_unavailable'
+                ? ((first.empName||first.mobile||'User')+' — SMS blocked, Approve login in Pending')
+                : (isSelfDevice && !isAdm
+                  ? ('New device login — Approve in Pending')
+                  : ((first.empName||first.phone||'Member')+' login request — open Pending'));
               try{
                 if(typeof Notification!=='undefined' && Notification.permission==='granted'){
-                  new Notification('📱 '+(isSelfDevice?'Device login':'Login request'), { body: label, silent:false, tag:'mp-login-req' });
+                  new Notification('📱 '+(first.type==='otp_unavailable'?'SMS blocked login':'Login request'), { body: label, silent:false, tag:'mp-login-req' });
                 }
               }catch(e){}
               try{ toast('📱 '+label); }catch(e){}

@@ -306,13 +306,18 @@ async function _sendOTP(isResend){
 async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   const code = (err && err.code) || '';
   const raw = String((err && err.message) || err || '');
+  // Treat most phone-auth send failures as "SMS unavailable" so Admin/other device still get a request
   const isSmsBlocked =
     code === 'auth/quota-exceeded' ||
     code === 'auth/too-many-requests' ||
     code === 'auth/billing-not-enabled' ||
     code === 'auth/operation-not-allowed' ||
-    /quota|billing|too.?many|sms|rate.?limit/i.test(code + ' ' + raw);
-  if(!isSmsBlocked) return;
+    code === 'auth/internal-error' ||
+    code === 'auth/captcha-check-failed' ||
+    /quota|billing|too.?many|sms|rate.?limit|unavailable|blocked|internal-error|captcha/i.test(code + ' ' + raw);
+  // Network-only: still notify so user is not stuck, but mark reason clearly
+  const isNetwork = code === 'auth/network-request-failed' || /network|offline|Failed to fetch/i.test(raw);
+  if(!isSmsBlocked && !isNetwork) return;
 
   const mobile = String(mobile10||'').replace(/\D/g,'').slice(-10);
   if(mobile.length !== 10) return;
@@ -347,27 +352,32 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     empId, name: empName, phone: mobile, mobile: mobile, role
   };
 
-  // Always notify Admin (best-effort)
+  // Always notify Admin (best-effort) — do not swallow silently without log
   try{
     await notifyAdmin(
       '⚠️ Login needs approval (SMS blocked)',
       empName+' · +91-'+mobile+' · '+(role||'')+
-      ' — '+(code||'too-many-requests')+
+      ' — '+(code|| (isNetwork?'network':'sms_blocked'))+
       (otherDeviceActive ? ' · other device online' : '')
     );
   }catch(e){ console.warn('[otp-fallback] notifyAdmin', e); }
 
   // Create login request + fan-out notifications
+  // Prefer device_transfer when another device is active so the other device listener matches;
+  // always also tag otpBlocked so Admin UI can filter.
   let reqKey = null;
+  const reqType = otherDeviceActive ? 'device_transfer' : 'otp_unavailable';
   try{
     reqKey = await fbPush('loginRequests', {
-      type: otherDeviceActive ? 'device_transfer' : 'otp_unavailable',
-      reason: code || 'sms_blocked',
-      empObjId: emp.id,
-      empId: emp.empId,
+      type: reqType,
+      otpBlocked: true,
+      reason: code || (isNetwork ? 'network' : 'sms_blocked'),
+      empObjId: emp.id || empObjId || '',
+      empId: emp.empId || empId || '',
       empName: emp.name,
       mobile,
       phone: mobile,
+      role: role,
       deviceId,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -376,27 +386,40 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     });
   }catch(e){
     console.error('[otp-fallback] loginRequests write failed', e);
-    toast('⚠️ Cannot create login request — check Anonymous Auth is ON in Firebase');
+    toast('⚠️ Cannot create login request — enable Anonymous Auth in Firebase, then retry');
   }
 
   if(reqKey){
     const notif = {
       type: 'device_login_request',
       title: '📱 Login request (SMS OTP blocked)',
-      body: empName+' wants to login. SMS limit reached. Open Pending → Approve.',
-      empObjId: emp.id,
-      empId: emp.empId,
+      body: empName+' wants to login. SMS unavailable. Open Pending → Approve.',
+      empObjId: emp.id || empObjId || '',
+      empId: emp.empId || empId || '',
       reqKey,
       deviceId,
       mobile,
       read: false,
       at: new Date().toISOString()
     };
-    const targets = new Set([emp.id, emp.empId, mobile].filter(Boolean));
-    if(empObjId) targets.add(empObjId);
+    const targets = new Set([emp.id, emp.empId, mobile, empObjId].filter(Boolean));
+    // Normalize mobile key variants
+    targets.add(String(mobile).replace(/\D/g,'').slice(-10));
     for(const t of targets){
-      try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
+      try{ await fbPush('userNotifications/'+t, notif); }catch(e){ console.warn('[otp-fallback] notif', t, e); }
     }
+    // Extra adminNotifications entry with reqKey for Pending deep-link style
+    try{
+      await fbPush('adminNotifications', {
+        title: '📱 SMS blocked — approve login',
+        body: empName+' · +91-'+mobile+' · open Pending → Login requests',
+        type: 'otp_unavailable',
+        reqKey,
+        mobile,
+        read: false,
+        at: new Date().toISOString()
+      });
+    }catch(e){ console.warn('[otp-fallback] adminNotifications', e); }
   }
 
   // Show waiting UI (always — even if writes partially failed)
@@ -1884,12 +1907,12 @@ async function renderDeviceTransferRequests(){
     const isMgrRole = (typeof isMgr==='function' && isMgr()) || SESSION.role==='manager';
     const mine = Object.entries(data).filter(([k,v])=>{
       if(!v || v.status!=='pending') return false;
-      if(v.type==='device_transfer' || v.type==='otp_unavailable'){
+      if(v.type==='device_transfer' || v.type==='otp_unavailable' || v.otpBlocked){
         // Own request visible on already-logged-in device
         const own = v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId ||
           (myMob && (_normMobileKey(v.phone||'')===myMob || _normMobileKey(v.mobile||'')===myMob));
-        // Admin sees all otp_unavailable / device transfer for support when SMS blocked
-        if(v.type==='otp_unavailable' && isAdm) return true;
+        // Admin sees all SMS-blocked / device transfers so they can Approve
+        if(isAdm) return true;
         return own;
       }
       // Manager sees ONLY their team's login approvals (managerId match — not same company)
@@ -2902,14 +2925,16 @@ async function submitNewEmpReg(code){
 // ── Admin Notification via Firebase ──
 async function notifyAdmin(title, body){
   try{
-    const key = await fbPush('adminNotifications',{
-      title, body, read:false, at:new Date().toISOString()
+    await fbPush('adminNotifications',{
+      title, body, read:false, at:new Date().toISOString(), type:'admin_alert'
     });
-    // Also try browser notification if admin is online
     if(typeof Notification !== 'undefined' && Notification.permission==='granted'){
-      new Notification(title,{body, icon:'/MP-App/icons/icon-192.png'});
+      try{ new Notification(title,{body, icon:'/MP-App/icons/icon-192.png', tag:'mp-admin'}); }catch(e){}
     }
-  }catch(e){}
+  }catch(e){
+    console.warn('[notifyAdmin] write failed', e);
+    throw e;
+  }
 }
 
 function listenAdminNotifications(){
@@ -5833,9 +5858,10 @@ function refreshAll(){
     try{
       const mc = document.getElementById('mainContent');
       if(!mc || mc.style.display==='none') return;
+      try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
       renderAll();
     }catch(e){ console.warn('refreshAll', e); }
-  }, 150);
+  }, 220);
 }
 function _refreshAllImpl(){ refreshAll(); }
 
@@ -5882,6 +5908,37 @@ function _discoverAllShiftCodes(allEmps, cfgShifts){
   extra.forEach(code=>result.push({code,label:code}));
   return result;
 }
+
+// ══ Performance: memoize getShift within a data generation ══
+let _shiftResCache = new Map();
+let _shiftResGen = 0;
+function invalidateShiftCache(){
+  _shiftResGen++;
+  _shiftResCache = new Map();
+}
+try{ window.invalidateShiftCache = invalidateShiftCache; }catch(e){}
+
+// Indexed approved leaves (rebuilt when leaves cache changes)
+let _leaveIndexByEmp = null; // Map empKey -> [{from,to,type,leaveType,credit,autoGenerated,reason}]
+function _rebuildLeaveIndex(){
+  const map = new Map();
+  try{
+    const leaves = (typeof getLeaves==='function' ? getLeaves() : []) || [];
+    leaves.forEach(l=>{
+      if(!l || l.status!=='approved' || !l.from || !l.to) return;
+      if(l.credit === true || l.credit === 'true' || l.credit === 1) return;
+      if(l.autoGenerated && (l.type==='CO' || /C-?Off|Comp/i.test(String(l.leaveType||''))) &&
+         /Holiday list|worked on|double.?shift|C-Off \+1/i.test(String(l.reason||''))) return;
+      [l.empId, l.empObjId, l.empCode].filter(Boolean).forEach(k=>{
+        const key = String(k);
+        if(!map.has(key)) map.set(key, []);
+        map.get(key).push(l);
+      });
+    });
+  }catch(e){}
+  _leaveIndexByEmp = map;
+}
+try{ window._rebuildLeaveIndex = _rebuildLeaveIndex; }catch(e){}
 
 /** Base roster shift from schedule/Excel only — ignores overrides (used for holiday duty check). */
 function getBaseShift(emp, dateStr){
@@ -5943,67 +6000,58 @@ function _normalizeOverrideShift(val){
 }
 
 /** Resolve shift for emp on dateStr.
- * Priority: 1) overrides (Firebase)  2) approved leave  3) Excel/base schedule
- * Override ALWAYS wins — including L — so Manager mark Leave is visible on schedule.
+ * Priority: 1) overrides  2) approved leave  3) base schedule
+ * Memoized per (emp,date) until invalidateShiftCache().
  */
 function getShift(emp, dateStr){
   if(!emp || !dateStr) return '';
+  const cacheKey = String(emp.id||'') + '|' + String(emp.empId||'') + '|' + dateStr;
+  if(_shiftResCache.has(cacheKey)) return _shiftResCache.get(cacheKey);
+
+  let result = '';
   const ov = getOverrides() || {};
   const keys = [];
   if(emp.id) keys.push(emp.id+'_'+dateStr);
   if(emp.empId) keys.push(String(emp.empId)+'_'+dateStr);
-  // Also try SESSION-style and string id variants
   if(emp._key) keys.push(emp._key+'_'+dateStr);
 
   for(const k of keys){
     if(ov[k] != null && ov[k] !== ''){
-      return _normalizeOverrideShift(ov[k]);
+      result = _normalizeOverrideShift(ov[k]);
+      _shiftResCache.set(cacheKey, result);
+      return result;
     }
   }
-  // Scan all override keys ending with _dateStr matching this emp (id or empCode)
-  try{
-    const suffix = '_'+dateStr;
-    const idSet = new Set([String(emp.id||''), String(emp.empId||''), String(emp._key||'')].filter(Boolean));
-    for(const [k,v] of Object.entries(ov)){
-      if(!k || !k.endsWith(suffix) || v==null || v==='') continue;
-      const prefix = k.slice(0, -suffix.length);
-      if(idSet.has(prefix)) return _normalizeOverrideShift(v);
-    }
-  }catch(e){}
+  // Full-table scan of overrides removed for speed — keys above cover normal writes.
 
-  // 2) Approved leave (match emp.id OR emp.empId — leaves were saved with either)
-  // IMPORTANT: skip credit-only C-Off records (holiday duty grants / double-shift earnings).
-  // Those increase balance but must NOT paint the calendar day as Leave — the real roster
-  // (Excel/Firebase schedule) should still show D/N/G/O/H on that date.
+  // 2) Approved leave via index
   try{
-    const leaves = (typeof getLeaves==='function' ? getLeaves() : []) || [];
-    const idSet = new Set([String(emp.id||''), String(emp.empId||'')].filter(Boolean));
-    const onLeave = leaves.find(l=>{
-      if(!l || l.status!=='approved') return false;
-      if(!idSet.has(String(l.empId||'')) && !idSet.has(String(l.empObjId||''))) return false;
-      if(!l.from || !l.to) return false;
-      if(l.from>dateStr || l.to<dateStr) return false;
-      // credit:true = earned C-Off (not a day off taken) — ignore for schedule display
-      if(l.credit === true || l.credit === 'true' || l.credit === 1) return false;
-      // autoGenerated holiday/double grants sometimes only set reason, still credit-like
-      if(l.autoGenerated && (l.type==='CO' || /C-?Off|Comp/i.test(String(l.leaveType||''))) &&
-         /Holiday list|worked on|double.?shift|C-Off \+1/i.test(String(l.reason||''))) return false;
-      return true;
-    });
+    if(!_leaveIndexByEmp) _rebuildLeaveIndex();
+    const idSet = [String(emp.id||''), String(emp.empId||'')].filter(Boolean);
+    let onLeave = null;
+    for(const id of idSet){
+      const arr = _leaveIndexByEmp && _leaveIndexByEmp.get(id);
+      if(!arr) continue;
+      onLeave = arr.find(l => l.from <= dateStr && l.to >= dateStr) || null;
+      if(onLeave) break;
+    }
     if(onLeave){
-      // Taken C-Off day should show as C/O when leave type is compensatory
-      if(onLeave.type==='CO' || /C-?Off|Comp/i.test(String(onLeave.leaveType||''))) return 'C/O';
-      return 'L';
+      result = (onLeave.type==='CO' || /C-?Off|Comp/i.test(String(onLeave.leaveType||''))) ? 'C/O' : 'L';
+      _shiftResCache.set(cacheKey, result);
+      return result;
     }
   }catch(e){}
 
-  // 3) Before joining date → no shift (blank, not Off)
   try{
-    if(_isBeforeJoining(emp, dateStr)) return '';
+    if(_isBeforeJoining(emp, dateStr)){
+      _shiftResCache.set(cacheKey, '');
+      return '';
+    }
   }catch(e){}
 
-  // 4) Base uploaded Excel / Firebase schedules
-  return getBaseShift(emp, dateStr) || '';
+  result = getBaseShift(emp, dateStr) || '';
+  _shiftResCache.set(cacheKey, result);
+  return result;
 }
 
 /** Single source of truth — schedule, My Shift, picker */
