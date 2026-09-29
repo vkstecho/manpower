@@ -1,8 +1,16 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.66)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.67)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
+
+## What's new in 2.4.67
+
+### Schedule filters & Auto Schedule
+- **All** view row order: Section → Responsibility → Weekly off → Name
+- Other filters: Weekly off first, then Name
+- Machine/Section/Resp/Desig chips are **multi-select** (e.g. M-1 + M-2)
+- Auto Schedule: leave match by id+code+mobile; blank before joining; manager = G by role/access not only sec=MGR
 
 ## What's new in 2.4.66
 

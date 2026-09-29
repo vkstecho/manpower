@@ -700,7 +700,7 @@ function fbListen(path, cb){
 // ════════════════════════════════════════
 // DATA INIT
 // ════════════════════════════════════════
-const APP_VERSION = '2.4.66';
+const APP_VERSION = '2.4.67';
 
 /** Allow phone rotate — unlock any portrait lock from old PWA manifest */
 function _unlockOrientation(){
@@ -1362,11 +1362,42 @@ function warmShiftConfigCache(){
 function getSchedFilteredEmps(){
   const all=getEmps();
   if(!schedSec || schedSec==='ALL') return all;
-  // Category mode: CAT:section | CAT:machine | CAT:responsibility | CAT:designation
-  if(String(schedSec).startsWith('CAT:')){
-    return all; // primary category chip only expands sub-filters; no row filter until sub selected
+
+  // Multi-select secondary chips (e.g. M-1 + M-2)
+  const multi = Array.isArray(schedSubMulti) ? schedSubMulti.filter(Boolean) : [];
+  if(multi.length){
+    return all.filter(e=>{
+      return multi.some(code=>{
+        const c = String(code);
+        if(c.startsWith('SEC:')){
+          const v=c.slice(4);
+          const sec = (typeof getEmpSection==='function') ? getEmpSection(e) : (e.section||e.sec||'');
+          return sec===v || _normSecKey(sec)===_normSecKey(v) || _normLabelKey(sec)===_normLabelKey(v)
+            || String(e.sec||'')===v || _normSecKey(e.sec)===_normSecKey(v);
+        }
+        if(c.startsWith('MC:')){
+          const v=c.slice(3);
+          const m=String(e.mc||e.machine||(typeof getEmpMachine==='function'?getEmpMachine(e):'')||'');
+          return m===v || _normSecKey(m)===_normSecKey(v) || _normLabelKey(m)===_normLabelKey(v);
+        }
+        if(c.startsWith('RESP:')){
+          const v=c.slice(5);
+          return _normLabelKey(e.resp||e.responsibility||'')===_normLabelKey(v);
+        }
+        if(c.startsWith('DESIG:')){
+          const v=c.slice(6);
+          return _normLabelKey(e.designation||'')===_normLabelKey(v);
+        }
+        return false;
+      });
+    });
   }
-  // Sub-filter: SEC:value | MC:value | RESP:value | DESIG:value
+
+  // Category mode: CAT:section | CAT:machine | … — show all until a sub is selected
+  if(String(schedSec).startsWith('CAT:')){
+    return all;
+  }
+  // Legacy single sub-filter: SEC:value | MC:value | RESP:value | DESIG:value
   if(String(schedSec).startsWith('SEC:')){
     const v=String(schedSec).slice(4);
     const nv=_normSecKey(v);
@@ -1579,7 +1610,7 @@ function _renderSchedFilterChips(activeCode){
     secEl.style.display = 'flex';
     secEl.innerHTML = list.map(c=>{
       const codeEsc = String(c.code).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      const on = (c.code===activeCode) ? ' on' : '';
+      const on = ((schedSubMulti||[]).includes(c.code)) ? ' on' : '';
       return '<div class="chip chip-sm'+on+'" onclick="setSchedSec(\''+codeEsc+'\',this)">'+String(c.label).replace(/</g,'&lt;')+'</div>';
     }).join('');
   } else {
@@ -9925,6 +9956,8 @@ let _myShiftMonth = null;
 // SCHEDULE
 // ════════════════════════════════════════
 let schedOff=-5, schedSec='ALL';
+let schedSubMulti = []; // multi-select secondary chips e.g. ['MC:M-1','MC:M-2']
+
 let _customRangeActive=false, _customDateFrom='', _customDateTo='';
 
 // ════════════════════════════════════════
@@ -11313,9 +11346,28 @@ function moveW(n){
   renderSchedule();
 }
 function setSchedSec(s,el){
-  schedSec=s;
-  document.querySelectorAll('#schedFilter .chip, #schedFilterSecondary .chip').forEach(c=>c.classList.remove('on'));
-  if(el) el.classList.add('on');
+  const code = String(s||'ALL');
+  // Primary chips (All / Section / Machine / …) clear multi-select
+  if(code==='ALL' || code.startsWith('CAT:')){
+    schedSec = code;
+    schedSubMulti = [];
+  } else if(code.startsWith('SEC:') || code.startsWith('MC:') || code.startsWith('RESP:') || code.startsWith('DESIG:')){
+    // Secondary chip → multi-select toggle
+    const prefix = code.startsWith('SEC:') ? 'SEC:' : code.startsWith('MC:') ? 'MC:' : code.startsWith('RESP:') ? 'RESP:' : 'DESIG:';
+    // Keep category context
+    if(prefix==='SEC:') schedSec = 'CAT:section';
+    else if(prefix==='MC:') schedSec = 'CAT:machine';
+    else if(prefix==='RESP:') schedSec = 'CAT:responsibility';
+    else schedSec = 'CAT:designation';
+    // Drop selections from other categories
+    schedSubMulti = (schedSubMulti||[]).filter(x=>String(x).startsWith(prefix));
+    const idx = schedSubMulti.indexOf(code);
+    if(idx >= 0) schedSubMulti.splice(idx, 1);
+    else schedSubMulti.push(code);
+  } else {
+    schedSec = code;
+    schedSubMulti = [];
+  }
   _renderSchedFilterChips(schedSec);
   renderSchedule();
   setTimeout(syncStickyTop,80);
@@ -11394,6 +11446,35 @@ function renderScheduleLegend(emps, dates){
  * CAT:designation   → group by Designation
  * SEC:/MC:/RESP:/DESIG: value → single group for that value (after row filter)
  */
+
+/** Weekly-off rank (SUN=0 … SAT=6); unknown last */
+function _woffRank(emp){
+  try{
+    const w = String(emp && emp.woff || '').toUpperCase().slice(0,3);
+    if(typeof WOFF_DOW !== 'undefined' && WOFF_DOW[w] !== undefined) return WOFF_DOW[w];
+    const map = {SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
+    return map[w] !== undefined ? map[w] : 99;
+  }catch(e){ return 99; }
+}
+function _sortByName(a,b){
+  return String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base'});
+}
+/** All / Section view: Responsibility → Weekly off → Name */
+function _sortSecRespWoffName(a,b){
+  const ra = String((typeof getEmpResp==='function'?getEmpResp(a):'')||a.resp||a.responsibility||'').toLowerCase();
+  const rb = String((typeof getEmpResp==='function'?getEmpResp(b):'')||b.resp||b.responsibility||'').toLowerCase();
+  if(ra !== rb) return ra.localeCompare(rb);
+  const wa = _woffRank(a), wb = _woffRank(b);
+  if(wa !== wb) return wa - wb;
+  return _sortByName(a,b);
+}
+/** Other filters: Weekly off first (earliest off above), then Name */
+function _sortWoffThenName(a,b){
+  const wa = _woffRank(a), wb = _woffRank(b);
+  if(wa !== wb) return wa - wb;
+  return _sortByName(a,b);
+}
+
 function _schedGroupMode(){
   const s = String(schedSec||'ALL');
   if(s==='ALL') return 'section';
@@ -11435,23 +11516,36 @@ function _buildSchedDisplayGroups(allEmps){
   });
   let vals = Array.from(valMap.values()).sort((a,b)=>a.localeCompare(b,'en',{sensitivity:'base'}));
 
-  // If a specific sub-filter is active, keep only that value as the group header
+  // Multi / single sub-filter: keep only selected values as group headers
   const s = String(schedSec||'');
-  if(s.startsWith('SEC:')){
-    const nl=_normLabelKey(s.slice(4));
-    vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(4)));
-  }
-  if(s.startsWith('MC:')){
-    const nl=_normLabelKey(s.slice(3));
-    vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(3)));
-  }
-  if(s.startsWith('RESP:')){
-    const nl=_normLabelKey(s.slice(5));
-    vals = vals.filter(v=>_normLabelKey(v)===nl);
-  }
-  if(s.startsWith('DESIG:')){
-    const nl=_normLabelKey(s.slice(6));
-    vals = vals.filter(v=>_normLabelKey(v)===nl);
+  const multi = Array.isArray(schedSubMulti) ? schedSubMulti.filter(Boolean) : [];
+  if(multi.length){
+    const want = new Set();
+    multi.forEach(code=>{
+      const c=String(code);
+      if(c.startsWith('SEC:')) want.add(_normLabelKey(c.slice(4)));
+      else if(c.startsWith('MC:')) want.add(_normLabelKey(c.slice(3)));
+      else if(c.startsWith('RESP:')) want.add(_normLabelKey(c.slice(5)));
+      else if(c.startsWith('DESIG:')) want.add(_normLabelKey(c.slice(6)));
+    });
+    vals = vals.filter(v=> want.has(_normLabelKey(v)) || want.has(_normSecKey(v)));
+  } else {
+    if(s.startsWith('SEC:')){
+      const nl=_normLabelKey(s.slice(4));
+      vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(4)));
+    }
+    if(s.startsWith('MC:')){
+      const nl=_normLabelKey(s.slice(3));
+      vals = vals.filter(v=>_normLabelKey(v)===nl || _normSecKey(v)===_normSecKey(s.slice(3)));
+    }
+    if(s.startsWith('RESP:')){
+      const nl=_normLabelKey(s.slice(5));
+      vals = vals.filter(v=>_normLabelKey(v)===nl);
+    }
+    if(s.startsWith('DESIG:')){
+      const nl=_normLabelKey(s.slice(6));
+      vals = vals.filter(v=>_normLabelKey(v)===nl);
+    }
   }
 
   const groups = [];
@@ -11461,7 +11555,7 @@ function _buildSchedDisplayGroups(allEmps){
       label: icon + ' ' + (L('टीम','TEAM')) + ' — ' + modeLabel,
       color:'#94a3b8',
       filter: e => true,
-      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+      sort: (mode==='section') ? _sortSecRespWoffName : _sortWoffThenName
     });
   } else {
     vals.forEach((val, i)=>{
@@ -11476,7 +11570,7 @@ function _buildSchedDisplayGroups(allEmps){
           }
           return _normLabelKey(k)===_normLabelKey(val);
         },
-        sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+        sort: (mode==='section') ? _sortSecRespWoffName : _sortWoffThenName
       });
     });
   }
@@ -11493,7 +11587,7 @@ function _buildSchedDisplayGroups(allEmps){
       label:'👤 '+(L('अवर्गीकृत / अन्य','Unassigned / Other')),
       color:'#64748b',
       filter: e => !inAny.has(e.id),
-      sort: (a,b) => (a.name||'').localeCompare(b.name||'')
+      sort: (mode==='section') ? _sortSecRespWoffName : _sortWoffThenName
     });
   }
   return groups;
@@ -22792,17 +22886,51 @@ function autoGenSchedule(monthKey){
   const testCells = firstEmp ? sbTbody.querySelectorAll(`[data-empid="${firstEmp.id}"]`) : [];
   if(!testCells.length){ toast('⚠️ पहले Schedule खोलें'); return; }
 
-  // ── Build approved leave map: { empId: Set of 'YYYY-MM-DD' strings } ──
-  const leaveMap = {};
-  (getLeaves()||[]).filter(l => l && l.status === 'approved' && l.empId && l.from && l.to).forEach(l => {
-    if(!leaveMap[l.empId]) leaveMap[l.empId] = new Set();
-    const fromD = new Date(l.from);
-    const toD = new Date(l.to);
+  // ── Build approved leave map keyed by id + empCode + mobile ──
+  const leaveMap = {}; // key → Set of local YYYY-MM-DD
+  const _addLeaveKey = (key, dateStr)=>{
+    if(!key) return;
+    if(!leaveMap[key]) leaveMap[key] = new Set();
+    leaveMap[key].add(dateStr);
+  };
+  const _localYmd = (d)=>{
+    try{
+      const x = (d instanceof Date) ? d : new Date(d);
+      if(isNaN(x.getTime())) return '';
+      const y=x.getFullYear(), m=String(x.getMonth()+1).padStart(2,'0'), day=String(x.getDate()).padStart(2,'0');
+      return y+'-'+m+'-'+day;
+    }catch(e){ return ''; }
+  };
+  (getLeaves()||[]).filter(l => l && l.status === 'approved' && l.from && l.to).forEach(l => {
+    const fromD = new Date(String(l.from).slice(0,10)+'T12:00:00');
+    const toD = new Date(String(l.to).slice(0,10)+'T12:00:00');
     if(isNaN(fromD.getTime()) || isNaN(toD.getTime())) return;
+    const keys = [l.empId, l.empCode, l.empObjId, l.employeeId, l.mobile, l.phone].filter(Boolean).map(String);
+    // also resolve live employee
+    try{
+      const empsAll = getEmps()||[];
+      const hit = empsAll.find(e=>e && (
+        e.id===l.empId || e.empId===l.empId || e.empCode===l.empId ||
+        (l.empCode && (e.empId===l.empCode || e.empCode===l.empCode)) ||
+        (l.mobile && String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)===String(l.mobile).replace(/\D/g,'').slice(-10))
+      ));
+      if(hit){ keys.push(hit.id, hit.empId, hit.empCode, hit.phone, hit.mobile); }
+    }catch(e){}
     for(let d = new Date(fromD); d <= toD; d.setDate(d.getDate() + 1)){
-      leaveMap[l.empId].add(d.toISOString().slice(0, 10));
+      const ds = _localYmd(d);
+      if(!ds) continue;
+      keys.forEach(k=>_addLeaveKey(k, ds));
     }
   });
+  const _empLeaveSet = (emp)=>{
+    const set = new Set();
+    const keys = [emp.id, emp.empId, emp.empCode, emp.phone, emp.mobile].filter(Boolean).map(String);
+    keys.forEach(k=>{
+      const s = leaveMap[k];
+      if(s) s.forEach(d=>set.add(d));
+    });
+    return set;
+  };
 
   let generated = 0;
   let leaveProtected = 0;
@@ -22812,14 +22940,20 @@ function autoGenSchedule(monthKey){
     if(!cells.length) return;
 
     const woffDow = (emp.woff && WOFF_DOW[emp.woff] !== undefined) ? WOFF_DOW[emp.woff] : -1;
-    const isMgrEmp = emp.sec === 'MGR';
-    const empLeaves = leaveMap[emp.id] || new Set();
+    // Manager = section MGR OR team manager / accessLevel manager / role manager
+    const isMgrEmp = emp.sec === 'MGR'
+      || emp.isTeamManager === true
+      || String(emp.accessLevel||'').toLowerCase()==='manager'
+      || String(emp.role||'').toLowerCase()==='manager'
+      || (typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp));
+    const empLeaves = (typeof _empLeaveSet==='function') ? _empLeaveSet(emp) : (leaveMap[emp.id] || new Set());
 
-    // Special: no-rotation employees (MGR = G shift)
+    // Special: no-rotation employees (Manager = G shift)
     if(isMgrEmp){
       const schedule = Array.from({length: daysInMonth}, (_, i) => {
         const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}`;
         const dow = new Date(yr, mo-1, i+1).getDay();
+        if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return '';
         if(empLeaves.has(dateStr)){ leaveProtected++; return 'L'; }
         return (woffDow !== -1 && dow === woffDow) ? 'O' : 'G';
       });
@@ -22884,7 +23018,9 @@ function autoGenSchedule(monthKey){
       const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
       const dow = new Date(yr, mo-1, d+1).getDay();
 
-      if(empLeaves.has(dateStr)){
+      if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)){
+        schedule.push(''); // before joining — blank
+      } else if(empLeaves.has(dateStr)){
         // ── APPROVED LEAVE — do not overwrite ──
         schedule.push('L');
         leaveProtected++;
@@ -22892,7 +23028,7 @@ function autoGenSchedule(monthKey){
         schedule.push('O');
         curShiftIdx = (curShiftIdx+1) % rotationOrder.length;
       } else {
-        schedule.push(rotationOrder[curShiftIdx]);
+        schedule.push(rotationOrder[curShiftIdx] || 'D');
       }
     }
 
