@@ -91,7 +91,7 @@ function secName(sec){
   const key = sec.toString().trim().toUpperCase();
   if(key==='MET')  return L('Section (All)','Section (All)');
   if(key==='SLIT') return L('Section (All)','Section (All)');
-  if(key==='ALL')  return L('Supervisor','Supervisor');
+  if(key==='ALL')  return L('सुपरवाइज़र','Supervisor');
   return sec;
 }
 
@@ -955,7 +955,13 @@ function switchViewCompany(companyId){
   toast(companyId==='ALL'?'🌐 सभी Companies दिख रही हैं':'🏢 अब सिर्फ इस Company का data दिख रहा है');
   refreshAll();
 }
-function _normMobileKey(m){ return (m||'').toString().replace('+91','').replace(/[^0-9]/g,''); }
+function _normMobileKey(m){
+  let d = (m||'').toString().replace(/[^0-9]/g,'');
+  // Strip leading country code 91 if 12+ digits
+  if(d.length >= 12 && d.startsWith('91')) d = d.slice(2);
+  if(d.length > 10) d = d.slice(-10);
+  return d;
+}
 function getEmps(){
   const all=_cache.employees||[];
   const activeOnly = (list)=> list.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
@@ -1477,6 +1483,35 @@ function getEmpResp(e){
 function _normLabelKey(s){
   return String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
 }
+
+/** Display label for designation/responsibility/common roles — Hindi when app language is hi */
+function _fieldDisplayLabel(val){
+  if(val==null || val==='') return '';
+  const s = String(val).trim();
+  if(typeof _lang==='undefined' || _lang==='en' || _lang!=='hi') return s;
+  const map = {
+    'manager':'मैनेजर', 'Manager':'मैनेजर', 'MANAGER':'मैनेजर',
+    'supervisor':'सुपरवाइज़र', 'Supervisor':'सुपरवाइज़र',
+    'trainee':'ट्रेनी', 'Trainee':'ट्रेनी',
+    'team member':'टीम मेंबर', 'Team Member':'टीम मेंबर', 'Team member':'टीम मेंबर',
+    'jr. team member':'जूनियर टीम मेंबर', 'Jr. team member':'जूनियर टीम मेंबर', 'Jr. Team Member':'जूनियर टीम मेंबर',
+    'sr. team member':'सीनियर टीम मेंबर', 'Sr. Team Member':'सीनियर टीम मेंबर', 'Sr. team member':'सीनियर टीम मेंबर',
+    'jr. engineer':'जूनियर इंजीनियर', 'Jr. Engineer':'जूनियर इंजीनियर', 'Jr Engineer':'जूनियर इंजीनियर',
+    'engineer':'इंजीनियर', 'Engineer':'इंजीनियर',
+    'operator':'ऑपरेटर', 'Operator':'ऑपरेटर', 'Operation':'ऑपरेशन', 'Operations':'ऑपरेशन',
+    'responsibility':'ज़िम्मेदारी', 'Responsibility':'ज़िम्मेदारी',
+    'designation':'पदनाम', 'Designation':'पदनाम',
+    'section':'सेक्शन', 'Section':'सेक्शन',
+    'machine':'मशीन', 'Machine':'मशीन'
+  };
+  if(map[s]) return map[s];
+  const low = s.toLowerCase();
+  for(const [k,v] of Object.entries(map)){
+    if(k.toLowerCase()===low) return v;
+  }
+  return s;
+}
+
 /** Prefer nicer display label when duplicates differ only by case */
 function _preferLabel(a, b){
   if(!a) return b||'';
@@ -1584,8 +1619,8 @@ function _renderSchedFilterChips(activeCode){
     {code:'ALL', label: L('सभी','All')},
     {code:'CAT:section', label: L('सेक्शन','Sections')},
     {code:'CAT:machine', label: L('मशीन','Machines')},
-    {code:'CAT:responsibility', label: L('Responsibility','Responsibility')},
-    {code:'CAT:designation', label: L('Designation','Designation')},
+    {code:'CAT:responsibility', label: L('ज़िम्मेदारी','Responsibility')},
+    {code:'CAT:designation', label: L('पदनाम','Designation')},
   ];
   let primaryActive = activeCode || 'ALL';
   if(String(activeCode).startsWith('SEC:')) primaryActive = 'CAT:section';
@@ -1602,9 +1637,9 @@ function _renderSchedFilterChips(activeCode){
   } else if(act==='CAT:machine' || act.startsWith('MC:')){
     list = _teamFieldValues('machine').map(v=>({code:'MC:'+v, label:v}));
   } else if(act==='CAT:responsibility' || act.startsWith('RESP:')){
-    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:v}));
+    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:(typeof _fieldDisplayLabel==='function'?_fieldDisplayLabel(v):v)}));
   } else if(act==='CAT:designation' || act.startsWith('DESIG:')){
-    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:v}));
+    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:(typeof _fieldDisplayLabel==='function'?_fieldDisplayLabel(v):v)}));
   }
   if(list.length){
     secEl.style.display = 'flex';
@@ -1908,7 +1943,7 @@ function applyLoginLang(){
   const hint = document.getElementById('loginMobileHint');
   if(hint){
     hint.innerHTML = lang === 'hi'
-      ? 'Member / Manager login — <b style="color:#ffffff">केवल Mobile Number</b> (Employee Code नहीं)'
+      ? 'Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (no Employee Code)'
       : 'Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)';
   }
   const inp = document.getElementById('loginMobile');
@@ -2033,10 +2068,10 @@ function applyLang(){
 
   // ── Schedule admin buttons ──
   const schedBtnMap = {
-    'schedBuildBtn':       {hi:'📋 Schedule बनाएं',      en:'📋 Create Schedule'},
+    'schedBuildBtn':       {hi:'📋 शेड्यूल बनाएं',      en:'📋 Create Schedule'},
     'printBtn':            {hi:'🖨️ प्रिंट',              en:'🖨️ Print'},
-    'excelBtn':            {hi:'📥 Download Excel',       en:'📥 Download Excel'},
-    'uploadSchedBtn':      {hi:'📤 Upload Schedule',     en:'📤 Upload Schedule'},
+    'excelBtn':            {hi:'📥 एक्सेल डाउनलोड',       en:'📥 Download Excel'},
+    'uploadSchedBtn':      {hi:'📤 शेड्यूल अपलोड',     en:'📤 Upload Schedule'},
     'empUploadBtn':        {hi:'📤 Shift Upload',         en:'📤 Shift Upload'},
     'empUploadWizardBtn':  {hi:'👤 Emp Upload',           en:'👤 Emp Upload'},
     'empReorderBtn':       {hi:'↕️ क्रम बदलें',         en:'↕️ Reorder'},
@@ -3689,6 +3724,21 @@ function _launchAsNewUser(userData){
   SESSION.empObjId=userData.empObjId||userData.employeeId||'';
   SESSION.status=userData.status||'approved';
   SESSION.pendingApproval=(userData.role==='member' && userData.status==='pending');
+  // Sync managerId from employees roster if mobileUsers missing/wrong (fixes 0-member count)
+  try{
+    if(userData.role==='member' || userData.role==='worker'){
+      const mobKey = _normMobileKey(userData.mobile||SESSION.mobile||'');
+      const all = (_cache.employees||[]);
+      const match = all.find(e => e && _normMobileKey(e.phone||e.mobile||'')===mobKey);
+      if(match && match.managerId){
+        const mid = _normMobileKey(match.managerId);
+        if(mid && _normMobileKey(SESSION.managerId||'')!==mid){
+          SESSION.managerId = mid;
+          try{ fbUpdate('mobileUsers/'+mobKey, { managerId: mid }); }catch(e){}
+        }
+      }
+    }
+  }catch(e){}
   SESSION.newUser=true;
   SESSION.loginAt=new Date().toISOString();
   // ALWAYS prefer current employees/{id} by mobile — never keep old member name
@@ -4412,8 +4462,8 @@ async function showManagerLoginApproval(userData, mobile10, fullPhone){
       <div style="font-size:44px;margin-bottom:8px">👔✅</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">Login without OTP</div>
       <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
-        You are a <b style="color:#fff">registered</b> team member.<br>
-        Ask your <b style="color:#f97316">Manager</b> to approve in the app (saves OTP cost).
+        You are a <b style="color:#fff">registered</b> user.<br>
+        Approve on your <b style="color:#f97316">other device</b>, or use OTP below.
       </div>
       <div style="background:#1e293b;border-radius:14px;padding:12px;margin-bottom:14px;text-align:left">
         <div style="font-size:11px;color:#64748b;font-weight:800">ACCOUNT</div>
@@ -4421,7 +4471,7 @@ async function showManagerLoginApproval(userData, mobile10, fullPhone){
         <div style="font-size:12px;color:#94a3b8">+91-${mobile10} · ${userData.role||'member'}</div>
       </div>
       <div id="mlaStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:36px">
-        Manager can approve from <b style="color:#fff">Pending</b>. If not approved in <b style="color:#fff">15s</b>, use OTP.
+        Your other device can approve from <b style="color:#fff">Pending</b>. If not approved in <b style="color:#fff">15s</b>, use OTP.
       </div>
       <button id="mlaSendBtn" onclick="sendManagerLoginRequest()"
         style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
@@ -4554,7 +4604,7 @@ async function sendManagerLoginRequest(){
         clearInterval(_mgrLoginCtx.timer); _mgrLoginCtx.timer=null;
         if(cdEl) cdEl.style.display='none';
         if(otpBtn) otpBtn.style.display='block';
-        if(statusEl) statusEl.innerHTML='⏳ Manager has not approved yet.<br>You can <b style="color:#38bdf8">Send OTP</b> now, or keep waiting.';
+        if(statusEl) statusEl.innerHTML='⏳ Not approved on other device yet.<br>You can <b style="color:#38bdf8">Send OTP</b> now, or keep waiting.';
       }
     }, 1000);
 
@@ -6404,7 +6454,7 @@ async function buildNav(){
     {id:'schedule',  ico:'📅', lbl:'शेड्यूल',   lblEn:'Schedule',  roles:['worker','manager','supervisor','member']},
     {id:'leave',     ico:'🏖️', lbl:'अवकाश',    lblEn:'Leave',     roles:['worker','manager','member']},
     {id:'reports',   ico:'📋', lbl:'रिपोर्ट',   lblEn:'Reports',   roles:['worker','manager','supervisor','member']},
-    {id:'todo',      ico:'✅', lbl:'To-Do',      lblEn:'To-Do',     roles:['guest','worker','manager','supervisor','member','pending_member']},
+    {id:'todo',      ico:'✅', lbl:'कार्य सूची',  lblEn:'To-Do',     roles:['guest','worker','manager','supervisor','member','pending_member']},
     {id:'pending',   ico:'⏳', lbl:'पेंडिंग',   lblEn:'Pending',   roles:['admin','manager']},
     {id:'team',      ico:'👥', lbl:'टीम',        lblEn:'Team',      roles:['admin','manager']},
   ];
@@ -7113,7 +7163,7 @@ function openEditProfileModal(){
       <input class="inp-field" id="profileSecInput" value="${esc(emp.sec||'')}" maxlength="40" placeholder="from Excel Section"></div>
     <div class="field"><label>${L('मशीन','Machine')}</label>
       <input class="inp-field" id="profileMcInput" value="${esc(emp.mc||emp.machine||'')}" maxlength="40"></div>
-    <div class="field"><label>${L('Responsibility','Responsibility')}</label>
+    <div class="field"><label>${L('ज़िम्मेदारी','Responsibility')}</label>
       <input class="inp-field" id="profileRespInput" value="${esc(emp.resp||emp.responsibility||'')}" maxlength="40"></div>
     <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
       ${L('Manager द्वारा भरी जानकारी यहाँ दिखती है। बदलाव पर Manager को notification जाएगी।','Details from Manager are shown here. Changes notify your Manager.')}
@@ -7732,16 +7782,16 @@ async function openAppAccessSecurity(){
         </div>
         <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
           <span style="color:var(--muted2)">💾 Schedule Save security</span>
-          <span style="font-weight:800;color:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'#22c55e'}">${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?(L('Strict · OTP','Strict (OTP)')):(L('Trusted · बिना OTP','Trusted (MET-like)'))}</span>
+          <span style="font-weight:800;color:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'#22c55e'}">${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?(L('Strict · OTP','Strict (OTP)')):(L('Trusted · बिना OTP','Trusted (No OTP Required)'))}</span>
         </div>
       </div>
       <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin:8px 0 10px;padding:10px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.2)">
-        ${L('<b style="color:var(--text)">Trusted</b> = इस device पर Schedule Save बिना बार‑बार OTP (MET Power जैसा)। <b style="color:var(--text)">Strict</b> = Phone Auth न हो तो हर Save से पहले OTP।','<b style="color:var(--text)">Trusted</b> = Save shifts on this laptop/phone without OTP every time (like MET Power). <b style="color:var(--text)">Strict</b> = require phone OTP before each Save when Phone Auth is missing.')}
+        ${L('<b style="color:var(--text)">Trusted</b> = इस device पर Schedule Save बिना बार‑बार OTP (बार‑बार OTP नहीं)। <b style="color:var(--text)">Strict</b> = Phone Auth न हो तो हर Save से पहले OTP।','<b style="color:var(--text)">Trusted</b> = Save shifts on this laptop/phone without OTP every time (no OTP each time). <b style="color:var(--text)">Strict</b> = require phone OTP before each Save when Phone Auth is missing.')}
       </div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
-        <button type="button" onclick="setWriteSecurityMode('trusted');toast(L('✅ Trusted mode — बिना OTP Save','✅ Trusted mode — MET-like Save'));closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
+        <button type="button" onclick="setWriteSecurityMode('trusted');toast(L('✅ Trusted mode — बिना OTP Save','✅ Trusted mode — No OTP Required'));closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
           style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'#22c55e':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()!=='strict')?'rgba(34,197,94,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
-          ✅ Trusted<br><span style="font-weight:600;opacity:.8;font-size:10px">MET-like</span>
+          ✅ Trusted<br><span style="font-weight:600;opacity:.8;font-size:10px">No OTP Required</span>
         </button>
         <button type="button" onclick="setWriteSecurityMode('strict');toast(L('🔐 Strict mode — Save से पहले OTP','🔐 Strict mode — OTP before Save'));closeModal();setTimeout(()=>openAppAccessSecurity(),200)"
           style="flex:1;padding:12px;border-radius:12px;border:1.5px solid ${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'#f97316':'var(--border2)'};background:${(typeof getWriteSecurityMode==='function' && getWriteSecurityMode()==='strict')?'rgba(249,115,22,.12)':'var(--card)'};color:var(--text);font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
@@ -14550,7 +14600,11 @@ function renderMyTeamApprovals(){
   const myKey=(SESSION.mobile||'').replace('+91','').replace(/[^0-9]/g,'');
   fbGet('mobileUsers').then(data=>{
     if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending member नहीं</div>'; return; }
-    const entries=Object.entries(data).filter(([k,v])=>v.status==='pending'&&v.role==='member'&&v.managerId===myKey);
+    const entries=Object.entries(data).filter(([k,v])=>{
+      if(!v || v.status!=='pending' || v.role!=='member') return false;
+      const mid = (typeof _normMobileKey==='function') ? _normMobileKey(v.managerId||v.managerMobile||'') : String(v.managerId||'');
+      return mid && (mid===myKey || mid===_normMobileKey(myKey));
+    });
     if(!entries.length){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending member नहीं</div>'; return; }
     el.innerHTML=entries.map(([mobile,u])=>`
       <div class="card" style="margin-bottom:10px">
@@ -14688,6 +14742,24 @@ function renderAdminTeamHierarchy(){
         }
         return true;
       });
+      // Also count Excel/roster employees under this manager (employees.managerId)
+      let rosterCount = 0;
+      try{
+        const empsAll = (typeof getEmps==='function' ? getEmps() : (_cache.employees||[])) || [];
+        const seenMob = new Set(members.map(([k,v])=>mgrKeyNorm(v.mobile||v.phone||k)));
+        empsAll.forEach(e=>{
+          if(!e || e.status==='resigned'||e.status==='left'||e.status==='left_team'||e.status==='removed') return;
+          const emid = mgrKeyNorm(e.managerId||'');
+          if(!(emid && (emid===mk || emid===mgrMob))) return;
+          if(viewCid && viewCid!=='ALL'){
+            const mc = _normCompanyId(e.companyId||e.company||'');
+            if(mc && mc!=='default' && mc!==_normCompanyId(viewCid)) return;
+          }
+          const emMob = mgrKeyNorm(e.phone||e.mobile||'');
+          if(emMob && seenMob.has(emMob)) return; // already in mobile members
+          rosterCount++;
+        });
+      }catch(e){}
       const statusBadge = _mobileStatusBadge(mgr);
       const noMemLbl = (typeof L==='function') ? L('इस Manager के अंतर्गत कोई Member नहीं','No members under this Manager') : 'No members under this Manager';
       const membersHtml = members.length ? members.map(([memKey,mem])=>`
@@ -14713,7 +14785,7 @@ function renderAdminTeamHierarchy(){
             <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px;line-height:22px">▶</span>
             <div style="flex:1;min-width:0">
               <div style="font-size:15px;font-weight:900;color:var(--text);line-height:1.25">👔 ${safeName}</div>
-              <div style="font-size:12px;font-weight:700;color:var(--m1,#f97316);margin-top:2px">${members.length} ${memCountLbl}</div>
+              <div style="font-size:12px;font-weight:700;color:var(--m1,#f97316);margin-top:2px">${members.length} ${typeof L==='function'?L('मोबाइल','mobile'):'mobile'}${(typeof rosterCount!=='undefined' && rosterCount)?(' · '+rosterCount+' '+(typeof L==='function'?L('रोस्टर में','in roster'):'in roster')):''}</div>
               <div style="font-size:11px;color:#64748b;margin-top:3px;word-break:break-all">📱 ${mgr.mobile||mgr.phone||mgrKey}</div>
               <div style="font-size:11px;color:#64748b">🏢 ${mgr.company||'—'}</div>
             </div>
@@ -19171,7 +19243,7 @@ const _i18n_HI_EN = {
   '🔓 Login करें':                            '🔓 Login',
   '🔓 अनलॉक करें':                            '🔓 Unlock',
   '🔔 W-Off पर बुलाया':                      '🔔 Called on W-Off',
-  '🖨️ Print करें':                           '🖨️ Print',
+  '🖨️ प्रिंट करें':                           '🖨️ Print',
   '🖨️ प्रिंट':                                '🖨️ Print',
   '🖼️ Gallery से चुनें':                     '🖼️ Pick from Gallery',
   '🗓️ कस्टम तारीख चुनें':                    '🗓️ Pick Custom Date',
@@ -19379,8 +19451,8 @@ const _i18n_HI_EN = {
   // ── Schedule / Print / Shift settings (UI polish) ──
   '📋 Schedule बनाएं': '📋 Create Schedule',
   '🖨️ प्रिंट': '🖨️ Print',
-  '🖨️ Print करें': '🖨️ Print',
-  'Print करें': 'Print',
+  '🖨️ प्रिंट करें': '🖨️ Print',
+  'प्रिंट करें': 'Print',
   'Print — Section चुनें': 'Print — Choose Sections',
   'जो sections print करनी हों उन्हें tick करें': 'Tick the sections you want to print',
   '✅ सभी': '✅ All',
@@ -20785,85 +20857,118 @@ async function saveAllShiftChanges(opts){
         if(_waCfg.waNotifyOnSave === false) continue;
         if(phone.length !== 10) continue;
 
-        const allCO = changes.every(c => c.newShift === 'C/O' || c.newShift === 'CO');
-        const allAb = changes.every(c => c.newShift === 'Ab');
-        const allL  = changes.every(c => c.newShift === 'L');
-        const allGP = changes.every(c => c.newShift === 'GP');
-        const allH  = changes.every(c => c.newShift === 'H');
-        // Per-template ON/OFF (default ON if flag missing)
+        // Split changes by type so GP + CO (etc.) each get their dedicated Hindi template
         const _typeOn = (flag) => flag !== false;
-        if(allCO && !_typeOn(_waCfg.waCOffEnabled)) continue;
-        if(allAb && !_typeOn(_waCfg.waAbsentEnabled)) continue;
-        if(allL  && !_typeOn(_waCfg.waLeaveEnabled)) continue;
-        if(allGP && !_typeOn(_waCfg.waGPEnabled)) continue;
-        if(allH  && !_typeOn(_waCfg.waHolidayEnabled)) continue;
-        if(!allCO && !allAb && !allL && !allGP && !allH && !_typeOn(_waCfg.waShiftEnabled)) continue;
-        let msgLines;
-
-        const _datesList = changes.map(c => {
-          const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-          return '• ' + fmtD;
-        }).join('\n');
+        const _fmtDate = (d) => new Date(d).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
+        const buckets = { GP:[], CO:[], Ab:[], L:[], H:[], OTHER:[] };
+        changes.forEach(c=>{
+          const ns = String(c.newShift||'').toUpperCase();
+          if(ns==='GP') buckets.GP.push(c);
+          else if(ns==='C/O' || ns==='CO') buckets.CO.push(c);
+          else if(ns==='AB') buckets.Ab.push(c);
+          else if(ns==='L') buckets.L.push(c);
+          else if(ns==='H') buckets.H.push(c);
+          else buckets.OTHER.push(c);
+        });
         const _defTpl = (typeof getDefaultShiftConfig==='function' ? getDefaultShiftConfig() : _defaultShiftConfig());
+        const pushMsg = (msgLines, chSubset) => {
+          if(!msgLines) return;
+          msgLines = _appendWaAppLink(msgLines);
+          waQueue.push({ emp: {...emp, phone}, msgLines, changes: chSubset || changes });
+        };
 
-        if(allCO){
-          msgLines = (typeof buildWAForEmp==='function')
-            ? buildWAForEmp('waCOffTemplate', emp, {
-                date: todayFmt,
-                coffDate: changes.map(c=>{
-                  const fmtD = new Date(c.date).toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short',year:'numeric'});
-                  let s = fmtD;
-                  if(c.coMeta && c.coMeta.workedDate) s += ' (worked ' + new Date(c.coMeta.workedDate).toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short'}) + ')';
-                  return s;
-                }).join(', '),
-                reason: (changes.map(c=>c.coMeta&&c.coMeta.reason).filter(Boolean).join('; ')) || ''
-              })
-            : ('🔄 C-Off\n'+_datesList);
-        } else if(allAb){
+        // Gate Pass — same template as marking GP alone
+        if(buckets.GP.length && _typeOn(_waCfg.waGPEnabled)){
+          const datesList = buckets.GP.map(c=>'• '+_fmtDate(c.date)).join('\n');
+          let msgLines;
+          if(typeof buildWAForEmp==='function'){
+            msgLines = buildWAForEmp('waGPTemplate', emp, {
+              date: todayFmt, dates: datesList,
+              gpCount: (typeof _countGPThisMonth==='function' ? _countGPThisMonth(emp, buckets.GP[0].date) : buckets.GP.length),
+              gpMax: (_waCfg.gpMaxPerMonth!=null?_waCfg.gpMaxPerMonth:2)
+            });
+          } else {
+            const tpl = getWATemplate('waGPTemplate', _waCfg.waGPTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
+            msgLines = _fillNotifTemplate(tpl, {
+              name: emp.name, date: todayFmt, dates: datesList,
+              manager: SESSION.name||'Manager', gpCount: String(buckets.GP.length),
+              gpMax: String(_waCfg.gpMaxPerMonth!=null?_waCfg.gpMaxPerMonth:2)
+            });
+          }
+          pushMsg(msgLines, buckets.GP);
+        }
+        // Comp Off — same template as marking CO alone (includes C-Off date)
+        if(buckets.CO.length && _typeOn(_waCfg.waCOffEnabled)){
+          const coffDate = buckets.CO.map(c=>{
+            let s = _fmtDate(c.date);
+            if(c.coMeta && c.coMeta.workedDate) s += ' (worked '+_fmtDate(c.coMeta.workedDate)+')';
+            return s;
+          }).join(', ');
+          const reason = (buckets.CO.map(c=>c.coMeta&&c.coMeta.reason).filter(Boolean).join('; ')) || '';
+          let msgLines;
+          if(typeof buildWAForEmp==='function'){
+            msgLines = buildWAForEmp('waCOffTemplate', emp, {
+              date: todayFmt, coffDate, reason
+            });
+          } else {
+            const tpl = getWATemplate('waCOffTemplate', _waCfg.waCOffTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
+            msgLines = _fillNotifTemplate(tpl, {
+              name: emp.name, date: todayFmt, coffDate, reason,
+              manager: SESSION.name||'Manager'
+            });
+          }
+          pushMsg(msgLines, buckets.CO);
+        }
+        // Absent
+        if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled)){
+          const datesList = buckets.Ab.map(c=>'• '+_fmtDate(c.date)).join('\n');
           const tpl = getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
-          msgLines = _fillNotifTemplate(tpl, {
-            name: emp.name, date: todayFmt, dates: _datesList,
-            manager: SESSION.name||'Manager', changes: _datesList
+          let msgLines = _fillNotifTemplate(tpl, {
+            name: emp.name, date: todayFmt, dates: datesList,
+            manager: SESSION.name||'Manager', changes: datesList
           });
-          for(const c of changes){
+          for(const c of buckets.Ab){
             try{
-              const abKey = await fbPush('reports', {
+              await fbPush('reports', {
                 type: 'absent', empId: emp.id, empName: emp.name,
                 aboutName: emp.name, section: emp.sec||'', date: c.date,
-                description: `${emp.name} बिना अनुमति अनुपस्थित — ${new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'})}`,
-                reportedByName: SESSION.name||'Manager', reportedById: SESSION.empObjId||'',
-                status: 'approved', autoGenerated: true, createdAt: new Date().toISOString()
+                description: `${emp.name} बिना अनुमति अनुपस्थित — ${_fmtDate(c.date)}`,
+                createdBy: SESSION.name||'Manager', createdAt: new Date().toISOString()
               });
-              await fbUpdate('reports/'+abKey, {_key: abKey});
-            }catch(re){ console.warn('[Auto absent report]', re); }
+            }catch(re){}
           }
-        } else if(allL){
+          pushMsg(msgLines, buckets.Ab);
+        }
+        // Leave
+        if(buckets.L.length && _typeOn(_waCfg.waLeaveEnabled)){
+          const datesList = buckets.L.map(c=>'• '+_fmtDate(c.date)).join('\n');
           const tpl = getWATemplate('waLeaveTemplate', _waCfg.waLeaveTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
-          msgLines = _fillNotifTemplate(tpl, {
-            name: emp.name, date: todayFmt, dates: _datesList,
-            manager: SESSION.name||'Manager', changes: _datesList
+          const msgLines = _fillNotifTemplate(tpl, {
+            name: emp.name, date: todayFmt, dates: datesList,
+            manager: SESSION.name||'Manager', changes: datesList
           });
-        } else if(allGP){
-          const gpMax = Math.max(1, Number(_waCfg.gpMaxPerMonth)||2);
-          const gpCount = _countGPInMonth(emp.id, changes[0].date);
-          const tpl = getWATemplate('waGPTemplate', _waCfg.waGPTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
-          msgLines = _fillNotifTemplate(tpl, {
-            name: emp.name, date: todayFmt, dates: _datesList,
-            manager: SESSION.name||'Manager', changes: _datesList,
-            gpCount, gpMax
-          });
-        } else if(allH){
+          pushMsg(msgLines, buckets.L);
+        }
+        // Holiday
+        if(buckets.H.length && _typeOn(_waCfg.waHolidayEnabled)){
+          const datesList = buckets.H.map(c=>'• '+_fmtDate(c.date)).join('\n');
           const tpl = getWATemplate('waHolidayTemplate', _waCfg.waHolidayTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined));
-          msgLines = _fillNotifTemplate(tpl, {
-            name: emp.name, date: todayFmt, dates: _datesList,
-            manager: SESSION.name||'Manager', changes: _datesList
+          const msgLines = _fillNotifTemplate(tpl, {
+            name: emp.name, date: todayFmt, dates: datesList,
+            manager: SESSION.name||'Manager', changes: datesList
           });
-        } else {
+          pushMsg(msgLines, buckets.H);
+        }
+        // Other shift changes — generic shift template
+        if(buckets.OTHER.length && _typeOn(_waCfg.waShiftEnabled)){
+          const shiftNames = (typeof getShiftDisplayNames==='function'?getShiftDisplayNames():{}) || {};
           let changeLines = '';
-          for(const c of changes){
-            const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-            const oldL = shiftNames[c.currentShift]||c.currentShift||'—';
-            const newL = shiftNames[c.newShift]||c.newShift;
+          for(const c of buckets.OTHER){
+            const fmtD = _fmtDate(c.date);
+            const oldS = c.currentShift || c.oldShift || '—';
+            const newS = c.newShift || '—';
+            const oldL = shiftNames[oldS]||oldS;
+            const newL = shiftNames[newS]||newS;
             changeLines += `• ${fmtD}: ${oldL} → *${newL}*\n`;
           }
           const tpl = (getWATemplate('waShiftTemplate', _waCfg.waShiftTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined)) || '')
@@ -20871,11 +20976,9 @@ async function saveAllShiftChanges(opts){
             .replace(/\{manager\}/g, SESSION.name||'Manager')
             .replace(/\{date\}/g, todayFmt)
             .replace(/\{changes\}/g, changeLines.trim());
-          msgLines = tpl || (`🔔 *Shift Update*\n\n${emp.name}\n${changeLines}`);
+          const msgLines = tpl || (`🔔 *Shift Update*\n\n${emp.name}\n${changeLines}`);
+          pushMsg(msgLines, buckets.OTHER);
         }
-
-        msgLines = _appendWaAppLink(msgLines);
-        waQueue.push({ emp: {...emp, phone}, msgLines, changes });
       }catch(ne){ console.warn('notify error:', ne); }
     }
 
@@ -22934,6 +23037,7 @@ function autoGenSchedule(monthKey){
 
   let generated = 0;
   let leaveProtected = 0;
+  try{ window._autoGenSecPhase = {}; }catch(e){}
 
   emps.forEach(emp => {
     const cells = sbTbody.querySelectorAll(`[data-empid="${emp.id}"]`);
@@ -22972,6 +23076,17 @@ function autoGenSchedule(monthKey){
       ? [configShiftCodes[0], configShiftCodes[2], configShiftCodes[1]]
       : configShiftCodes;
 
+    // Stagger starting phase within same Section so N people covering S shifts
+    // don't all land on the same shift on day 1 (e.g. 3 people → phases 0,1,2).
+    let _groupPhaseOffset = 0;
+    try{
+      if(!window._autoGenSecPhase) window._autoGenSecPhase = {};
+      const secKey = _normLabelKey(typeof getEmpSection==='function' ? getEmpSection(emp) : (emp.sec||'')) || '_';
+      if(window._autoGenSecPhase[secKey] == null) window._autoGenSecPhase[secKey] = 0;
+      _groupPhaseOffset = window._autoGenSecPhase[secKey] % Math.max(1, rotationOrder.length);
+      window._autoGenSecPhase[secKey]++;
+    }catch(e){ _groupPhaseOffset = 0; }
+
     // ── Check the currently-open grid for already-filled days first ──
     // (manually set, or from a previous partial generation). If found, PRESERVE
     // those days untouched and continue the rotation correctly from the last
@@ -23004,6 +23119,8 @@ function autoGenSchedule(monthKey){
       for(let i = 0; i < (lastInfo.offsAfter || 0); i++){
         curShiftIdx = (curShiftIdx+1) % rotationOrder.length;
       }
+      // Extra stagger so same-section colleagues cover different shifts
+      curShiftIdx = (curShiftIdx + (_groupPhaseOffset||0)) % rotationOrder.length;
       startDay = 0;
     }
 
@@ -23040,7 +23157,448 @@ function autoGenSchedule(monthKey){
   if(leaveProtected > 0) msg += ` · 🛡️ ${leaveProtected} approved leave दिन सुरक्षित रहे`;
   msg += ' Save करें।';
   toast(msg);
+
+  // ── Coverage validation (Section / Machine / Responsibility / Designation) ──
+  try{
+    setTimeout(()=> _runCoverageCheckAfterAutoGen(monthKey, yr, mo, daysInMonth), 80);
+  }catch(e){ console.warn('coverage check', e); }
 }
+
+/**
+ * After Auto Schedule: validate that each group (section / machine / resp / desig)
+ * has at least one person on every active work-shift when the group is large enough.
+ * Example: Section X has 3 people + 3 shifts (A,B,C) → each shift must have ≥1 person
+ * on every working day (people not on weekly-off / leave).
+ * If gaps → modal: Skip | Suggest weekly-off changes.
+ */
+function _runCoverageCheckAfterAutoGen(monthKey, yr, mo, daysInMonth){
+  const report = _buildCoverageReport(yr, mo, daysInMonth);
+  if(!report || !report.gaps.length){
+    // Soft success hint when everything is balanced
+    try{
+      if(report && report.groupsChecked > 0){
+        toast(L('✅ Coverage OK — Section/Machine/Resp में हर शिफ्ट पर लोग उपलब्ध','✅ Coverage OK — people available on every shift per group'));
+      }
+    }catch(e){}
+    return;
+  }
+  _showCoverageGapModal(monthKey, yr, mo, daysInMonth, report);
+}
+
+function _empGroupKey(emp, kind){
+  if(!emp) return '';
+  if(kind === 'section') return _normLabelKey(typeof getEmpSection==='function' ? getEmpSection(emp) : (emp.sec||emp.section||''));
+  if(kind === 'machine') return _normLabelKey(typeof getEmpMachine==='function' ? getEmpMachine(emp) : (emp.mc||emp.machine||''));
+  if(kind === 'responsibility') return _normLabelKey(typeof getEmpResp==='function' ? getEmpResp(emp) : (emp.resp||emp.responsibility||''));
+  if(kind === 'designation') return _normLabelKey(emp.designation||'');
+  return '';
+}
+function _empGroupLabel(emp, kind){
+  if(!emp) return '';
+  if(kind === 'section') return (typeof getEmpSection==='function' ? getEmpSection(emp) : (emp.sec||emp.section||'')) || '';
+  if(kind === 'machine') return (typeof getEmpMachine==='function' ? getEmpMachine(emp) : (emp.mc||emp.machine||'')) || '';
+  if(kind === 'responsibility') return (typeof getEmpResp==='function' ? getEmpResp(emp) : (emp.resp||emp.responsibility||'')) || '';
+  if(kind === 'designation') return String(emp.designation||'').trim();
+  return '';
+}
+
+/** Read shift value currently in Schedule Builder grid for emp on day index 0-based */
+function _sbCellVal(empId, dayIdx){
+  try{
+    if(window._sbData && window._sbData[empId] && window._sbData[empId][dayIdx] != null)
+      return String(window._sbData[empId][dayIdx]||'').trim().toUpperCase();
+    const sbTbody = document.getElementById('sb_tbody');
+    if(!sbTbody) return '';
+    const cell = sbTbody.querySelector(`[data-empid="${empId}"][data-day="${dayIdx}"]`);
+    return cell ? String(cell.dataset.val||'').trim().toUpperCase() : '';
+  }catch(e){ return ''; }
+}
+
+/**
+ * Build coverage gaps across section / machine / responsibility / designation.
+ * Rule: if a group has N members (non-manager) and S active rotation shifts,
+ * and N >= S, then on every day where at least S people are "available" (not O/L/blank),
+ * each shift code should have at least 1 person.
+ * Also flag when available people < S on a day (usually weekly-off clustering).
+ * minByField thresholds (when set) require count >= min for that group.
+ */
+function _buildCoverageReport(yr, mo, daysInMonth){
+  const shiftCodes = (typeof getActiveRotationCodes==='function' ? getActiveRotationCodes() : ['D','N']);
+  const S = shiftCodes.length || 2;
+  const empsAll = (typeof getEmps==='function' ? getEmps() : []).filter(e => e && e.status !== 'resigned');
+  const kinds = [
+    {kind:'section', title: L('सेक्शन','Section')},
+    {kind:'machine', title: L('मशीन','Machine')},
+    {kind:'responsibility', title: L('ज़िम्मेदारी','Responsibility')},
+    {kind:'designation', title: L('पद','Designation')}
+  ];
+  const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+  const byField = (cfg.minByField && typeof cfg.minByField === 'object') ? cfg.minByField : {};
+  const gaps = [];
+  let groupsChecked = 0;
+
+  const isMgr = (emp)=>{
+    return emp.sec === 'MGR'
+      || emp.isTeamManager === true
+      || String(emp.accessLevel||'').toLowerCase()==='manager'
+      || String(emp.role||'').toLowerCase()==='manager'
+      || (typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp));
+  };
+
+  kinds.forEach(({kind, title})=>{
+    // Group non-manager employees
+    const map = new Map(); // key -> {label, members:[]}
+    empsAll.forEach(emp=>{
+      if(isMgr(emp)) return;
+      const key = _empGroupKey(emp, kind);
+      if(!key) return;
+      const label = _empGroupLabel(emp, kind) || key;
+      if(!map.has(key)) map.set(key, {label, members:[]});
+      map.get(key).members.push(emp);
+    });
+
+    map.forEach((g, key)=>{
+      const N = g.members.length;
+      if(N < 1) return;
+      // Only enforce "one per shift" when group is large enough for all shifts
+      const enforcePerShift = N >= S;
+      // min staff from config (optional)
+      let minReq = 0;
+      try{
+        const fmap = byField[kind] || {};
+        if(fmap[g.label] != null && isFinite(Number(fmap[g.label]))) minReq = Math.max(0, Number(fmap[g.label]));
+        else {
+          const want = String(g.label||'').toLowerCase();
+          for(const k of Object.keys(fmap)){
+            if(String(k).toLowerCase()===want && isFinite(Number(fmap[k]))){ minReq = Math.max(0, Number(fmap[k])); break; }
+          }
+        }
+      }catch(e){}
+
+      // Skip tiny groups with no min and too few people to cover all shifts
+      if(!enforcePerShift && minReq <= 0) return;
+      groupsChecked++;
+
+      for(let d = 0; d < daysInMonth; d++){
+        const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
+        const counts = {};
+        shiftCodes.forEach(c => counts[c] = 0);
+        let available = 0; // people working (not O/L/blank)
+        let offOrLeave = 0;
+        g.members.forEach(emp=>{
+          // before joining
+          if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return;
+          const val = _sbCellVal(emp.id, d);
+          if(!val || val === 'O' || val === 'L' || val === 'AB' || val === 'H' || val === 'C/O' || val === 'CO'){
+            offOrLeave++;
+            return;
+          }
+          available++;
+          // count toward shift codes (supports D+N etc.)
+          let matched = false;
+          if(typeof parseShiftWorkCodes==='function'){
+            const codes = parseShiftWorkCodes(val);
+            codes.forEach(c=>{
+              if(counts[c] != null){ counts[c]++; matched = true; }
+            });
+          }
+          if(!matched && counts[val] != null) counts[val]++;
+        });
+
+        const emptyShifts = shiftCodes.filter(c => counts[c] === 0);
+        const problems = [];
+        if(enforcePerShift && available >= S && emptyShifts.length){
+          problems.push({
+            type: 'empty_shift',
+            emptyShifts,
+            counts: {...counts},
+            available
+          });
+        }
+        if(enforcePerShift && available < S && N >= S){
+          // Not enough people working that day — likely weekly-off clash
+          problems.push({
+            type: 'too_few_available',
+            available,
+            need: S,
+            counts: {...counts}
+          });
+        }
+        if(minReq > 0 && available < minReq){
+          problems.push({
+            type: 'below_min',
+            available,
+            minReq,
+            counts: {...counts}
+          });
+        }
+        if(problems.length){
+          gaps.push({
+            kind, kindTitle: title, groupKey: key, groupLabel: g.label,
+            day: d+1, dateStr, N, S, members: g.members.map(e=>({id:e.id, name:e.name, woff:e.woff||''})),
+            problems, counts, available, offOrLeave
+          });
+        }
+      }
+    });
+  });
+
+  return { gaps, groupsChecked, shiftCodes, S };
+}
+
+function _showCoverageGapModal(monthKey, yr, mo, daysInMonth, report){
+  const gaps = report.gaps || [];
+  // Summarize by group
+  const byGroup = new Map();
+  gaps.forEach(g=>{
+    const k = g.kind + '|' + g.groupKey;
+    if(!byGroup.has(k)) byGroup.set(k, {kind:g.kind, kindTitle:g.kindTitle, label:g.groupLabel, N:g.N, S:g.S, days:[], members:g.members});
+    byGroup.get(k).days.push(g.day);
+  });
+
+  const dayList = (days)=>{
+    const u = [...new Set(days)].sort((a,b)=>a-b);
+    if(u.length <= 8) return u.join(', ');
+    return u.slice(0,6).join(', ') + '… (+' + (u.length-6) + ')';
+  };
+
+  let rows = '';
+  byGroup.forEach(g=>{
+    const uniqDays = [...new Set(g.days)];
+    rows += `<div style="padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:var(--card)">
+      <div style="font-size:13px;font-weight:800;color:var(--text)">${g.kindTitle}: <span style="color:#f97316">${String(g.label).replace(/</g,'&lt;')}</span>
+        <span style="font-size:11px;font-weight:600;color:var(--muted2)"> · ${g.N} ${L('लोग','people')} · ${g.S} ${L('शिफ्ट','shifts')}</span>
+      </div>
+      <div style="font-size:12px;color:#f87171;margin-top:4px">⚠️ ${uniqDays.length} ${L('दिन कवरेज कम / शिफ्ट खाली','days with low coverage / empty shift')}: ${dayList(uniqDays)}</div>
+    </div>`;
+  });
+
+  const totalDays = gaps.length;
+  const html = `<div class="modal-handle"></div>
+    <div class="modal-title">⚠️ ${L('Coverage जाँच — शिफ्ट खाली / कम स्टाफ़','Coverage check — empty shift / low staff')}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
+      ${L('Auto Schedule के बाद कुछ ग्रुप में हर शिफ्ट पर कम से कम 1 व्यक्ति नहीं मिला।','After Auto Schedule, some groups do not have at least 1 person on every shift.')}
+      <br>${L('उदाहरण: 3 लोग + 3 शिफ्ट → हर शिफ्ट पर 1 होना चाहिए।','Example: 3 people + 3 shifts → 1 person on each shift.')}
+    </div>
+    <div style="max-height:40vh;overflow-y:auto;margin-bottom:12px">${rows || '<div style="color:var(--muted2)">—</div>'}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:12px">
+      ${L('कुल समस्या दिन','Total problem days')}: <b style="color:#f87171">${totalDays}</b>
+      · ${L('आप Skip कर सकते हैं या Weekly Off बदलने का सुझाव ले सकते हैं।','You can Skip or get Weekly-Off change suggestions.')}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button type="button" onclick="_coverageSkipAndKeep()" style="padding:14px;border-radius:12px;border:none;
+        background:linear-gradient(135deg,#64748b,#475569);color:#fff;font-size:14px;font-weight:800;cursor:pointer">
+        ⏭️ ${L('त्रुटि छोड़ें — Schedule रखें','Skip errors — keep schedule')}
+      </button>
+      <button type="button" onclick="_coverageSuggestWeeklyOffs('${monthKey}',${yr},${mo},${daysInMonth})" style="padding:14px;border-radius:12px;border:none;
+        background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:14px;font-weight:800;cursor:pointer">
+        💡 ${L('Weekly Off बदलने का सुझाव','Suggest Weekly Off changes')}
+      </button>
+      <button type="button" onclick="closeModal()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
+        background:var(--card);color:var(--muted2);font-size:13px;font-weight:700;cursor:pointer">${L('बंद करें','Close')}</button>
+    </div>`;
+  // stash report for suggestion step
+  try{ window._lastCoverageReport = report; window._lastCoverageMonthKey = monthKey; }catch(e){}
+  openModal(html);
+}
+
+function _coverageSkipAndKeep(){
+  closeModal();
+  toast(L('⏭️ Coverage errors skip — Schedule जैसा है वैसा रखा','⏭️ Coverage errors skipped — schedule kept as is'));
+}
+
+/**
+ * Suggest staggered weekly offs so group members don't all off on same day,
+ * then optionally re-run auto-gen for affected employees.
+ */
+function _coverageSuggestWeeklyOffs(monthKey, yr, mo, daysInMonth){
+  const report = window._lastCoverageReport;
+  if(!report || !report.gaps || !report.gaps.length){
+    toast(L('कोई gap नहीं','No gaps'));
+    return;
+  }
+  const shiftCodes = report.shiftCodes || (typeof getActiveRotationCodes==='function' ? getActiveRotationCodes() : ['D','N']);
+  const S = shiftCodes.length || 2;
+  const DOW_NAMES = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+  // Unique groups that had gaps
+  const groupMap = new Map();
+  report.gaps.forEach(g=>{
+    const k = g.kind + '|' + g.groupKey;
+    if(!groupMap.has(k)) groupMap.set(k, {kind:g.kind, kindTitle:g.kindTitle, label:g.groupLabel, N:g.N, members:g.members});
+  });
+
+  // For each group, propose staggered woffs
+  // Strategy: assign woffs cycling through weekdays so at most ceil(N/7) off same day;
+  // prefer spreading so that on any day available >= S when N >= S.
+  const suggestions = []; // {empId, name, oldWoff, newWoff, groupLabel, kindTitle}
+  const usedEmp = new Set();
+
+  groupMap.forEach(g=>{
+    const members = (g.members || []).slice();
+    // Prefer keeping existing woff if already unique within group; reassign only clashes
+    const byWoff = {};
+    members.forEach(m=>{
+      const w = (m.woff || '').toUpperCase() || '';
+      if(!byWoff[w]) byWoff[w] = [];
+      byWoff[w].push(m);
+    });
+    // Target: distribute across 7 days, ideally different days when N <= 7
+    const targetDays = DOW_NAMES.slice(); // SUN..SAT
+    // Count how many should be on each day ideally
+    const assignment = []; // {emp, newWoff}
+    // Sort members: those sharing a woff with others first (need change)
+    const sorted = members.slice().sort((a,b)=>{
+      const ca = (byWoff[(a.woff||'').toUpperCase()]||[]).length;
+      const cb = (byWoff[(b.woff||'').toUpperCase()]||[]).length;
+      return cb - ca;
+    });
+    const dayLoad = {SUN:0,MON:0,TUE:0,WED:0,THU:0,FRI:0,SAT:0};
+    // First pass: keep unique woffs
+    const remaining = [];
+    sorted.forEach(m=>{
+      if(usedEmp.has(m.id)) return;
+      const w = (m.woff||'').toUpperCase();
+      const clash = w && (byWoff[w]||[]).length > 1;
+      if(w && DOW_NAMES.includes(w) && !clash && dayLoad[w] < Math.ceil(members.length/7)){
+        dayLoad[w]++;
+        assignment.push({emp:m, newWoff:w, changed:false});
+        usedEmp.add(m.id);
+      } else {
+        remaining.push(m);
+      }
+    });
+    // Assign remaining to least-loaded days
+    remaining.forEach(m=>{
+      if(usedEmp.has(m.id)) return;
+      let best = 'SUN', bestLoad = 999;
+      DOW_NAMES.forEach(d=>{
+        if(dayLoad[d] < bestLoad){ bestLoad = dayLoad[d]; best = d; }
+      });
+      dayLoad[best]++;
+      const old = (m.woff||'').toUpperCase();
+      assignment.push({emp:m, newWoff:best, changed: old !== best});
+      usedEmp.add(m.id);
+    });
+    assignment.forEach(a=>{
+      if(a.changed){
+        suggestions.push({
+          empId: a.emp.id,
+          name: a.emp.name || a.empId,
+          oldWoff: a.emp.woff || '—',
+          newWoff: a.newWoff,
+          groupLabel: g.label,
+          kindTitle: g.kindTitle
+        });
+      }
+    });
+  });
+
+  if(!suggestions.length){
+    openModal(`<div class="modal-handle"></div>
+      <div class="modal-title">💡 ${L('Weekly Off सुझाव','Weekly Off suggestions')}</div>
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
+        ${L('Weekly Off पहले से अलग-अलग हैं। Coverage gap शिफ्ट रोटेशन से हो सकता है — Schedule में मैन्युअल adjust करें, या Skip करें।','Weekly offs are already spread. Gap may be from shift rotation — adjust manually in Schedule, or Skip.')}
+      </div>
+      <button type="button" onclick="_coverageSkipAndKeep()" style="width:100%;padding:14px;border-radius:12px;border:none;
+        background:linear-gradient(135deg,#64748b,#475569);color:#fff;font-weight:800;cursor:pointer">⏭️ ${L('Skip — Schedule रखें','Skip — keep schedule')}</button>
+      <button type="button" onclick="closeModal()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid var(--border2);
+        background:var(--card);color:var(--muted2);font-weight:700;cursor:pointer">${L('बंद','Close')}</button>`);
+    return;
+  }
+
+  try{ window._coverageWoffSuggestions = suggestions; }catch(e){}
+
+  const rows = suggestions.map((s,i)=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;margin-bottom:6px;background:var(--card);cursor:pointer">
+      <input type="checkbox" class="cov-woff-chk" data-idx="${i}" checked style="width:18px;height:18px;accent-color:#0ea5e9;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:800;color:var(--text)">${String(s.name).replace(/</g,'&lt;')}</div>
+        <div style="font-size:11px;color:var(--muted2)">${s.kindTitle}: ${String(s.groupLabel).replace(/</g,'&lt;')}</div>
+        <div style="font-size:12px;margin-top:2px">
+          <span style="color:#f87171">${s.oldWoff}</span>
+          <span style="color:var(--muted2)"> → </span>
+          <span style="color:#22c55e;font-weight:800">${s.newWoff}</span>
+        </div>
+      </div>
+    </label>`).join('');
+
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">💡 ${L('Weekly Off बदलने का सुझाव','Suggested Weekly Off changes')}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">
+      ${L('एक ही दिन कई लोगों की छुट्टी होने से शिफ्ट खाली रह जाती है। नीचे सुझाए गए अलग-अलग Weekly Off चुनें — Apply पर employees अपडेट होंगे और Auto Schedule फिर चलेगा।','Same-day offs empty a shift. Select suggested offs below — Apply updates employees and re-runs Auto Schedule.')}
+    </div>
+    <div style="max-height:42vh;overflow-y:auto;margin-bottom:12px">${rows}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button type="button" onclick="_coverageApplyWoffSuggestions('${monthKey}')" style="padding:14px;border-radius:12px;border:none;
+        background:linear-gradient(135deg,#22c55e,#15803d);color:#fff;font-size:14px;font-weight:800;cursor:pointer">
+        ✅ ${L('Apply करें + Schedule फिर बनाएँ','Apply + re-generate schedule')}
+      </button>
+      <button type="button" onclick="_coverageSkipAndKeep()" style="padding:12px;border-radius:12px;border:none;
+        background:linear-gradient(135deg,#64748b,#475569);color:#fff;font-size:13px;font-weight:800;cursor:pointer">
+        ⏭️ ${L('Skip — बिना बदले रखें','Skip — keep without changes')}
+      </button>
+      <button type="button" onclick="closeModal()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
+        background:var(--card);color:var(--muted2);font-size:13px;font-weight:700;cursor:pointer">${L('रद्द','Cancel')}</button>
+    </div>`);
+}
+
+async function _coverageApplyWoffSuggestions(monthKey){
+  const all = window._coverageWoffSuggestions || [];
+  const checked = [...document.querySelectorAll('.cov-woff-chk:checked')].map(c=>+c.dataset.idx);
+  const toApply = checked.map(i=>all[i]).filter(Boolean);
+  if(!toApply.length){
+    toast(L('कोई सुझाव चुना नहीं','No suggestion selected'));
+    return;
+  }
+  closeModal();
+  toast(L('Weekly Off अपडेट हो रहे हैं…','Updating Weekly Offs…'));
+
+  let updated = 0;
+  const emps = (typeof getEmps==='function' ? getEmps() : []);
+  for(const s of toApply){
+    try{
+      const emp = emps.find(e=>e && e.id===s.empId);
+      if(!emp) continue;
+      emp.woff = s.newWoff;
+      // Persist if possible
+      try{
+        if(typeof fbUpdate==='function'){
+          await fbUpdate('employees/'+s.empId, {woff: s.newWoff});
+        } else if(typeof fbSet==='function'){
+          // merge-style set of single field when path supports it
+          await fbSet('employees/'+s.empId+'/woff', s.newWoff);
+        }
+      }catch(e){
+        console.warn('woff save', e);
+      }
+      updated++;
+    }catch(e){}
+  }
+
+  toast(`✅ ${updated} ${L('कर्मचारियों का Weekly Off अपडेट','employees Weekly Off updated')}`);
+
+  // Clear grid filled state for affected so auto-gen regenerates full month for them
+  try{
+    const sbTbody = document.getElementById('sb_tbody');
+    toApply.forEach(s=>{
+      if(window._sbData) delete window._sbData[s.empId];
+      if(sbTbody){
+        sbTbody.querySelectorAll(`[data-empid="${s.empId}"]`).forEach(c=>{
+          c.dataset.val = '';
+          c.textContent = '—';
+          c.className = 'shc';
+        });
+      }
+    });
+  }catch(e){}
+
+  // Re-run auto schedule
+  setTimeout(()=>{
+    try{ autoGenSchedule(monthKey); }catch(e){ toast('❌ '+e.message); }
+  }, 200);
+}
+
 
 function _applyScheduleToGrid(empId, schedule, cells, empLeaves, yr, mo){
   cells.forEach((cell, i) => {
@@ -23218,7 +23776,7 @@ function printSched(){
     <div style="display:flex;gap:10px">
       <button type="button" onclick="_execPrint()" style="flex:1;padding:14px;border-radius:12px;border:none;
         background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${L('Print करें','Print')}</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${L('प्रिंट करें','Print')}</button>
       <button type="button" onclick="closeModal()" style="padding:12px 16px;border-radius:12px;
         border:1px solid var(--border2);background:var(--card);color:var(--muted2);
         font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">${L('रद्द','Cancel')}</button>
@@ -27357,7 +27915,7 @@ async function checkFingerprintOnStart(){
     // Safety: if FP screen missing in DOM, skip
     if(!document.getElementById('fingerprintScreen')) return false;
     showFpScreen();
-    // Auto-trigger biometric after short delay (like MET Power feel)
+    // Auto-trigger biometric after short delay (no OTP each time feel)
     setTimeout(()=>{ try{ tryFingerprintLogin(); }catch(e){} }, 400);
     return true;
   }catch(e){

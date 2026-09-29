@@ -1,8 +1,46 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.67)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.69)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
+
+## What's new in 2.4.69
+
+### WhatsApp Save — GP + C-Off templates
+- Mixed GP + C-Off (and other types) in one Save now send **separate** Hindi template messages (same as marking each alone), with C-Off date/reason.
+
+### Hindi UI labels
+- Schedule filters: **ज़िम्मेदारी**, **पदनाम** (not English Responsibility/Designation).
+- Designation chips (Manager, Trainee, Jr. Engineer…) shown in Devanagari when language is Hindi.
+- To-Do → **कार्य सूची**; Upload/Download schedule buttons use Hindi labels in HI mode.
+
+### English login / Trusted
+- Login EN string no longer mixes Hindi.
+- Trusted mode label: **No OTP Required** (not MET-like).
+- Login-without-OTP copy: other device / OTP (not “ask Manager” for managers).
+
+### Manager team count + phones
+- Phone keys normalized to **last 10 digits**.
+- Manager card shows **mobile members · roster count**.
+- Member login can sync `managerId` from Excel roster.
+- Pending member list matches normalized managerId.
+- Firebase rules: admin can fully manage `mobileUsers` (fixes Delete Manager + Team).
+
+### Auto Schedule coverage (from 2.4.68)
+- Section / Machine / Responsibility / Designation coverage check + weekly-off suggestions.
+
+## What's new in 2.4.68
+
+
+### Auto Schedule — coverage validation (Section / Machine / Resp / Designation)
+- After Auto Schedule, the app **counts people per shift** inside each Section, Machine, Responsibility, and Designation group.
+- Example: 3 people in one section + 3 active shifts → every working day should have **at least one person on each shift**.
+- Same rule applies Machine-wise, Responsibility-wise, Designation-wise (and their sub-groups from Excel).
+- If coverage fails (empty shift or too few available — often because weekly offs clash):
+  1. Modal shows which groups/days are short
+  2. **Skip errors** — keep the generated schedule as-is
+  3. **Suggest Weekly Off changes** — stagger offs across the week, then **Apply + re-generate**
+- Auto Schedule also **staggers starting shift phase** within the same Section so colleagues are less likely to all land on D (or the same code) on day 1.
 
 ## What's new in 2.4.67
 
