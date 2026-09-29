@@ -17,7 +17,7 @@
     "mobileUsers": {
       ".read": "auth != null",
       "$phone": {
-        ".write": "(auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true) || auth != null && ((!data.exists() && (auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && ((newData.child('role').val() === 'manager' && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved')) || (newData.child('role').val() === 'member' && newData.child('status').val() === 'pending'))) || ((auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && data.exists() && newData.child('role').val() === data.child('role').val() && ((data.child('role').val() === 'manager' && (newData.child('status').val() === 'approved' || newData.child('status').val() === data.child('status').val())) || (data.child('role').val() === 'member' && newData.child('status').val() === data.child('status').val()))) || (auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true || (root.child('managers').child(auth.uid).val() === true && data.child('role').val() === 'member' && newData.child('role').val() === 'member'))"
+        ".write": "auth != null && (auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true || (!data.exists() && (auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) &&   ((newData.child('role').val() === 'manager' && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved')) ||    (newData.child('role').val() === 'member' && (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved')))) || ((auth.token.phone_number === '+91'+$phone || auth.token.phone_number === $phone) && data.exists() &&   newData.child('role').val() === data.child('role').val() &&   (newData.child('status').val() === data.child('status').val() ||    newData.child('status').val() === 'approved' ||    (data.child('status').val() === 'left_team' || data.child('status').val() === 'left' || data.child('status').val() === 'removed') &&     (newData.child('status').val() === 'pending' || newData.child('status').val() === 'approved'))) || (root.child('managers').child(auth.uid).val() === true && data.child('role').val() === 'member' && newData.child('role').val() === 'member') || (auth.token.phone_number != null &&   root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' &&   root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved' &&   data.child('role').val() === 'member' && newData.child('role').val() === 'member'))"
       }
     },
     "employees": {
@@ -127,6 +127,12 @@
     "adminLogs": {
       ".read": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)",
       ".write": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)"
+    },
+    "deviceLoginLogs": {
+      ".read": "auth != null && ((auth.token.phone_number === '+918929397949') || root.child('admins').child(auth.uid).val() === true)",
+      "$lid": {
+        ".write": "auth != null && !data.exists()"
+      }
     },
     "users": {
       ".read": "auth != null",
