@@ -1484,32 +1484,15 @@ function _normLabelKey(s){
   return String(s||'').trim().toLowerCase().replace(/\s+/g,' ');
 }
 
-/** Display label for designation/responsibility/common roles — Hindi when app language is hi */
+/**
+ * Excel / manager-editable field values (Responsibility, Designation, Machine, Section names)
+ * must ALWAYS display as stored — never hardcoded translation.
+ * Only fixed UI chrome (chip categories like "Responsibility") uses L().
+ * If a manager edits "Trainee" → "Trainee-2" in Excel, the UI shows "Trainee-2" in every language.
+ */
 function _fieldDisplayLabel(val){
   if(val==null || val==='') return '';
-  const s = String(val).trim();
-  if(typeof _lang==='undefined' || _lang==='en' || _lang!=='hi') return s;
-  const map = {
-    'manager':'मैनेजर', 'Manager':'मैनेजर', 'MANAGER':'मैनेजर',
-    'supervisor':'सुपरवाइज़र', 'Supervisor':'सुपरवाइज़र',
-    'trainee':'ट्रेनी', 'Trainee':'ट्रेनी',
-    'team member':'टीम मेंबर', 'Team Member':'टीम मेंबर', 'Team member':'टीम मेंबर',
-    'jr. team member':'जूनियर टीम मेंबर', 'Jr. team member':'जूनियर टीम मेंबर', 'Jr. Team Member':'जूनियर टीम मेंबर',
-    'sr. team member':'सीनियर टीम मेंबर', 'Sr. Team Member':'सीनियर टीम मेंबर', 'Sr. team member':'सीनियर टीम मेंबर',
-    'jr. engineer':'जूनियर इंजीनियर', 'Jr. Engineer':'जूनियर इंजीनियर', 'Jr Engineer':'जूनियर इंजीनियर',
-    'engineer':'इंजीनियर', 'Engineer':'इंजीनियर',
-    'operator':'ऑपरेटर', 'Operator':'ऑपरेटर', 'Operation':'ऑपरेशन', 'Operations':'ऑपरेशन',
-    'responsibility':'ज़िम्मेदारी', 'Responsibility':'ज़िम्मेदारी',
-    'designation':'पदनाम', 'Designation':'पदनाम',
-    'section':'सेक्शन', 'Section':'सेक्शन',
-    'machine':'मशीन', 'Machine':'मशीन'
-  };
-  if(map[s]) return map[s];
-  const low = s.toLowerCase();
-  for(const [k,v] of Object.entries(map)){
-    if(k.toLowerCase()===low) return v;
-  }
-  return s;
+  return String(val).trim(); // identity — do not translate user data
 }
 
 /** Prefer nicer display label when duplicates differ only by case */
@@ -1637,9 +1620,9 @@ function _renderSchedFilterChips(activeCode){
   } else if(act==='CAT:machine' || act.startsWith('MC:')){
     list = _teamFieldValues('machine').map(v=>({code:'MC:'+v, label:v}));
   } else if(act==='CAT:responsibility' || act.startsWith('RESP:')){
-    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:(typeof _fieldDisplayLabel==='function'?_fieldDisplayLabel(v):v)}));
+    list = _teamFieldValues('responsibility').map(v=>({code:'RESP:'+v, label:v})); // raw Excel value — never hardcoded translate
   } else if(act==='CAT:designation' || act.startsWith('DESIG:')){
-    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:(typeof _fieldDisplayLabel==='function'?_fieldDisplayLabel(v):v)}));
+    list = _teamFieldValues('designation').map(v=>({code:'DESIG:'+v, label:v})); // raw Excel value — never hardcoded translate
   }
   if(list.length){
     secEl.style.display = 'flex';
@@ -3175,7 +3158,7 @@ async function _verifyOTP(){
 }
 
 async function _checkUserAfterOTP(){
-  const mobile=_loginMobile.replace('+91','').replace(/[^0-9]/g,'');
+  const mobile=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
   try{
     // Hard-coded Admin phones → always Admin (full team), not User/Member from mobileUsers
     if(_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
@@ -3396,18 +3379,24 @@ async function _loadManagerOptions(){
   const sel=document.getElementById('memManagerSelect');
   const hint=document.getElementById('memNoManagerHint');
   if(!sel) return;
-  sel.innerHTML='<option value="">-- लोड हो रहा है... --</option>';
+  sel.innerHTML='<option value="">-- Loading... --</option>';
   try{
     const data=await fbGet('mobileUsers');
-    const managers=data?Object.entries(data).filter(([k,v])=>v.role==='manager'&&v.status==='approved'):[];
+    const managers=data?Object.entries(data).filter(([k,v])=>v && v.role==='manager'&&v.status==='approved'):[];
     if(!managers.length){
-      sel.innerHTML='<option value="">-- कोई Manager उपलब्ध नहीं --</option>';
+      sel.innerHTML='<option value="">-- No Manager available --</option>';
       if(hint) hint.style.display='block';
       return;
     }
     if(hint) hint.style.display='none';
-    sel.innerHTML='<option value="">-- Manager चुनें --</option>'+
-      managers.map(([k,v])=>`<option value="${k}" data-name="${v.name}">${v.name} (${v.company||'—'})</option>`).join('');
+    // Always use last-10-digit phone as value so member.managerId matches SESSION.mobile
+    sel.innerHTML='<option value="">-- Select Manager --</option>'+
+      managers.map(([k,v])=>{
+        const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(k||v.mobile||v.phone||'') : String(k||'').replace(/\D/g,'').slice(-10);
+        const nm = String(v.name||phoneKey).replace(/"/g,'&quot;').replace(/</g,'');
+        const co = String(v.company||'—').replace(/</g,'');
+        return `<option value="${phoneKey}" data-name="${nm}">${nm} (${co})</option>`;
+      }).join('');
   }catch(e){
     sel.innerHTML='<option value="">-- Error loading --</option>';
   }
@@ -3523,38 +3512,57 @@ async function _submitMemberReg(){
   const name=(document.getElementById('memName')?.value||'').trim();
   const comp=(document.getElementById('memCompany')?.value||'').trim();
   const mgrSel=document.getElementById('memManagerSelect');
-  const managerId=mgrSel?.value||'';
-  const managerName=mgrSel?.selectedOptions?.[0]?.dataset?.name||'';
+  let managerId=mgrSel?.value||'';
+  const managerName=mgrSel?.selectedOptions?.[0]?.dataset?.name||mgrSel?.selectedOptions?.[0]?.textContent||'';
   const errEl=document.getElementById('memRegErr');
   if(!name||!comp){
-    if(errEl){ errEl.textContent='⚠️ नाम और Company अनिवार्य हैं'; errEl.classList.add('show'); } return;
+    if(errEl){ errEl.textContent=(typeof L==='function'?L('⚠️ नाम और Company अनिवार्य हैं','⚠️ Name and Company are required'):'⚠️ Name and Company required'); errEl.classList.add('show'); } return;
   }
   if(!managerId){
-    if(errEl){ errEl.textContent='⚠️ कृपया अपना Manager चुनें'; errEl.classList.add('show'); } return;
+    if(errEl){ errEl.textContent=(typeof L==='function'?L('⚠️ कृपया अपना Manager चुनें','⚠️ Please select your Manager'):'⚠️ Please select your Manager'); errEl.classList.add('show'); } return;
   }
-  const mobile=_loginMobile.replace('+91','').replace(/[^0-9]/g,'');
+  // Normalize both sides to last-10 digits so Manager Pending always finds this member
+  const mobile = (typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
+  managerId = (typeof _normMobileKey==='function') ? _normMobileKey(managerId) : String(managerId).replace(/\D/g,'').slice(-10);
+  if(!mobile || mobile.length!==10){
+    if(errEl){ errEl.textContent='⚠️ Invalid mobile — login again'; errEl.classList.add('show'); } return;
+  }
   // Pending member: enter app immediately with LIMITED access until Manager approves
-  const userData={role:'member',name,mobile:_loginMobile,company:comp,
-    status:'pending',empCode:'',managerId,managerName,registeredAt:new Date().toISOString()};
+  const userData={
+    role:'member', name,
+    mobile: '+91'+mobile,
+    company:comp,
+    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(),
+    managerId: managerId,
+    managerMobile: managerId,
+    managerName: String(managerName).replace(/\s*\(.*\)\s*$/,'').trim(),
+    registeredAt: new Date().toISOString()
+  };
   try{
-    await fbSet('mobileUsers/'+mobile,userData);
+    await fbSet('mobileUsers/'+mobile, userData);
     try{
       await fbPush('adminNotifications',{type:'member_registration',...userData,
-        message:name+' ने Member के रूप में register किया। Manager: '+managerName});
+        message: name+' registered as Member. Manager: '+(userData.managerName||managerId)});
     }catch(e){}
-    // Notify selected manager (in-app) if path exists
+    // Notify manager on phone key AND any empObjId path if resolvable
+    const notif = {
+      type:'member_pending',
+      title:'👤 New team member request',
+      body: name+' wants to join your team',
+      mobile: '+91'+mobile, name, company:comp, memberMobile: mobile,
+      managerId: managerId,
+      read:false, at: new Date().toISOString()
+    };
+    try{ await fbPush('userNotifications/'+managerId, notif); }catch(e){}
     try{
-      await fbPush('userNotifications/'+managerId, {
-        type:'member_pending',
-        title:'👤 New team member request',
-        body: name+' wants to join your team',
-        mobile:_loginMobile, name, company:comp,
-        read:false, at:new Date().toISOString()
-      });
+      // Also push under manager mobileUsers record empObjId if present
+      const mgrRec = await fbGet('mobileUsers/'+managerId);
+      if(mgrRec && (mgrRec.empObjId||mgrRec.employeeId)){
+        await fbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
+      }
     }catch(e){}
-    toast('✅ Registered — limited access until Manager approves');
+    toast((typeof L==='function')?L('✅ Register हो गया — Manager approve तक limited access','✅ Registered — limited access until Manager approves'):'✅ Registered — limited access until Manager approves');
     _launchAsNewUser(userData);
-    // Keep watching so when Manager approves, full access unlocks live
     setTimeout(()=>{ try{ _watchApprovalStatus(mobile); }catch(e){} }, 800);
   }catch(e){ if(errEl){ errEl.textContent='❌ Error: '+e.message; errEl.classList.add('show'); } }
 }
@@ -14565,20 +14573,195 @@ function renderManagerApprovals(){
           </div>
         </div>
         <div class="action-row">
-          <button class="act-btn approve" onclick="approveMobileUser('${mobile}')">✅ Approve</button>
+          <button class="act-btn approve" onclick="openApproveMemberModal('${mobile}')">✅ Approve</button>
           <button class="act-btn reject"  onclick="rejectMobileUser('${mobile}','${u.name}')">❌ Reject</button>
         </div>
       </div>`).join('');
   });
 }
 
-async function approveMobileUser(mobile){
+
+/** Manager: open form to set Section / Machine / Resp / Designation then approve + add to roster */
+async function openApproveMemberModal(mobile){
+  const key = (typeof _normMobileKey==='function') ? _normMobileKey(mobile) : String(mobile||'').replace(/\D/g,'').slice(-10);
+  let u = null;
+  try{ u = await fbGet('mobileUsers/'+key); }catch(e){}
+  if(!u){ toast('❌ Member data not found'); return; }
+  const name = String(u.name||key).replace(/</g,'');
+  const phone = String(u.mobile||key).replace(/</g,'');
+  const preCode = String(u.empCode||u.empId||'').replace(/</g,'');
+  // Build option lists from existing team (Excel values — no hardcoded map)
+  const secs = (typeof _teamFieldValues==='function' ? _teamFieldValues('section') : []) || [];
+  const mcs  = (typeof _teamFieldValues==='function' ? _teamFieldValues('machine') : []) || [];
+  const resps= (typeof _teamFieldValues==='function' ? _teamFieldValues('responsibility') : []) || [];
+  const desigs=(typeof _teamFieldValues==='function' ? _teamFieldValues('designation') : []) || [];
+  const opt = (arr, ph) => '<option value="">'+ph+'</option>' + arr.map(v=>'<option value="'+String(v).replace(/"/g,'&quot;')+'">'+String(v).replace(/</g,'')+'</option>').join('') + '<option value="__other__">Other…</option>';
+  const html = `<div class="modal-handle"></div>
+    <div class="modal-title">✅ ${L('Member Approve + Roster','Approve Member + Add to roster')}</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
+      <b style="color:var(--text)">${name}</b> · ${phone}<br>
+      ${L('Schedule में दिखने के लिए Section / Machine आदि भरें — Teams में अलग से add करने की जरूरत नहीं।','Fill Section / Machine etc. so they appear on Schedule — no need to add again under Team.')}
+    </div>
+    <div class="field"><label>Employee Code / Emp ID *</label>
+      <input class="inp-field" id="appr_empCode" value="${preCode}" placeholder="e.g. 30000422"></div>
+    <div class="field"><label>Section *</label>
+      <select class="inp-field" id="appr_section" onchange="_apprToggleOther('appr_section','appr_section_other')">${opt(secs,'— Select Section —')}</select>
+      <input class="inp-field" id="appr_section_other" placeholder="Section name" style="display:none;margin-top:6px"></div>
+    <div class="field"><label>Machine *</label>
+      <select class="inp-field" id="appr_machine" onchange="_apprToggleOther('appr_machine','appr_machine_other')">${opt(mcs,'— Select Machine —')}</select>
+      <input class="inp-field" id="appr_machine_other" placeholder="Machine name" style="display:none;margin-top:6px"></div>
+    <div class="field"><label>Responsibility</label>
+      <select class="inp-field" id="appr_resp" onchange="_apprToggleOther('appr_resp','appr_resp_other')">${opt(resps,'— Select —')}</select>
+      <input class="inp-field" id="appr_resp_other" placeholder="Responsibility" style="display:none;margin-top:6px"></div>
+    <div class="field"><label>Designation</label>
+      <select class="inp-field" id="appr_desig" onchange="_apprToggleOther('appr_desig','appr_desig_other')">${opt(desigs,'— Select —')}</select>
+      <input class="inp-field" id="appr_desig_other" placeholder="Designation" style="display:none;margin-top:6px"></div>
+    <div class="field"><label>Weekly Off</label>
+      <select class="inp-field" id="appr_woff">
+        <option value="SUN">SUN</option><option value="MON">MON</option><option value="TUE">TUE</option>
+        <option value="WED">WED</option><option value="THU">THU</option><option value="FRI">FRI</option><option value="SAT">SAT</option>
+      </select></div>
+    <div id="appr_err" style="display:none;color:#f87171;font-size:12px;font-weight:700;margin-bottom:8px"></div>
+    <button class="submit-btn" onclick="confirmApproveMember('${key}')">${L('✅ Approve + Schedule में जोड़ें','✅ Approve + Add to Schedule')}</button>
+    <button class="cancel-btn" onclick="closeModal()">${L('रद्द','Cancel')}</button>`;
+  openModal(html);
+}
+function _apprToggleOther(selId, otherId){
+  const sel = document.getElementById(selId);
+  const o = document.getElementById(otherId);
+  if(!sel||!o) return;
+  o.style.display = sel.value==='__other__' ? 'block' : 'none';
+  if(sel.value==='__other__') o.focus();
+}
+function _apprResolve(selId, otherId){
+  const sel = document.getElementById(selId);
+  if(!sel) return '';
+  if(sel.value==='__other__') return (document.getElementById(otherId)?.value||'').trim();
+  return (sel.value||'').trim();
+}
+
+async function confirmApproveMember(mobileKey){
+  const key = (typeof _normMobileKey==='function') ? _normMobileKey(mobileKey) : String(mobileKey||'').replace(/\D/g,'').slice(-10);
+  const err = document.getElementById('appr_err');
+  const showErr = (t)=>{ if(err){ err.style.display='block'; err.textContent=t; } else toast(t); };
+  const empCode = (document.getElementById('appr_empCode')?.value||'').trim();
+  const section = _apprResolve('appr_section','appr_section_other');
+  const machine = _apprResolve('appr_machine','appr_machine_other');
+  const resp = _apprResolve('appr_resp','appr_resp_other');
+  const desig = _apprResolve('appr_desig','appr_desig_other');
+  const woff = (document.getElementById('appr_woff')?.value||'SUN').toUpperCase().slice(0,3);
+  if(!empCode){ showErr(L('⚠️ Employee Code जरूरी है','⚠️ Employee Code is required')); return; }
+  if(!section){ showErr(L('⚠️ Section जरूरी है','⚠️ Section is required')); return; }
+  if(!machine){ showErr(L('⚠️ Machine जरूरी है','⚠️ Machine is required')); return; }
+
+  let u = null;
+  try{ u = await fbGet('mobileUsers/'+key); }catch(e){}
+  if(!u){ showErr('❌ Member not found'); return; }
+
+  // Duplicate emp code check
   try{
-    await fbUpdate('mobileUsers/'+mobile,{status:'approved',approvedAt:new Date().toISOString(),approvedBy:SESSION.name});
-    toast('✅ User approve हो गया!');
-    renderManagerApprovals();
-    renderMyTeamApprovals();
-  }catch(e){ toast('❌ Error: '+e.message); }
+    const clash = (getEmps()||[]).find(e => e && e.status!=='resigned' && e.empId && String(e.empId).trim().toUpperCase()===empCode.toUpperCase()
+      && _normMobileKey(e.phone||e.mobile||'')!==key);
+    if(clash){ showErr(L('⚠️ Emp Code पहले से है: ','⚠️ Emp Code already used by: ')+(clash.name||'')); return; }
+  }catch(e){}
+
+  const mgrId = (typeof _normMobileKey==='function')
+    ? _normMobileKey(SESSION.mobile||SESSION.uid||'')
+    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  const sec = section || machine || 'General';
+  const phone10 = key;
+
+  // Reuse existing employee by phone if any
+  let empId = null;
+  let existing = null;
+  try{
+    existing = (getEmps()||[]).find(e => e && _normMobileKey(e.phone||e.mobile||'')===phone10);
+    if(existing) empId = existing.id;
+  }catch(e){}
+  if(!empId) empId = 'e'+Date.now().toString(36);
+
+  const emp = {
+    id: empId,
+    name: String(u.name||'').toUpperCase(),
+    empId: empCode,
+    sec: sec,
+    section: section,
+    mc: machine,
+    machine: machine,
+    resp: resp || '',
+    responsibility: resp || '',
+    designation: desig || '',
+    woff: woff,
+    status: 'active',
+    phone: phone10,
+    mobile: phone10,
+    managerId: mgrId,
+    companyId: (typeof myCompanyId==='function' && myCompanyId()!=='ALL') ? myCompanyId() : (u.company||SESSION.companyId||'default'),
+    companyLabel: u.company || SESSION.company || '',
+    company: u.company || SESSION.company || '',
+    ms: Array(31).fill(''),
+    addedVia: 'member_approve',
+    addedAt: new Date().toISOString()
+  };
+
+  try{
+    if(typeof _ensureWriteAuth==='function') await _ensureWriteAuth();
+  }catch(e){}
+
+  try{
+    await fbUpdate('employees/'+empId, emp);
+  }catch(e){
+    try{ await fbSet('employees/'+empId, emp); }catch(e2){
+      showErr('❌ Roster save failed: '+(e2.message||e.message)); return;
+    }
+  }
+  // Update local cache so schedule sees them immediately
+  try{
+    if(!_cache.employees) _cache.employees = [];
+    const ix = _cache.employees.findIndex(e=>e && e.id===empId);
+    if(ix>=0) _cache.employees[ix] = Object.assign({}, _cache.employees[ix], emp);
+    else _cache.employees.push(emp);
+  }catch(e){}
+
+  try{
+    await fbUpdate('mobileUsers/'+key, {
+      status:'approved',
+      approvedAt: new Date().toISOString(),
+      approvedBy: SESSION.name||'Manager',
+      empCode: empCode,
+      empId: empCode,
+      empObjId: empId,
+      employeeId: empId,
+      managerId: mgrId,
+      section: section,
+      machine: machine,
+      responsibility: resp,
+      designation: desig,
+      woff: woff
+    });
+  }catch(e){ showErr('❌ Approve failed: '+e.message); return; }
+
+  try{
+    await fbPush('userNotifications/'+key, {
+      type:'member_approved',
+      title:'✅ Approved',
+      body:'Manager approved you and added you to the team schedule roster',
+      read:false, at: new Date().toISOString()
+    });
+  }catch(e){}
+
+  closeModal();
+  toast((typeof L==='function')?L('✅ Approve + Schedule roster में जोड़ दिया','✅ Approved and added to schedule roster'):'✅ Approved and added to schedule roster');
+  try{ renderMyTeamApprovals(); }catch(e){}
+  try{ renderManagerApprovals(); }catch(e){}
+  try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
+  try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+  try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+}
+
+async function approveMobileUser(mobile){
+  // Back-compat: open the onboarding modal instead of silent approve
+  return openApproveMemberModal(mobile);
 }
 
 async function rejectMobileUser(mobile,name){
@@ -14599,13 +14782,23 @@ function renderMyTeamApprovals(){
   if(!block||!el) return;
   if(SESSION.role!=='manager'){ block.style.display='none'; return; }
   block.style.display='block';
-  const myKey=(SESSION.mobile||'').replace('+91','').replace(/[^0-9]/g,'');
+  const myKey = (typeof _normMobileKey==='function')
+    ? _normMobileKey(SESSION.mobile||SESSION.uid||SESSION.phone||'')
+    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  const myIds = new Set([myKey, String(SESSION.uid||''), String(SESSION.empObjId||''), String(SESSION.mobile||'')].filter(Boolean).map(s=>{
+    try{ return (typeof _normMobileKey==='function') ? _normMobileKey(s) : String(s).replace(/\D/g,'').slice(-10); }catch(e){ return String(s); }
+  }));
   fbGet('mobileUsers').then(data=>{
-    if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending member नहीं</div>'; return; }
+    if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">No pending members</div>'; return; }
     const entries=Object.entries(data).filter(([k,v])=>{
       if(!v || v.status!=='pending' || v.role!=='member') return false;
-      const mid = (typeof _normMobileKey==='function') ? _normMobileKey(v.managerId||v.managerMobile||'') : String(v.managerId||'');
-      return mid && (mid===myKey || mid===_normMobileKey(myKey));
+      const midRaw = v.managerId||v.managerMobile||v.mgrId||'';
+      const mid = (typeof _normMobileKey==='function') ? _normMobileKey(midRaw) : String(midRaw).replace(/\D/g,'').slice(-10);
+      if(!mid) return false;
+      if(myIds.has(mid) || mid===myKey) return true;
+      // raw equality fallback (legacy keys)
+      if(String(midRaw)===String(SESSION.uid) || String(midRaw)===String(SESSION.empObjId)) return true;
+      return false;
     });
     if(!entries.length){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending member नहीं</div>'; return; }
     el.innerHTML=entries.map(([mobile,u])=>`
@@ -14619,7 +14812,7 @@ function renderMyTeamApprovals(){
           </div>
         </div>
         <div class="action-row">
-          <button class="act-btn approve" onclick="approveMobileUser('${mobile}')">✅ Approve</button>
+          <button class="act-btn approve" onclick="openApproveMemberModal('${mobile}')">✅ Approve</button>
           <button class="act-btn reject"  onclick="rejectMobileUser('${mobile}','${u.name}')">❌ Reject</button>
         </div>
       </div>`).join('');
@@ -23445,17 +23638,50 @@ function _showCoverageGapModal(monthKey, yr, mo, daysInMonth, report){
         background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-size:14px;font-weight:800;cursor:pointer">
         💡 ${L('Weekly Off बदलने का सुझाव','Suggest Weekly Off changes')}
       </button>
-      <button type="button" onclick="closeModal()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
+      <button type="button" onclick="_closeCoverageLayer()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
         background:var(--card);color:var(--muted2);font-size:13px;font-weight:700;cursor:pointer">${L('बंद करें','Close')}</button>
     </div>`;
   // stash report for suggestion step
   try{ window._lastCoverageReport = report; window._lastCoverageMonthKey = monthKey; }catch(e){}
-  openModal(html);
+  // CRITICAL: do NOT openModal() — that destroys the Schedule Builder and loses the grid.
+  // Show a layered overlay on top of the still-open builder instead.
+  _openCoverageLayer(html);
+}
+
+function _openCoverageLayer(innerHtml){
+  let ov = document.getElementById('coverageLayerOverlay');
+  if(!ov){
+    ov = document.createElement('div');
+    ov.id = 'coverageLayerOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(2,6,23,.72);display:flex;align-items:flex-end;justify-content:center;padding:12px;box-sizing:border-box;';
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `<div id="coverageLayerPanel" style="width:100%;max-width:520px;max-height:88dvh;overflow:auto;background:var(--bg2,#1e293b);border-radius:16px 16px 12px 12px;padding:16px 14px 18px;box-shadow:0 -8px 40px rgba(0,0,0,.45);color:var(--text,#f8fafc)">${innerHtml}</div>`;
+  ov.style.display = 'flex';
+  ov.onclick = (e)=>{ if(e.target === ov) _closeCoverageLayer(); };
+}
+
+function _closeCoverageLayer(){
+  const ov = document.getElementById('coverageLayerOverlay');
+  if(ov){ ov.style.display = 'none'; ov.innerHTML = ''; }
 }
 
 function _coverageSkipAndKeep(){
-  closeModal();
-  toast(L('⏭️ Coverage errors skip — Schedule जैसा है वैसा रखा','⏭️ Coverage errors skipped — schedule kept as is'));
+  // Keep generated schedule in the still-open builder — only close coverage layer
+  _closeCoverageLayer();
+  // Re-paint from _sbData in case anything was lost visually
+  try{
+    const sbTbody = document.getElementById('sb_tbody');
+    if(sbTbody && window._sbData){
+      Object.keys(_sbData).forEach(empId=>{
+        const sched = _sbData[empId];
+        if(!Array.isArray(sched)) return;
+        const cells = sbTbody.querySelectorAll(`[data-empid="${empId}"]`);
+        if(cells.length) _applyScheduleToGrid(empId, sched, cells, null, null, null);
+      });
+    }
+  }catch(e){ console.warn('skip repaint', e); }
+  toast(L('⏭️ Coverage errors skip — Schedule ग्रिड में बनी हुई है · Save दबाएँ','⏭️ Coverage skipped — schedule is on the grid · press Save'));
 }
 
 /**
@@ -23546,14 +23772,14 @@ function _coverageSuggestWeeklyOffs(monthKey, yr, mo, daysInMonth){
   });
 
   if(!suggestions.length){
-    openModal(`<div class="modal-handle"></div>
+    _openCoverageLayer(`<div class="modal-handle"></div>
       <div class="modal-title">💡 ${L('Weekly Off सुझाव','Weekly Off suggestions')}</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
         ${L('Weekly Off पहले से अलग-अलग हैं। Coverage gap शिफ्ट रोटेशन से हो सकता है — Schedule में मैन्युअल adjust करें, या Skip करें।','Weekly offs are already spread. Gap may be from shift rotation — adjust manually in Schedule, or Skip.')}
       </div>
       <button type="button" onclick="_coverageSkipAndKeep()" style="width:100%;padding:14px;border-radius:12px;border:none;
         background:linear-gradient(135deg,#64748b,#475569);color:#fff;font-weight:800;cursor:pointer">⏭️ ${L('Skip — Schedule रखें','Skip — keep schedule')}</button>
-      <button type="button" onclick="closeModal()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid var(--border2);
+      <button type="button" onclick="_closeCoverageLayer()" style="width:100%;margin-top:8px;padding:12px;border-radius:12px;border:1px solid var(--border2);
         background:var(--card);color:var(--muted2);font-weight:700;cursor:pointer">${L('बंद','Close')}</button>`);
     return;
   }
@@ -23574,7 +23800,7 @@ function _coverageSuggestWeeklyOffs(monthKey, yr, mo, daysInMonth){
       </div>
     </label>`).join('');
 
-  openModal(`<div class="modal-handle"></div>
+  _openCoverageLayer(`<div class="modal-handle"></div>
     <div class="modal-title">💡 ${L('Weekly Off बदलने का सुझाव','Suggested Weekly Off changes')}</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">
       ${L('एक ही दिन कई लोगों की छुट्टी होने से शिफ्ट खाली रह जाती है। नीचे सुझाए गए अलग-अलग Weekly Off चुनें — Apply पर employees अपडेट होंगे और Auto Schedule फिर चलेगा।','Same-day offs empty a shift. Select suggested offs below — Apply updates employees and re-runs Auto Schedule.')}
@@ -23589,7 +23815,7 @@ function _coverageSuggestWeeklyOffs(monthKey, yr, mo, daysInMonth){
         background:linear-gradient(135deg,#64748b,#475569);color:#fff;font-size:13px;font-weight:800;cursor:pointer">
         ⏭️ ${L('Skip — बिना बदले रखें','Skip — keep without changes')}
       </button>
-      <button type="button" onclick="closeModal()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
+      <button type="button" onclick="_closeCoverageLayer()" style="padding:12px;border-radius:12px;border:1px solid var(--border2);
         background:var(--card);color:var(--muted2);font-size:13px;font-weight:700;cursor:pointer">${L('रद्द','Cancel')}</button>
     </div>`);
 }
@@ -23602,7 +23828,7 @@ async function _coverageApplyWoffSuggestions(monthKey){
     toast(L('कोई सुझाव चुना नहीं','No suggestion selected'));
     return;
   }
-  closeModal();
+  _closeCoverageLayer();
   toast(L('Weekly Off अपडेट हो रहे हैं…','Updating Weekly Offs…'));
 
   let updated = 0;
@@ -23652,24 +23878,49 @@ async function _coverageApplyWoffSuggestions(monthKey){
 
 
 function _applyScheduleToGrid(empId, schedule, cells, empLeaves, yr, mo){
-  cells.forEach((cell, i) => {
-    const val = schedule[i] || '';
-    const dateStr = (yr && mo) ? `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}` : '';
+  // Always map by data-day (0-based month index) — never by NodeList order alone
+  const list = Array.from(cells || []);
+  list.forEach((cell) => {
+    const dayIdx = parseInt(cell.dataset.day, 10);
+    const i = Number.isFinite(dayIdx) ? dayIdx : list.indexOf(cell);
+    const val = (schedule && schedule[i] != null) ? String(schedule[i]) : '';
+    const dateStr = (yr && mo && i >= 0) ? `${yr}-${String(mo).padStart(2,'0')}-${String(i+1).padStart(2,'0')}` : '';
     const isLeaveProtected = empLeaves && dateStr && empLeaves.has(dateStr);
 
     cell.dataset.val = val;
     cell.className = 'shc ' + (val ? cellClass(val) : '');
-    cell.style.cssText = 'width:30px;height:28px;font-size:12px;font-weight:800;cursor:pointer;min-width:30px;max-width:30px;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center'
-      + (isLeaveProtected ? ';outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5)' : '');
+    // Prefer CSS classes for colours — only set size/layout inline
+    cell.style.width = '30px';
+    cell.style.height = '28px';
+    cell.style.minWidth = '30px';
+    cell.style.maxWidth = '30px';
+    cell.style.fontSize = '12px';
+    cell.style.fontWeight = '800';
+    cell.style.cursor = 'pointer';
+    cell.style.boxSizing = 'border-box';
+    cell.style.display = 'flex';
+    cell.style.alignItems = 'center';
+    cell.style.justifyContent = 'center';
+    cell.style.touchAction = 'none';
+    cell.style.userSelect = 'none';
+    if(isLeaveProtected){
+      cell.style.outline = '2px solid #f43f5e';
+      cell.style.borderRadius = '4px';
+      cell.style.boxShadow = '0 0 4px rgba(244,63,94,.5)';
+    } else {
+      cell.style.outline = '';
+      cell.style.boxShadow = '';
+    }
     cell.textContent = val ? cellDisp(val) : '—';
 
     if(isLeaveProtected){
-      // Make leave cells show confirmation before changing
       cell.onclick = function(){ _confirmLeaveOverride(this, empId, i, dateStr); };
+    } else {
+      cell.onclick = null;
     }
   });
-  // Store in _sbData memory
-  _sbData[empId] = [...schedule];
+  // Store in _sbData memory (full month array)
+  if(Array.isArray(schedule)) _sbData[empId] = [...schedule];
 }
 
 function _confirmLeaveOverride(cell, empId, dayIdx, dateStr){

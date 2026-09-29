@@ -1,8 +1,40 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.71)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.74)
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 
 Sections, machines, and staffing rules are driven by the **Manager’s Excel upload** — not hard-coded to any single factory or industry.
+
+## What's new in 2.4.74
+
+### Member approve → Schedule roster
+- On Manager **Approve**, a form asks for **Employee Code, Section, Machine, Responsibility, Designation, Weekly Off**.
+- Member is written to `employees` with `managerId` so they appear on **Create Schedule / Schedule** immediately (no separate Team add).
+- Member registration form: optional **Employee Code / Emp ID** under Manager select.
+
+## What's new in 2.4.73
+
+### Member login / registration
+- Manager dropdown stores **normalized 10-digit** phone as `managerId`.
+- Pending list for Manager matches with same normalization (fixes members registering but not appearing under Manager).
+- Member notify + approve paths use consistent phone keys; member gets in-app notice on approve.
+
+## What's new in 2.4.72
+
+### Auto Generate + Coverage Skip — schedule kept on grid
+- Coverage check no longer replaces the Schedule Builder modal (that wiped the generated grid).
+- **Skip errors — keep schedule** only closes the coverage layer; D/N/O stay on the grid. Press **Save**.
+- Grid paint uses `data-day` index so shifts map to the correct dates.
+
+### Create Schedule visibility
+- Stronger D/N/O colours in **light and dark** mode.
+- Desktop uses full viewport width/height for the builder.
+
+## What's new in 2.4.71b
+
+### Editable Excel fields — no hardcoded translation
+- **Responsibility / Designation / Machine / Section values** from Excel are shown **exactly as stored**.
+- Only fixed UI labels (chip titles: Responsibility, Designation, Section, Machine) use language switch.
+- Editing a value in Excel updates the UI in every language (no stale Hindi map).
 
 ## What's new in 2.4.71
 
