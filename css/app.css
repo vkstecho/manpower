@@ -2834,18 +2834,6 @@ body.sb-builder-open #sbToolbar {
   background: #0f172a !important;
   padding: 6px 0 8px !important;
 }
-body.sb-builder-open #sbDateHdrWrap {
-  flex-shrink: 0 !important;
-  position: sticky !important;
-  z-index: 18 !important;
-  background: #1e293b !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch;
-}
-body.sb-builder-open #sbDateHdr {
-  align-items: flex-end !important;
-}
 body.sb-builder-open #sbBodyScroll {
   flex: 1 1 auto !important;
   min-height: 0 !important;
@@ -2862,24 +2850,47 @@ body.sb-builder-open #sbFooterBar {
   border-top: 1px solid rgba(148,163,184,.2);
   padding-top: 10px !important;
 }
-/* Clearer cells & aligned columns */
+/* In-table thead: date row sticks inside body scroll — same columns as tbody */
+body.sb-builder-open #sb_thead {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 6 !important;
+}
+body.sb-builder-open #sb_thead th {
+  background: #1e293b !important;
+  box-sizing: border-box !important;
+}
+body.sb-builder-open #sbCornerHeader {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 7 !important;
+  background: #1e293b !important;
+}
+/* Day cells: ZERO horizontal padding so col width == header width */
+body.sb-builder-open #sbGridTable {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+  table-layout: fixed !important;
+}
+body.sb-builder-open #sb_tbody td {
+  padding: 0 !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+  vertical-align: middle !important;
+}
 body.sb-builder-open #sb_tbody .shc {
   font-size: 12px !important;
   font-weight: 800 !important;
-  width: 30px !important;
-  min-width: 30px !important;
-  max-width: 30px !important;
+  width: 100% !important;
+  max-width: 100% !important;
   height: 28px !important;
   box-sizing: border-box !important;
-}
-body.sb-builder-open #sb_tbody td {
-  padding: 2px !important;
-  box-sizing: border-box !important;
+  margin: 0 !important;
 }
 body.sb-builder-open .sb-date-col {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif !important;
 }
-/* Laptop / large screens: use full viewport, comfortable padding */
+/* Laptop: larger touch targets via ROW height only — do NOT change day col width (breaks align) */
 @media (min-width: 1024px) {
   body.sb-builder-open .overlay.open .modal,
   body.sb-builder-open .overlay.open .modal-box {
@@ -2889,38 +2900,17 @@ body.sb-builder-open .sb-date-col {
     font-size: 20px !important;
   }
   body.sb-builder-open #sb_tbody .shc {
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
     height: 30px !important;
     font-size: 13px !important;
   }
-  body.sb-builder-open .sb-date-col {
-    flex-basis: 32px !important;
-    width: 32px !important;
-    min-width: 32px !important;
-    max-width: 32px !important;
-  }
 }
-/* Phone: keep sticky controls; slightly tighter name column in landscape */
+/* Phone: keep sticky controls */
 @media (max-width: 640px) {
   body.sb-builder-open #sbStickyHeader .modal-title { font-size: 16px !important; }
   body.sb-builder-open #sbCellLegend { font-size: 11px !important; }
 }
 @media (max-height: 500px), (orientation: landscape) and (max-width: 900px) {
   body.sb-builder-open #sbStickyHeader .modal-title { font-size: 15px !important; }
-  body.sb-builder-open #sbCornerHeader {
-    flex: 0 0 88px !important;
-    width: 88px !important;
-    min-width: 88px !important;
-    max-width: 88px !important;
-  }
-  body.sb-builder-open #sbBodyScroll td[style*="min-width:100px"],
-  body.sb-builder-open #sbBodyScroll td[style*="min-width: 100px"] {
-    min-width: 88px !important;
-    width: 88px !important;
-    max-width: 88px !important;
-  }
 }
 
 /* Schedule admin actions — equal tiles, Reorder sits with Multi-Select */

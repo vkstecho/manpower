@@ -7142,42 +7142,69 @@ async function loadScheduleBuilder(){
     return String(a.name||'').localeCompare(String(b.name||''), undefined, {sensitivity:'base'});
   });
 
-  // Build grid — date header is a SEPARATE sticky row (table thead sticky breaks under overflow-x)
-  const _sbColW = 30; // must match body cell width for alignment
+  // Build grid — IN-TABLE sticky thead (same columns as body = pixel-perfect alignment on laptop)
+  const _sbColW = 30; // day column width (CSS must not override without matching)
   const _sbNameW = 100;
-  const headerDays = dayNums.map(d=>{
+  const headerDaysTh = dayNums.map(d=>{
     const dt = new Date(yr, mo-1, d);
     const dayIdx = d - 1;
     const dow = ['S','M','T','W','T','F','S'][dt.getDay()];
     const sun = dt.getDay()===0;
-    return `<div data-sb-date-col="${d}" class="sb-date-col" style="flex:0 0 ${_sbColW}px;width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;text-align:center;padding:4px 0 2px;font-size:12px;font-weight:900;color:${sun?'#f87171':'#e2e8f0'};line-height:1.15;font-family:system-ui,-apple-system,sans-serif">
+    return `<th data-sb-date-col="${d}" class="sb-date-col" style="width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;text-align:center;padding:4px 0 2px;margin:0;border:0;border-right:1px solid rgba(148,163,184,.12);font-size:12px;font-weight:900;color:${sun?'#f87171':'#e2e8f0'};line-height:1.15;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;vertical-align:bottom">
       <div style="font-size:13px;font-weight:900;letter-spacing:-0.02em">${d}</div>
       <div style="font-size:10px;font-weight:700;opacity:.9;margin-top:1px">${dow}</div>
       <button type="button" class="sb-col-cp" data-day="${dayIdx}" onclick="event.stopPropagation();_sbColBtnClick(${dayIdx})"
         title="Copy/Paste column" aria-label="Copy column" style="display:block;margin:3px auto 0;width:22px;height:18px;line-height:16px;padding:0;border-radius:4px;border:1px solid rgba(148,163,184,.45);background:rgba(30,41,59,.9);color:#cbd5e1;font-size:10px;font-weight:900;cursor:pointer">↓</button>
-    </div>`;
+    </th>`;
   }).join('');
 
   const rows = emps.map((emp,rowIdx) => {
     if(!emp || !emp.id) return '';
     // Ensure empSaved is always an array (Firebase converts arrays to objects)
-    let empSaved = saved[emp.id];
+    // Match getBaseShift lookup: emp.id, emp.empId, empCode (schedules may be keyed by code)
+    let empSaved = null;
+    if(saved){
+      if(emp.id && saved[emp.id] != null) empSaved = saved[emp.id];
+      else if(emp.empId && saved[String(emp.empId).trim()] != null) empSaved = saved[String(emp.empId).trim()];
+      else if(emp.empCode && saved[String(emp.empCode).trim()] != null) empSaved = saved[String(emp.empCode).trim()];
+      else if(emp.empId){
+        const code = String(emp.empId).trim().replace(/^0+/,'');
+        for(const k of Object.keys(saved)){
+          if(String(k).replace(/^0+/,'') === code){ empSaved = saved[k]; break; }
+        }
+      }
+    }
     if(empSaved && !Array.isArray(empSaved)){
       empSaved = Array.from({length: daysInMonth}, (_,i) => empSaved[i] || empSaved[String(i)] || '');
     }
     if(!empSaved) empSaved = Array(daysInMonth).fill('');
+    // Also merge any overrides already on calendar (getShift) so existing days show in builder
+    try{
+      for(let di=0; di<daysInMonth; di++){
+        if(empSaved[di]) continue;
+        const ds = `${yr}-${String(mo).padStart(2,'0')}-${String(di+1).padStart(2,'0')}`;
+        if(typeof getShift === 'function'){
+          const gs = getShift(emp, ds);
+          if(gs) empSaved[di] = gs;
+        }
+      }
+    }catch(e){}
     
     const empWoffDow = emp.woff ? (WOFF_DOW[emp.woff] ?? -1) : -1;
     
-    // Build approved leave dates for this employee in this month
+    // Build approved leave dates for this employee in this month (local YMD, match emp.id OR empCode)
     const empLeaves = new Set();
     try{
-      (getLeaves()||[]).filter(l => l && l.status === 'approved' && l.empId === emp.id && l.from && l.to).forEach(l => {
-        const fromD = new Date(l.from);
-        const toD = new Date(l.to);
+      const idSet = new Set([String(emp.id||''), String(emp.empId||''), String(emp.empCode||'')].filter(Boolean));
+      (getLeaves()||[]).filter(l => l && l.status === 'approved' && l.from && l.to && (
+        idSet.has(String(l.empId||'')) || idSet.has(String(l.empObjId||'')) || idSet.has(String(l.empCode||''))
+      )).forEach(l => {
+        const fromD = new Date(String(l.from).slice(0,10)+'T12:00:00');
+        const toD = new Date(String(l.to).slice(0,10)+'T12:00:00');
         if(isNaN(fromD.getTime()) || isNaN(toD.getTime())) return;
         for(let dd = new Date(fromD); dd <= toD; dd.setDate(dd.getDate() + 1)){
-          empLeaves.add(dd.toISOString().slice(0, 10));
+          const y=dd.getFullYear(), m=String(dd.getMonth()+1).padStart(2,'0'), da=String(dd.getDate()).padStart(2,'0');
+          empLeaves.add(y+'-'+m+'-'+da);
         }
       });
     }catch(leaveErr){ console.warn('Leave parse error for', emp.id, leaveErr); }
@@ -7200,8 +7227,8 @@ async function loadScheduleBuilder(){
       const isWoffDay = empWoffDow !== -1 && new Date(yr, mo-1, d).getDay() === empWoffDow;
       const leaveStyle = isLeaveDate ? 'outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5);' : '';
       const leaveClick = isLeaveDate ? ` onclick="_confirmLeaveOverride(this,'${emp.id}',${dayIdx},'${dateStr}')"` : '';
-      return `<td style="padding:0;width:30px;min-width:30px;max-width:30px;box-sizing:border-box;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
-        <div class="shc ${cls}" style="width:30px;height:28px;font-size:12px;font-weight:800;cursor:pointer;min-width:30px;max-width:30px;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
+      return `<td style="padding:0;margin:0;border:0;border-right:1px solid rgba(148,163,184,.06);width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
+        <div class="shc ${cls}" style="width:100%;height:28px;font-size:12px;font-weight:800;cursor:pointer;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
           data-empid="${emp.id}" data-day="${dayIdx}" data-row="${rowIdx}" data-val="${val}" data-isleave="${isLeaveDate?'1':'0'}">
           ${val ? cellDisp(val) : '—'}
         </div>
@@ -7209,11 +7236,11 @@ async function loadScheduleBuilder(){
     }).join('');
     const s = SEC[emp.sec] || {};
     return `<tr>
-      <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:2;min-width:100px;width:100px;max-width:100px;box-sizing:border-box;padding:4px 6px">
+      <td style="padding:3px 4px 3px 6px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;position:sticky;left:0;background:#0f172a;z-index:2;min-width:${_sbNameW}px;width:${_sbNameW}px;max-width:${_sbNameW}px;box-sizing:border-box;border:0;border-right:1px solid rgba(148,163,184,.15)">
         <div style="display:flex;align-items:center;gap:4px">
           <button type="button" class="sb-row-cp" data-row="${rowIdx}" onclick="event.stopPropagation();_sbRowBtnClick(${rowIdx})"
             title="C = Copy row · P = Paste row" style="flex-shrink:0;width:22px;height:28px;line-height:26px;padding:0;border-radius:6px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#94a3b8;font-size:10px;font-weight:900;cursor:pointer">C</button>
-          <div style="min-width:0">
+          <div style="min-width:0;overflow:hidden;text-overflow:ellipsis">
             <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${s.color||'#fff'};margin-right:3px"></span>${emp.name.split(' ')[0]}
             ${emp.woff?`<span style="font-size:9px;color:#fb923c;font-weight:700;display:block;margin-top:2px">${emp.woff} off</span>`:''}
           </div>
@@ -7228,8 +7255,10 @@ async function loadScheduleBuilder(){
     ? monthLabel
     : `${dayFrom}–${dayTo} ${monthLabel}`;
 
+  const totalTableW = _sbNameW + dayNums.length * _sbColW;
+
   openModal(`<div class="modal-handle"></div>
-    <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:6px">
+    <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:6px;flex-shrink:0">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div class="modal-title" style="margin:0;font-size:18px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
         <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
@@ -7251,15 +7280,19 @@ async function loadScheduleBuilder(){
       </div>
     </div>
     <div id="sbToolbar" style="display:none"></div>
-    <!-- Sticky date/day header (synced horizontal scroll with body) -->
-    <div id="sbDateHdrWrap" style="position:sticky;z-index:8;background:var(--bg);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;border:1px solid var(--border2);border-bottom:none;border-radius:8px 8px 0 0">
-      <div id="sbDateHdr" style="display:flex;align-items:stretch;background:#1e293b;min-width:max-content">
-        <div id="sbCornerHeader" style="position:sticky;left:0;z-index:4;flex:0 0 100px;width:100px;min-width:100px;max-width:100px;box-sizing:border-box;padding:6px 8px;font-size:12px;font-weight:900;color:#e2e8f0;background:#1e293b;display:flex;align-items:center;justify-content:center;box-shadow:2px 0 6px rgba(0,0,0,.35)">${(typeof L==='function')?L('कर्मचारी','Employee'):'Employee'}</div>
-        ${headerDays}
-      </div>
-    </div>
-    <div id="sbBodyScroll" style="flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;border:1px solid var(--border2);border-top:none;border-radius:0 0 8px 8px">
-      <table style="border-collapse:collapse;width:max-content;min-width:100%">
+    <!-- Single scroll container: thead + tbody share columns → no laptop misalignment -->
+    <div id="sbBodyScroll" style="flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;border:1px solid var(--border2);border-radius:8px">
+      <table id="sbGridTable" style="border-collapse:collapse;border-spacing:0;table-layout:fixed;width:${totalTableW}px;min-width:${totalTableW}px;max-width:${totalTableW}px">
+        <colgroup>
+          <col style="width:${_sbNameW}px">
+          ${dayNums.map(()=>`<col style="width:${_sbColW}px">`).join('')}
+        </colgroup>
+        <thead id="sb_thead" class="sb-thead-sticky" style="position:sticky;top:0;z-index:6">
+          <tr>
+            <th id="sbCornerHeader" style="position:sticky;left:0;z-index:7;width:${_sbNameW}px;min-width:${_sbNameW}px;max-width:${_sbNameW}px;box-sizing:border-box;padding:6px 8px;font-size:12px;font-weight:900;color:#e2e8f0;background:#1e293b;text-align:center;border:0;border-right:1px solid rgba(148,163,184,.15);box-shadow:2px 0 6px rgba(0,0,0,.35)">${(typeof L==='function')?L('कर्मचारी','Employee'):'Employee'}</th>
+            ${headerDaysTh}
+          </tr>
+        </thead>
         <tbody id="sb_tbody">${rows}</tbody>
       </table>
     </div>
@@ -7270,8 +7303,18 @@ async function loadScheduleBuilder(){
   try{ _sbLockLandscape(true); }catch(e){}
   setTimeout(initSBSelection, 50);
   setTimeout(_sbPositionStickyTableHeader, 60);
-  setTimeout(_sbSyncDateHdrScroll, 70);
   setTimeout(()=>{ try{ _sbRefreshRowColButtons(); }catch(e){} }, 80);
+  // Keep thead sticky under title bar height
+  setTimeout(()=>{
+    try{
+      const hdr = document.getElementById('sbStickyHeader');
+      const thead = document.getElementById('sb_thead');
+      if(hdr && thead){
+        // thead sticks at top of sbBodyScroll (not under page header)
+        thead.style.top = '0px';
+      }
+    }catch(e){}
+  }, 90);
   // Hint rotate if still portrait on phone
   try{
     if(window.matchMedia && window.matchMedia('(orientation: portrait) and (max-width: 900px)').matches){
@@ -7325,9 +7368,9 @@ function _sbSetCellValue(cell, val){
 }
 
 function _sbPositionStickyTableHeader(){
+  // Title + selection toolbar stick at top of modal; date thead sticks inside #sbBodyScroll
   const headerEl=document.getElementById('sbStickyHeader');
   const toolbarEl=document.getElementById('sbToolbar');
-  const dateHdrWrap=document.getElementById('sbDateHdrWrap');
   if(!headerEl) return;
   const headerH=headerEl.offsetHeight || 0;
   if(toolbarEl){
@@ -7336,35 +7379,13 @@ function _sbPositionStickyTableHeader(){
     toolbarEl.style.zIndex='9';
     toolbarEl.style.background='var(--bg)';
   }
-  const toolbarVisible = toolbarEl && toolbarEl.style.display!=='none' && toolbarEl.offsetHeight>0;
-  const toolbarH = toolbarVisible ? toolbarEl.offsetHeight : 0;
-  // Date/day row sticks just under title + selection toolbar
-  if(dateHdrWrap){
-    dateHdrWrap.style.position='sticky';
-    dateHdrWrap.style.top=(headerH + toolbarH)+'px';
-    dateHdrWrap.style.zIndex='8';
-  }
+  // thead is inside the table — sticky top:0 of body scroll is correct
+  const thead = document.getElementById('sb_thead');
+  if(thead){ thead.style.top = '0px'; thead.style.zIndex = '6'; }
 }
 
 function _sbSyncDateHdrScroll(){
-  const hdr = document.getElementById('sbDateHdrWrap');
-  const body = document.getElementById('sbBodyScroll');
-  if(!hdr || !body) return;
-  // hide duplicate scrollbar on header
-  hdr.style.scrollbarWidth = 'none';
-  if(hdr._sbSyncBound) return;
-  hdr._sbSyncBound = true;
-  let lock = false;
-  body.addEventListener('scroll', ()=>{
-    if(lock) return; lock = true;
-    hdr.scrollLeft = body.scrollLeft;
-    lock = false;
-  }, {passive:true});
-  hdr.addEventListener('scroll', ()=>{
-    if(lock) return; lock = true;
-    body.scrollLeft = hdr.scrollLeft;
-    lock = false;
-  }, {passive:true});
+  // No-op: date header is now in-table thead (#sb_thead) — single scroll, always aligned.
 }
 
 function initSBSelection(){
@@ -7893,9 +7914,53 @@ function autoGenSchedule(monthKey){
       return;
     }
 
-    // Seed last work shift from day BEFORE range start (skip O/L/blank walking back)
+    // ── Block rotation: same shift for all work days between Weekly Offs ──
+    // Pattern: [6 work days of D] [O] [6 work days of N] [O] [D]… (or A→C→B for 3-shift)
+    // Start shift from previous month/range history so continuity is correct.
     let lastInfo = findLastWorkShiftBeforeDate(emp, yr, mo, dayFrom, configShiftCodes);
     let lastWork = lastInfo.shift || rotationOrder[0];
+
+    // If the day immediately before range was still a work shift (mid-block), continue that shift
+    // until the next Weekly Off; otherwise start a NEW block with nextShiftAfter(lastWork).
+    let continueBlock = false;
+    try{
+      if(lastInfo && lastInfo.dateStr){
+        const prevD = new Date(yr, mo-1, dayFrom);
+        prevD.setDate(prevD.getDate() - 1);
+        const prevStr = prevD.getFullYear()+'-'+String(prevD.getMonth()+1).padStart(2,'0')+'-'+String(prevD.getDate()).padStart(2,'0');
+        // last work shift date equals day-before, or falls in the open work stretch before dayFrom
+        if(lastInfo.dateStr === prevStr) continueBlock = true;
+        else {
+          // walk forward from lastInfo.dateStr+1 to day before: only O/L/blank → new block
+          // if any work day in between without O boundary, still mid-cycle only if no O after lastWork
+          const parts = lastInfo.dateStr.split('-').map(Number);
+          let y=parts[0], m=parts[1], dd=parts[2]+1;
+          let hitO = false;
+          const endPrev = new Date(yr, mo-1, dayFrom);
+          endPrev.setDate(endPrev.getDate()-1);
+          while(true){
+            const cur = new Date(y, m-1, dd);
+            if(cur > endPrev) break;
+            const ds = y+'-'+String(m).padStart(2,'0')+'-'+String(dd).padStart(2,'0');
+            const dowP = cur.getDay();
+            if(woffDow !== -1 && dowP === woffDow){ hitO = true; break; }
+            // check stored shift if available
+            let shP = '';
+            try{
+              if(typeof getBaseShift==='function') shP = getBaseShift(emp, ds) || '';
+            }catch(e){}
+            if(configShiftCodes.includes(shP)){ /* still work */ }
+            dd++;
+            if(dd > new Date(y, m, 0).getDate()){ dd=1; m++; if(m>12){ m=1; y++; } }
+            if(y>yr+1) break;
+          }
+          continueBlock = !hitO && !!lastInfo.dateStr;
+        }
+      }
+    }catch(e){ continueBlock = false; }
+
+    // currentBlockShift: active code for the current 6-day work slot (null = need new block after O)
+    let currentBlockShift = continueBlock ? lastWork : null;
 
     for(let d = dayFrom; d <= dayTo; d++){
       const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -7906,37 +7971,42 @@ function autoGenSchedule(monthKey){
       if(empLeaves.has(dateStr) || existing === 'L'){
         schedule[d-1] = 'L';
         leaveProtected++;
+        // leave breaks mid-block continuity the same as a work gap but does not rotate
         continue;
       }
       if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)){
         schedule[d-1] = '';
         continue;
       }
-      // Preserve non-empty cells that user already set (unless they cleared first)
-      // After Clear, cells are empty so auto fills them.
+      // Preserve non-empty special codes (Ab, H, C/O…)
       if(existing && existing !== '—' && !configShiftCodes.includes(existing) && existing !== 'O' && existing !== 'G'){
-        // Keep special codes like Ab, H, C/O if already present
         preserved++;
         continue;
       }
-      // If cell still has a work shift or O from partial data and user did NOT clear —
-      // only fill empty cells so existing Oct 1–4 stay visible when opening range.
+      // Preserve existing work shift / O / G if user did not Clear first
       if(existing && (configShiftCodes.includes(existing) || existing === 'O' || existing === 'G')){
-        if(configShiftCodes.includes(existing)) lastWork = existing;
+        if(configShiftCodes.includes(existing)){
+          lastWork = existing;
+          currentBlockShift = existing;
+        }
+        if(existing === 'O') currentBlockShift = null; // next work day starts new block
         preserved++;
         continue;
       }
 
-      // Weekly off day → O (rotation continues from lastWork for next work day)
+      // Weekly off day → O; next work day starts a NEW block with rotated shift
       if(woffDow !== -1 && dow === woffDow){
         schedule[d-1] = 'O';
+        currentBlockShift = null;
         continue;
       }
 
-      // Working day: next shift after last work shift
-      const next = nextShiftAfter(lastWork);
-      schedule[d-1] = next;
-      lastWork = next;
+      // Working day: keep same shift for entire block between Weekly Offs
+      if(!currentBlockShift){
+        currentBlockShift = nextShiftAfter(lastWork);
+        lastWork = currentBlockShift;
+      }
+      schedule[d-1] = currentBlockShift;
     }
 
     _applyScheduleToGrid(emp.id, schedule, cells, empLeaves, yr, mo);

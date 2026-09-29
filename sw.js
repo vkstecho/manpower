@@ -3,13 +3,17 @@
    - Never deletes mp-integrity (session integrity token) on activate
    - Precaches all tab partials for offline section viewing
 */
-const CACHE = 'manpower-v2467';
+const CACHE = 'manpower-v281';
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 const PRECACHE = [
   './',
   './index.html',
   './css/app.css',
   './js/app.js',
+  './js/app-core.js',
+  './js/app-login.js',
+  './js/app-schedule.js',
+  './js/app-team.js',
   './js/firebase-init.js',
   './js/polyfill.js',
   './js/config.js',

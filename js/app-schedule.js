@@ -1469,7 +1469,7 @@ function renderScheduleLegend(emps, dates){
     }
     const time=(s.start&&s.end)?` ${s.start}–${s.end}`:'';
     const label = s.label || code;
-    html+=`<div class="leg"><span class="shc ${cellClass(code)}">${cellDisp(code)}</span>${label}${time}</div>`;
+    html+=`<div class="leg"><span class="shc ${cellClass(code)}" data-no-i18n="1">${cellDisp(code)}</span> ${label}${time}</div>`;
   });
   const statusLegs = [
     {code:'O', label:'छुट्टी', cls:'O'},

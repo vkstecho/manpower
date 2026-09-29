@@ -2216,14 +2216,18 @@ function _translateDOM(){
   const lang = (typeof _lang !== 'undefined') ? _lang : 'hi';
   const enToHi = (typeof _buildReverseDict === 'function') ? _buildReverseDict() : {};
 
-  // Also build reverse from multi-lang table (en/gu/ta/... → hi)
+  // Reverse map: never index 1–2 char values.
+  // Italian "A" (from Hindi "तक (To)") was matching the A-shift badge and
+  // rewriting it to English "To".
   const mlReverse = {};
   if(typeof _i18n_ML === 'object'){
     Object.keys(_i18n_ML).forEach(hi=>{
       const m = _i18n_ML[hi];
       if(!m) return;
       Object.keys(m).forEach(l=>{
-        if(m[l] && !mlReverse[m[l]]) mlReverse[m[l]] = hi;
+        const val = m[l];
+        if(!val || String(val).trim().length < 3) return;
+        if(!mlReverse[val]) mlReverse[val] = hi;
       });
     });
   }
@@ -2250,10 +2254,14 @@ function _translateDOM(){
 
   const SELECTOR = 'button, .chip, .nb, .submit-btn, .act-btn, .sched-admin-btn, .big-btn, .back-btn, label, h1, h2, h3, h4, .modal-title, .page-title, .empty-text, .stat-lbl, .sec-name, .lc-title, .lc-sub, .pc-nav-lbl, span, div, p, td, th, option';
   const nodes = document.querySelectorAll(SELECTOR);
+  const SHIFT_TOKEN = /^(A|B|C|D|N|O|L|G|GP|Ab|H|OD|HLF|½|CO|C\/O)$/;
   nodes.forEach(el => {
     if(el.children.length > 0) return;
+    if(el.classList && (el.classList.contains('shc') || el.classList.contains('ms-day-sh'))) return;
+    if(el.dataset && (el.dataset.noI18n === '1' || el.dataset.shift)) return;
     const current = (el.textContent || '').trim();
     if(!current) return;
+    if(SHIFT_TOKEN.test(current)) return;
 
     let hiOrig = el.dataset.i18nOrig;
     if(hiOrig){
