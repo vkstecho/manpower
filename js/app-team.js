@@ -7689,7 +7689,7 @@ function _sbHandleDoubleClick(cell){
 // AUTO SCHEDULE GENERATOR
 // Logic: Each employee gets weekly off on their woff day (every week).
 // Between off days: 6 working days alternating D ↔ N per block.
-// Manager (MGR sec) gets G (General) shift.
+// Manager / General-only employees get G between weekly offs (never D/N/A/B/C).
 // Starting shift is determined from last known D/N before the month.
 // ════════════════════════════════════════════════════════════════
 
@@ -7797,6 +7797,87 @@ function clearScheduleBuilderGrid(){
   toast((typeof L==='function')?L('🗑️ '+n+' cells क्लियर','🗑️ '+n+' cells cleared'):('🗑️ '+n+' cells cleared'));
 }
 
+
+/**
+ * True when this person must stay on General (G) only between weekly offs —
+ * never rotated into D/N/A/B/C.
+ * Detects: managers, employees whose existing/saved work shifts are G-only,
+ * or whose last work shift before the range was G.
+ */
+function _empIsGeneralOnly(emp, schedule, dayFrom, dayTo, yr, mo, configShiftCodes){
+  if(!emp) return false;
+  try{
+    if(emp.sec === 'MGR'
+      || emp.isTeamManager === true
+      || String(emp.accessLevel||'').toLowerCase()==='manager'
+      || String(emp.role||'').toLowerCase()==='manager'
+      || (typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp))){
+      return true;
+    }
+  }catch(e){}
+  // Explicit field on employee (if set)
+  try{
+    const fixed = String(emp.fixedShift || emp.defaultShift || emp.shiftType || emp.shift || '').trim().toUpperCase();
+    if(fixed === 'G' || fixed === 'GENERAL' || fixed === 'GEN') return true;
+  }catch(e){}
+
+  const rot = new Set((configShiftCodes || ['D','N']).map(String));
+  let gCount = 0, rotCount = 0;
+
+  // 1) Current month schedule array (builder / loaded)
+  if(Array.isArray(schedule)){
+    const from = Math.max(0, (dayFrom||1)-1);
+    const to = Math.min(schedule.length-1, (dayTo||schedule.length)-1);
+    for(let i = from; i <= to; i++){
+      const sh = String(schedule[i]||'').trim().toUpperCase();
+      if(!sh || sh === '—' || sh === 'O' || sh === 'L' || sh === 'H' || sh === 'AB' || sh === 'C/O' || sh === 'CO' || sh === 'HLF' || sh === 'OD') continue;
+      if(sh === 'G' || sh === 'GP') gCount++;
+      else if(rot.has(sh) || rot.has(schedule[i])) rotCount++;
+    }
+  }
+
+  // 2) Saved schedules: this month + previous month
+  try{
+    const fb = (typeof getSchedules==='function' ? getSchedules() : {}) || {};
+    const keys = [];
+    if(emp.id) keys.push(emp.id);
+    if(emp.empId) keys.push(String(emp.empId).trim());
+    const months = [
+      yr+'_'+String(mo).padStart(2,'0'),
+      (mo===1 ? (yr-1)+'_12' : yr+'_'+String(mo-1).padStart(2,'0'))
+    ];
+    months.forEach(mk=>{
+      const sched = fb[mk];
+      if(!sched) return;
+      let row = null;
+      for(const k of keys){ if(k && sched[k] != null){ row = sched[k]; break; } }
+      if(!row) return;
+      const len = Array.isArray(row) ? row.length : 31;
+      for(let i=0;i<len;i++){
+        const sh = String((Array.isArray(row)?row[i]:(row[i]!=null?row[i]:row[String(i)]))||'').trim().toUpperCase();
+        if(!sh || sh==='—' || sh==='O' || sh==='L' || sh==='H' || sh==='AB' || sh==='C/O' || sh==='CO') continue;
+        if(sh==='G' || sh==='GP') gCount++;
+        else if(rot.has(sh)) rotCount++;
+      }
+    });
+  }catch(e){}
+
+  // Pure G worker: has G and no D/N/A/B/C history
+  if(gCount > 0 && rotCount === 0) return true;
+
+  // Last work shift before range was G (include G in the search set)
+  try{
+    const codesWithG = ['G'].concat(configShiftCodes || ['D','N']);
+    const lastInfo = findLastWorkShiftBeforeDate(emp, yr, mo, dayFrom||1, codesWithG);
+    if(lastInfo && String(lastInfo.shift||'').toUpperCase() === 'G'){
+      // Only lock to G if they were not also on rotation recently
+      if(rotCount === 0) return true;
+    }
+  }catch(e){}
+
+  return false;
+}
+
 function autoGenSchedule(monthKey){
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
@@ -7900,13 +7981,22 @@ function autoGenSchedule(monthKey){
       return cell ? (cell.dataset.val || '') : '';
     });
 
-    // Manager: G on work days, O on weekly off, L protected
-    if(isMgrEmp){
+    // General-only (Manager OR person whose schedule is G): G on work days, O on weekly off
+    // Never put D/N/A/B/C on a G person.
+    const isGOnly = isMgrEmp || _empIsGeneralOnly(emp, schedule, dayFrom, dayTo, yr, mo, configShiftCodes);
+    if(isGOnly){
       for(let d = dayFrom; d <= dayTo; d++){
         const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const dow = new Date(yr, mo-1, d).getDay();
-        if(empLeaves.has(dateStr)){ schedule[d-1] = 'L'; leaveProtected++; continue; }
+        const existing = schedule[d-1] || '';
+        if(empLeaves.has(dateStr) || existing === 'L'){ schedule[d-1] = 'L'; leaveProtected++; continue; }
         if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)){ schedule[d-1] = ''; continue; }
+        // Keep special marks (Ab, H, C/O…) if already set
+        if(existing && existing !== '—' && existing !== 'G' && existing !== 'O'
+            && !configShiftCodes.includes(existing)){
+          preserved++;
+          continue;
+        }
         schedule[d-1] = (woffDow !== -1 && dow === woffDow) ? 'O' : 'G';
       }
       _applyScheduleToGrid(emp.id, schedule, cells, empLeaves, yr, mo);
@@ -8086,16 +8176,47 @@ function _buildCoverageReport(yr, mo, daysInMonth){
   const shiftCodes = (typeof getActiveRotationCodes==='function' ? getActiveRotationCodes() : ['D','N']);
   const S = shiftCodes.length || 2;
   const empsAll = (typeof getEmps==='function' ? getEmps() : []).filter(e => e && e.status !== 'resigned');
-  const kinds = [
+  const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+  const byField = (cfg.minByField && typeof cfg.minByField === 'object') ? cfg.minByField : {};
+
+  // Only dimensions toggled ON in Profile → minFieldActive (and that have min>0 values).
+  const fieldActive = (cfg.minFieldActive && typeof cfg.minFieldActive === 'object')
+    ? cfg.minFieldActive
+    : { section:true, machine:false, responsibility:false, designation:false };
+  const kinds = [];
+  const kindMeta = [
     {kind:'section', title: L('सेक्शन','Section')},
     {kind:'machine', title: L('मशीन','Machine')},
     {kind:'responsibility', title: L('ज़िम्मेदारी','Responsibility')},
     {kind:'designation', title: L('पद','Designation')}
   ];
-  const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
-  const byField = (cfg.minByField && typeof cfg.minByField === 'object') ? cfg.minByField : {};
+  kindMeta.forEach(meta=>{
+    const on = fieldActive[meta.kind];
+    // Default: section ON if never saved; machine/resp/designation only if explicitly true
+    const enabled = (meta.kind === 'section')
+      ? (on !== false)
+      : !!on;
+    if(!enabled) return;
+    const map = byField[meta.kind] || {};
+    const hasMin = Object.keys(map).some(k => Number(map[k]) > 0);
+    // Section: always include when ON (per-shift + mins). Others: only if at least one min>0
+    if(hasMin || meta.kind === 'section') kinds.push(meta);
+  });
+  if(!kinds.length){
+    // Nothing toggled — no min coverage errors
+    return { gaps: [], groupsChecked: 0, shiftCodes, S };
+  }
+
   const gaps = [];
   let groupsChecked = 0;
+
+  // Respect Schedule Builder visible range (partial month) — do not score empty days outside range
+  let dayFrom = 1, dayTo = daysInMonth;
+  try{
+    if(typeof window._sbDayFrom === 'number') dayFrom = Math.max(1, Math.min(daysInMonth, window._sbDayFrom));
+    if(typeof window._sbDayTo === 'number') dayTo = Math.max(1, Math.min(daysInMonth, window._sbDayTo));
+    if(dayFrom > dayTo){ const t=dayFrom; dayFrom=dayTo; dayTo=t; }
+  }catch(e){}
 
   const isMgr = (emp)=>{
     return emp.sec === 'MGR'
@@ -8105,9 +8226,14 @@ function _buildCoverageReport(yr, mo, daysInMonth){
       || (typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp));
   };
 
+  // G / General workers are present on site but are NOT D/N/A/B/C rotation slots
+  const isGeneralVal = (val)=>{
+    const v = String(val||'').trim().toUpperCase();
+    return v === 'G' || v === 'GP' || v === 'GENERAL';
+  };
+
   kinds.forEach(({kind, title})=>{
-    // Group non-manager employees
-    const map = new Map(); // key -> {label, members:[]}
+    const map = new Map();
     empsAll.forEach(emp=>{
       if(isMgr(emp)) return;
       const key = _empGroupKey(emp, kind);
@@ -8120,12 +8246,9 @@ function _buildCoverageReport(yr, mo, daysInMonth){
     map.forEach((g, key)=>{
       const N = g.members.length;
       if(N < 1) return;
-      // Skip aggregate / placeholder labels (not real machine/section names)
       const gl = String(g.label||'').trim().toLowerCase();
-      if(!gl || gl==='all' || gl==='सभी' || gl==='—' || gl==='-') return;
-      // Only enforce "one per shift" when group is large enough for all shifts
-      const enforcePerShift = N >= S;
-      // min staff from config (optional)
+      if(!gl || gl==='all' || gl==='सभी' || gl==='—' || gl==='-' || gl==='n/a' || gl==='na') return;
+
       let minReq = 0;
       try{
         const fmap = byField[kind] || {};
@@ -8138,26 +8261,39 @@ function _buildCoverageReport(yr, mo, daysInMonth){
         }
       }catch(e){}
 
-      // Skip tiny groups with no min and too few people to cover all shifts
+      // Per-shift "every code must have ≥1" only when group is large enough to
+      // support staggered blocks (≈ 2 people per shift). Block rotation intentionally
+      // keeps the same person on one shift for 6 days — small sections cannot fill
+      // every code every day without breaking that rule.
+      const enforcePerShift = N >= (S * 2);
+      // Still check min headcount if configured, even for small groups
       if(!enforcePerShift && minReq <= 0) return;
       groupsChecked++;
 
-      for(let d = 0; d < daysInMonth; d++){
+      for(let d = dayFrom - 1; d < dayTo; d++){
         const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d+1).padStart(2,'0')}`;
         const counts = {};
         shiftCodes.forEach(c => counts[c] = 0);
-        let available = 0; // people working (not O/L/blank)
+        let available = 0;      // on a rotation work shift (D/N/A/B/C…)
+        let generalOn = 0;      // G present (counts for min staff, not per-shift slots)
         let offOrLeave = 0;
+        let scheduledAny = 0;   // any non-blank cell
+
         g.members.forEach(emp=>{
-          // before joining
           if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return;
           const val = _sbCellVal(emp.id, d);
-          if(!val || val === 'O' || val === 'L' || val === 'AB' || val === 'H' || val === 'C/O' || val === 'CO'){
+          if(!val || val === '—' || val === '-'){ offOrLeave++; return; }
+          scheduledAny++;
+          const up = String(val).trim().toUpperCase();
+          if(up === 'O' || up === 'L' || up === 'AB' || up === 'H' || up === 'C/O' || up === 'CO' || up === 'HLF'){
             offOrLeave++;
             return;
           }
+          if(isGeneralVal(up)){
+            generalOn++;
+            return;
+          }
           available++;
-          // count toward shift codes (supports D+N etc.)
           let matched = false;
           if(typeof parseShiftWorkCodes==='function'){
             const codes = parseShiftWorkCodes(val);
@@ -8165,11 +8301,18 @@ function _buildCoverageReport(yr, mo, daysInMonth){
               if(counts[c] != null){ counts[c]++; matched = true; }
             });
           }
-          if(!matched && counts[val] != null) counts[val]++;
+          if(!matched && counts[up] != null) counts[up]++;
         });
 
+        // Skip days where nobody in the group has any schedule yet (partial fill / not generated)
+        if(scheduledAny === 0) return;
+
+        const headcount = available + generalOn; // bodies on site
         const emptyShifts = shiftCodes.filter(c => counts[c] === 0);
         const problems = [];
+
+        // empty_shift: only when group is big enough for staggered coverage AND
+        // enough people are working that day that a missing shift is a real imbalance
         if(enforcePerShift && available >= S && emptyShifts.length){
           problems.push({
             type: 'empty_shift',
@@ -8178,19 +8321,21 @@ function _buildCoverageReport(yr, mo, daysInMonth){
             available
           });
         }
-        if(enforcePerShift && available < S && N >= S){
-          // Not enough people working that day — likely weekly-off clash
+        // too_few_available: only for large groups where weekly-off clash leaves fewer
+        // rotation workers than number of shifts (G workers do not fill rotation slots)
+        if(enforcePerShift && available < S && N >= (S * 2) && headcount < S){
           problems.push({
             type: 'too_few_available',
-            available,
+            available: headcount,
             need: S,
             counts: {...counts}
           });
         }
-        if(minReq > 0 && available < minReq){
+        // Configured minimum manpower for this section/machine
+        if(minReq > 0 && headcount < minReq){
           problems.push({
             type: 'below_min',
-            available,
+            available: headcount,
             minReq,
             counts: {...counts}
           });
@@ -8199,7 +8344,7 @@ function _buildCoverageReport(yr, mo, daysInMonth){
           gaps.push({
             kind, kindTitle: title, groupKey: key, groupLabel: g.label,
             day: d+1, dateStr, N, S, members: g.members.map(e=>({id:e.id, name:e.name, woff:e.woff||''})),
-            problems, counts, available, offOrLeave
+            problems, counts, available: headcount, offOrLeave
           });
         }
       }

@@ -311,28 +311,25 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     code === 'auth/too-many-requests' ||
     code === 'auth/billing-not-enabled' ||
     code === 'auth/operation-not-allowed' ||
-    /quota|billing|too.?many|sms/i.test(code + ' ' + raw);
+    /quota|billing|too.?many|sms|rate.?limit/i.test(code + ' ' + raw);
   if(!isSmsBlocked) return;
 
   const mobile = String(mobile10||'').replace(/\D/g,'').slice(-10);
   if(mobile.length !== 10) return;
 
-  let userData = null;
-  try{ userData = await fbGet('mobileUsers/'+mobile); }catch(e){}
-  if(!userData || userData.status !== 'approved'){
-    // Unknown / unapproved mobile — still alert admin
-    try{
-      await notifyAdmin(
-        '⚠️ Login OTP failed (SMS blocked)',
-        'Mobile +91-'+mobile+' tried to login but SMS OTP failed ('+(code||'quota')+').'
-      );
-    }catch(e){}
-    toast('⚠️ SMS OTP unavailable. Admin has been notified — try again later.');
-    return;
-  }
+  // Must have auth for RTDB read/write under current rules
+  try{ await window._fbSignInAnon(); }catch(e){ console.warn('[otp-fallback] anon', e); }
 
-  const empObjId = userData.empObjId || userData.employeeId || '';
-  const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
+  let userData = null;
+  try{ userData = await fbGet('mobileUsers/'+mobile); }catch(e){ console.warn('[otp-fallback] mobileUsers', e); }
+
+  const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : ('web_'+Date.now());
+  const empObjId = (userData && (userData.empObjId || userData.employeeId)) || '';
+  const empName = (userData && userData.name) || ('+91-'+mobile);
+  const empId = (userData && (userData.empId || userData.empCode)) || '';
+  const role = (userData && userData.role) || 'member';
+  const approved = userData && userData.status === 'approved';
+
   let dRec = null;
   let otherDeviceActive = false;
   if(empObjId){
@@ -347,53 +344,46 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
 
   const emp = {
     id: empObjId || ('m_'+mobile),
-    empId: userData.empId || userData.empCode || '',
-    name: userData.name || '',
-    phone: mobile,
-    mobile: mobile,
-    role: userData.role || 'member'
+    empId, name: empName, phone: mobile, mobile: mobile, role
   };
 
-  // Always notify admin
+  // Always notify Admin (best-effort)
   try{
     await notifyAdmin(
-      '⚠️ Login needs approval (SMS OTP blocked)',
-      (emp.name||'User')+' · +91-'+mobile+' · role '+(emp.role||'')+
-      ' — SMS failed ('+(code||'quota')+').'+(otherDeviceActive?' Other device online.':'')
+      '⚠️ Login needs approval (SMS blocked)',
+      empName+' · +91-'+mobile+' · '+(role||'')+
+      ' — '+(code||'too-many-requests')+
+      (otherDeviceActive ? ' · other device online' : '')
     );
-  }catch(e){}
+  }catch(e){ console.warn('[otp-fallback] notifyAdmin', e); }
 
-  if(otherDeviceActive){
-    toast('📱 SMS OTP unavailable — request approval on your other device');
-    try{ await showOtherDeviceLoginRequest(emp, dRec, deviceId); }catch(e){
-      console.warn('[otp] showOtherDeviceLoginRequest', e);
-    }
-    // Also auto-send the notify so user does not have to tap twice
-    try{ setTimeout(()=>{ try{ sendOtherDeviceLoginRequest(); }catch(e){} }, 400); }catch(e){}
-    return;
-  }
-
-  // No other active device — still open a request + notify this user's notification inboxes
-  // so if they open any session / admin Pending they can approve
+  // Create login request + fan-out notifications
+  let reqKey = null;
   try{
-    try{ await window._fbSignInAnon(); }catch(e){}
-    const reqKey = await fbPush('loginRequests', {
-      type: 'otp_unavailable',
+    reqKey = await fbPush('loginRequests', {
+      type: otherDeviceActive ? 'device_transfer' : 'otp_unavailable',
       reason: code || 'sms_blocked',
       empObjId: emp.id,
       empId: emp.empId,
       empName: emp.name,
       mobile,
+      phone: mobile,
       deviceId,
       status: 'pending',
       requestedAt: new Date().toISOString(),
       fromDevice: deviceId,
-      note: 'SMS OTP unavailable — approve login without OTP'
+      note: 'SMS OTP blocked — approve login without OTP'
     });
+  }catch(e){
+    console.error('[otp-fallback] loginRequests write failed', e);
+    toast('⚠️ Cannot create login request — check Anonymous Auth is ON in Firebase');
+  }
+
+  if(reqKey){
     const notif = {
       type: 'device_login_request',
-      title: '📱 Login request (SMS OTP unavailable)',
-      body: (emp.name||'')+' wants to login. SMS quota/billing blocked OTP. Open Pending → Approve.',
+      title: '📱 Login request (SMS OTP blocked)',
+      body: empName+' wants to login. SMS limit reached. Open Pending → Approve.',
       empObjId: emp.id,
       empId: emp.empId,
       reqKey,
@@ -402,45 +392,59 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
       read: false,
       at: new Date().toISOString()
     };
-    const targets = new Set();
-    if(emp.id) targets.add(emp.id);
-    if(emp.empId) targets.add(emp.empId);
-    targets.add(mobile);
+    const targets = new Set([emp.id, emp.empId, mobile].filter(Boolean));
+    if(empObjId) targets.add(empObjId);
     for(const t of targets){
-      if(!t) continue;
       try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
     }
-    // Show waiting UI reusing other-device overlay shape
-    _odlCtx = { emp, dRec: dRec||{}, deviceId, reqKey, timer:null, poller:null };
-    let ov = document.getElementById('otherDeviceLoginOverlay');
-    if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
-    ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
-    ov.innerHTML=`
-      <div style="width:100%;max-width:400px;text-align:center">
-        <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP unavailable</div>
-        <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
-          Firebase SMS quota / limit reached.<br>
-          A <b style="color:#f97316">login request</b> was sent to <b style="color:#fff">Admin</b>
-          ${otherDeviceActive?' and your other device':''}.
-        </div>
-        <div id="odlStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:40px">
-          ⏳ Waiting for approval…<br>
-          Ask Admin (or your other logged-in device) to open <b style="color:#4ade80">Pending</b> and Approve.
-        </div>
-        <button onclick="closeOtherDeviceLogin()"
-          style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
-      </div>`;
-    ov.style.display='flex';
-    // Poll for approval
+  }
+
+  // Show waiting UI (always — even if writes partially failed)
+  _odlCtx = { emp, dRec: dRec||{}, deviceId, reqKey, timer:null, poller:null, userData: userData||null };
+  let ov = document.getElementById('otherDeviceLoginOverlay');
+  if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
+  const hasReq = !!reqKey;
+  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.innerHTML=`
+    <div style="width:100%;max-width:400px;text-align:center">
+      <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP blocked</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
+        Firebase rate-limit / quota reached for this number.<br>
+        ${hasReq
+          ? ('A <b style="color:#f97316">login request</b> was sent to <b style="color:#fff">Admin</b>'+(otherDeviceActive?' and your other device':'')+'.')
+          : 'Could not write request — enable <b>Anonymous Auth</b> in Firebase, then retry.'}
+      </div>
+      <div style="background:#1e293b;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
+        <div style="font-size:11px;color:#64748b;font-weight:800">ACCOUNT</div>
+        <div style="font-size:16px;font-weight:900;color:#f97316">${String(empName).replace(/</g,'')}</div>
+        <div style="font-size:12px;color:#94a3b8">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
+      </div>
+      <div id="odlStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:40px">
+        ${hasReq
+          ? '⏳ Waiting for approval…<br>On the other device / Admin app → <b style="color:#4ade80">Pending</b> → <b style="color:#4ade80">Approve</b>.'
+          : '⚠️ Fix Firebase Anonymous Auth, then tap Retry below.'}
+      </div>
+      <button type="button" onclick="closeOtherDeviceLogin();setTimeout(()=>{try{_sendOTP(false);}catch(e){}},200)"
+        style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
+        🔄 Retry OTP
+      </button>
+      <button type="button" onclick="closeOtherDeviceLogin()"
+        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+    </div>`;
+  ov.style.display='flex';
+
+  if(reqKey){
     if(window._odlPoller) clearInterval(window._odlPoller);
     _odlCtx.poller = setInterval(async ()=>{
       try{
         const rec = await fbGet('loginRequests/'+reqKey);
         if(rec && rec.status==='approved'){
           clearInterval(_odlCtx.poller);
-          const fullEmp = (typeof getEmps==='function' ? (getEmps()||[]) : []).find(e=>e && e.id===emp.id) || emp;
-          await doLoginAfterApproval(fullEmp, null, deviceId);
+          try{ await doLoginAfterApproval(emp, userData, deviceId); }catch(e){
+            console.error('[otp-fallback] doLoginAfterApproval', e);
+            toast('❌ Approval received but login failed: '+(e.message||e));
+          }
           closeOtherDeviceLogin();
         } else if(rec && (rec.status==='rejected'||rec.status==='cancelled')){
           clearInterval(_odlCtx.poller);
@@ -450,13 +454,73 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
       }catch(e){}
     }, 2500);
     window._odlPoller = _odlCtx.poller;
-    toast('✅ Request sent to Admin'+(empObjId?' / your devices':''));
-  }catch(e){
-    console.warn('[otp] quota fallback UI', e);
-    toast('⚠️ SMS blocked. Contact Admin to approve login.');
+    toast('✅ Approval request sent — waiting…');
   }
 }
-try{ window._fallbackLoginWhenOtpUnavailable = _fallbackLoginWhenOtpUnavailable; }catch(e){}
+
+/** Complete login after device/Admin approved a loginRequests row (no SMS OTP). */
+async function doLoginAfterApproval(emp, userData, deviceId){
+  const mobile = String((emp && (emp.phone||emp.mobile)) || (userData && (userData.phone||userData.mobile)) || '')
+    .replace(/\D/g,'').slice(-10);
+  if(!mobile || mobile.length!==10){
+    throw new Error('Mobile missing on approved request');
+  }
+  try{ await window._fbSignInAnon(); }catch(e){}
+
+  let ud = userData;
+  if(!ud || !ud.status){
+    try{ ud = await fbGet('mobileUsers/'+mobile); }catch(e){}
+  }
+  if(!ud){
+    // Build minimal record from emp if needed
+    ud = {
+      role: (emp && emp.role) || 'member',
+      name: (emp && emp.name) || '',
+      mobile: '+91'+mobile,
+      phone: mobile,
+      status: 'approved',
+      empId: (emp && emp.empId) || '',
+      empCode: (emp && emp.empId) || '',
+      empObjId: (emp && emp.id) || '',
+      employeeId: (emp && emp.id) || ''
+    };
+  }
+  if(ud.status && ud.status !== 'approved' && ud.status !== 'pending'){
+    throw new Error('Account status: '+ud.status);
+  }
+
+  const empObjId = ud.empObjId || ud.employeeId || (emp && emp.id) || '';
+  const devId = deviceId || (typeof getDeviceId==='function' ? getDeviceId() : '');
+  if(empObjId && devId){
+    try{
+      await fbUpdate('deviceApprovals/'+empObjId, {
+        approvedDeviceId: devId,
+        approvedAt: new Date().toISOString(),
+        validTill: new Date(Date.now()+365*86400000).toISOString(),
+        empName: ud.name||'',
+        empId: ud.empId||ud.empCode||'',
+        via: 'login_request_approval'
+      });
+    }catch(e){ console.warn('[doLoginAfterApproval] deviceApprovals', e); }
+  }
+
+  _loginMobile = '+91'+mobile;
+  try{ _markWriteAuthFromLogin(mobile); }catch(e){}
+  try{
+    localStorage.setItem('mp_device_phone', mobile);
+    localStorage.setItem('mp_device_verified_at', String(Date.now()));
+  }catch(e){}
+
+  toast('✅ Login approved — Welcome '+(ud.name||mobile));
+  if(typeof _launchAsNewUser === 'function'){
+    await _launchAsNewUser(ud);
+  } else {
+    throw new Error('Launch function missing');
+  }
+}
+try{ window._fallbackLoginWhenOtpUnavailable = _fallbackLoginWhenOtpUnavailable; window.doLoginAfterApproval = doLoginAfterApproval; }catch(e){}
+
+
 
 function _startResendTimer(){
   let sec=30;
@@ -2479,7 +2543,7 @@ function _fbOtpErrorMessage(err){
   const msg = (err && err.message) || String(err||'');
   if(code === 'auth/invalid-verification-code') return 'Wrong OTP — check SMS and try again';
   if(code === 'auth/code-expired') return 'OTP expired — request a new one';
-  if(code === 'auth/too-many-requests') return 'Too many attempts — wait a few minutes';
+  if(code === 'auth/too-many-requests') return 'Too many SMS attempts — opening device / Admin approval…';
   if(code === 'auth/network-request-failed') return 'Network error — check internet';
   if(code === 'auth/captcha-check-failed') return 'Security check failed — reload page and retry';
   if(code === 'auth/invalid-phone-number') return 'Invalid mobile number';
@@ -3687,8 +3751,14 @@ function _renderShiftSettingsModal(){
   if(d.minSlit==null) d.minSlit = 3;
   if(d.minSup==null) d.minSup = 2;
   if(!d.minBySec || typeof d.minBySec !== 'object') d.minBySec = {};
-  if(!d.minByField || typeof d.minByField !== 'object') d.minByField = { section:{}, machine:{}, responsibility:{} };
-  ['section','machine','responsibility'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
+  if(!d.minByField || typeof d.minByField !== 'object') d.minByField = { section:{}, machine:{}, responsibility:{}, designation:{} };
+  ['section','machine','responsibility','designation'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
+  if(!d.minFieldActive || typeof d.minFieldActive !== 'object'){
+    d.minFieldActive = { section:true, machine:false, responsibility:false, designation:false };
+  }
+  ['section','machine','responsibility','designation'].forEach(k=>{
+    if(d.minFieldActive[k] == null) d.minFieldActive[k] = (k === 'section');
+  });
   // Ensure each machine has an entry (default from group min) — legacy
   (d.metallisers||[]).forEach(m=>{ if(d.minBySec[m]==null) d.minBySec[m]=d.minMet; });
   (d.slitters||[]).forEach(m=>{ if(d.minBySec[m]==null) d.minBySec[m]=d.minSlit; });
@@ -3731,21 +3801,38 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Unticked codes are hidden everywhere on Schedule.
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 6px">📉 Minimum Staff — from your Team Excel</div>
+  <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 6px">📉 Minimum Staff — Auto Schedule &amp; warnings</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
-    Schedule red / ⚠️ uses <b>these values</b> when headcount is low.<br>
-    From <b>Section / Machine / Responsibility</b> on Team Excel. Empty → upload team Excel first.
+    Set min headcount per Excel value (e.g. Xsec, Yres). <b>0 = skip</b> that value.<br>
+    Toggle a type <b>OFF</b> so Auto Schedule does not use it for errors.<br>
+    Example: only Responsibility ON + min for Xres → only Xres gaps are reported.
   </div>
   <div style="margin-bottom:12px;max-width:160px">
-    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter)</div>
+    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter overview)</div>
     <input type="number" min="0" max="50" value="${d.minAll!=null?d.minAll:4}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minAll=Number(this.value)||0">
   </div>
-  <div style="font-size:11px;font-weight:800;color:#f97316;margin:8px 0 6px">Sections</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+    ${(()=>{
+      const labels={section:'Section',machine:'Machine',responsibility:'Responsibility',designation:'Designation'};
+      const colors={section:'#f97316',machine:'#38bdf8',responsibility:'#a78bfa',designation:'#4ade80'};
+      if(!_shiftDraft.minFieldActive) _shiftDraft.minFieldActive={section:true,machine:false,responsibility:false,designation:false};
+      return ['section','machine','responsibility','designation'].map(k=>{
+        const checked = !!_shiftDraft.minFieldActive[k];
+        const c = colors[k];
+        return '<label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1.5px solid '+(checked?c:'var(--border2)')+';background:'+(checked?c+'22':'var(--card)')+';cursor:pointer;font-size:12px;font-weight:800;color:'+(checked?c:'#94a3b8')+'">'+
+          '<input type="checkbox" '+(checked?'checked':'')+' style="width:16px;height:16px" onchange="if(!_shiftDraft.minFieldActive)_shiftDraft.minFieldActive={};_shiftDraft.minFieldActive.'+k+'=this.checked;const box=this.closest(\'label\');if(box){box.style.borderColor=this.checked?\''+c+'\':\'var(--border2)\';box.style.background=this.checked?\''+c+'22\':\'var(--card)\';box.style.color=this.checked?\''+c+'\':\'#94a3b8\';}"> '+
+          labels[k]+'</label>';
+      }).join('');
+    })()}
+  </div>
+  <div style="font-size:11px;font-weight:800;color:#f97316;margin:8px 0 6px">Sections <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minSections" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('section')}</div>
-  <div style="font-size:11px;font-weight:800;color:#38bdf8;margin:8px 0 6px">Machines</div>
+  <div style="font-size:11px;font-weight:800;color:#38bdf8;margin:8px 0 6px">Machines <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minMachines" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('machine')}</div>
-  <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility</div>
+  <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
+  <div style="font-size:11px;font-weight:800;color:#4ade80;margin:8px 0 6px">Designation <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
+  <div id="ss_minDesig" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('designation')}</div>
 
   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
     <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp templates (your team)</div>
@@ -3907,11 +3994,11 @@ function _renderDynamicMinRows(kind){
   }
   return vals.map(v=>{
     const cur = _shiftDraft.minByField[kind][v];
-    const n = (cur!=null)?cur:(_shiftDraft.minAll!=null?_shiftDraft.minAll:4);
+    const n = (cur!=null && cur!=='') ? (Number(cur)||0) : 0; // 0 = not enforced
     const esc = String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
     const keyEsc = String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<div><div style="font-size:10px;color:#94a3b8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc+'">'+esc+'</div>'+
-      '<input type="number" min="0" max="50" value="'+n+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" '+
+    return '<div><div style="font-size:10px;color:#94a3b8;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="'+esc+'">'+esc+(n>0?' <span style="color:#4ade80">· check</span>':' <span style="color:#64748b">· skip</span>')+'</div>'+
+      '<input type="number" min="0" max="50" value="'+n+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid '+(n>0?'rgba(74,222,128,.5)':'var(--border2)')+';background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" '+
       'oninput="if(!_shiftDraft.minByField) _shiftDraft.minByField={}; if(!_shiftDraft.minByField.'+kind+') _shiftDraft.minByField.'+kind+'={}; _shiftDraft.minByField.'+kind+'[\''+keyEsc+'\']=Number(this.value)||0"></div>';
   }).join('');
 }
@@ -3967,6 +4054,18 @@ async function _saveShiftSettings(){
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
   _shiftDraft.minSup = Number(_shiftDraft.minSup)||0;
+  if(!_shiftDraft.minFieldActive || typeof _shiftDraft.minFieldActive !== 'object'){
+    _shiftDraft.minFieldActive = { section:true, machine:false, responsibility:false, designation:false };
+  }
+  if(_shiftDraft.minFieldActive.designation == null) _shiftDraft.minFieldActive.designation = false;
+  if(_shiftDraft.minByField && typeof _shiftDraft.minByField === 'object'){
+    ['section','machine','responsibility','designation'].forEach(k=>{
+      if(!_shiftDraft.minByField[k]) _shiftDraft.minByField[k] = {};
+      Object.keys(_shiftDraft.minByField[k]).forEach(v=>{
+        _shiftDraft.minByField[k][v] = Math.max(0, Number(_shiftDraft.minByField[k][v])||0);
+      });
+    });
+  }
   // Derive legacy hide flags from ticks (compat); display uses active only
   const _act = (c)=> (_shiftDraft.shifts||[]).some(s=>String(s.code).toUpperCase()===c && s.active!==false);
   _shiftDraft.hideSummaryDN = !_act('D') && !_act('N');

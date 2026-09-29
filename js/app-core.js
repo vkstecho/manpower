@@ -1066,6 +1066,8 @@ function _defaultShiftConfig(){
     minSlit: 3,
     minSup: 2,
     minBySec: {},
+    minByField: { section:{}, machine:{}, responsibility:{}, designation:{} },
+    minFieldActive: { section:true, machine:false, responsibility:false, designation:false },
     hideSummaryDN: false,   // Profile: hide D & N count rows + legend
     hideSummaryABC: false,  // Profile: hide A, B, C count rows + legend
     // WhatsApp message when schedule is saved (placeholders: {name} {changes} {manager} {date})
@@ -1140,19 +1142,26 @@ function isPresentOnRoster(sh){
 }
 
 function getMinStaffForFilter(){
-  // Schedule red/⚠️ is linked ONLY to Profile → "Minimum Staff — from your Team Excel" (minByField)
+  // Profile → minByField + minFieldActive toggles control which mins apply
   const cfg = getShiftConfigSync();
   const n = (v, fallback) => {
     const x = Number(v);
     return (isFinite(x) && x >= 0) ? x : fallback;
   };
   const byField = (cfg.minByField && typeof cfg.minByField === 'object') ? cfg.minByField : {};
+  const active = (cfg.minFieldActive && typeof cfg.minFieldActive === 'object')
+    ? cfg.minFieldActive
+    : { section:true, machine:false, responsibility:false, designation:false };
+  const kindOn = (kind)=>{
+    if(kind === 'section') return active.section !== false;
+    return !!active[kind];
+  };
   const s = String(schedSec || 'ALL');
 
   const pickFieldMin = (kind, val) => {
+    if(!kindOn(kind)) return null;
     const map = byField[kind] || {};
     if(val != null && map[val] != null && isFinite(Number(map[val]))) return Math.max(0, Number(map[val]));
-    // case-insensitive key match
     const want = String(val||'').toLowerCase();
     for(const k of Object.keys(map)){
       if(String(k).toLowerCase()===want && isFinite(Number(map[k]))) return Math.max(0, Number(map[k]));
@@ -1163,29 +1172,39 @@ function getMinStaffForFilter(){
   if(s.startsWith('SEC:')){
     const m = pickFieldMin('section', s.slice(4));
     if(m != null) return m;
+    return 0; // type on but this value unset → no highlight
   }
   if(s.startsWith('MC:')){
     const m = pickFieldMin('machine', s.slice(3));
     if(m != null) return m;
+    return 0;
   }
   if(s.startsWith('RESP:')){
     const m = pickFieldMin('responsibility', s.slice(5));
     if(m != null) return m;
+    return 0;
   }
   if(s.startsWith('DESIG:')){
-    // designation has no min table — use lowest section default or 0
+    const m = pickFieldMin('designation', s.slice(6));
+    if(m != null) return m;
     return 0;
   }
 
-  // "All" / category overview: max of section mins, or default 4
+  // "All" / category: max among active field mins that are > 0
   if(s === 'ALL' || s.startsWith('CAT:')){
-    const secMap = byField.section || {};
-    const vals = Object.values(secMap).map(Number).filter(x => isFinite(x) && x >= 0);
+    const vals = [];
+    ['section','machine','responsibility','designation'].forEach(kind=>{
+      if(!kindOn(kind)) return;
+      const map = byField[kind] || {};
+      Object.values(map).forEach(x=>{
+        const num = Number(x);
+        if(isFinite(num) && num > 0) vals.push(num);
+      });
+    });
     if(vals.length) return Math.max(...vals);
-    return n(cfg.minAll, 4);
+    return n(cfg.minAll, 0);
   }
 
-  // Legacy exact sec code (e.g. M1) — try section then machine maps
   let m = pickFieldMin('section', s);
   if(m != null) return m;
   m = pickFieldMin('machine', s);
@@ -1193,7 +1212,7 @@ function getMinStaffForFilter(){
   m = pickFieldMin('section', String(s).replace(/-/g,''));
   if(m != null) return m;
 
-  return n(cfg.minAll, 4);
+  return n(cfg.minAll, 0);
 }
 
 function getShiftConfigSync(){
