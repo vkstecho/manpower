@@ -172,13 +172,14 @@ window.addEventListener('appinstalled', function () {
       <div id="loginMobileHint" style="font-size:12px;color:#cbd5e1;margin-bottom:8px;line-height:1.45">Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)</div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <div style="background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap">+91</div>
-        <input class="inp-field" type="tel" id="loginMobile" placeholder="10-digit Mobile Number"
-          inputmode="numeric" maxlength="10"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value)"
+        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number"
+          inputmode="numeric" maxlength="10" autocomplete="tel-national"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
           onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
-          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);_onMobileInput(this.value)},10)"
+          onchange="this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
+          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'},10)"
           onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()"
-          style="flex:1;font-size:18px;letter-spacing:2px">
+          style="flex:1;font-size:18px;letter-spacing:2px;color:#f8fafc;background:#1e3251;-webkit-text-fill-color:#f8fafc">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
       <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Send OTP &#128172;</button>

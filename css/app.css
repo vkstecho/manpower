@@ -2931,10 +2931,13 @@ body.sb-builder-open .sb-date-col {
   justify-content: center;
 }
 
-/* Keep invisible reCAPTCHA host off-screen / non-intrusive */
-#recaptcha-container,
-#recaptcha-container-device,
-#recaptcha-container-delall {
+/* Invisible reCAPTCHA host off-screen; visible (.rc-visible) must stay clickable */
+#recaptcha-container.rc-invisible,
+#recaptcha-container-device.rc-invisible,
+#recaptcha-container-delall.rc-invisible,
+#recaptcha-container:not(.rc-visible),
+#recaptcha-container-device:not(.rc-visible),
+#recaptcha-container-delall:not(.rc-visible) {
   position: fixed !important;
   left: -9999px !important;
   bottom: 0 !important;
@@ -2944,6 +2947,29 @@ body.sb-builder-open .sb-date-col {
   opacity: 0 !important;
   pointer-events: none !important;
   z-index: -1 !important;
+}
+#recaptcha-container.rc-visible,
+#recaptcha-container-device.rc-visible,
+#recaptcha-container-delall.rc-visible,
+#recaptcha-inline #recaptcha-container.rc-visible {
+  position: relative !important;
+  left: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 304px !important;
+  min-height: 78px !important;
+  overflow: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 5 !important;
+  transform: none !important;
+}
+#recaptcha-inline {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
 
 /* ══ UI refinements — schedule toolbar, filters, hierarchy ══ */
@@ -4642,4 +4668,77 @@ body.sb-builder-open #sbBodyScroll {
 body.light #coverageLayerPanel {
   background: #ffffff !important;
   color: #0f172a !important;
+}
+
+
+/* ══ Admin toolbar collapse on schedule scroll ══ */
+#schedAdminRow.sched-admin-toolbar,
+#schedAdminRow.sched-admin-row {
+  transition: max-height 0.28s ease, opacity 0.22s ease, margin 0.28s ease, padding 0.28s ease, transform 0.28s ease;
+  max-height: 220px;
+  opacity: 1;
+  overflow: hidden;
+  transform: translateY(0);
+}
+#schedAdminRow.sched-admin-collapsed {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  border: none !important;
+  pointer-events: none !important;
+  transform: translateY(-6px);
+  /* keep display so we don't fight _updateSchedAdminVisibility (flex/grid) */
+}
+
+
+/* ══ Login mobile: force readable text after browser autocomplete / suggestion ══ */
+#loginScreen .inp-field,
+#loginScreen input.inp-field,
+#loginScreen #loginMobile,
+#loginScreen #otpInput {
+  background-color: #1e3251 !important;
+  background: #1e3251 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  border-color: rgba(148,163,184,.45) !important;
+}
+#loginScreen .inp-field:focus,
+#loginScreen #loginMobile:focus,
+#loginScreen #otpInput:focus {
+  background-color: #1e3251 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  border-color: #f97316 !important;
+}
+/* Chrome / Edge / Safari autofill & autocomplete selection */
+#loginScreen .inp-field:-webkit-autofill,
+#loginScreen .inp-field:-webkit-autofill:hover,
+#loginScreen .inp-field:-webkit-autofill:focus,
+#loginScreen .inp-field:-webkit-autofill:active,
+#loginScreen #loginMobile:-webkit-autofill,
+#loginScreen #loginMobile:-webkit-autofill:hover,
+#loginScreen #loginMobile:-webkit-autofill:focus,
+#loginScreen #loginMobile:-webkit-autofill:active,
+#loginScreen #otpInput:-webkit-autofill,
+#loginScreen #otpInput:-webkit-autofill:hover,
+#loginScreen #otpInput:-webkit-autofill:focus {
+  -webkit-text-fill-color: #f8fafc !important;
+  color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  border-color: rgba(249,115,22,.7) !important;
+  -webkit-box-shadow: 0 0 0 1000px #1e3251 inset !important;
+  box-shadow: 0 0 0 1000px #1e3251 inset !important;
+  transition: background-color 99999s ease-out 0s, color 99999s ease-out 0s;
+  background-color: #1e3251 !important;
+}
+/* Firefox autocomplete */
+#loginScreen .inp-field:-moz-autofill,
+#loginScreen #loginMobile:-moz-autofill {
+  filter: none !important;
+  background-color: #1e3251 !important;
+  color: #f8fafc !important;
 }

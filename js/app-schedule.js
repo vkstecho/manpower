@@ -839,6 +839,69 @@ if(window.visualViewport){
 }
 document.addEventListener('DOMContentLoaded', syncStickyTop);
 setTimeout(syncStickyTop, 500);
+
+// ════════════════════════════════════════
+// ADMIN TOOLBAR: hide Create/Upload/Print/Excel while scrolling schedule
+// ════════════════════════════════════════
+let _schedAdminCollapsed = false;
+let _schedAdminLastScrollY = 0;
+let _schedAdminBound = false;
+
+function _setSchedAdminCollapsed(hide){
+  const row = document.getElementById('schedAdminRow');
+  if(!row) return;
+  // Only collapse when the row is actually shown for editors
+  if(row.style.display === 'none') return;
+  const want = !!hide;
+  if(want === _schedAdminCollapsed && row.classList.contains('sched-admin-collapsed') === want) return;
+  _schedAdminCollapsed = want;
+  if(want) row.classList.add('sched-admin-collapsed');
+  else row.classList.remove('sched-admin-collapsed');
+  // Recalc sticky tops after height change
+  try{ setTimeout(syncStickyTop, 60); }catch(e){}
+}
+
+function _onSchedContentScroll(e){
+  try{
+    const tab = document.getElementById('tab-schedule');
+    if(!tab || !tab.classList.contains('on')) return;
+    const t = e && e.currentTarget ? e.currentTarget : null;
+    let scrollTop = 0;
+    if(t && typeof t.scrollTop === 'number') scrollTop = t.scrollTop;
+    else scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+
+    // Hide once user has scrolled into the grid; show again near the top
+    if(scrollTop > 48){
+      _setSchedAdminCollapsed(true);
+    } else if(scrollTop <= 12){
+      _setSchedAdminCollapsed(false);
+    }
+    _schedAdminLastScrollY = scrollTop;
+  }catch(err){}
+}
+
+function _bindSchedAdminScrollCollapse(){
+  if(_schedAdminBound) return;
+  _schedAdminBound = true;
+  const wrap = document.getElementById('schedWrap');
+  if(wrap){
+    wrap.addEventListener('scroll', _onSchedContentScroll, {passive:true});
+  }
+  // Also react to page/body scroll (some layouts scroll the document, not only #schedWrap)
+  window.addEventListener('scroll', _onSchedContentScroll, {passive:true});
+  document.addEventListener('scroll', _onSchedContentScroll, {passive:true, capture:true});
+}
+
+function _resetSchedAdminCollapse(){
+  _schedAdminCollapsed = false;
+  const row = document.getElementById('schedAdminRow');
+  if(row) row.classList.remove('sched-admin-collapsed');
+}
+
+try{ _bindSchedAdminScrollCollapse(); }catch(e){}
+document.addEventListener('DOMContentLoaded', ()=>{ try{ _bindSchedAdminScrollCollapse(); }catch(e){} });
+try{ window._setSchedAdminCollapsed = _setSchedAdminCollapsed; window._resetSchedAdminCollapse = _resetSchedAdminCollapse; }catch(e){}
+
 // ════════════════════════════════════════
 // MULTI-CELL SELECTION (drag or tap-select)
 // ════════════════════════════════════════
@@ -2213,6 +2276,7 @@ function renderSchedule(){
     }
     _alignSchedColumns();
     syncStickyTop();
+    try{ _bindSchedAdminScrollCollapse(); }catch(e){}
     // Second pass after fonts/layout settle
     requestAnimationFrame(()=>{ _alignSchedColumns(); syncStickyTop(); });
     setTimeout(()=>{ _alignSchedColumns(); syncStickyTop(); }, 200);

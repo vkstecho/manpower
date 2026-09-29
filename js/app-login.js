@@ -288,8 +288,175 @@ async function _sendOTP(isResend){
     console.error('OTP error:',err);
     const msg = '❌ '+_fbOtpErrorMessage(err);
     if(errEl) errEl.textContent=msg; toast(msg);
+    // SMS quota / rate-limit / billing down → fall back to device notify or admin
+    try{
+      await _fallbackLoginWhenOtpUnavailable(mobile, err);
+    }catch(fbErr){
+      console.warn('[otp] fallback notify failed', fbErr);
+    }
   }
 }
+
+/**
+ * When Firebase SMS cannot be sent (quota, billing, too-many-requests),
+ * offer the same path as other-device login:
+ *  1) Notify already-logged-in device of this manager/member (if any)
+ *  2) Always notify Admin so they can help
+ */
+async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
+  const code = (err && err.code) || '';
+  const raw = String((err && err.message) || err || '');
+  const isSmsBlocked =
+    code === 'auth/quota-exceeded' ||
+    code === 'auth/too-many-requests' ||
+    code === 'auth/billing-not-enabled' ||
+    code === 'auth/operation-not-allowed' ||
+    /quota|billing|too.?many|sms/i.test(code + ' ' + raw);
+  if(!isSmsBlocked) return;
+
+  const mobile = String(mobile10||'').replace(/\D/g,'').slice(-10);
+  if(mobile.length !== 10) return;
+
+  let userData = null;
+  try{ userData = await fbGet('mobileUsers/'+mobile); }catch(e){}
+  if(!userData || userData.status !== 'approved'){
+    // Unknown / unapproved mobile — still alert admin
+    try{
+      await notifyAdmin(
+        '⚠️ Login OTP failed (SMS blocked)',
+        'Mobile +91-'+mobile+' tried to login but SMS OTP failed ('+(code||'quota')+').'
+      );
+    }catch(e){}
+    toast('⚠️ SMS OTP unavailable. Admin has been notified — try again later.');
+    return;
+  }
+
+  const empObjId = userData.empObjId || userData.employeeId || '';
+  const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
+  let dRec = null;
+  let otherDeviceActive = false;
+  if(empObjId){
+    try{
+      dRec = await fbGet('deviceApprovals/'+empObjId);
+      if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
+          && dRec.validTill && new Date(dRec.validTill) > new Date()){
+        otherDeviceActive = true;
+      }
+    }catch(e){}
+  }
+
+  const emp = {
+    id: empObjId || ('m_'+mobile),
+    empId: userData.empId || userData.empCode || '',
+    name: userData.name || '',
+    phone: mobile,
+    mobile: mobile,
+    role: userData.role || 'member'
+  };
+
+  // Always notify admin
+  try{
+    await notifyAdmin(
+      '⚠️ Login needs approval (SMS OTP blocked)',
+      (emp.name||'User')+' · +91-'+mobile+' · role '+(emp.role||'')+
+      ' — SMS failed ('+(code||'quota')+').'+(otherDeviceActive?' Other device online.':'')
+    );
+  }catch(e){}
+
+  if(otherDeviceActive){
+    toast('📱 SMS OTP unavailable — request approval on your other device');
+    try{ await showOtherDeviceLoginRequest(emp, dRec, deviceId); }catch(e){
+      console.warn('[otp] showOtherDeviceLoginRequest', e);
+    }
+    // Also auto-send the notify so user does not have to tap twice
+    try{ setTimeout(()=>{ try{ sendOtherDeviceLoginRequest(); }catch(e){} }, 400); }catch(e){}
+    return;
+  }
+
+  // No other active device — still open a request + notify this user's notification inboxes
+  // so if they open any session / admin Pending they can approve
+  try{
+    try{ await window._fbSignInAnon(); }catch(e){}
+    const reqKey = await fbPush('loginRequests', {
+      type: 'otp_unavailable',
+      reason: code || 'sms_blocked',
+      empObjId: emp.id,
+      empId: emp.empId,
+      empName: emp.name,
+      mobile,
+      deviceId,
+      status: 'pending',
+      requestedAt: new Date().toISOString(),
+      fromDevice: deviceId,
+      note: 'SMS OTP unavailable — approve login without OTP'
+    });
+    const notif = {
+      type: 'device_login_request',
+      title: '📱 Login request (SMS OTP unavailable)',
+      body: (emp.name||'')+' wants to login. SMS quota/billing blocked OTP. Open Pending → Approve.',
+      empObjId: emp.id,
+      empId: emp.empId,
+      reqKey,
+      deviceId,
+      mobile,
+      read: false,
+      at: new Date().toISOString()
+    };
+    const targets = new Set();
+    if(emp.id) targets.add(emp.id);
+    if(emp.empId) targets.add(emp.empId);
+    targets.add(mobile);
+    for(const t of targets){
+      if(!t) continue;
+      try{ await fbPush('userNotifications/'+t, notif); }catch(e){}
+    }
+    // Show waiting UI reusing other-device overlay shape
+    _odlCtx = { emp, dRec: dRec||{}, deviceId, reqKey, timer:null, poller:null };
+    let ov = document.getElementById('otherDeviceLoginOverlay');
+    if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
+    ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+    ov.innerHTML=`
+      <div style="width:100%;max-width:400px;text-align:center">
+        <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP unavailable</div>
+        <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
+          Firebase SMS quota / limit reached.<br>
+          A <b style="color:#f97316">login request</b> was sent to <b style="color:#fff">Admin</b>
+          ${otherDeviceActive?' and your other device':''}.
+        </div>
+        <div id="odlStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:40px">
+          ⏳ Waiting for approval…<br>
+          Ask Admin (or your other logged-in device) to open <b style="color:#4ade80">Pending</b> and Approve.
+        </div>
+        <button onclick="closeOtherDeviceLogin()"
+          style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+      </div>`;
+    ov.style.display='flex';
+    // Poll for approval
+    if(window._odlPoller) clearInterval(window._odlPoller);
+    _odlCtx.poller = setInterval(async ()=>{
+      try{
+        const rec = await fbGet('loginRequests/'+reqKey);
+        if(rec && rec.status==='approved'){
+          clearInterval(_odlCtx.poller);
+          const fullEmp = (typeof getEmps==='function' ? (getEmps()||[]) : []).find(e=>e && e.id===emp.id) || emp;
+          await doLoginAfterApproval(fullEmp, null, deviceId);
+          closeOtherDeviceLogin();
+        } else if(rec && (rec.status==='rejected'||rec.status==='cancelled')){
+          clearInterval(_odlCtx.poller);
+          const st = document.getElementById('odlStatus');
+          if(st) st.innerHTML='❌ Request was rejected. Contact Admin.';
+        }
+      }catch(e){}
+    }, 2500);
+    window._odlPoller = _odlCtx.poller;
+    toast('✅ Request sent to Admin'+(empObjId?' / your devices':''));
+  }catch(e){
+    console.warn('[otp] quota fallback UI', e);
+    toast('⚠️ SMS blocked. Contact Admin to approve login.');
+  }
+}
+try{ window._fallbackLoginWhenOtpUnavailable = _fallbackLoginWhenOtpUnavailable; }catch(e){}
 
 function _startResendTimer(){
   let sec=30;
@@ -1649,14 +1816,20 @@ async function renderDeviceTransferRequests(){
     const mid = SESSION.empObjId || SESSION.uid || '';
     const myEmpId = SESSION.empId || '';
     const myMob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    const isAdm = (typeof isAdmin==='function' && isAdmin()) || SESSION.role==='admin';
+    const isMgrRole = (typeof isMgr==='function' && isMgr()) || SESSION.role==='manager';
     const mine = Object.entries(data).filter(([k,v])=>{
       if(!v || v.status!=='pending') return false;
-      if(v.type==='device_transfer'){
-        return v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId ||
+      if(v.type==='device_transfer' || v.type==='otp_unavailable'){
+        // Own request visible on already-logged-in device
+        const own = v.empObjId===mid || v.empId===myEmpId || v.empObjId===SESSION.empObjId ||
           (myMob && (_normMobileKey(v.phone||'')===myMob || _normMobileKey(v.mobile||'')===myMob));
+        // Admin sees all otp_unavailable / device transfer for support when SMS blocked
+        if(v.type==='otp_unavailable' && isAdm) return true;
+        return own;
       }
       // Manager sees ONLY their team's login approvals (managerId match — not same company)
-      if(v.type==='manager_login_approval' && (typeof isMgr==='function' && isMgr() || SESSION.role==='manager' || typeof isAdmin==='function' && isAdmin())){
+      if(v.type==='manager_login_approval' && (isMgrRole || isAdm)){
         return _isMyTeamLoginRequest(v);
       }
       return false;
@@ -1666,10 +1839,13 @@ async function renderDeviceTransferRequests(){
     host.innerHTML = `<div style="font-size:13px;font-weight:900;color:#f97316;margin:10px 0 8px">📱 Login / Device requests</div>` +
       mine.map(([k,v])=>{
         const isMgrAppr = v.type==='manager_login_approval';
-        const name = (v.empName||v.phone||'Member').replace(/</g,'');
+        const isOtpUnavail = v.type==='otp_unavailable';
+        const name = (v.empName||v.phone||v.mobile||'Member').replace(/</g,'');
         const sub = isMgrAppr
           ? ('Member login approval'+(v.phone?' · 📱 '+String(v.phone).replace(/</g,''):''))
-          : ('New device wants to login');
+          : (isOtpUnavail
+            ? ('SMS OTP blocked — approve login'+(v.mobile?' · +91-'+String(v.mobile).replace(/</g,''):''))
+            : ('New device wants to login'));
         const approveFn = isMgrAppr
           ? `approveManagerLoginRequest('${k}')`
           : `approveDeviceTransfer('${k}','${v.deviceId||''}')`;
@@ -1692,15 +1868,29 @@ async function renderDeviceTransferRequests(){
 
 async function approveDeviceTransfer(reqKey, newDeviceId){
   try{
-    await fbUpdate('loginRequests/'+reqKey, { status:'approved', approvedAt:new Date().toISOString(), approvedBy:SESSION.name||'self' });
-    await fbUpdate('deviceApprovals/'+SESSION.empObjId, {
-      approvedDeviceId: newDeviceId,
+    let req = null;
+    try{ req = await fbGet('loginRequests/'+reqKey); }catch(e){}
+    const targetEmpId = (req && (req.empObjId||req.employeeId)) || SESSION.empObjId;
+    const targetName = (req && req.empName) || SESSION.name;
+    const targetCode = (req && req.empId) || SESSION.empId;
+    const devId = newDeviceId || (req && req.deviceId) || '';
+    await fbUpdate('loginRequests/'+reqKey, {
+      status:'approved',
       approvedAt: new Date().toISOString(),
-      validTill: new Date(Date.now()+365*86400000).toISOString(),
-      empName: SESSION.name, empId: SESSION.empId,
-      transferredFrom: getDeviceId()
+      approvedBy: SESSION.name||'self'
     });
-    toast('✅ Other device approved — they can login now');
+    if(targetEmpId && devId){
+      await fbUpdate('deviceApprovals/'+targetEmpId, {
+        approvedDeviceId: devId,
+        approvedAt: new Date().toISOString(),
+        validTill: new Date(Date.now()+365*86400000).toISOString(),
+        empName: targetName,
+        empId: targetCode,
+        transferredFrom: (typeof getDeviceId==='function'?getDeviceId():''),
+        approvedVia: (req && req.type) || 'device_transfer'
+      });
+    }
+    toast('✅ Login approved — they can continue now');
     renderDeviceTransferRequests();
   }catch(e){ toast('❌ '+e.message); }
 }
@@ -2128,16 +2318,41 @@ function _fbPhoneAuthReady(){
   return !!(window._fbAuth && window._fbRecaptchaVerifierClass && window._fbSignInWithPhoneNumber);
 }
 
-function _fbEnsureRecaptchaHost(containerId){
+function _fbEnsureRecaptchaHost(containerId, visible){
+  // Prefer in-form host for visible checkbox so user can complete the check
   let el = document.getElementById(containerId);
+  if(visible){
+    const inline = document.getElementById('recaptcha-inline');
+    if(inline){
+      // Clear and use the visible slot inside the login card
+      inline.innerHTML = '';
+      inline.style.cssText = 'margin:10px 0 12px;display:flex;justify-content:center;align-items:center;min-height:78px;width:100%';
+      // Move/create host as child of inline so it is on-screen and clickable
+      if(!el || el.parentElement !== inline){
+        if(el && el.parentElement) el.parentElement.removeChild(el);
+        el = document.createElement('div');
+        el.id = containerId;
+        inline.appendChild(el);
+      }
+      el.className = 'rc-visible';
+      el.innerHTML = '';
+      el.style.cssText = 'display:block;position:relative;left:auto;bottom:auto;transform:none;z-index:5;width:auto;height:auto;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible';
+      return el;
+    }
+  }
   if(!el){
     el = document.createElement('div');
     el.id = containerId;
     document.body.appendChild(el);
   }
-  // Visible fallback container sits near bottom-center if needed
   el.innerHTML = '';
-  el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:100000;min-width:1px;min-height:1px';
+  if(visible){
+    el.className = 'rc-visible';
+    el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:100000;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible;background:rgba(15,23,42,.95);padding:10px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+  } else {
+    el.className = 'rc-invisible';
+    el.style.cssText = 'position:fixed;left:-9999px;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;z-index:-1';
+  }
   return el;
 }
 
@@ -2156,7 +2371,8 @@ function _fbClearRecaptcha(storeKey){
  */
 async function _fbMakeRecaptcha(containerId, storeKey, size){
   _fbClearRecaptcha(storeKey);
-  _fbEnsureRecaptchaHost(containerId);
+  const isVisible = (size === 'normal');
+  _fbEnsureRecaptchaHost(containerId, isVisible);
   const params = {
     size: size || 'invisible',
     callback: ()=>{},
@@ -2214,11 +2430,32 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     console.warn('[otp] invisible failed', err1 && (err1.code||err1.message));
     _fbClearRecaptcha(key);
 
-    // Attempt 2: visible checkbox (more reliable when invisible/internal-error)
+    // Attempt 2: visible checkbox — MUST be on-screen (login card #recaptcha-inline)
     try{
-      toast('🔐 Complete the security check…');
+      toast('🔐 Complete the security check below, then wait…');
+      const inline = document.getElementById('recaptcha-inline');
+      if(inline){
+        inline.style.display = 'flex';
+        // Hint label so user knows what to do
+        if(!inline.querySelector('.rc-hint')){
+          const hint = document.createElement('div');
+          hint.className = 'rc-hint';
+          hint.style.cssText = 'width:100%;text-align:center;font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:8px';
+          hint.textContent = '🔐 Tap the checkbox below to continue';
+          inline.insertBefore(hint, inline.firstChild);
+        }
+      }
       const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
       const confirmation2 = await window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2);
+      // Hide inline host after success
+      try{
+        if(inline){
+          inline.querySelectorAll('.rc-hint').forEach(h=>h.remove());
+          const host = document.getElementById(cid);
+          if(host) host.innerHTML = '';
+          inline.style.minHeight = '0';
+        }
+      }catch(e){}
       return confirmation2;
     }catch(err2){
       console.error('[otp] visible also failed', err2);
@@ -2247,8 +2484,8 @@ function _fbOtpErrorMessage(err){
   if(code === 'auth/captcha-check-failed') return 'Security check failed — reload page and retry';
   if(code === 'auth/invalid-phone-number') return 'Invalid mobile number';
   if(code === 'auth/missing-phone-number') return 'Enter mobile number';
-  if(code === 'auth/quota-exceeded') return 'SMS quota exceeded — try later or enable billing in Firebase';
-  if(code === 'auth/billing-not-enabled') return 'Firebase billing not enabled for SMS OTP';
+  if(code === 'auth/quota-exceeded') return 'SMS quota exceeded — requesting approval on other device / Admin';
+  if(code === 'auth/billing-not-enabled') return 'SMS billing off — requesting approval on other device / Admin';
   if(code === 'auth/operation-not-allowed') return 'Phone login disabled in Firebase Console';
   if(code === 'auth/internal-error'){
     return 'OTP service error (auth/internal-error). Check: Phone Auth ON, domain authorized, billing/SMS enabled. Then reload page.';
