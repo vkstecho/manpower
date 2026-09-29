@@ -5187,18 +5187,153 @@ function _mobileStatusBadge(u){
 }
 
 function _mobileActionButtons(key,name,status){
-  const safeName=String(name||'').replace(/'/g,"\\'");
+  const safeName=String(name||'').replace(/'/g,"\'");
+  const safeKey=String(key||'').replace(/'/g,"\'");
+  const delBtn = `<button type="button" onclick="event.stopPropagation();confirmDeleteMobileUser('${safeKey}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(244,63,94,.45);background:rgba(244,63,94,.12);color:#f43f5e;font-weight:800;cursor:pointer;white-space:nowrap">🗑️ Delete</button>`;
   if(status==='revoked'){
-    return `<button onclick="adminRestoreMobileUser('${key}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);color:#22c55e;font-weight:700;cursor:pointer;white-space:nowrap">↺ Restore</button>`;
+    return `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
+      <button onclick="adminRestoreMobileUser('${safeKey}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);color:#22c55e;font-weight:700;cursor:pointer;white-space:nowrap">↺ Restore</button>
+      ${delBtn}
+    </div>`;
   }
   if(status==='approved' || status==='pending'){
     return `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">
-      <button onclick="openAdminSetExpiryModal('${key}','${safeName}',false)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);color:#60a5fa;font-weight:700;cursor:pointer;white-space:nowrap">📅 Expiry</button>
-      <button onclick="adminExtendMobileValidity('${key}','${safeName}',30)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.08);color:#38bdf8;font-weight:700;cursor:pointer;white-space:nowrap">+30d</button>
-      <button onclick="adminRevokeMobileUser('${key}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(244,63,94,.3);background:rgba(244,63,94,.08);color:#f43f5e;font-weight:700;cursor:pointer;white-space:nowrap">🚫 Revoke</button>
+      <button onclick="openAdminSetExpiryModal('${safeKey}','${safeName}',false)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(96,165,250,.3);background:rgba(96,165,250,.08);color:#60a5fa;font-weight:700;cursor:pointer;white-space:nowrap">📅 Expiry</button>
+      <button onclick="adminExtendMobileValidity('${safeKey}','${safeName}',30)" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(56,189,248,.3);background:rgba(56,189,248,.08);color:#38bdf8;font-weight:700;cursor:pointer;white-space:nowrap">+30d</button>
+      <button onclick="adminRevokeMobileUser('${safeKey}','${safeName}')" style="font-size:10px;padding:5px 8px;border-radius:6px;border:1px solid rgba(244,63,94,.3);background:rgba(244,63,94,.08);color:#f43f5e;font-weight:700;cursor:pointer;white-space:nowrap">🚫 Revoke</button>
+      ${delBtn}
     </div>`;
   }
-  return '';
+  // Any other status (left, removed, etc.) — still allow hard delete for fresh login
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${delBtn}</div>`;
+}
+
+/** Admin: confirm + permanently delete one mobile user (fresh login next time) */
+function confirmDeleteMobileUser(mobileKey, name){
+  if(!isAdmin()){ toast(L('❌ Admin only','❌ Admin only')); return; }
+  const title = L('🗑️ User Delete','🗑️ Delete user');
+  const msg = L(
+    '<b>'+(name||mobileKey||'')+'</b> को पूरी तरह delete करें?<br><br>Mobile registration हट जाएगी — अगली बार <b>fresh person</b> की तरह login होगा।',
+    'Permanently delete <b>'+(name||mobileKey||'')+'</b>?<br><br>Mobile registration will be removed — next login will be treated as a <b>fresh</b> user.'
+  );
+  if(typeof confirmModal==='function'){
+    confirmModal(title, msg, L('🗑️ हाँ, Delete','🗑️ Yes, Delete'), L('रद्द करें','Cancel')).then(ok=>{
+      if(ok) deleteMobileUserCompletely(mobileKey, name);
+    });
+    return;
+  }
+  if(!confirm(String(msg).replace(/<[^>]+>/g,' '))) return;
+  deleteMobileUserCompletely(mobileKey, name);
+}
+
+async function deleteMobileUserCompletely(mobileKey, name){
+  if(!isAdmin()){ toast(L('❌ Admin only','❌ Admin only')); return; }
+  try{
+    toast(L('⏳ Deleting…','⏳ Deleting…'));
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){
+        toast(L('❌ Phone OTP verify करें — फिर Delete दबाएँ','❌ Verify phone OTP — then press Delete'));
+        return;
+      }
+    }
+    try{ if(typeof _syncAuthRoleNodes==='function') await _syncAuthRoleNodes(); }catch(e){}
+
+    const data = await fbGet('mobileUsers') || {};
+    const mk = (typeof _normMobileKey==='function') ? _normMobileKey(mobileKey) : String(mobileKey||'').replace(/\D/g,'').slice(-10);
+    const toDelete = new Set();
+    Object.keys(data).forEach(k=>{
+      const keyN = (typeof _normMobileKey==='function') ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10);
+      if(k===mobileKey || keyN===mk) toDelete.add(k);
+    });
+    if(!toDelete.size && mobileKey) toDelete.add(mobileKey);
+
+    // Linked employee roster rows by same phone
+    const empKeys = [];
+    try{
+      const emps = await fbGet('employees') || {};
+      Object.entries(emps).forEach(([id,e])=>{
+        if(!e) return;
+        const em = (typeof _normMobileKey==='function')
+          ? _normMobileKey(e.phone||e.mobile||'')
+          : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+        if(em && em===mk) empKeys.push(id);
+      });
+    }catch(e){}
+
+    const extraPaths = [];
+    for(const k of toDelete){
+      const n = (typeof _normMobileKey==='function') ? _normMobileKey(k) : String(k||'').replace(/\D/g,'').slice(-10);
+      if(n && n.length===10){
+        extraPaths.push('deviceApprovals/'+n);
+        extraPaths.push('pendingMembers/'+n);
+        extraPaths.push('userNotifications/'+n);
+        extraPaths.push('mobileUsers/'+n);
+      }
+      extraPaths.push('mobileUsers/'+k);
+    }
+
+    let ok=0, fail=0;
+    try{
+      if(typeof fbUpdate==='function'){
+        const patch = {};
+        toDelete.forEach(k=>{ patch['mobileUsers/'+k] = null; });
+        empKeys.forEach(id=>{ patch['employees/'+id] = null; });
+        extraPaths.forEach(path=>{ patch[path] = null; });
+        await fbUpdate('/', patch);
+        ok = toDelete.size || 1;
+      } else {
+        throw new Error('no multipath');
+      }
+    }catch(multiErr){
+      for(const k of toDelete){
+        try{
+          if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+k);
+          else await fbSet('mobileUsers/'+k, null);
+          ok++;
+        }catch(e){
+          try{
+            await fbUpdate('mobileUsers/'+k, {
+              status:'removed', role:'removed',
+              removedAt:new Date().toISOString(), removedBy:SESSION.name||'admin',
+              forceFreshLogin:true
+            });
+            ok++;
+          }catch(e2){ fail++; }
+        }
+      }
+      for(const id of empKeys){
+        try{
+          if(typeof fbRemove==='function') await fbRemove('employees/'+id);
+          else await fbSet('employees/'+id, null);
+        }catch(e){}
+      }
+      for(const path of extraPaths){
+        try{
+          if(typeof fbRemove==='function') await fbRemove(path);
+          else await fbSet(path, null);
+        }catch(e){}
+      }
+    }
+
+    try{
+      if(_cache && _cache.mobileUsers){
+        toDelete.forEach(k=>{ try{ delete _cache.mobileUsers[k]; }catch(e){} });
+      }
+    }catch(e){}
+
+    if(ok && !fail){
+      toast(L('✅ ','✅ ')+(name||mk||'User')+L(' हटाया — अगली बार fresh login',' removed — next login is fresh'));
+    } else if(ok){
+      toast(L('⚠️ आंशिक delete','⚠️ Partial delete'));
+    } else {
+      toast(L('❌ Delete failed — Admin phone OTP से login करें / rules deploy करें','❌ Delete failed — use Admin phone OTP / deploy rules'));
+    }
+    try{ renderAdminTeamHierarchy(); }catch(e){}
+  }catch(err){
+    console.error(err);
+    toast(L('❌ Delete failed: ','❌ Delete failed: ')+(err.message||err));
+  }
 }
 
 async function adminRevokeMobileUser(mobile,name){
