@@ -233,7 +233,7 @@ window.addEventListener('appinstalled', function () {
           <div class="role-pick-sub" id="loginRoleMemSub">I am a Member — I join my Manager's team</div>
         </div>
       </div>
-      <button class="back-btn" onclick="backToStep1()">&larr; वापस</button>
+      <button class="back-btn" onclick="backToStep1()">&larr; Back</button>
     </div>
   </div>
 
@@ -246,10 +246,10 @@ window.addEventListener('appinstalled', function () {
         <div style="font-size:11px;color:#64748b;margin-top:3px">Register after OTP — instant access (no Admin wait)</div>
       </div>
       <div class="err-msg" id="mgrRegErr"></div>
-      <label class="inp-label">&#128100; पूरा नाम *</label>
-      <input class="inp-field" type="text" id="mgrName" placeholder="आपका नाम" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#127970; Company का नाम *</label>
-      <input class="inp-field" type="text" id="mgrCompany" placeholder="जैसे: ABC Industries" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#128100; Full Name *</label>
+      <input class="inp-field" type="text" id="mgrName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#127970; Company Name *</label>
+      <input class="inp-field" type="text" id="mgrCompany" placeholder="Company name" autocomplete="off" style="margin-bottom:10px">
 
       <label class="inp-label">&#128188; Designation *</label>
       <select class="inp-field" id="mgrDesignation" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDesignation','mgrDesignationOther')">
@@ -283,8 +283,8 @@ window.addEventListener('appinstalled', function () {
         <option value="Others">Others (लिखें)</option>
       </select>
       <input class="inp-field" type="text" id="mgrDepartmentOther" placeholder="अपना Department लिखें" style="margin-bottom:14px;display:none">
-      <button class="big-btn" onclick="_submitManagerReg()">&#128228; Registration भेजें</button>
-      <button class="back-btn" onclick="showStep(3)">&larr; वापस</button>
+      <button class="big-btn" onclick="_submitManagerReg()">&#128228; Complete Registration</button>
+      <button class="back-btn" onclick="showStep(3)">&larr; Back</button>
     </div>
   </div>
 
@@ -297,22 +297,22 @@ window.addEventListener('appinstalled', function () {
         <div style="font-size:11px;color:#64748b;margin-top:3px">आपका Manager approve करेगा</div>
       </div>
       <div class="err-msg" id="memRegErr"></div>
-      <label class="inp-label">&#128100; पूरा नाम *</label>
-      <input class="inp-field" type="text" id="memName" placeholder="आपका नाम" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#127970; Company का नाम *</label>
-      <input class="inp-field" type="text" id="memCompany" placeholder="अपनी company का नाम" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#128100; Full Name *</label>
+      <input class="inp-field" type="text" id="memName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
+      <label class="inp-label">&#127970; Company Name *</label>
+      <input class="inp-field" type="text" id="memCompany" placeholder="Your company name" autocomplete="off" style="margin-bottom:10px">
       <label class="inp-label">&#128100; अपना Manager चुनें *</label>
       <select class="inp-field" id="memManagerSelect" style="margin-bottom:10px">
-        <option value="">-- Manager चुनें --</option>
+        <option value="">-- Select Manager --</option>
       </select>
       <div id="memNoManagerHint" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#f97316;line-height:1.6">
-        &#9888;&#65039; अभी कोई approved Manager नहीं मिला। पहले अपने Manager को register करने को कहें, फिर वापस आएं।
+        &#9888;&#65039; No approved Manager found yet. Ask your Manager to register first, then come back.
       </div>
       <label class="inp-label">&#128196; Employee Code / Emp ID <span style="font-weight:600;opacity:.7">(optional)</span></label>
       <input class="inp-field" type="text" id="memEmpCode" placeholder="e.g. 30000422" autocomplete="off" style="margin-bottom:10px">
       <div style="font-size:11px;color:#64748b;margin:-4px 0 12px;line-height:1.4">If you know your official Emp Code, enter it. Manager can also set it when approving.</div>
-      <button class="big-btn" onclick="_submitMemberReg()">&#128228; Registration भेजें</button>
-      <button class="back-btn" onclick="showStep(3)">&larr; वापस</button>
+      <button class="big-btn" onclick="_submitMemberReg()">&#128228; Complete Registration</button>
+      <button class="back-btn" onclick="showStep(3)">&larr; Back</button>
     </div>
   </div>
 
@@ -327,7 +327,7 @@ window.addEventListener('appinstalled', function () {
       <div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8">
         &#128222; VKS Tech: <b style="color:#f97316">+91-8929397949</b>
       </div>
-      <button class="back-btn" onclick="backToStep1()">&larr; वापस जाएं</button>
+      <button class="back-btn" onclick="backToStep1()">&larr; Back जाएं</button>
     </div>
   </div>
 

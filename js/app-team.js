@@ -1274,26 +1274,20 @@ let _bulkImportParsed = [];
 
 function openBulkImportTeam(){
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">📊 Excel से पूरी Team Import करें</div>
-  <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">
-    अपनी Excel/CSV file अपलोड करें जिसमें ये columns हों (कोई भी क्रम में, नाम केस-असंवेदनशील):<br>
-    <b style="color:var(--text)">Name</b> (जरूरी) · <b style="color:var(--text)">E Code</b> (जरूरी) ·
-    <b style="color:var(--text)">Section</b> (जरूरी — Line-1 / Warehouse / ICU आदि) ·
-    <b style="color:var(--text)">Designation</b> · <b style="color:var(--text)">Machine</b> ·
-    <b style="color:var(--text)">Responsibility</b> · <b style="color:var(--text)">Salary</b> (वैकल्पिक) ·
-    <b style="color:var(--text)">Mobile Number</b> (वैकल्पिक — दिया तो वो OTP से सीधे Login कर पाएंगे) ·
-    <b style="color:var(--text)">Joining Date</b> (वैकल्पिक) · <b style="color:var(--text)">Weekly Off</b> (वैकल्पिक) ·
-    <b style="color:var(--text)">Date of Birth</b> (वैकल्पिक)
-  </div>
+  <div class="modal-title">📊 Import Full Team from Excel</div>
+  <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">Upload Excel/CSV — columns in <b>any order</b>. Match by header name (case-insensitive).<br>
+    <b style="color:var(--text)">Minimum:</b> Name + Emp ID/E Code (2 columns is enough to start).<br>
+    <b style="color:var(--text)">Optional:</b> Section, Designation, Machine, Responsibility, Mobile, Salary, Weekly Off, Joining Date, Date of Birth, and daily shift columns (e.g. 01-09-2026).<br>
+    Only columns present in your file are updated — you can upload just 3 columns if you want.</div>
   <button class="cancel-btn" style="margin-bottom:12px" onclick="downloadBulkImportTemplate()">⬇️ Sample Template Download करें</button>
   <input type="file" id="bulkImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBulkImportFile(this.files[0])">
-  <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 Excel/CSV File चुनें</button>
+  <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 Choose Excel/CSV File</button>
   <div id="bulkImportPreview" style="margin-top:14px"></div>
   <button class="cancel-btn" style="margin-top:10px" onclick="closeModal()">रद्द करें</button>`);
 }
 
 function downloadBulkImportTemplate(){
-  const csv='Name,E Code,Section,Designation,Machine,Responsibility,Salary,Mobile Number,Joining Date,Weekly Off,Date of Birth\nRAM KUMAR,30001001,Line-1,Operator,M-1,Operation,25000,9876543210,01-04-2024,Sunday,15-06-1995\nSHYAM LAL,30001002,Warehouse,Supervisor,ALL,Quality Check,,,,Monday,\n';
+  const csv='Name,Emp ID,Designation,Weekly Off,Mobile,Section,Machine,Responsibility,Salary (₹/month),Joining Date,Date of Birth\nRAM KUMAR,30001001,Line-1,Operator,M-1,Operation,25000,9876543210,01-04-2024,Sunday,15-06-1995\nSHYAM LAL,30001002,Warehouse,Supervisor,ALL,Quality Check,,,,Monday,\n';
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -2797,13 +2791,27 @@ function _mapExcelColumns(headerRow){
   const colMap = {};
   Object.entries(aliases).forEach(([key, list])=>{
     let idx = -1;
+    // Pass 1: exact match any column
     for(const a of list){
-      idx = header.findIndex(h => h === a || h.includes(a));
+      idx = header.findIndex(h => h === a);
       if(idx >= 0) break;
     }
-    // Prefer exact-ish for code: avoid matching pure "id" in other headers late
-    if(key === 'code' && idx < 0){
-      idx = header.findIndex(h => /^(emp\s*)?(id|code|no)$/.test(h) || h.startsWith('emp '));
+    // Pass 2: header contains alias OR alias contains header (any column position)
+    if(idx < 0){
+      for(const a of list){
+        idx = header.findIndex(h => h && (h.includes(a) || (a.length>=3 && a.includes(h))));
+        if(idx >= 0) break;
+      }
+    }
+    // Pass 3: fuzzy tokens
+    if(idx < 0 && key === 'code'){
+      idx = header.findIndex(h => /emp/.test(h) && /(id|code|no|number)/.test(h));
+    }
+    if(idx < 0 && key === 'section'){
+      idx = header.findIndex(h => /section|sec\b|dept|department|area|unit|सेक्शन/.test(h));
+    }
+    if(idx < 0 && key === 'mobile'){
+      idx = header.findIndex(h => /mobile|phone|contact|whatsapp|मोबाइल/.test(h));
     }
     colMap[key] = idx;
   });
@@ -7514,6 +7522,14 @@ async function loadScheduleBuilder(){
         <div class="modal-title" style="margin:0;font-size:18px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
         <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
+      <div id="sbPrimaryFilterRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+        <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px">Filter</span>
+        <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Section</button>
+        <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
+        <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machine</button>
+        <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
+      </div>
+      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px;min-height:28px"></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="sbCellLegend" style="font-size:12px;color:#94a3b8;flex:1;min-width:120px;line-height:1.35">${(typeof L==='function')?L('🖱️ Drag से चुनें · Double-tap = Copy','🖱️ Drag to select · Double-tap = Copy'):'🖱️ Drag to select · Double-tap = Copy'}</div>
         <button type="button" onclick="clearScheduleBuilderGrid()"
@@ -7522,6 +7538,13 @@ async function loadScheduleBuilder(){
           display:flex;align-items:center;gap:5px;font-family:inherit">
           🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
         </button>
+        <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
+          title="Auto Generate sequence: Section / Designation / Machine"
+          style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:150px">
+          <option value="section">Sequence: Section</option>
+          <option value="designation">Sequence: Designation</option>
+          <option value="machine">Sequence: Machine</option>
+        </select>
         <button type="button" onclick="autoGenSchedule('${monthKey}')"
           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
           color:#fff;font-size:12px;font-weight:800;padding:8px 14px;cursor:pointer;white-space:nowrap;
@@ -7555,6 +7578,20 @@ async function loadScheduleBuilder(){
   setTimeout(initSBSelection, 50);
   setTimeout(_sbPositionStickyTableHeader, 60);
   setTimeout(()=>{ try{ _sbRefreshRowColButtons(); }catch(e){} }, 80);
+  setTimeout(()=>{
+    try{
+      const sel = document.getElementById('sbAutoSort');
+      if(sel){
+        const v = window._sbAutoSort || localStorage.getItem('mp_sb_auto_sort') || 'section';
+        if(['section','designation','machine'].includes(v)) sel.value = v;
+      }
+      if(!window._sbPrimaryFilter) window._sbPrimaryFilter = 'section';
+      if(!window._sbSubSelected) window._sbSubSelected = new Set();
+      _sbRenderPrimaryFilterUI();
+      _sbRenderSubFilterChips();
+      _sbApplyEmpFilterVisibility();
+    }catch(e){}
+  }, 90);
   // Keep thead sticky under title bar height
   setTimeout(()=>{
     try{
@@ -8134,10 +8171,140 @@ function _empIsGeneralOnly(emp, schedule, dayFrom, dayTo, yr, mo, configShiftCod
   return false;
 }
 
+
+/** Primary filter: section | designation | machine | responsibility */
+function _sbSetPrimaryFilter(prim){
+  window._sbPrimaryFilter = prim || 'section';
+  window._sbSubSelected = new Set();
+  try{ localStorage.setItem('mp_sb_primary_filter', window._sbPrimaryFilter); }catch(e){}
+  _sbRenderPrimaryFilterUI();
+  _sbRenderSubFilterChips();
+  _sbApplyEmpFilterVisibility();
+}
+function _sbEmpFieldValue(emp, field){
+  if(!emp) return '';
+  if(field==='section') return (typeof getEmpSection==='function'?getEmpSection(emp):'')||emp.section||emp.sec||'';
+  if(field==='designation') return String(emp.designation||emp.desig||'').trim();
+  if(field==='machine') return (typeof getEmpMachine==='function'?getEmpMachine(emp):'')||emp.machine||emp.mc||'';
+  if(field==='responsibility') return (typeof getEmpResp==='function'?getEmpResp(emp):'')||emp.responsibility||emp.resp||'';
+  return '';
+}
+function _sbRenderPrimaryFilterUI(){
+  const prim = window._sbPrimaryFilter || 'section';
+  document.querySelectorAll('.sb-prim-btn').forEach(btn=>{
+    const on = btn.getAttribute('data-prim') === prim;
+    btn.style.background = on ? 'rgba(124,58,237,.2)' : 'var(--card)';
+    btn.style.borderColor = on ? 'rgba(124,58,237,.55)' : 'var(--border2)';
+    btn.style.color = on ? '#c4b5fd' : 'var(--text)';
+  });
+}
+/** Sub-filters = unique values from Excel for the primary field */
+function _sbRenderSubFilterChips(){
+  const row = document.getElementById('sbSubFilterRow');
+  if(!row) return;
+  const prim = window._sbPrimaryFilter || 'section';
+  let values = [];
+  try{ if(typeof _teamFieldValues==='function') values = _teamFieldValues(prim) || []; }catch(e){}
+  if(!values.length){
+    const seen = new Map();
+    (typeof getEmps==='function'?getEmps():[]).forEach(e=>{
+      const v = _sbEmpFieldValue(e, prim);
+      if(!v) return;
+      const k = String(v).toLowerCase();
+      if(!seen.has(k)) seen.set(k, v);
+    });
+    values = Array.from(seen.values()).sort((a,b)=>String(a).localeCompare(String(b)));
+  }
+  if(!window._sbSubSelected) window._sbSubSelected = new Set();
+  const allOn = window._sbSubSelected.size === 0;
+  let html = '<button type="button" onclick="_sbToggleSubFilter(\'__ALL__\')" style="font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px;border:1px solid '+(allOn?'rgba(34,197,94,.5)':'var(--border2)')+';background:'+(allOn?'rgba(34,197,94,.15)':'var(--card)')+';color:'+(allOn?'#4ade80':'var(--muted)')+';cursor:pointer">All</button>';
+  values.forEach(v=>{
+    const key = String(v);
+    const on = window._sbSubSelected.has(key);
+    const safe = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    html += '<button type="button" onclick="_sbToggleSubFilter(\''+safe+'\')" style="font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;border:1px solid '+(on?'rgba(96,165,250,.55)':'var(--border2)')+';background:'+(on?'rgba(96,165,250,.18)':'var(--card)')+';color:'+(on?'#93c5fd':'var(--text)')+';cursor:pointer;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+key.replace(/</g,'')+'</button>';
+  });
+  if(!values.length) html += '<span style="font-size:11px;color:#64748b">No '+prim+' values from Excel yet</span>';
+  row.innerHTML = html;
+}
+function _sbToggleSubFilter(val){
+  if(!window._sbSubSelected) window._sbSubSelected = new Set();
+  if(val === '__ALL__') window._sbSubSelected = new Set();
+  else {
+    if(window._sbSubSelected.has(val)) window._sbSubSelected.delete(val);
+    else window._sbSubSelected.add(val);
+  }
+  _sbRenderSubFilterChips();
+  _sbApplyEmpFilterVisibility();
+}
+function _sbApplyEmpFilterVisibility(){
+  const prim = window._sbPrimaryFilter || 'section';
+  const subs = window._sbSubSelected || new Set();
+  const all = !subs.size;
+  const tbody = document.getElementById('sb_tbody');
+  if(!tbody) return;
+  tbody.querySelectorAll('tr').forEach(tr=>{
+    const cell = tr.querySelector('.shc[data-empid]');
+    const empId = (cell && cell.getAttribute('data-empid')) || tr.getAttribute('data-empid');
+    if(!empId){ tr.style.display = ''; return; }
+    if(all){ tr.style.display = ''; return; }
+    const emp = (typeof getEmps==='function'?getEmps():[]).find(e=>e && (e.id===empId || String(e.empId)===String(empId)));
+    if(!emp){ tr.style.display = ''; return; }
+    const val = _sbEmpFieldValue(emp, prim);
+    const match = [...subs].some(s => String(s).toLowerCase() === String(val).toLowerCase());
+    tr.style.display = match ? '' : 'none';
+  });
+}
+function _sbFilteredEmps(list){
+  const emps = (list||[]).slice();
+  const prim = window._sbPrimaryFilter || 'section';
+  const subs = window._sbSubSelected || new Set();
+  if(!subs.size) return emps;
+  return emps.filter(e=>{
+    const val = _sbEmpFieldValue(e, prim);
+    return [...subs].some(s => String(s).toLowerCase() === String(val).toLowerCase());
+  });
+}
+
 function autoGenSchedule(monthKey){
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
-  const emps = getEmps().filter(e => e.status !== 'resigned');
+  let emps = getEmps().filter(e => e.status !== 'resigned');
+  // Sequence for Auto Generate: Section | Designation | Machine (then name)
+  const sortMode = (window._sbAutoSort || localStorage.getItem('mp_sb_auto_sort') || 'section');
+  const _sec = (e)=> (typeof getEmpSection==='function'?getEmpSection(e):'')||e.section||e.sec||'';
+  const _des = (e)=> (e.designation||e.desig||e.role||'');
+  const _mac = (e)=> (e.machine||e.mc||'');
+  emps = emps.slice().sort((a,b)=>{
+    let primary = 0;
+    if(sortMode === 'designation') primary = String(_des(a)).localeCompare(String(_des(b)));
+    else if(sortMode === 'machine') primary = String(_mac(a)).localeCompare(String(_mac(b)));
+    else primary = String(_sec(a)).localeCompare(String(_sec(b))); // section (default)
+    if(primary !== 0) return primary;
+    if(sortMode === 'section'){
+      const d = String(_des(a)).localeCompare(String(_des(b)));
+      if(d !== 0) return d;
+      const m = String(_mac(a)).localeCompare(String(_mac(b)));
+      if(m !== 0) return m;
+    } else if(sortMode === 'designation'){
+      const s = String(_sec(a)).localeCompare(String(_sec(b)));
+      if(s !== 0) return s;
+      const m = String(_mac(a)).localeCompare(String(_mac(b)));
+      if(m !== 0) return m;
+    } else if(sortMode === 'machine'){
+      const s = String(_sec(a)).localeCompare(String(_sec(b)));
+      if(s !== 0) return s;
+      const d = String(_des(a)).localeCompare(String(_des(b)));
+      if(d !== 0) return d;
+    }
+    return (a.name||'').localeCompare(b.name||'');
+  });
+  // Apply primary + sub filters (Excel values) before Auto Generate
+  try{ emps = _sbFilteredEmps(emps); }catch(e){}
+  if(!emps.length){
+    toast(L('⚠️ Filter में कोई member नहीं — Sub-filter बदलें','⚠️ No members in filter — change sub-filter'));
+    return;
+  }
 
   const sbTbody = document.getElementById('sb_tbody');
   if(!sbTbody){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
@@ -8146,12 +8313,17 @@ function autoGenSchedule(monthKey){
   const testCells = firstEmp ? sbTbody.querySelectorAll(`[data-empid="${firstEmp.id}"]`) : [];
   if(!testCells.length){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
 
-  // Visible custom range (e.g. 1–10 Oct) or full month
-  let dayFrom = (typeof window._sbDayFrom === 'number') ? window._sbDayFrom : 1;
-  let dayTo   = (typeof window._sbDayTo === 'number') ? window._sbDayTo : daysInMonth;
+  // Full month by default (Auto Generate fills every day to month-end).
+  // Custom Open-Schedule range still limits visible columns, but Auto fills whole month unless _sbAutoFullMonth===false
+  let dayFrom = 1;
+  let dayTo = daysInMonth;
+  if(window._sbAutoFullMonth === false){
+    dayFrom = (typeof window._sbDayFrom === 'number') ? window._sbDayFrom : 1;
+    dayTo   = (typeof window._sbDayTo === 'number') ? window._sbDayTo : daysInMonth;
+  }
   dayFrom = Math.max(1, Math.min(daysInMonth, dayFrom));
   dayTo   = Math.max(1, Math.min(daysInMonth, dayTo));
-  if(dayFrom > dayTo){ const t=dayFrom; dayFrom=dayTo; dayTo=t; }
+  if(dayFrom > dayTo){ const tmp=dayFrom; dayFrom=dayTo; dayTo=tmp; }
 
   // Approved leave map
   const leaveMap = {};

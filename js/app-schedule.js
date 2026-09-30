@@ -390,15 +390,15 @@ async function handleExcelFile(file){
               // 2025-07-01
               m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
               if(m){ dayColMap[ci] = { year:+m[1], month:+m[2], day:+m[3] }; return; }
-              // 01-10-2026 or 01/10/2026 (prefer DD-MM-YYYY when day>12 or Indian style)
-              m = s.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/);
+              // 01-09-2026 / 01/09/2026 / 1-9-26 (always prefer DD-MM-YYYY India)
+              m = s.replace(/\s/g,'').match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
               if(m){
                 let year = parseInt(m[3],10); if(year < 100) year += 2000;
                 let a = parseInt(m[1],10), b = parseInt(m[2],10);
                 let day, month;
-                if(a > 12){ day = a; month = b; }           // 13-10-2026 → day 13
-                else if(b > 12){ day = b; month = a; }      // 10-13-2026 → US style
-                else { day = a; month = b; }                // default DD-MM (India)
+                if(a > 12){ day = a; month = b; }
+                else if(b > 12){ day = b; month = a; }
+                else { day = a; month = b; } // India DD-MM
                 if(month>=1 && month<=12 && day>=1 && day<=31) dayColMap[ci] = { year, month, day };
                 return;
               }

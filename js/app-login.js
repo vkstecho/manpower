@@ -235,21 +235,10 @@ async function _sendOTP(isResend){
               }
             }catch(e){}
           }
-          // Registered MANAGER: Notify other device | Send OTP (side by side)
+          // Registered MANAGER: always allow OTP (and Admin approval as alternate)
           if(userData.role==='manager'){
-            if(otherDeviceActive){
-              const emp = {
-                id: empObjId,
-                empId: userData.empId||userData.empCode||'',
-                name: userData.name||'',
-                phone: mobile,
-                mobile: mobile,
-                role: 'manager'
-              };
-              showOtherDeviceLoginRequest(emp, dRec, deviceId);
-              return;
-            }
-            // No other device — fall through to OTP
+            try{ await _notifyAdminManagerLoginAttempt(mobile, userData.name); }catch(e){}
+            // Fall through to OTP — Admin can also Approve from Pending without waiting for OTP
           } else if(userData.role==='member' || userData.role==='worker'){
             // Team member: NO manager approval for login — OTP (or password already handled above)
             // If other device active, still offer notify | OTP side by side
@@ -277,7 +266,7 @@ async function _sendOTP(isResend){
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
-    if(sentEl) sentEl.textContent='+91-'+mobile+' पर OTP भेजा गया';
+    if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
     document.getElementById('otpInput')?.focus();
     _startResendTimer();
     _startWebOtpListen('otpInput', code=>{
@@ -587,6 +576,38 @@ async function _verifyOTP(){
 
 
 /** Notify manager that a team member logged in (info only — no approval). */
+
+/** Approved Manager login: notify Admin (approval optional — OTP still works alone) */
+async function _notifyAdminManagerLoginAttempt(mobile, name){
+  try{
+    const mob = (typeof _normMobileKey==='function')?_normMobileKey(mobile):String(mobile||'').replace(/\D/g,'').slice(-10);
+    const notif = {
+      type: 'manager_login_attempt',
+      title: '🔑 Manager login (OTP sent)',
+      body: (name||mob)+' is logging in — OTP works; Admin can also Approve from Pending',
+      mobile: mob,
+      name: name||'',
+      read: false,
+      needsApproval: true,
+      at: new Date().toISOString()
+    };
+    await fbPush('adminNotifications', notif);
+    // Optional pending loginRequests for Admin Approve without OTP
+    try{
+      await fbPush('loginRequests', {
+        type: 'manager_login_approval',
+        status: 'pending',
+        role: 'manager',
+        mobile: mob,
+        phone: mob,
+        empName: name||mob,
+        requestedAt: new Date().toISOString(),
+        note: 'Manager OTP login — Admin may Approve as alternate to OTP'
+      });
+    }catch(e){}
+  }catch(e){ console.warn('[admin mgr login notify]', e); }
+}
+
 async function _notifyManagerMemberLogin(userData, mobile){
   try{
     const mid = (typeof _normMobileKey==='function')
@@ -811,6 +832,10 @@ async function _checkUserAfterOTP(){
       if(userData.status==='approved'){
         if(userData.validTill && new Date(userData.validTill)<new Date()){
           toast(L('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920','⏰ Your access has expired. Ask Admin to extend: +91-8929394920')); return;
+        }
+        // Notify Admin when approved Manager logs in (OTP already verified here — info + optional Approve for future)
+        if(userData.role==='manager'){
+          try{ await _notifyAdminManagerLoginAttempt(mobile, userData.name); }catch(e){}
         }
         // Mobile-first login: never ask Emp Code — but if another device already active, request approve there
         try{
@@ -1101,12 +1126,18 @@ async function _submitManagerReg(){
         title:'🆕 New Manager joined',
         body: notifBody,
         name, company:comp, department:dept, mobile:_loginMobile||mobile,
-        message: name+' ने Manager के रूप में join किया। Company: '+comp,
+        message: name+' joined as Manager · '+comp,
         read:false,
         at: new Date().toISOString()
       });
     }catch(e){ console.warn('[mgrReg] adminNotifications', e); }
     try{ await notifyAdmin('🆕 New Manager joined', name+' · '+comp+' · '+(_loginMobile||mobile)); }catch(e){}
+    // Browser push for Admin if they allowed notifications on this device earlier (best-effort)
+    try{
+      if(typeof Notification!=='undefined' && Notification.permission==='granted'){
+        new Notification('🆕 New Manager joined', { body: name+' · '+comp, tag:'mgr-join-'+mobile });
+      }
+    }catch(e){}
 
     const adminPhone = _normMobileKey(CFG.contactAdmin || '8929394920');
     const waText =
