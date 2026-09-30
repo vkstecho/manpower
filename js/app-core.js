@@ -2197,9 +2197,9 @@ function applyLang(){
 
   // Section status heading
   const secTitle = document.getElementById('homeSectionTitle');
-  if(secTitle) secTitle.textContent = (typeof mlT==='function')
-    ? mlT('आज की स्थिति — सेक्शन वार', lang)
-    : (isEn ? "Today's Status — Section Wise" : 'आज की स्थिति — सेक्शन वार');
+  if(secTitle) secTitle.textContent = (lang === 'hi')
+    ? 'आज की स्थिति — सेक्शन वार'
+    : "Today's Status — By Section";
 
   // Learn bar
   const learnTitle = document.getElementById('learnBarTitle');
@@ -2229,6 +2229,24 @@ function applyLang(){
     const el = document.getElementById(id);
     if(el) el.textContent = (typeof mlLabel==='function') ? mlLabel(txt, lang) : (_lang==='hi' ? txt.hi : txt.en);
   });
+  // Force English (or non-Hindi) chrome on nav buttons if rebuild hasn't run yet
+  try{
+    if(lang !== 'hi'){
+      document.querySelectorAll('#mainNav .nb, #sideNav .nb, #navMoreSheet button').forEach(function(btn){
+        var id = (btn.id||'').replace(/^nb-/, '');
+        var map = {home:'Home',myshift:'My Shift',schedule:'Schedule',leave:'Leave',reports:'Reports',resign:'Resign',todo:'To-Do',pending:'Pending',team:'Team',more:'More'};
+        if(map[id]){
+          var span = btn.querySelector('span:last-child');
+          if(span && span.className !== 'nb-ico') span.textContent = map[id];
+          else {
+            var spans = btn.querySelectorAll('span');
+            if(spans.length>=2) spans[spans.length-1].textContent = map[id];
+          }
+        }
+      });
+    }
+  }catch(e){}
+
 
   // ── Schedule admin buttons ──
   const schedBtnMap = {
@@ -2494,13 +2512,15 @@ function _myEmployeeRecord(){
   return null;
 }
 function myTeamPerms(){
-  if(isAdmin() || isMgr()) return { schedule:true, leave:true, reports:true, team:true, full:true };
+  if(isAdmin() || isMgr()) return { schedule:true, leave:true, reports:true, team:true, pending:true, full:true };
   const e = _myEmployeeRecord();
   const p = (e && e.perms) || {};
   return {
     schedule: !!p.schedule,
     leave: !!p.leave,
     reports: !!p.reports,
+    // Pending tab: leave approvers + explicit pending delegate tick if ever stored
+    pending: !!(p.pending || p.leave),
     team: false,
     full: false
   };

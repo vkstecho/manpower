@@ -4605,6 +4605,11 @@ async function rejectDevice(reqKey){
 function renderManagerApprovals(){
   const el=document.getElementById('mgrApprovalsSection');
   if(!el) return;
+  // Only Admin approves other managers (managers are auto-approved on self-register)
+  if(!isAdmin()){
+    el.innerHTML = '';
+    return;
+  }
   fbGet('mobileUsers').then(data=>{
     if(!data){ el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">कोई pending registration नहीं</div>'; return; }
     const entries=Object.entries(data).filter(([k,v])=>v.status==='pending'&&v.role==='manager');
@@ -5568,14 +5573,36 @@ async function rejectLoginRequest(reqKey, empName){
 
 function renderPending(){
   try{ if(typeof renderDeviceTransferRequests==='function') renderDeviceTransferRequests(); }catch(e){}
-  // ── Login Requests (Admin/Manager) — includes manager_login_approval for team members ──
+  // Shared pending shell: Admin sees all; Manager sees login/device area but NOT manager-registration list
+  try{
+    const adminBlock = document.getElementById('adminOnlyPendingBlock');
+    if(adminBlock) adminBlock.style.display = (isAdmin() || isMgr()) ? 'block' : 'none';
+  }catch(e){}
+  try{
+    const mgrRegs = document.getElementById('adminMgrRegsBlock');
+    if(mgrRegs) mgrRegs.style.display = isAdmin() ? 'block' : 'none';
+  }catch(e){}
+  try{
+    const regTitle = document.querySelector('#pendingRegs');
+    // "New registrations" (regRequests) — Admin only
+    if(regTitle){
+      const wrap = regTitle.previousElementSibling;
+      if(wrap && wrap.classList && wrap.classList.contains('pending-group-title')){
+        wrap.style.display = isAdmin() ? '' : 'none';
+      }
+      regTitle.style.display = isAdmin() ? '' : 'none';
+    }
+  }catch(e){}
+  try{
+    const teamBlock = document.getElementById('myTeamApprovalsBlock');
+    if(teamBlock) teamBlock.style.display = (isMgr() && !isAdmin()) ? 'block' : 'none';
+  }catch(e){}
+  if(isAdmin()){
+    try{ renderManagerApprovals(); }catch(e){}
+  }
+  // ── Login Requests (Admin; managers only see manager_login_approval for their team) ──
   if(isAdminOrMgr()){
     const lrEl = document.getElementById('pendingLoginRequests');
-    // Show pending block for managers + admins (login requests live here)
-    try{
-      const adminBlock = document.getElementById('adminOnlyPendingBlock');
-      if(adminBlock && (isAdmin() || isMgr())) adminBlock.style.display='block';
-    }catch(e){}
     fbGet('loginRequests').then(data=>{
       let reqs = data ? Object.entries(data).filter(([k,v])=>v && v.status==='pending') : [];
       // Managers only see their team / phone-matched requests

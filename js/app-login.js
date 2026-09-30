@@ -596,12 +596,13 @@ async function _notifyManagerMemberLogin(userData, mobile){
     const notif = {
       type: 'member_login',
       title: '👤 Team member logged in',
-      body: name + ' logged in on a device',
+      body: name + ' logged in (OTP verified — no action needed)',
       mobile: mobile,
       name: name,
       empObjId: userData.empObjId || userData.employeeId || '',
       empId: userData.empId || userData.empCode || '',
       read: false,
+      needsApproval: false,
       at: new Date().toISOString()
     };
     if(mid){
@@ -719,10 +720,29 @@ async function _checkUserAfterOTP(){
       _launchAsHardAdmin(mobile);
       return;
     }
-    const userData=await fbGet('mobileUsers/'+mobile);
+    // Prefer roster match first: Excel/team mobile → OTP only, no registration form
+    try{
+      const earlyRoster = await _resolveEmpByMobile(mobile);
+      if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
+          && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
+        const mu = await fbGet('mobileUsers/'+mobile);
+        // No record, or leftover pending/removed/rejected — auto-link as approved roster member
+        if(!mu || mu.status==='pending' || mu.status==='removed' || mu.status==='left_team'
+            || mu.status==='left' || mu.status==='rejected' || mu.status==='revoked' || mu.forceFreshLogin
+            || (mu.role==='member' && mu.linkedVia!=='self_register_block')){
+          // If they self-registered as manager, don't force member
+          if(!(mu && mu.role==='manager' && mu.status==='approved')){
+            const ok = await _loginRosterMemberAfterOtp(mobile, earlyRoster);
+            if(ok) return;
+          }
+        }
+      }
+    }catch(e){ console.warn('[otp] early roster', e); }
+
+    let userData=await fbGet('mobileUsers/'+mobile);
     if(userData){
       if(userData.status==='pending'){
-        // Team Member pending → limited app (never black, never stuck silent screen)
+        // Team Member pending → if on roster, already handled above; else limited app
         if(userData.role==='member'){
           try{
             await _launchAsNewUser(userData);
@@ -750,14 +770,29 @@ async function _checkUserAfterOTP(){
         return;
       }
       if(userData.status==='rejected'){
-        toast(L('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।','❌ Your registration was rejected. Contact VKS Tech.')); return;
+        // Allow fresh re-registration after rejection (clear old record)
+        try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
+          try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){}
+        }
+        toast(L('👋 पिछला registration clear — दोबारा Manager/Member चुनें','👋 Previous registration cleared — choose Manager/Member again'));
+        showStep(3);
+        return;
       }
-      if(userData.status==='revoked'){
-        toast(L('🚫 आपकी access revoke कर दी गई है। VKS Tech से संपर्क करें: +91-8929394920','🚫 Your access was revoked. Contact VKS Tech: +91-8929394920')); return;
-      }
-      if(userData.status==='left_team' || userData.status==='left' || userData.status==='removed'){
-        try{ await fbRemove('mobileUsers/'+mobile); }catch(e){}
-        toast(L('👋 Team से हटा दिए गए — दोबारा Manager/Member register करें','👋 Removed from team — register again as Manager/Member'));
+      // Revoked / removed / left — treat as deleted: wipe node so next reg is fresh
+      if(userData.status==='revoked' || userData.status==='left_team' || userData.status==='left' || userData.status==='removed' || userData.forceFreshLogin){
+        try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
+          try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){
+            // Last resort: overwrite with tombstone that registration can replace
+            try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e3){}
+          }
+        }
+        // Also clear device approval so no sticky device lock
+        try{
+          const n = (typeof _normMobileKey==='function')?_normMobileKey(mobile):String(mobile||'').replace(/\D/g,'').slice(-10);
+          if(n){ try{ await fbRemove('deviceApprovals/'+n); }catch(x){} }
+          if(userData.empObjId){ try{ await fbRemove('deviceApprovals/'+userData.empObjId); }catch(x){} }
+        }catch(e){}
+        toast(L('👋 Account clear हो गया — दोबारा Manager या Member register करें','👋 Account cleared — register again as Manager or Member'));
         showStep(3);
         return;
       }
@@ -765,7 +800,9 @@ async function _checkUserAfterOTP(){
         const allEmp = _cache.employees || [];
         const empHit = allEmp.find(e => _normMobileKey(e.phone||e.mobile||'')===mobile);
         if(empHit && (empHit.status==='resigned'||empHit.status==='left'||empHit.status==='left_team'||empHit.status==='removed')){
-          try{ await fbUpdate('mobileUsers/'+mobile, { status:'left_team', managerId:null, leftAt:new Date().toISOString() }); }catch(e){}
+          try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
+            try{ await fbUpdate('mobileUsers/'+mobile, { status:'removed', role:'removed', managerId:null, forceFreshLogin:true, leftAt:new Date().toISOString() }); }catch(e2){}
+          }
           toast(L('👋 आप team से remove हो चुके हैं — दोबारा register करें','👋 You were removed from the team — register again'));
           showStep(3);
           return;
@@ -796,15 +833,22 @@ async function _checkUserAfterOTP(){
             try{ dRec = await fbGet('deviceApprovals/'+empObjId); }catch(e){}
             if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
                 && dRec.validTill && new Date(dRec.validTill) > new Date()){
-              // Already logged in on another device → approve from that device (no OTP again, no Emp Code)
-              const emp = empMatch || {
-                id: empObjId,
-                empId: userData.empId||userData.empCode||'',
-                name: userData.name||'',
-                phone: mobile
-              };
-              showOtherDeviceLoginRequest(emp, dRec, deviceId);
-              return;
+              // OTP already verified on this device → auto-claim (no manager/other-device approval)
+              // Manager only gets an info notification later via _notifyManagerMemberLogin
+              try{
+                await fbUpdate('deviceApprovals/'+empObjId, {
+                  approvedDeviceId: deviceId,
+                  approvedAt: new Date().toISOString(),
+                  validTill: new Date(Date.now()+365*86400000).toISOString(),
+                  empName: (empMatch&&empMatch.name)||userData.name||'',
+                  empId: (empMatch&&empMatch.empId)||userData.empId||userData.empCode||'',
+                  mobile: _normMobileKey(mobile),
+                  deviceName: (typeof _guessDeviceLabel==='function'?_guessDeviceLabel():''),
+                  previousDeviceId: dRec.approvedDeviceId||'',
+                  via: 'otp_device_switch'
+                });
+              }catch(e){ console.warn('[device switch]', e); }
+              // continue login below (do not return / do not open approval UI)
             }
             // First time / same device → claim this device (CURRENT employee name, not stale mobileUsers)
             try{
@@ -1013,27 +1057,11 @@ async function _submitManagerReg(){
   if(desig==='Others') desig=(document.getElementById('mgrDesignationOther')?.value||'').trim();
   let dept=(document.getElementById('mgrDepartment')?.value||'').trim();
   if(dept==='Others') dept=(document.getElementById('mgrDepartmentOther')?.value||'').trim();
-  const invite=(document.getElementById('mgrInviteCode')?.value||'').trim();
   const errEl=document.getElementById('mgrRegErr');
   if(!name||!comp||!desig||!dept){
-    if(errEl){ errEl.textContent='⚠️ सभी फ़ील्ड अनिवार्य हैं'; errEl.classList.add('show'); } return;
+    if(errEl){ errEl.textContent=L('⚠️ सभी फ़ील्ड अनिवार्य हैं','⚠️ All fields are required'); errEl.classList.add('show'); } return;
   }
-  // Invite code gate (spam protection) — still NO admin approval wait
-  let expectedCode = String(CFG.managerInviteCode||'').trim();
-  try{
-    const remote = await fbGet('settings/managerInviteCode');
-    if(remote && String(remote).trim()) expectedCode = String(remote).trim();
-  }catch(e){}
-  if(!expectedCode){
-    if(errEl){ errEl.textContent='❌ Invite Code configured नहीं है — Admin से संपर्क करें'; errEl.classList.add('show'); }
-    toast('❌ Manager invite code not set by Admin');
-    return;
-  }
-  if(invite.toUpperCase() !== expectedCode.toUpperCase()){
-    if(errEl){ errEl.textContent='❌ गलत Invite Code — Admin से Code माँगें'; errEl.classList.add('show'); }
-    toast(L('❌ Invite Code गलत है','❌ Wrong invite code'));
-    return;
-  }
+  // No invite code — any new manager can self-register after OTP (auto-approved)
   if(!_loginMobile){
     if(errEl){ errEl.textContent='❌ Mobile session lost — OTP दोबारा verify करें'; errEl.classList.add('show'); }
     toast('❌ Mobile session lost — go back and verify OTP again');
@@ -1057,9 +1085,13 @@ async function _submitManagerReg(){
     status:'approved',
     registeredAt:new Date().toISOString(),
     autoApproved:true,
-    validTill: new Date(Date.now()+365*86400000).toISOString()
+    validTill: new Date(Date.now()+365*86400000).toISOString(),
+    forceFreshLogin: null,
+    removedAt: null,
+    removedBy: null
   };
   try{
+    // Overwrite any leftover deleted/removed tombstone so re-login works
     await fbSet('mobileUsers/'+mobile, userData);
 
     const notifBody = name+' joined as Manager\nCompany: '+comp+'\nDept: '+dept+'\nMobile: '+(_loginMobile||mobile);
@@ -1236,9 +1268,25 @@ async function _resolveEmpByMobile(mobile){
       }
     }catch(e){}
   }
+  // Always refresh from network once if cache may be manager-scoped empty for this phone
+  if(!all.some(e => _normMobileKey(e.phone||e.mobile||'') === mob)){
+    try{
+      const snap = await fbGet('employees');
+      if(snap && typeof snap==='object'){
+        all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
+        _cache.employees = all;
+      }
+    }catch(e){}
+  }
+  const normPhone = (e)=>{
+    const a = _normMobileKey(e.phone||'');
+    const b = _normMobileKey(e.mobile||'');
+    const c = _normMobileKey(e.whatsapp||e.wa||'');
+    return [a,b,c].filter(x=>x && x.length===10);
+  };
   const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
-  let match = active.find(e => _normMobileKey(e.phone||e.mobile||'') === mob);
-  if(!match) match = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mob);
+  let match = active.find(e => normPhone(e).includes(mob));
+  if(!match) match = all.find(e => normPhone(e).includes(mob));
   return match || null;
 }
 
@@ -3481,7 +3529,7 @@ async function launchApp(){
   _updateSchedAdminVisibility();
   // Imp Info button — admin and manager
   const iiBtn = document.getElementById('impInfoBtn');
-  if(iiBtn) iiBtn.style.display = (!isGuest() && SESSION && SESSION.role) ? 'inline-flex' : 'none';
+  if(iiBtn) iiBtn.style.display = (typeof canManageReports==='function' && canManageReports()) ? 'inline-flex' : 'none';
   if(isAdmin()) document.getElementById('smsSettingsBtn').style.display='none'; /* moved to profile */
   // OD Records chip — only Admin/Manager can see all OD records
   const odChip = document.getElementById('odChip');
@@ -3605,7 +3653,10 @@ async function buildNav(){
   window._navMoreTabs = moreTabs;
 
   const _nbHtml = (t, on)=>{
-    const label = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
+    const _lg = (typeof _lang!=='undefined' && _lang) ? _lang : 'hi';
+    const label = (_lg === 'hi')
+      ? t.lbl
+      : (t.lblEn || ((typeof mlT === 'function') ? mlT(t.lbl, _lg) : t.lbl) || t.lbl);
     // Action items (e.g. Resign) sit beside Reports — open form, do not switch tab
     if(t.action || t.id==='resign'){
       return `<button class="nb" id="nb-${t.id}" type="button" onclick="event.preventDefault();try{closeNavMoreSheet&&closeNavMoreSheet()}catch(e){};try{openResignationForm()}catch(e){console.warn(e)}" aria-label="${label}">
@@ -3622,7 +3673,7 @@ async function buildNav(){
   if(moreTabs.length){
     const moreOn = moreTabs.some(t=>t.id===firstTab);
     navHtml += `<button class="nb${moreOn?' on':''}" id="nb-more" onclick="openNavMoreSheet()" aria-label="More">
-      <span class="nb-ico">☰</span><span style="font-size:12px;font-weight:800">${(typeof mlT==='function')?mlT('और',(typeof _lang!=='undefined'?_lang:'hi')):(L('और','More'))}</span>
+      <span class="nb-ico">☰</span><span style="font-size:12px;font-weight:800">${(typeof _lang!=='undefined' && _lang==='hi')?('और'):('More')}</span>
     </button>`;
   }
   document.getElementById('mainNav').innerHTML = navHtml;
@@ -3652,7 +3703,10 @@ async function buildNav(){
       const btn = document.createElement('button');
       btn.className = 'pc-nav-btn' + (t.id===firstTab && !(t.action||t.id==='resign')?' on':'');
       btn.id = 'pc-nb-'+t.id;
-      const sLabel = (typeof mlT === 'function') ? mlT(t.lbl, (typeof _lang!=='undefined'?_lang:'hi')) : (_lang!=='hi' ? (t.lblEn||t.lbl) : t.lbl);
+      const _lg2 = (typeof _lang!=='undefined' && _lang) ? _lang : 'hi';
+      const sLabel = (_lg2 === 'hi')
+        ? t.lbl
+        : (t.lblEn || ((typeof mlT === 'function') ? mlT(t.lbl, _lg2) : t.lbl) || t.lbl);
       btn.setAttribute('aria-label', sLabel);
       btn.innerHTML = `<span class="pc-nav-ico">${t.ico}</span><span class="pc-nav-lbl">${sLabel}</span>`
         + (t.id==='pending' ? `<span class="pc-nav-badge" id="pcPendingBadge" style="display:none">0</span>` : '')
@@ -5853,7 +5907,7 @@ function _updateSchedAdminVisibility(){
   if(msBtn) msBtn.style.display = canEdit ? '' : 'none';
   // Also update Imp Info button
   const iiBtn = document.getElementById('impInfoBtn');
-  if(iiBtn) iiBtn.style.display = (!isGuest() && SESSION && SESSION.role) ? 'inline-flex' : 'none';
+  if(iiBtn) iiBtn.style.display = (typeof canManageReports==='function' && canManageReports()) ? 'inline-flex' : 'none';
 }
 
 function renderAll(){

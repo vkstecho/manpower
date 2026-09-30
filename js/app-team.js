@@ -7191,6 +7191,10 @@ function _sbLockLandscape(on){
 }
 
 function openScheduleBuilder(){
+  if(typeof canEditSchedule==='function' && !canEditSchedule()){
+    toast(typeof L==='function'?L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'):'❌ No schedule edit permission');
+    return;
+  }
   const now = new Date();
   const nextMonth = new Date(now.getFullYear(), now.getMonth()+1, 1);
   // FIX: Use local date parts — toISOString() converts to UTC which shifts months in IST

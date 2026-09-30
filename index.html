@@ -243,16 +243,14 @@ window.addEventListener('appinstalled', function () {
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:4px">&#128084;</div>
         <div style="font-size:16px;font-weight:900;color:#fff">Manager Registration</div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">Invite Code डालें — तुरंत login (Admin wait नहीं)</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">Register after OTP — instant access (no Admin wait)</div>
       </div>
       <div class="err-msg" id="mgrRegErr"></div>
       <label class="inp-label">&#128100; पूरा नाम *</label>
       <input class="inp-field" type="text" id="mgrName" placeholder="आपका नाम" autocomplete="off" style="margin-bottom:10px">
       <label class="inp-label">&#127970; Company का नाम *</label>
       <input class="inp-field" type="text" id="mgrCompany" placeholder="जैसे: ABC Industries" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#128273; Invite Code *</label>
-      <input class="inp-field" type="text" id="mgrInviteCode" placeholder="Invite Code (Admin से लें)" autocomplete="off" style="margin-bottom:10px" autocapitalize="characters">
-      <div style="font-size:11px;color:#94a3b8;margin:-4px 0 10px;line-height:1.4">Admin approval नहीं लगता — सिर्फ Invite Code चाहिए (default: METMGR)</div>
+
       <label class="inp-label">&#128188; Designation *</label>
       <select class="inp-field" id="mgrDesignation" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDesignation','mgrDesignationOther')">
         <option value="">-- चुनें --</option>
@@ -531,7 +529,7 @@ window.addEventListener('appinstalled', function () {
   <div id="homeAdminView">
     <div class="stats-grid" id="homeStats"></div>
     <div id="homeGreeting" style="font-size:15px;font-weight:800;color:var(--text);margin:0 0 6px"></div>
-    <div class="stitle" id="homeSectionTitle">आज की स्थिति — सेक्शन वार</div>
+    <div class="stitle" id="homeSectionTitle">Today's Status — By Section</div>
     <div id="homeSections"></div>
     <div id="homeRoster"></div>
   </div>
