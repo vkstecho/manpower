@@ -1,4 +1,14 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.74)
+# Man Power — Multi-Industry Team & Shift Management (v2.4.97)
+
+## What's new in 2.4.97 (hardening)
+
+- **Single version source:** `js/config.js` → `MP_CFG.APP_VERSION` (`2.4.97`); app-core, SW, and cache-bust query aligned.
+- **Shared utils:** `normMobileKey`, `escAttr`, `isHardAdminPhone`, `isValidMobile10` in `js/utils.js`.
+- **Hard-admin phones:** bootstrap list kept for OTP→Admin flow; optional Firebase `settings/hardAdminPhones` merged at runtime. Write restricted to admin in RTDB rules.
+- **Security docs:** `SECURITY.md` sections 5–6 for hard-admin phones and manager invite code.
+- **Login flow unchanged** (mobile OTP, roster auto-link, manager self-reg auto-approve, member pending until manager approve, device password skip OTP).
+
+---
 
 Generic multi-company, multi-team, multi-industry manpower management PWA (Firebase + offline-capable).
 

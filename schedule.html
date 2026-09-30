@@ -21,7 +21,7 @@
 
   <!-- Admin toolbar: primary actions + More -->
   <div class="sched-admin-row sched-admin-toolbar" id="schedAdminRow" style="display:none">
-    <button id="schedBuildBtn" onclick="openScheduleBuilder()" class="sched-admin-btn green">📋 Create</button>
+    <button type="button" id="schedBuildBtn" onclick="openScheduleBuilder()" class="sched-admin-btn green" aria-label="Auto Create Schedule">📋 Auto Create Schedule</button>
     <button id="uploadSchedBtn" onclick="openExcelUpload()" class="sched-admin-btn blue">📤 Upload</button>
     <button id="printBtn" onclick="printSched()" class="sched-admin-btn">🖨️ Print</button>
     <button id="excelBtn" onclick="exportSchedExcel()" class="sched-admin-btn" style="border-color:rgba(34,197,94,.5);color:#22c55e;background:rgba(34,197,94,.07)">📊 Excel</button>
@@ -41,6 +41,7 @@
       <div class="chip" onclick="setSchedSec('CAT:machine',this)">Machines</div>
       <div class="chip" onclick="setSchedSec('CAT:responsibility',this)">Responsibility</div>
       <div class="chip" onclick="setSchedSec('CAT:designation',this)">Designation</div>
+      <div class="chip" onclick="setSchedSec('CAT:name',this)">Name</div>
     </div>
     <div class="chips" id="schedFilterSecondary" style="display:none;margin-top:6px;flex-wrap:wrap;gap:6px"></div>
     <!-- External date header disabled — dates are in table thead -->
@@ -48,7 +49,7 @@
       <div id="schedHdrStack"><div id="schedMonthHdr"></div><div id="schedDateHdr"></div></div>
     </div>
   </div><!-- end sched-sticky-hdr -->
-  <div class="sched-wrap" id="schedWrap"><table class="sched-tbl" id="schedTbl"></table></div>
+  <div class="sched-wrap" id="schedWrap" role="region" aria-label="Schedule grid" tabindex="0"><table class="sched-tbl" id="schedTbl" role="grid" aria-label="Shift schedule"></table></div>
   <!-- Day strip + legend shown below table -->
   <div style="margin-top:10px">
     <div class="legend" id="schedLegend"></div>
@@ -62,6 +63,10 @@
   <!-- ══ MULTI-CELL SELECT BAR ══ -->
   <div id="multiSelectBar">
     <span class="ms-count" id="msCount">0 cells</span>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center;margin-bottom:6px">
+      <button type="button" class="ms-btn" style="background:#0f766e;color:#fff;font-weight:800" onclick="copySchedSelection()" title="Ctrl+C">📋 Copy</button>
+      <button type="button" class="ms-btn" style="background:#1d4ed8;color:#fff;font-weight:800" onclick="pasteSchedSelection()" title="Ctrl+V">📌 Paste</button>
+    </div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;justify-content:center">
       <button class="ms-btn ms-shift-dn" data-shift="D" style="background:#f59e0b;color:#000" onclick="applyMultiShift('D')">D</button>
       <button class="ms-btn ms-shift-dn" data-shift="N" style="background:#4f46e5;color:#fff" onclick="applyMultiShift('N')">N</button>

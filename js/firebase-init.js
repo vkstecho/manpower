@@ -17,6 +17,21 @@
 
   try{
     const app = initializeApp(firebaseConfig);
+    // Optional App Check (enable in Firebase Console + set window.MP_APPCHECK_SITE_KEY before this script)
+    try {
+      if (typeof window !== 'undefined' && window.MP_APPCHECK_SITE_KEY) {
+        const { initializeAppCheck, ReCaptchaV3Provider } = await import(
+          'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-check.js'
+        );
+        initializeAppCheck(app, {
+          provider: new ReCaptchaV3Provider(window.MP_APPCHECK_SITE_KEY),
+          isTokenAutoRefreshEnabled: true
+        });
+        console.info('[fb] App Check enabled');
+      }
+    } catch (acErr) {
+      console.warn('[fb] App Check skipped', acErr && acErr.message);
+    }
     const db  = getDatabase(app);
     const auth = getAuth(app);
     // Keep Phone OTP session across reloads (until explicit logout)
@@ -119,7 +134,11 @@
       }
     };
     // ── Cloud Functions exposed for secure server calls ──
-    window._fbCall = (name, data) => httpsCallable(functions, name)(data);
+    window._fbFunctions = functions;
+    window._fbCall = async (name, data) => {
+      const result = await httpsCallable(functions, name)(data || {});
+      return result && result.data;
+    };
     window._fbReady = true;
     // ── Firebase Storage for selfie uploads ──
     const _storage = getStorage(app);

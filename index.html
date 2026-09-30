@@ -46,14 +46,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=2496"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script type="module" src="js/firebase-init.js?v=2512"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=2496">
+<link rel="stylesheet" href="css/app.css?v=2512">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -172,7 +171,7 @@ window.addEventListener('appinstalled', function () {
       <div id="loginMobileHint" style="font-size:12px;color:#cbd5e1;margin-bottom:8px;line-height:1.45">Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)</div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <div style="background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap">+91</div>
-        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number"
+        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
           inputmode="numeric" maxlength="10" autocomplete="tel-national"
           oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
           onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
@@ -1356,11 +1355,18 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=2496"></script>
-<script src="js/app-login.js?v=2496"></script>
-<script src="js/app-schedule.js?v=2496"></script>
-<script src="js/app-team.js?v=2496"></script>
-<script src="js/app.js?v=2496"></script>
+<script src="js/app-core.js?v=2512"></script>
+<script src="js/app-login.js?v=2512"></script>
+<script src="js/app-login-device.js?v=2512"></script>
+<script src="js/app-login-session.js?v=2512"></script>
+<script src="js/app-schedule.js?v=2512"></script>
+<script src="js/app-team.js?v=2512"></script>
+<script src="js/app-team-import.js?v=2512"></script>
+<script src="js/app-team-print-learn.js?v=2512"></script>
+<script src="js/app.js?v=2512"></script>
+<script src="js/a11y.js?v=2512"></script>
+<script src="js/sched-clipboard.js?v=2512"></script>
+<script src="js/sched-cell-keys.js?v=2512"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
