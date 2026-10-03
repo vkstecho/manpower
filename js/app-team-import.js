@@ -741,7 +741,7 @@ function openEditEmpForm(empId){
   </div>
   <div class="grid2">
     ${_dynFieldHtml('section','ee_sec','ee_sec_other','ee_sec_other_wrap',curSec,false)}
-    ${escHtml(_dynFieldHtml('designation','ee_designation','ee_desig_other','ee_desig_other_wrap',e.designation||'',false))}
+    ${_dynFieldHtml('designation','ee_designation','ee_desig_other','ee_desig_other_wrap',e.designation||'',false)}
   </div>
   <div class="grid2">
     ${_dynFieldHtml('machine','ee_mc','ee_mc_other','ee_mc_other_wrap',e.mc||'',false)}
@@ -4363,6 +4363,45 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
   }catch(e){ console.warn('[grantApprovedCompOff]', e); }
 }
 
+
+function getManagerLeaveTypeLabels(){
+  // Same source as single-cell Leave Reason (manager leaveQuotas)
+  const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other'};
+  let labels = ['Casual Leave (CL)','Sick Leave (SL)','Earned Leave (EL)','Other'];
+  try{
+    const cacheKey = (typeof myShiftConfigKey==='function' && myShiftConfigKey()) || (SESSION&&SESSION.mobile) || '';
+    const q = (window._leaveQuotaCache && cacheKey && window._leaveQuotaCache[cacheKey]) || window._leaveQuotaLast || null;
+    if(q && typeof q==='object'){
+      const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd']);
+      const fromQ = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
+      const positive = fromQ.filter(c=>Number(q[c])>0);
+      const use = positive.length ? positive : fromQ;
+      if(use.length) labels = use.map(c=>map[c]||String(c).replace(/_/g,' '));
+    }
+  }catch(e){}
+  return labels;
+}
+async function prefetchLeaveQuotaForChips(){
+  try{
+    const keys = [];
+    try{ if(typeof myShiftConfigKey==='function' && myShiftConfigKey()) keys.push('leaveQuotas/'+myShiftConfigKey()); }catch(e){}
+    if(SESSION && SESSION.mobile) keys.push('leaveQuotas/'+(typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):SESSION.mobile));
+    if(SESSION && SESSION.managerId) keys.push('leaveQuotas/'+(typeof _normMobileKey==='function'?_normMobileKey(SESSION.managerId):SESSION.managerId));
+    keys.push('leaveQuotas/default');
+    for(const k of keys){
+      try{
+        const r = await fbGet(k);
+        if(r && typeof r==='object' && Object.keys(r).length){
+          window._leaveQuotaLast = r;
+          const ck = (typeof myShiftConfigKey==='function' && myShiftConfigKey()) || '';
+          if(ck){ window._leaveQuotaCache = window._leaveQuotaCache||{}; window._leaveQuotaCache[ck]=r; }
+          break;
+        }
+      }catch(e){}
+    }
+  }catch(e){}
+}
+
 async function saveAllShiftChanges(opts){
   opts = opts || {};
   const skipWhatsApp = !!opts.skipWhatsApp;
@@ -4434,6 +4473,7 @@ async function saveAllShiftChanges(opts){
 
     let waQueue = [];
     if(!skipWhatsApp && !onlyOwn){
+      try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
       try{
         waQueue = _buildShiftSaveWaQueue(savedEntries) || [];
       }catch(waBuildErr){ console.warn('[save] wa build', waBuildErr); waQueue = []; }
@@ -4516,8 +4556,8 @@ function _buildShiftSaveWaQueue(savedEntries){
       changes.forEach(c=>{
         const ns = String(c.newShift||'').toUpperCase();
         if(ns==='GP') buckets.GP.push(c);
-        else if(ns==='C/O' || ns==='CO') buckets.CO.push(c);
-        else if(ns==='AB') buckets.Ab.push(c);
+        else if(ns==='C/O' || ns==='CO' || ns==='C-OFF' || ns==='COFF') buckets.CO.push(c);
+        else if(ns==='AB' || ns==='ABSENT' || ns==='ABS') buckets.Ab.push(c);
         else if(ns==='L') buckets.L.push(c);
         else if(ns==='H') buckets.H.push(c);
         else buckets.OTHER.push(c);
@@ -4542,7 +4582,7 @@ function _buildShiftSaveWaQueue(savedEntries){
           : (`🔔 Gate Pass\n${emp.name}\n${datesList}`);
         pushMsg(msgLines);
       }
-      if(buckets.CO.length && _typeOn(_waCfg.waCOEnabled !== undefined ? _waCfg.waCOEnabled : _waCfg.waCOffEnabled)){
+      if(buckets.CO.length && _typeOn(_waCfg.waCOEnabled !== undefined ? _waCfg.waCOEnabled : (_waCfg.waCOffEnabled !== undefined ? _waCfg.waCOffEnabled : true))){
         const datesList = buckets.CO.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
           ? getWATemplate('waCOTemplate', _waCfg.waCOTemplate || _waCfg.waCOffTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
@@ -4552,14 +4592,17 @@ function _buildShiftSaveWaQueue(savedEntries){
           : (`🔔 Comp Off\n${emp.name}\n${datesList}`);
         pushMsg(msgLines);
       }
-      if(buckets.Ab.length && _typeOn(_waCfg.waAbEnabled)){
+      if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.waAbsentEnabled : (_waCfg.waAbEnabled !== undefined ? _waCfg.waAbEnabled : true))){
         const datesList = buckets.Ab.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waAbTemplate', _waCfg.waAbTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
-          : '';
-        const msgLines = (typeof _fillNotifTemplate==='function')
+          ? getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate || _waCfg.waAbTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          : (_waCfg.waAbsentTemplate || '');
+        let msgLines = (typeof _fillNotifTemplate==='function')
           ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
-          : (`🔔 Absent\n${emp.name}\n${datesList}`);
+          : '';
+        if(!msgLines || !String(msgLines).trim()){
+          msgLines = '⚠️ *Man Power — Absent*\n_'+todayFmt+'_\n\n*ध्यान दें '+emp.name+'*,\n\nआप *बिना अनुमति* अनुपस्थित (Absent) चिह्नित किए गए हैं:\n'+datesList+'\n\nतुरंत Manager से संपर्क करें।\n_— '+(SESSION.name||'Manager')+'_';
+        }
         pushMsg(msgLines);
       }
       if(buckets.L.length && _typeOn(_waCfg.waLeaveEnabled !== undefined ? _waCfg.waLeaveEnabled : true)){
@@ -4956,27 +4999,36 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
   try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
 
-  // WhatsApp leave message to member (no approval notify)
+  // WhatsApp leave message — manager Profile template + app link
   try{
     const emp = (getEmps()||[]).find(e=>e.id===empId) || {};
     const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
     if(phone && phone.length===10){
+      try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
       const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-      const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-      let tpl = getWATemplate('waLeaveTemplate', cfg.waLeaveTemplate);
+      const memLang = (typeof getEmpPreferredLang==='function' ? getEmpPreferredLang(emp) : undefined);
+      let tpl = (typeof getWATemplate==='function')
+        ? getWATemplate('waLeaveTemplate', cfg.waLeaveTemplate, memLang)
+        : (cfg.waLeaveTemplate || '');
+      if(!tpl || !String(tpl).trim()){
+        const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
+        tpl = def.waLeaveTemplate || '🏖️ *Man Power — Leave*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपकी *Leave* mark की गई है:\n{dates}\n\n_— {manager}_';
+      }
       const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return date; }})();
-      const msg = tpl
-        .replace(/\{name\}/g, empName||'')
-        .replace(/\{date\}/g, fmtD)
-        .replace(/\{dates\}/g, fmtD+' · '+(reason||typeCode))
-        .replace(/\{manager\}/g, SESSION.name||'Manager');
+      const datesLine = fmtD + (reason ? (' · ' + reason) : (typeCode ? (' · ' + typeCode) : ''));
+      let msg = (typeof _fillNotifTemplate==='function')
+        ? _fillNotifTemplate(tpl, { name: empName||emp.name||'', date: fmtD, dates: datesLine, manager: SESSION.name||'Manager', changes: datesLine })
+        : String(tpl).replace(/\{name\}/g, empName||'').replace(/\{date\}/g, fmtD).replace(/\{dates\}/g, datesLine).replace(/\{manager\}/g, SESSION.name||'Manager');
+      if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
       if(typeof openWA==='function') openWA(phone, msg);
       else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
+      toast('✅ Leave marked · WhatsApp');
     } else {
       toast('✅ Leave marked (no mobile for WhatsApp)');
     }
   }catch(e){ console.warn('[leave WA]', e); toast('✅ Leave marked'); }
 }
+
 
 function editShiftCell(empId, empName, date, currentShift){
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);

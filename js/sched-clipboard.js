@@ -78,6 +78,12 @@
 
   function _parseSelection() {
     var set = global._msSelected;
+    if (!set || !set.size) {
+      try {
+        if (typeof _msSelected !== 'undefined' && _msSelected && _msSelected.size)
+          set = _msSelected;
+      } catch (e) {}
+    }
     if (!set || !set.size) return null;
     var empOrder = _empOrderFromTable();
     var empIndex = Object.create(null);
@@ -207,28 +213,79 @@
       return false;
     }
 
+    // Build lookup of selected keys (support empId|date)
+    var selectedKeys = Object.create(null);
+    if (sel.pairs && sel.pairs.length) {
+      for (var pi = 0; pi < sel.pairs.length; pi++) selectedKeys[sel.pairs[pi].key] = true;
+    }
+    try {
+      var set2 = global._msSelected;
+      if (set2 && set2.forEach) {
+        set2.forEach(function (k) {
+          selectedKeys[k] = true;
+        });
+      }
+    } catch (e) {}
+
     var matrix = [];
     var flat = [];
+    var copyCount = 0;
     for (var r = 0; r < sel.empIds.length; r++) {
       var row = [];
       for (var c = 0; c < sel.dates.length; c++) {
         var key = sel.empIds[r] + '|' + sel.dates[c];
-        var selected =
-          (global._msSelected && global._msSelected.has(key)) ||
-          (sel.pairs.length === 1 && sel.pairs[0].key === key);
+        var selected = !!selectedKeys[key];
+        // Also try if selection used different key forms
+        if (!selected && sel.pairs) {
+          for (var pj = 0; pj < sel.pairs.length; pj++) {
+            if (sel.pairs[pj].empId === sel.empIds[r] && sel.pairs[pj].date === sel.dates[c]) {
+              selected = true;
+              break;
+            }
+          }
+        }
         var sh = selected ? _shiftAt(sel.empIds[r], sel.dates[c]) : '';
         row.push(sh);
-        if (selected && sh !== '') flat.push(sh);
-        else if (selected) flat.push(sh);
+        if (selected) {
+          flat.push(sh);
+          copyCount++;
+        }
       }
       matrix.push(row);
+    }
+    if (!copyCount && sel.pairs && sel.pairs.length) {
+      // Fallback: copy each pair as its own 1xN / list
+      copyCount = sel.pairs.length;
+      flat = [];
+      matrix = [];
+      var empIds2 = sel.empIds;
+      var dates2 = sel.dates;
+      for (var r2 = 0; r2 < empIds2.length; r2++) {
+        var row2 = [];
+        for (var c2 = 0; c2 < dates2.length; c2++) {
+          var hit = false;
+          for (var pk = 0; pk < sel.pairs.length; pk++) {
+            if (sel.pairs[pk].empId === empIds2[r2] && sel.pairs[pk].date === dates2[c2]) {
+              hit = true;
+              break;
+            }
+          }
+          var sh2 = hit ? _shiftAt(empIds2[r2], dates2[c2]) : '';
+          row2.push(sh2);
+          if (hit) flat.push(sh2);
+        }
+        matrix.push(row2);
+      }
+      copyCount = flat.length || sel.pairs.length;
     }
 
     _msClipboard = {
       matrix: matrix,
       empIds: sel.empIds.slice(),
       dates: sel.dates.slice(),
+      pairs: (sel.pairs || []).slice(),
       flat: flat,
+      count: copyCount || (sel.pairs ? sel.pairs.length : flat.length),
       at: Date.now(),
     };
     global._msClipboard = _msClipboard;
@@ -244,9 +301,10 @@
       }
     } catch (e) {}
 
+    var n = _msClipboard.count || flat.length || (sel.pairs && sel.pairs.length) || 1;
     _toast(
       _L('📋 ', '📋 ') +
-        Math.max(flat.length, sel.pairs.length) +
+        n +
         _L(' cells कॉपी — एक cell पर Ctrl+V से पेस्ट', ' cells copied — click one cell & Ctrl+V')
     );
     return true;
