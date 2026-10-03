@@ -88,6 +88,28 @@ body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,2
 .mrm-wrap .slide{min-height:50vh;padding:24px;border-radius:16px;background:var(--card);border:1px solid var(--border);margin-bottom:12px}
 .mrm-wrap .slide h2{font-size:24px;margin-bottom:10px}
 .mrm-wrap .slide p{color:var(--muted);line-height:1.55;font-size:14px}
+
+.row-rm{background:rgba(56,189,248,.12)!important}
+.row-rm td{color:#7dd3fc}
+.row-conv{background:rgba(167,139,250,.15)!important}
+.row-conv td{color:#ddd6fe;font-weight:700}
+.row-total{background:rgba(52,211,153,.12)!important}
+.row-total td{color:#6ee7b7;font-weight:800}
+.row-pack{background:rgba(251,146,60,.12)!important}
+.row-pack td{color:#fdba74;font-weight:700}
+body.theme-light .row-rm{background:rgba(14,165,233,.1)!important}
+body.theme-light .row-rm td{color:#0369a1}
+body.theme-light .row-conv{background:rgba(124,58,237,.1)!important}
+body.theme-light .row-conv td{color:#5b21b6}
+body.theme-light .row-total{background:rgba(5,150,105,.1)!important}
+body.theme-light .row-total td{color:#047857}
+body.theme-light .row-pack{background:rgba(234,88,12,.1)!important}
+body.theme-light .row-pack td{color:#c2410c}
+.stop-grid input, .stop-grid select{font-size:11px;padding:6px}
+.stop-grid th{font-size:11px;white-space:nowrap}
+.machine-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.machine-tags span{padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:11px;font-weight:700}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -109,7 +131,8 @@ body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,2
   <button data-tab="equiv">3. Equivalent Table</button>
   <button data-tab="stoppage">4. Planned Stoppage</button>
   <button data-tab="report">5. Conversion Cost</button>
-  <button data-tab="export">6. Export Excel</button>
+  <button data-tab="target">6. Target</button>
+  <button data-tab="export">7. Export Excel</button>
 </nav>
 <main>
   <section id="tab-upload">
@@ -156,6 +179,31 @@ body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,2
         <div class="s"><b id="s-boat">—</b><span>Boats (pcs)</span></div>
         <div class="s"><b id="s-rows">—</b><span>Rows parsed</span></div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Manual input (no Excel required)</h2>
+      <p class="hint">If you do not upload MB51 / Z_Jumbo / Z_Slit, enter all values here for the selected month, then click <b>Apply manual values</b>. These feed the same Conversion Cost calculation.</p>
+      <div class="grid2">
+        <div><label>Slit / good output (kg)</label><input type="number" id="man_outKg" step="0.001" placeholder="e.g. 1141662"/></div>
+        <div><label>Equivalent output (kg) — optional</label><input type="number" id="man_eqvKg" step="0.001" placeholder="Leave blank to auto from Eqv table"/></div>
+        <div><label>Waste produced (kg)</label><input type="number" id="man_wasteKg" step="0.001" placeholder="e.g. 17806"/></div>
+        <div><label>B grade (kg)</label><input type="number" id="man_bKg" step="0.001" placeholder="e.g. 4608"/></div>
+        <div><label>Wire consumed (kg)</label><input type="number" id="man_wireKg" step="0.001" placeholder="e.g. 11162"/></div>
+        <div><label>Boats consumed (pcs)</label><input type="number" id="man_boatPcs" step="1" placeholder="e.g. 2484"/></div>
+        <div><label>Power units consumed</label><input type="number" id="man_powerUnits" step="1" placeholder="e.g. 667937"/></div>
+        <div><label>Cons. &amp; Spares cost ₹</label><input type="number" id="man_spares" step="1" placeholder="e.g. 220106"/></div>
+        <div><label>Manpower cost ₹ (period)</label><input type="number" id="man_manpower" step="1" placeholder="e.g. 1400000"/></div>
+        <div><label>Waste % (optional override)</label><input type="number" id="man_wastePct" step="0.001" placeholder="Auto from kg if blank"/></div>
+        <div><label>B grade % (optional override)</label><input type="number" id="man_bPct" step="0.001" placeholder="Auto from kg if blank"/></div>
+        <div><label>Bare film waste % (optional)</label><input type="number" id="man_barePct" step="0.001" placeholder="e.g. 1.62"/></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-p" onclick="applyManualInputs()">Apply manual values</button>
+        <button type="button" class="btn btn-g" onclick="saveManualInputs()">Save manual form</button>
+        <button type="button" class="btn btn-o" onclick="loadManualInputs()">Load saved manual</button>
+      </div>
+      <p class="hint" style="margin-top:8px">Tip: Rates (Wire ₹/kg, Power ₹/unit, etc.) stay on the <b>Rates</b> tab. After Apply, open <b>Conversion Cost</b> and Recalculate if needed.</p>
     </div>
   </section>
 
@@ -206,21 +254,35 @@ body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,2
 
   <section id="tab-stoppage" class="hidden">
     <div class="card">
-      <h2>Planned machine stoppage (date-wise)</h2>
+      <h2>Planned machine stoppage — full month</h2>
+      <p class="hint">One row per date (vertical). Enter minutes of planned downtime per machine. Run days = calendar days − downtime days (any machine with minutes &gt; 0 counts as down for that day unless only partial — we use minute totals for run-day estimate).</p>
       <div class="grid2">
-        <div><label>Date</label><input type="date" id="stopDate"/></div>
-        <div><label>Machine</label>
-          <select id="stopMachine"><option>Met-1</option><option>Met-2</option><option>S-1</option><option>S-2</option><option>Both Met</option></select>
+        <div>
+          <label>Machines (comma-separated — add any)</label>
+          <input type="text" id="machineList" value="M-1, M-2" placeholder="M-1, M-2, S-1"/>
         </div>
-        <div><label>Hours</label><input type="number" id="stopHours" step="0.5" value="8"/></div>
-        <div><label>Reason</label><input type="text" id="stopReason" placeholder="PM / Planned shutdown"/></div>
+        <div>
+          <label>Build month grid from</label>
+          <div class="btn-row" style="margin-top:4px">
+            <button class="btn btn-p" onclick="buildStoppageMonth()">Build / refresh month rows</button>
+            <button class="btn btn-g" onclick="saveStoppages()">Save stoppages</button>
+          </div>
+        </div>
+      </div>
+      <div class="stat" style="margin-top:10px">
+        <div class="s"><b id="stopRunDays">—</b><span>Est. run days</span></div>
+        <div class="s"><b id="stopTotalMin">—</b><span>Total planned minutes</span></div>
+        <div class="s"><b id="stopDownDays">—</b><span>Days with downtime</span></div>
+      </div>
+      <div class="scroll stop-grid" style="margin-top:12px;max-height:520px">
+        <table id="stopTable">
+          <thead><tr><th>Date</th><th>Machine</th><th>Minutes</th><th>Reason</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
       </div>
       <div class="btn-row">
-        <button class="btn btn-p" onclick="addStoppage()">Add stoppage</button>
+        <button class="btn btn-p" onclick="addStoppageRow()">+ Add row</button>
         <button class="btn btn-g" onclick="saveStoppages()">Save list</button>
-      </div>
-      <div class="scroll" style="margin-top:12px">
-        <table id="stopTable"><thead><tr><th>Date</th><th>Machine</th><th>Hours</th><th>Reason</th><th></th></tr></thead><tbody></tbody></table>
       </div>
     </div>
   </section>
@@ -242,6 +304,24 @@ body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,2
       <div class="scroll" style="margin-top:12px">
         <table id="reportTable">
           <thead><tr><th>Parameter</th><th>Actual</th><th>Equivalent</th><th>Target</th><th>Unit</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  
+  <section id="tab-target" class="hidden">
+    <div class="card">
+      <h2>Target — same layout as Conversion Cost</h2>
+      <p class="hint">Edit target norms for the selected month. Used in the Conversion Cost Target column.</p>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="saveTargets()">Save targets</button>
+        <button class="btn btn-o" onclick="resetTargets()">Reset defaults</button>
+      </div>
+      <div class="scroll" style="margin-top:12px">
+        <table id="targetTable">
+          <thead><tr><th>Parameter</th><th>Target</th><th>Unit</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -519,8 +599,20 @@ function loadExtrasToForm(){
 
 /* equiv */
 function eqFactor(row){
+  /* Primary: 36 MT reference / Output(MT)  — matches plant sheet "36MT/Output"
+     Also multiplies OD × Sp × Micron relative to 1 so material difficulty still applies
+     when OD/Sp/Mic deviate from the pure 36/output ratio. */
+  const out = num(row.output);
   const od=num(row.od)||1, sp=num(row.sp)||1, mic=num(row.mic)||1;
-  return +(od*sp*mic).toFixed(4);
+  const fromOut = out > 0 ? (36 / out) : (od*sp*mic);
+  // Prefer explicit 36/output when output set; keep OD*Sp*Mic as alternate if no output
+  return +fromOut.toFixed(4);
+}
+window.onEquivFieldChange = function(i, field, val){
+  if(!state.equiv[i]) return;
+  state.equiv[i][field] = num(val);
+  // When Output changes, refresh factor display (36/output)
+  renderEquiv();
 }
 function renderEquiv(){
   const tb=document.querySelector('#equivTable tbody');
@@ -528,10 +620,10 @@ function renderEquiv(){
     const f=eqFactor(r);
     return `<tr>
       <td><input value="${esc(r.material)}" onchange="state.equiv[${i}].material=this.value"/></td>
-      <td class="eq-peach"><input type="number" step="0.01" value="${r.od}" onchange="state.equiv[${i}].od=num(this.value);renderEquiv()"/></td>
-      <td class="eq-peach"><input type="number" step="0.01" value="${r.sp}" onchange="state.equiv[${i}].sp=num(this.value);renderEquiv()"/></td>
-      <td class="eq-peach"><input type="number" step="0.01" value="${r.mic}" onchange="state.equiv[${i}].mic=num(this.value);renderEquiv()"/></td>
-      <td class="eq-peach"><input type="number" step="0.1" value="${r.output}" onchange="state.equiv[${i}].output=num(this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.od}" onchange="onEquivFieldChange(${i},'od',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.sp}" onchange="onEquivFieldChange(${i},'sp',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.mic}" onchange="onEquivFieldChange(${i},'mic',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.1" value="${r.output}" onchange="onEquivFieldChange(${i},'output',this.value)"/></td>
       <td class="eq-blue"><b>${f}</b></td>
       <td><input type="number" step="0.1" value="${r.rolls}" onchange="state.equiv[${i}].rolls=num(this.value)"/></td>
       <td><input type="number" value="${r.speed}" onchange="state.equiv[${i}].speed=num(this.value)"/></td>
@@ -546,26 +638,88 @@ window.saveEquiv=()=>{ localStorage.setItem(LS.equiv, JSON.stringify(state.equiv
 window.loadDefaultEquiv=()=>{ state.equiv=JSON.parse(JSON.stringify(DEFAULT_EQUIV)); renderEquiv(); toast('Sample table loaded'); };
 
 /* stoppage */
+function getMachines(){
+  const el=document.getElementById('machineList');
+  const raw=(el&&el.value)||'M-1, M-2';
+  return raw.split(',').map(s=>s.trim()).filter(Boolean);
+}
 function renderStop(){
   const tb=document.querySelector('#stopTable tbody');
-  tb.innerHTML=state.stoppages.map((s,i)=>`<tr>
-    <td>${esc(s.date)}</td><td>${esc(s.machine)}</td><td>${s.hours}</td><td>${esc(s.reason)}</td>
-    <td><button class="btn btn-r" onclick="state.stoppages.splice(${i},1);renderStop()">✕</button></td>
-  </tr>`).join('') || '<tr><td colspan="5" style="color:var(--muted)">No stoppages</td></tr>';
+  if(!tb) return;
+  const machines=getMachines();
+  if(!(state.stoppages||[]).length){
+    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted)">No rows — click Build / refresh month rows</td></tr>';
+    updateStopStats();
+    return;
+  }
+  tb.innerHTML=state.stoppages.map((s,i)=>{
+    const opts=machines.map(m=>`<option value="${esc(m)}"${m===s.machine?' selected':''}>${esc(m)}</option>`).join('');
+    const mins = s.minutes!=null ? s.minutes : (s.hours!=null ? num(s.hours)*60 : 0);
+    return `<tr>
+      <td><input type="date" value="${esc(s.date||'')}" onchange="state.stoppages[${i}].date=this.value;updateStopStats()"/></td>
+      <td><select onchange="state.stoppages[${i}].machine=this.value">${opts}<option value="__new__">+ other…</option></select></td>
+      <td><input type="number" min="0" step="1" value="${mins}" onchange="state.stoppages[${i}].minutes=num(this.value);delete state.stoppages[${i}].hours;updateStopStats()"/></td>
+      <td><input type="text" value="${esc(s.reason||'')}" onchange="state.stoppages[${i}].reason=this.value" placeholder="Reason"/></td>
+      <td><button type="button" class="btn btn-r" onclick="state.stoppages.splice(${i},1);renderStop()">✕</button></td>
+    </tr>`;
+  }).join('');
+  updateStopStats();
 }
-window.addStoppage=()=>{
-  const date=document.getElementById('stopDate').value;
-  if(!date) return toast('Select date');
-  state.stoppages.push({
-    date,
-    machine:document.getElementById('stopMachine').value,
-    hours:num(document.getElementById('stopHours').value),
-    reason:document.getElementById('stopReason').value||''
+function updateStopStats(){
+  const ym=monthKey();
+  const rows=(state.stoppages||[]).filter(s=>String(s.date||'').startsWith(ym));
+  let totalMin=0;
+  const downDays=new Set();
+  rows.forEach(s=>{
+    const m=s.minutes!=null?num(s.minutes):(num(s.hours)*60);
+    if(m>0){ totalMin+=m; downDays.add(s.date); }
   });
-  state.stoppages.sort((a,b)=>a.date.localeCompare(b.date));
+  const [y,mo]=(ym||'2026-01').split('-').map(Number);
+  const daysInMonth=new Date(y,mo,0).getDate();
+  // Run days: full calendar days minus days that have any planned downtime
+  const runDays=Math.max(0, daysInMonth - downDays.size);
+  const el1=document.getElementById('stopRunDays');
+  const el2=document.getElementById('stopTotalMin');
+  const el3=document.getElementById('stopDownDays');
+  if(el1) el1.textContent=String(runDays);
+  if(el2) el2.textContent=String(Math.round(totalMin));
+  if(el3) el3.textContent=String(downDays.size);
+  return {runDays, totalMin, downDays:downDays.size, daysInMonth};
+}
+window.buildStoppageMonth=function(){
+  const ym=monthKey();
+  if(!ym) return toast('Select month');
+  const [y,mo]=ym.split('-').map(Number);
+  const days=new Date(y,mo,0).getDate();
+  const machines=getMachines();
+  const existing=state.stoppages||[];
+  const keep=existing.filter(s=>!String(s.date||'').startsWith(ym));
+  const rows=[];
+  for(let d=1;d<=days;d++){
+    const date=ym+'-'+String(d).padStart(2,'0');
+    machines.forEach(machine=>{
+      const prev=existing.find(s=>s.date===date && s.machine===machine);
+      rows.push({
+        date,
+        machine,
+        minutes: prev ? (prev.minutes!=null?prev.minutes:(num(prev.hours)*60)) : 0,
+        reason: prev ? (prev.reason||'') : ''
+      });
+    });
+  }
+  state.stoppages=keep.concat(rows).sort((a,b)=>String(a.date).localeCompare(b.date)||String(a.machine).localeCompare(b.machine));
+  renderStop();
+  toast('Month grid ready: '+days+' days × '+machines.length+' machines');
+};
+window.addStoppageRow=function(){
+  const ym=monthKey();
+  const machines=getMachines();
+  state.stoppages=state.stoppages||[];
+  state.stoppages.push({date:ym+'-01', machine:machines[0]||'M-1', minutes:0, reason:''});
   renderStop();
 };
-window.saveStoppages=()=>{ localStorage.setItem(LS.stop, JSON.stringify(state.stoppages)); toast('Stoppages saved'); };
+window.saveStoppages=()=>{ localStorage.setItem(LS.stop, JSON.stringify(state.stoppages)); toast('Stoppages saved'); updateStopStats(); };
+window.addStoppage=window.addStoppageRow;
 
 /* uploads */
 function bindDrop(kind){
@@ -626,6 +780,90 @@ function inMonth(dateVal, ym){
     return key===ym;
   }catch(e){ return true; }
 }
+
+
+window.applyManualInputs = function(){
+  const out = num(document.getElementById('man_outKg').value);
+  const waste = num(document.getElementById('man_wasteKg').value);
+  const bKg = num(document.getElementById('man_bKg').value);
+  const wire = num(document.getElementById('man_wireKg').value);
+  const boat = num(document.getElementById('man_boatPcs').value);
+  const eqv = num(document.getElementById('man_eqvKg').value);
+  const power = document.getElementById('man_powerUnits').value;
+  const spares = document.getElementById('man_spares').value;
+  const manp = document.getElementById('man_manpower').value;
+  const wastePctO = document.getElementById('man_wastePct').value;
+  const bPctO = document.getElementById('man_bPct').value;
+  const barePct = document.getElementById('man_barePct').value;
+
+  if(!out && !wire && !boat && !waste){
+    toast('Enter at least output or consumption values');
+    return;
+  }
+
+  state.totals = {
+    slitKg: out,
+    wasteKg: waste,
+    bGradeKg: bKg,
+    wireKg: wire,
+    boatPcs: boat,
+    rows: 0,
+    eqvKg: eqv || 0,
+    wastePctOverride: wastePctO === '' ? null : num(wastePctO),
+    bPctOverride: bPctO === '' ? null : num(bPctO),
+    barePct: barePct === '' ? null : num(barePct),
+    source: 'manual'
+  };
+
+  // push period costs into extras + form on Rates tab
+  if(power !== ''){ state.extras.powerUnits = num(power); const el=document.getElementById('powerUnits'); if(el) el.value=power; }
+  if(spares !== ''){ state.extras.sparesCost = num(spares); const el=document.getElementById('sparesCost'); if(el) el.value=spares; }
+  if(manp !== ''){ state.extras.manpowerCost = num(manp); const el=document.getElementById('manpowerCost'); if(el) el.value=manp; }
+  try{ localStorage.setItem(LS.extras, JSON.stringify(state.extras)); }catch(e){}
+
+  document.getElementById('s-slit').textContent = out ? out.toFixed(0) : '—';
+  document.getElementById('s-waste').textContent = waste ? waste.toFixed(0) : '—';
+  document.getElementById('s-wire').textContent = wire ? wire.toFixed(1) : '—';
+  document.getElementById('s-boat').textContent = boat ? boat.toFixed(0) : '—';
+  document.getElementById('s-rows').textContent = 'manual';
+
+  saveManualInputs();
+  toast('Manual values applied for '+monthKey());
+  if(typeof recalculate === 'function') recalculate();
+};
+window.saveManualInputs = function(){
+  const payload = {
+    man_outKg: document.getElementById('man_outKg').value,
+    man_eqvKg: document.getElementById('man_eqvKg').value,
+    man_wasteKg: document.getElementById('man_wasteKg').value,
+    man_bKg: document.getElementById('man_bKg').value,
+    man_wireKg: document.getElementById('man_wireKg').value,
+    man_boatPcs: document.getElementById('man_boatPcs').value,
+    man_powerUnits: document.getElementById('man_powerUnits').value,
+    man_spares: document.getElementById('man_spares').value,
+    man_manpower: document.getElementById('man_manpower').value,
+    man_wastePct: document.getElementById('man_wastePct').value,
+    man_bPct: document.getElementById('man_bPct').value,
+    man_barePct: document.getElementById('man_barePct').value,
+    ym: monthKey()
+  };
+  try{
+    const all = JSON.parse(localStorage.getItem('metcost_manual_v1')||'{}');
+    all[monthKey()] = payload;
+    localStorage.setItem('metcost_manual_v1', JSON.stringify(all));
+  }catch(e){}
+  toast('Manual form saved');
+};
+window.loadManualInputs = function(){
+  try{
+    const all = JSON.parse(localStorage.getItem('metcost_manual_v1')||'{}');
+    const p = all[monthKey()] || all;
+    if(!p || typeof p !== 'object'){ toast('No saved manual data'); return; }
+    const keys = ['man_outKg','man_eqvKg','man_wasteKg','man_bKg','man_wireKg','man_boatPcs','man_powerUnits','man_spares','man_manpower','man_wastePct','man_bPct','man_barePct'];
+    keys.forEach(k=>{ const el=document.getElementById(k); if(el && p[k]!=null) el.value=p[k]; });
+    toast('Manual form loaded');
+  }catch(e){ toast('Load failed'); }
+};
 
 window.processAllUploads=function(){
   const ym=monthKey();
@@ -710,7 +948,8 @@ window.recalculate=function(){
     if(w>0){ eqSum+=f*w; eqW+=w; }
   });
   const avgEq = eqW>0 ? eqSum/eqW : 1;
-  const eqOut = out * (avgEq>0?avgEq:1); // simplified: scale kg by avg factor
+  let eqOut = out * (avgEq>0?avgEq:1); // simplified: scale kg by avg factor
+  if(t.eqvKg && num(t.eqvKg)>0) eqOut = num(t.eqvKg);
 
   const wireRate=rateOf('Wire'), boatRate=rateOf('Boat'), powerRate=rateOf('Power');
   const baseFilm=rateOf('Base Film'), alDust=rateOf('Al Dust'), scrapAl=rateOf('Scrap Al');
@@ -723,8 +962,10 @@ window.recalculate=function(){
   const boatCostPerKg = out>0 ? (boatPcs*boatRate)/out : 0;
   const rmPerKg = wireCostPerKg + boatCostPerKg;
 
-  const wastePct = out>0 ? (t.wasteKg*100)/(out+t.wasteKg) : 0;
-  const bPct = out>0 ? (t.bGradeKg*100)/(out+t.bGradeKg) : 0;
+  let wastePct = out>0 ? (t.wasteKg*100)/(out+t.wasteKg) : 0;
+  let bPct = out>0 ? (t.bGradeKg*100)/(out+t.bGradeKg) : 0;
+  if(t.wastePctOverride!=null && t.wastePctOverride!=='') wastePct = num(t.wastePctOverride);
+  if(t.bPctOverride!=null && t.bPctOverride!=='') bPct = num(t.bPctOverride);
 
   // loss approximations matching sheet style
   const wasteLoss = (wastePct/100) * Math.max(baseFilm-14, 0); // simplified value gap
@@ -745,11 +986,12 @@ window.recalculate=function(){
   const dustCredit = out>0 && wireKg ? (wireKg*0.382*alDust)/out : 0;
   const totalAfterScrap = totalPack - scrapWireCredit - dustCredit;
 
-  // stoppage hours in month
+  // stoppage minutes → run days
   const ym=monthKey();
-  const stopH = state.stoppages.filter(s=>String(s.date).startsWith(ym)).reduce((a,s)=>a+num(s.hours),0);
-  const daysInMonth = (()=>{ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); })();
-  const runDays = Math.max(0, daysInMonth - stopH/24);
+  const stStats = (typeof updateStopStats==='function') ? updateStopStats() : {runDays:0,totalMin:0,daysInMonth:30};
+  const stopH = (stStats.totalMin||0)/60;
+  const daysInMonth = stStats.daysInMonth || (()=>{ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); })();
+  const runDays = stStats.runDays!=null ? stStats.runDays : Math.max(0, daysInMonth - stopH/24);
 
   // equivalent column: scale costs by out/eqOut
   const scale = eqOut>0 ? out/eqOut : 1;
@@ -793,6 +1035,24 @@ window.recalculate=function(){
     ]
   };
 
+
+  // Overlay Target column from Target section when set
+  try{
+    if(state.targets && state.report && state.report.rows){
+      const map={};
+      state.targets.forEach(t=>{ if(t.target!==''&&t.target!=null) map[t.param]=num(t.target); });
+      state.report.rows = state.report.rows.map(r=>{
+        const key=r[0];
+        // fuzzy match
+        const hit = map[key] != null ? map[key] :
+          (map[Object.keys(map).find(k=>key.indexOf(k)===0 || k.indexOf(key)===0)] );
+        if(hit!=null && r[3]==='') r[3]=hit;
+        else if(hit!=null && /Conversion Cost|Manpower|Wastage %|Boat|Wire \(kg|Cons|Indirect|Packing|B Grade %/i.test(key)) r[3]=hit;
+        return r;
+      });
+    }
+  }catch(e){}
+
   // UI
   const st=document.getElementById('reportStats');
   st.innerHTML=`
@@ -804,8 +1064,15 @@ window.recalculate=function(){
   const tb=document.querySelector('#reportTable tbody');
   tb.innerHTML=state.report.rows.map(r=>{
     const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(3)) : v);
-    return `<tr><td><b>${r[0]}</b></td><td>${fmt(r[1])}</td><td>${fmt(r[2])}</td><td>${fmt(r[3])}</td><td>${r[4]}</td></tr>`;
+    const name=String(r[0]||'');
+    let cls='';
+    if(/Raw Material/i.test(name)) cls='row-rm';
+    else if(/^Conversion Cost/i.test(name)) cls='row-conv';
+    else if(/Total with Packing/i.test(name)) cls='row-pack';
+    else if(/^Total Cost/i.test(name) || /after scrap/i.test(name)) cls='row-total';
+    return `<tr class="${cls}"><td><b>${r[0]}</b></td><td>${fmt(r[1])}</td><td>${fmt(r[2])}</td><td>${fmt(r[3])}</td><td>${r[4]}</td></tr>`;
   }).join('');
+  if(typeof renderTargets==='function') renderTargets();
   // auto-save this month into historical data
   try{ saveMonthHistory(); }catch(e){}
 };
@@ -873,17 +1140,70 @@ window.num=num; window.state=state; window.renderEquiv=renderEquiv; window.rende
   let theme='dark';
   try{ theme=localStorage.getItem(LS.theme)||'dark'; }catch(e){}
   applyTheme(theme==='light'?'light':'dark');
+  try{ const tg=JSON.parse(localStorage.getItem('metcost_targets_v1')||'null'); if(tg) state.targets=tg; }catch(e){}
+  if(!state.targets) state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
   renderRates(); renderEquiv(); renderStop(); loadExtrasToForm();
+  if(typeof renderTargets==='function') renderTargets();
   renderHistList();
   // load history for current month if any
   loadMonthHistory(monthKey());
   document.getElementById('reportMonth').addEventListener('change', function(){
     const ym=monthKey();
     loadMonthHistory(ym);
+    try{ loadManualInputs(); }catch(e){}
   });
 })();
 })();
 
+
+
+const DEFAULT_TARGETS = [
+  {param:'Slit Production (kg)', target:'', unit:'kg'},
+  {param:'Wastage %', target:1.3, unit:'%'},
+  {param:'B Grade %', target:0, unit:'%'},
+  {param:'Wire (kg/MT)', target:9.2, unit:'kg/MT'},
+  {param:'Boat (pcs/MT)', target:1.8, unit:'pcs/MT'},
+  {param:'Wire ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Boat ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Raw Material ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Wastage Loss ₹/kg', target:'', unit:'₹/kg'},
+  {param:'B Grade Loss ₹/kg', target:0, unit:'₹/kg'},
+  {param:'Manpower ₹/kg', target:0.8, unit:'₹/kg'},
+  {param:'Power ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Cons & Spares ₹/kg', target:0.3, unit:'₹/kg'},
+  {param:'Indirect ₹/kg', target:0.26, unit:'₹/kg'},
+  {param:'Conversion Cost ₹/kg', target:6.55, unit:'₹/kg'},
+  {param:'Total Cost ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Packing & Freight ₹/kg', target:1.67, unit:'₹/kg'},
+  {param:'Total with Packing ₹/kg', target:'', unit:'₹/kg'}
+];
+if(!state.targets) state.targets = JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+function renderTargets(){
+  const tb=document.querySelector('#targetTable tbody');
+  if(!tb) return;
+  if(!state.targets) state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+  // auto-fill computed targets from rates when blank
+  const wireRate=rateOf('Wire'), boatRate=rateOf('Boat'), powerRate=rateOf('Power');
+  tb.innerHTML=state.targets.map((r,i)=>{
+    let cls='';
+    if(/Raw Material/i.test(r.param)) cls='row-rm';
+    else if(/^Conversion Cost/i.test(r.param)) cls='row-conv';
+    else if(/Total with Packing/i.test(r.param)) cls='row-pack';
+    else if(/^Total Cost/i.test(r.param)) cls='row-total';
+    return `<tr class="${cls}"><td><b>${esc(r.param)}</b></td>
+      <td><input type="number" step="0.01" value="${r.target===''||r.target==null?'':r.target}" onchange="state.targets[${i}].target=this.value===''?'':num(this.value)"/></td>
+      <td>${esc(r.unit)}</td></tr>`;
+  }).join('');
+}
+window.saveTargets=function(){
+  localStorage.setItem('metcost_targets_v1', JSON.stringify(state.targets));
+  toast('Targets saved');
+};
+window.resetTargets=function(){
+  state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+  renderTargets();
+  toast('Target defaults restored');
+};
 
 /* ===== App mode: metcost | mrm ===== */
 window.setAppMode = function(mode){
