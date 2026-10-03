@@ -323,7 +323,7 @@
       var orig = typeof getShift === 'function' ? getShift(emp, date) : '';
       if (String(orig) === String(newShift)) return;
       if (typeof stageSingleShiftChange === 'function') {
-        stageSingleShiftChange(empId, emp.name, date, orig, newShift);
+        (typeof pushSchedUndoSnapshot==="function"&&!window._pasteUndoPushed&&(window._pasteUndoPushed=1,pushSchedUndoSnapshot())),stageSingleShiftChange(empId, emp.name, date, orig, newShift);
       }
     } catch (e) {
       console.warn('[paste]', e);

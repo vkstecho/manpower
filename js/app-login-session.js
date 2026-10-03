@@ -4285,6 +4285,8 @@ async function downloadMyShiftCalendar(){
   }
 }
 
+var _myShiftViewEmpId=null;
+function setMyShiftViewEmp(id){try{_myShiftViewEmpId=id||null;renderMyShift()}catch(e){}}
 function renderMyShift(){
   const el = document.getElementById('myShiftContent');
   if(!el) return;
@@ -4358,9 +4360,60 @@ function renderMyShift(){
     ${mates.length?mates.slice(0,30).map(emp=>`<div class="ms-mate-chip"><b>${escHtml(emp.name||'')}</b><span>${escHtml(emp.mc||emp.sec||'')}</span></div>`).join('')
       :`<div style="font-size:13px;color:var(--muted2);padding:8px">${L('आज आपकी shift पर कोई mate नहीं','No shift mates for your shift today')}</div>`}
   </div>`;
+
+  // Manager: select team member + their monthly calendar (edits → schedule + WhatsApp)
+  try{
+    const isMgrView = (typeof isMgr==='function' && isMgr()) || (typeof isAdmin==='function' && isAdmin()) || (typeof canEditSchedule==='function' && canEditSchedule() && SESSION.role==='manager');
+    if(isMgrView){
+      const team = allEmps.filter(x=>x && x.id !== e.id).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'en',{sensitivity:'base'}));
+      const selId = _myShiftViewEmpId && team.some(t=>t.id===_myShiftViewEmpId) ? _myShiftViewEmpId : '';
+      const selEmp = selId ? team.find(t=>t.id===selId) : null;
+      let opts = `<option value="">— ${L('सदस्य चुनें','Select member')} —</option>` + team.map(t=>{
+        const lab = escHtml((t.name||'') + (t.empId||t.code ? (' · '+(t.empId||t.code)) : ''));
+        return `<option value="${escHtml(t.id)}" ${t.id===selId?'selected':''}>${lab}</option>`;
+      }).join('');
+      let memberCal = '';
+      if(selEmp){
+        let mcells = '';
+        for(let i=0;i<startDow;i++) mcells += '<div class="ms-day empty"></div>';
+        for(let d=1;d<=daysInMonth;d++){
+          const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+          const sh = getShift(selEmp, ds) || '';
+          const isToday = ds===TODAY_STR;
+          const disp = cellDisp(sh) || '·';
+          const cls = cellClass(sh);
+          const nm = String(selEmp.name||'').replace(/'/g,"\\'");
+          const click = `onclick="editShiftCell('${selEmp.id}','${nm}','${ds}','${String(sh).replace(/'/g,"\\'")}')"`;
+          mcells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:pointer">
+            <div class="ms-day-num">${d}</div>
+            <div class="ms-day-sh shc ${cls}">${disp}</div>
+          </div>`;
+        }
+        memberCal = `
+        <div class="ms-cal-wrap" style="margin-top:10px;border-color:rgba(249,115,22,.35)">
+          <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
+          <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
+          <div class="ms-grid">${mcells}</div>
+          <div class="ms-hint">${L('टैप करें → Schedule अपडेट + WhatsApp (Save पर)','Tap a day → updates Schedule + WhatsApp on Save')}</div>
+        </div>`;
+      }
+      el.innerHTML += `
+      <div class="stitle" style="margin-top:22px">👥 ${L('सदस्य की Shift देखें / बदलें','View / edit member shift')}</div>
+      <div style="margin:8px 0 12px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">${L('सदस्य','Member')}</label>
+        <select id="myShiftMemberSel" onchange="setMyShiftViewEmp(this.value)"
+          style="width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:700">
+          ${opts}
+        </select>
+      </div>
+      ${memberCal}`;
+    }
+  }catch(mgrEx){ console.warn('[myShift member]', mgrEx); }
+
   // Show member's pending shift-change requests under calendar
   try{ _renderMyShiftPendingReqs(e.id); }catch(ex){}
 }
+
 async function _renderMyShiftPendingReqs(empObjId){
   const host = document.getElementById('myShiftPendingReqs');
   if(!host || !empObjId) return;

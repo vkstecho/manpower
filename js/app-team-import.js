@@ -66,8 +66,19 @@ function handleBulkImportFile(file){
 function _findCol(row,names){
   const keys=Object.keys(row);
   for(const n of names){
-    const found=keys.find(k=>k.toString().trim().toLowerCase()===n);
-    if(found!==undefined && row[found]!=='') return row[found];
+    const want=String(n).trim().toLowerCase();
+    const found=keys.find(k=>k.toString().trim().toLowerCase()===want);
+    if(found!==undefined && row[found]!=='' && row[found]!=null) return row[found];
+  }
+  // soft match: header contains the name token (e.g. Salary(₹/Month) ≈ salary)
+  for(const n of names){
+    const want=String(n).trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+    if(!want) continue;
+    const found=keys.find(k=>{
+      const kk=k.toString().trim().toLowerCase().replace(/[^a-z0-9]/g,'');
+      return kk===want || kk.includes(want) || want.includes(kk);
+    });
+    if(found!==undefined && row[found]!=='' && row[found]!=null) return row[found];
   }
   return '';
 }
@@ -211,13 +222,18 @@ function _processBulkImportRows(rows){
   const seenInFile=new Set();
 
   rows.forEach(row=>{
+    // skip template note / instruction rows
+    try{
+      const firstVal=String(Object.values(row||{})[0]||'').trim();
+      if(/^---/.test(firstVal)||/^notes?\b/i.test(firstVal)||/^en:/i.test(firstVal)||/^hi:/i.test(firstVal)) return;
+    }catch(e){}
     const name=(_findCol(row,['name','naam','नाम'])||'').toString().trim().toUpperCase();
     const code=(_findCol(row,['emp id','empid','e code','ecode','emp code','employee code','employee id','code','id'])||'').toString().trim();
     const designation=(_findCol(row,['designation','position','role','desig'])||'').toString().trim();
     const machine=(_findCol(row,['machine','mc','machine name','मशीन'])||'').toString().trim();
     const sectionCol=(_findCol(row,['section','sec','department section','सेक्शन','area','unit'])||'').toString().trim();
     const resp=(_findCol(row,['responsibility','resp'])||'').toString().trim();
-    const salaryRaw=(_findCol(row,['salary','monthly salary','salary (₹/month)','salary (rs/month)','salary(₹/month)'])||'').toString().trim().replace(/[^0-9.]/g,'');
+    const salaryRaw=(_findCol(row,['salary(₹/month)','salary(₹/month)','salary (₹/month)','salary (rs/month)','monthly salary','salary'])||'').toString().trim().replace(/[^0-9.]/g,'');
     let mobile=(_findCol(row,['mobile','mobile number','phone','phone number','contact'])||'').toString().trim().replace(/[^0-9]/g,'');
     if(mobile.length===12 && mobile.startsWith('91')) mobile=mobile.slice(2);
     if(mobile.length!==10) mobile='';
@@ -1570,11 +1586,41 @@ function closeTeamExcelUpload(){
 
 
 /** Download sample Team Excel matching Manager snapshot format */
+
+async function _downloadAoAAsXlsx(filename, rows, sheetName){
+  try{
+    if(typeof ensureXlsx==='function') await ensureXlsx();
+    else if(typeof XLSX==='undefined'){
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+        s.onload=resolve; s.onerror=reject;
+        document.head.appendChild(s);
+      });
+    }
+  }catch(e){ console.warn('[xlsx load]', e); }
+  if(typeof XLSX==='undefined'){
+    const esc=v=>{ const s=String(v??''); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+    const csv=rows.map(r=>r.map(esc).join(',')).join('\n');
+    const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=String(filename||'template').replace(/\.xlsx$/i,'.csv');
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(a.href); a.remove(); }catch(e){} }, 500);
+    toast(L('⚠️ Excel library नहीं मिली — CSV डाउनलोड','⚠️ Excel library missing — CSV downloaded'));
+    return;
+  }
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, sheetName||'Template');
+  XLSX.writeFile(wb, filename.endsWith('.xlsx')?filename:(filename+'.xlsx'));
+}
+
 function downloadTeamExcelTemplate(){
   // IMPORTANT: Section column is required for Home section-wise view & min staff
   // Order matches Schedule Download Excel (uniform)
-  const headers = ['Name','Emp ID','Designation','Weekly Off','Mobile','Section','Machine','Responsibility','Salary','Joining Date','Date of Birth'];
-  // Randomized sample only — not real plant staff (Section = free text: Metalliser, Slitter, MetProd, Production A…)
+  const headers = ['Name','Emp ID','Designation','Weekly Off','Mobile','Section','Machine','Responsibility','Salary(₹/Month)','Joining Date','Date of Birth'];
   const sample = [
     ['RAHUL MEHTA','41001201','Team Member','MON','9810011223','Production A','Line-1','Operation','32000','12-03-2024','15-08-1995'],
     ['PRIYA SHARMA','41001202','Sr. Team Member','WED','9823344556','Production A','Line-1','Setup','38500','01-06-2023','22-11-1992'],
@@ -1582,20 +1628,13 @@ function downloadTeamExcelTemplate(){
     ['NEHA GUPTA','41001204','Team Member','TUE','9900112233','Quality','QC-Desk','Inspection','29500','18-09-2024','09-07-1996'],
     ['VIKAS PATEL','41001205','Jr. Team Member','SAT','9911223344','Warehouse','Bay-3','Handling','26000','20-11-2025','11-02-1998'],
   ];
-  try{ toast('⬇️ Template includes Section column — do not remove it'); }catch(e){}
-  const esc = v => {
-    const s = String(v??'');
-    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
-  };
-  const csv = [headers, ...sample].map(r=>r.map(esc).join(',')).join('\n');
-  const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'ManPower_Team_Upload_Template.csv';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
-  toast(L('⬇️ Template downloaded — Excel में खोलकर Save as .xlsx भी कर सकते हैं','⬇️ Template downloaded — open in Excel and Save as .xlsx if needed'));
+  try{ toast(L('⬇️ Excel template (.xlsx)…','⬇️ Excel template (.xlsx)…')); }catch(e){}
+  _downloadAoAAsXlsx('ManPower_Team_Upload_Template.xlsx', [headers, ...sample], 'Team').then(()=>{
+    try{ toast(L('✅ Team template Excel डाउनलोड','✅ Team template Excel downloaded')); }catch(e){}
+  }).catch(err=>{
+    console.warn(err);
+    try{ toast('❌ Template download failed'); }catch(e){}
+  });
 }
 
 async function handleTeamExcelFile(file){
@@ -4459,6 +4498,7 @@ async function saveAllShiftChanges(opts){
 
     // Clear pending + UI RIGHT AWAY (before notifications)
     try{ Object.keys(_pendingShiftChanges).forEach(k=>delete _pendingShiftChanges[k]); }catch(e){ _pendingShiftChanges = {}; }
+    try{ if(typeof clearSchedUndoHistory==='function') clearSchedUndoHistory(); }catch(e){}
     restoreBtn();
     try{ _updateSaveBar(); }catch(e){}
     try{ renderSchedule(); }catch(e){}
@@ -5730,6 +5770,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   }
 
   // ── Schedule grid path: stage + save bar ──
+  try{ if(typeof pushSchedUndoSnapshot==='function') pushSchedUndoSnapshot(); }catch(e){}
   _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
 
   const cellEl = document.querySelector(`td[data-cellkey="${empId}_${date}"]`);

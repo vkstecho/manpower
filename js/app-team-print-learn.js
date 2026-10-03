@@ -568,7 +568,7 @@ function openLearnSection(section){
       if(loader) loader.style.display='flex';
       try{ window._generateManpowerForMetCost(); }catch(e){ console.warn('Manpower gen error:', e); }
       // Load iframe immediately — MetCost Pro fetches its own data via REST API
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='metcost_pro.html'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='Met_Cost_Pro/metcost_pro.html'; },100); },50);
     }
   } else if(section === 'kpiDashboard'){
     if(!isAdminOrMgr()){ toast('⚠️ Manager access only'); document.getElementById('learnMainButtons').style.display='block'; return; }
