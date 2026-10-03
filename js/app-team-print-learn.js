@@ -557,7 +557,7 @@ function openLearnSection(section){
     }
   } else if(section === 'mrskill'){
     if(!isAdminOrMgr()){ toast('⚠️ Manager access only'); document.getElementById('learnMainButtons').style.display='block'; return; }
-    mrSkillView.style.display='flex';
+    mrSkillView.style.display='flex'; try{ const m=localStorage.getItem('metcost_theme_v1')||'dark'; applyMRSkillTheme(m==='light'?'light':'dark'); }catch(e){}
   } else if(section === 'metcost'){
     if(!isAdminOrMgr()){ toast('⚠️ Manager access only'); document.getElementById('learnMainButtons').style.display='block'; return; }
     metCostView.style.display='flex';
@@ -666,7 +666,35 @@ function closeLearnSection(){
 }
 
 // ── MR SKILL HUB: Close (back to Learn main) ──
-window.closeMRSkill = function(){
+window.
+// MR Skill Hub light/dark (shared key with mr_skill.html)
+window.applyMRSkillTheme = function(mode){
+  const view = document.getElementById('learnMRSkillView');
+  const btn = document.getElementById('mrSkillThemeBtn');
+  if(view){
+    if(mode === 'light') view.classList.add('mrSkillHub-light');
+    else view.classList.remove('mrSkillHub-light');
+  }
+  if(btn) btn.textContent = mode === 'light' ? '☀️' : '🌙';
+  try{ localStorage.setItem('metcost_theme_v1', mode); }catch(e){}
+};
+window.toggleMRSkillTheme = function(){
+  let mode = 'dark';
+  try{ mode = localStorage.getItem('metcost_theme_v1') || 'dark'; }catch(e){}
+  mode = (mode === 'light') ? 'dark' : 'light';
+  applyMRSkillTheme(mode);
+};
+(function initMRSkillTheme(){
+  let mode = 'dark';
+  try{ mode = localStorage.getItem('metcost_theme_v1') || 'dark'; }catch(e){}
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', function(){ applyMRSkillTheme(mode === 'light' ? 'light' : 'dark'); });
+  } else {
+    applyMRSkillTheme(mode === 'light' ? 'light' : 'dark');
+  }
+})();
+
+closeMRSkill = function(){
   const view = document.getElementById('learnMRSkillView');
   if(view) view.style.display='none';
   const mb = document.getElementById('learnMainButtons');

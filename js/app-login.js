@@ -746,22 +746,24 @@ async function _checkUserAfterOTP(){
       _launchAsHardAdmin(mobile);
       return;
     }
-    // Prefer roster match first: Excel/team mobile → OTP only, no registration form
+    // Roster auto-link ONLY when mobileUsers already marks them as approved member/worker.
+    // Brand-new numbers (no mobileUsers) always see Manager / Team Member choice — even if
+    // the same phone appears on someone's Excel roster (that was the registration gap).
     try{
       const earlyRoster = await _resolveEmpByMobile(mobile);
       if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
           && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
         const mu = await fbGet('mobileUsers/'+mobile);
-        // No record, or leftover pending/removed/rejected — auto-link as approved roster member
-        if(!mu || mu.status==='pending' || mu.status==='removed' || mu.status==='left_team'
-            || mu.status==='left' || mu.status==='rejected' || mu.status==='revoked' || mu.forceFreshLogin
-            || (mu.role==='member' && mu.linkedVia!=='self_register_block')){
-          // If they self-registered as manager, don't force member
-          if(!(mu && mu.role==='manager' && mu.status==='approved')){
-            const ok = await _loginRosterMemberAfterOtp(mobile, earlyRoster);
-            if(ok) return;
-          }
+        const canAutoRoster = mu && (
+          (mu.status==='approved' && (mu.role==='member' || mu.role==='worker'))
+          || (mu.linkedVia==='roster' && mu.status!=='rejected' && mu.status!=='revoked')
+        );
+        if(canAutoRoster && !(mu.role==='manager' && mu.status==='approved')){
+          const ok = await _loginRosterMemberAfterOtp(mobile, earlyRoster);
+          if(ok) return;
         }
+        // Stash roster hit so Member registration can pre-fill / one-tap join
+        try{ window._otpRosterEmp = earlyRoster; }catch(e){}
       }
     }catch(e){ console.warn('[otp] early roster', e); }
 
@@ -941,14 +943,11 @@ async function _checkUserAfterOTP(){
         return;
       }
     }
-    // No mobileUsers row — check if phone is already on a manager's team roster
+    // No mobileUsers row → always role select (Manager / Member).
+    // Do not force roster auto-login here; user may want to register as Manager.
     try{
       const rosterEmp = await _resolveEmpByMobile(mobile);
-      if(rosterEmp && rosterEmp.status!=='resigned' && rosterEmp.status!=='left'
-          && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'){
-        const ok = await _loginRosterMemberAfterOtp(mobile, rosterEmp);
-        if(ok) return;
-      }
+      if(rosterEmp) window._otpRosterEmp = rosterEmp;
     }catch(e){ console.warn('[otp] roster resolve', e); }
 
     // Truly new mobile → role select (Manager / Member). Never leave blank.

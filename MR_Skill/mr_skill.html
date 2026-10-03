@@ -6,6 +6,7 @@
 <meta name="theme-color" content="#0f172a"/>
 <title>MR Skill · MetCost Pro & MRM</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
 
 :root, body.theme-dark{
@@ -14,15 +15,42 @@
   --warn:#fbbf24; --bad:#f87171; --blue:#38bdf8; --orange:#fb923c;
 }
 body.theme-light{
-  --bg:#f1f5f9; --panel:#ffffff; --card:#f8fafc; --border:#cbd5e1;
-  --text:#0f172a; --muted:#64748b; --accent:#7c3aed; --ok:#059669;
-  --warn:#d97706; --bad:#dc2626; --blue:#0284c7; --orange:#ea580c;
+  --bg:#eef2f7; --panel:#ffffff; --card:#ffffff; --border:#94a3b8;
+  --text:#0f172a; --muted:#334155; --accent:#6d28d9; --ok:#047857;
+  --warn:#b45309; --bad:#b91c1c; --blue:#0369a1; --orange:#c2410c;
 }
 body.theme-light header{background:linear-gradient(135deg,#ede9fe,#e0f2fe);border-bottom-color:var(--border)}
 body.theme-light header h1{background:linear-gradient(90deg,#7c3aed,#0284c7);-webkit-background-clip:text;color:transparent}
 body.theme-light .eq-peach{background:rgba(251,146,60,.2)}
 body.theme-light .eq-blue{background:rgba(56,189,248,.2)}
 body.theme-light .hint[style*="422006"]{background:#fef3c7!important;color:#92400e!important}
+/* Light theme readability */
+body.theme-light label{color:#1e293b!important;font-weight:700}
+body.theme-light .hint{color:#334155!important}
+body.theme-light .card h2{color:#0f172a!important}
+body.theme-light input, body.theme-light select, body.theme-light textarea{
+  background:#fff!important;color:#0f172a!important;border-color:#64748b!important;
+}
+body.theme-light input::placeholder, body.theme-light textarea::placeholder{color:#64748b!important;opacity:1}
+body.theme-light .drop{background:#f1f5f9!important;color:#0f172a!important;border-color:#64748b!important}
+body.theme-light .stat .s{background:#f8fafc!important;border-color:#94a3b8!important}
+body.theme-light .stat .s b{color:#0f172a!important}
+body.theme-light .stat .s span{color:#475569!important}
+body.theme-light th{background:#e2e8f0!important;color:#1e293b!important}
+body.theme-light td{color:#0f172a!important}
+body.theme-light nav button{color:#334155!important;background:#f1f5f9!important}
+body.theme-light nav button.on{color:#5b21b6!important;background:#ede9fe!important;border-color:#7c3aed!important}
+body.theme-light .mode-bar{background:#fff!important;border-color:#94a3b8!important}
+body.theme-light .mode-bar button.mode{color:#334155!important}
+body.theme-light .mode-bar button.mode.on{color:#5b21b6!important;background:#ede9fe!important}
+body.theme-light footer{color:#475569!important}
+body.theme-light #st-mb51, body.theme-light #st-jumbo, body.theme-light #st-slit, body.theme-light #st-prod{color:#334155!important}
+body.theme-light .btn-o{color:#c2410c!important;border-color:#fb923c!important;background:#fff7ed!important}
+body.theme-light .btn-g{color:#047857!important;border-color:#34d399!important;background:#ecfdf5!important}
+body.theme-light .btn-r{color:#b91c1c!important;background:#fef2f2!important}
+body.theme-light table{background:#fff}
+body.theme-light .scroll{border-color:#94a3b8!important}
+
 #themeBtn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer}
 .hist-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .hist-chip{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:11px;font-weight:700;cursor:pointer;color:var(--muted)}
@@ -345,16 +373,19 @@ body.theme-light .row-pack td{color:#c2410c}
   <div class="mrm-wrap">
     <div class="card" id="mrmHome">
       <h2 style="font-size:18px;font-weight:900;color:var(--bad)">📊 MRM Presentation</h2>
-      <p class="hint">Monthly Review Meeting slides. Uses MetCost history for the selected month when available.</p>
+      <p class="hint">Builds <b>Metallizer Performance Review</b> for the month selected in the top bar. Data comes from <b>MetCost Pro</b> (Excel upload or manual + rates + history). Same structure as plant MRM PPT: Highlights, Conversion Cost, Targets.</p>
       <div class="stat" style="margin-top:12px">
         <div class="s"><b id="mrmMonth">—</b><span>Month</span></div>
         <div class="s"><b id="mrmConv">—</b><span>Conversion ₹/kg</span></div>
         <div class="s"><b id="mrmOut">—</b><span>Output kg</span></div>
+        <div class="s"><b id="mrmWaste">—</b><span>Waste %</span></div>
       </div>
       <div class="btn-row">
-        <button class="btn btn-p" onclick="startMrmSlides()">Start slides</button>
-        <button class="btn btn-g" onclick="refreshMrmFromHistory()">Refresh from MetCost history</button>
+        <button class="btn btn-p" onclick="downloadMrmPptx()">⬇ Download MRM PPT</button>
+        <button class="btn btn-g" onclick="refreshMrmFromHistory()">Refresh from MetCost</button>
+        <button class="btn btn-o" onclick="startMrmSlides()">Start on-screen slides</button>
       </div>
+      <p class="hint" style="margin-top:10px">1) Open <b>MetCost Pro</b> → select month → Process Excel or Apply manual → Recalculate &amp; Save month.<br>2) Switch to <b>MRM Presentation</b> → Download MRM PPT for that month.</p>
     </div>
     <div class="btn-row" id="mrmNav" style="display:none">
       <button class="btn btn-p" onclick="mrmPrev()">← Prev</button>
@@ -913,14 +944,35 @@ window.processAllUploads=function(){
     });
   }
 
-  state.totals={ slitKg, wasteKg, bGradeKg, wireKg, boatPcs, rows };
+  state.totals={ slitKg, wasteKg, bGradeKg, wireKg, boatPcs, rows, source:'excel' };
   document.getElementById('s-slit').textContent=slitKg?slitKg.toFixed(0):'—';
   document.getElementById('s-waste').textContent=wasteKg?wasteKg.toFixed(0):'—';
   document.getElementById('s-wire').textContent=wireKg?wireKg.toFixed(1):'—';
   document.getElementById('s-boat').textContent=boatPcs?boatPcs.toFixed(0):'—';
   document.getElementById('s-rows').textContent=String(rows);
   localStorage.setItem(LS.data, JSON.stringify({ totals:state.totals, ym }));
-  toast('Processed for '+ym);
+  // Auto-fill manual input fields from Excel totals
+  try{
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el && v!=null && v!=='' && !isNaN(v)) el.value = v; };
+    set('man_outKg', slitKg ? +Number(slitKg).toFixed(3) : '');
+    set('man_wasteKg', wasteKg ? +Number(wasteKg).toFixed(3) : '');
+    set('man_bKg', bGradeKg ? +Number(bGradeKg).toFixed(3) : '');
+    set('man_wireKg', wireKg ? +Number(wireKg).toFixed(3) : '');
+    set('man_boatPcs', boatPcs ? +Number(boatPcs).toFixed(0) : '');
+    // power / spares / manpower from extras if already set on Rates
+    if(state.extras){
+      if(state.extras.powerUnits) set('man_powerUnits', state.extras.powerUnits);
+      if(state.extras.sparesCost) set('man_spares', state.extras.sparesCost);
+      if(state.extras.manpowerCost) set('man_manpower', state.extras.manpowerCost);
+    }
+    // waste % / b % from kg
+    if(slitKg>0){
+      if(wasteKg>0) set('man_wastePct', +((wasteKg*100)/(slitKg+wasteKg)).toFixed(4));
+      if(bGradeKg>0) set('man_bPct', +((bGradeKg*100)/(slitKg+bGradeKg)).toFixed(4));
+    }
+    if(typeof saveManualInputs==='function') saveManualInputs();
+  }catch(e){ console.warn('manual autofill', e); }
+  toast('Processed for '+ym+' — manual fields filled');
   recalculate();
 };
 
@@ -1206,6 +1258,470 @@ window.resetTargets=function(){
 };
 
 /* ===== App mode: metcost | mrm ===== */
+
+function _mrmMonthLabel(ym){
+  if(!ym || ym.length < 7) return ym || '—';
+  const [y,m] = ym.split('-').map(Number);
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return (names[(m||1)-1] || m) + '-' + String(y).slice(2);
+}
+function _mrmGetMonthBundle(){
+  const ym = (typeof monthKey === 'function') ? monthKey() : (document.getElementById('reportMonth')||{}).value;
+  let conv = null, out = null, wastePct = null, bPct = null, rows = [], totals = {}, extras = {}, report = null;
+  try{
+    const map = (typeof loadHistoryMap === 'function') ? loadHistoryMap() : {};
+    const h = map[ym];
+    if(h){
+      totals = h.totals || {};
+      extras = h.extras || {};
+      report = h.report || null;
+      rows = (h.report && h.report.rows) ? h.report.rows : [];
+    } else if(state && state.report){
+      report = state.report;
+      rows = state.report.rows || [];
+      totals = state.totals || {};
+      extras = state.extras || {};
+    } else if(state && state.totals){
+      totals = state.totals;
+      extras = state.extras || {};
+      rows = (state.report && state.report.rows) || [];
+      report = state.report;
+    }
+  }catch(e){}
+  const rowVal = (namePart, col)=>{
+    const r = (rows||[]).find(x => String(x[0]||'').indexOf(namePart) >= 0);
+    if(!r) return null;
+    const v = r[col];
+    return (v === '' || v == null) ? null : v;
+  };
+  conv = rowVal('Conversion Cost ₹/kg', 1);
+  if(conv == null) conv = rowVal('Conversion Cost', 1);
+  out = totals.slitKg != null ? totals.slitKg : rowVal('Slit Production', 1);
+  wastePct = totals.wastePctOverride != null ? totals.wastePctOverride : rowVal('Wastage %', 1);
+  bPct = totals.bPctOverride != null ? totals.bPctOverride : rowVal('B Grade %', 1);
+  return { ym, label: _mrmMonthLabel(ym), conv, out, wastePct, bPct, rows, totals, extras, report };
+}
+function _mrmFmt(v, d){
+  if(v == null || v === '' || (typeof v === 'number' && !isFinite(v))) return '—';
+  if(typeof v === 'number') return (Math.abs(v) >= 100 ? v.toFixed(d != null ? d : 0) : v.toFixed(d != null ? d : 2));
+  return String(v);
+}
+window.refreshMrmFromHistory = function(){
+  const b = _mrmGetMonthBundle();
+  const elM = document.getElementById('mrmMonth');
+  const elC = document.getElementById('mrmConv');
+  const elO = document.getElementById('mrmOut');
+  const elW = document.getElementById('mrmWaste');
+  if(elM) elM.textContent = b.label || b.ym || '—';
+  if(elC) elC.textContent = b.conv != null ? Number(b.conv).toFixed(2) : '—';
+  if(elO) elO.textContent = b.out != null ? Number(b.out).toFixed(0) : '—';
+  if(elW) elW.textContent = b.wastePct != null ? Number(b.wastePct).toFixed(2) : '—';
+  try{
+    const slides = document.getElementById('mrmSlides');
+    if(slides){
+      const s1 = slides.querySelector('[data-i="0"]');
+      const s2 = slides.querySelector('[data-i="1"]');
+      const s3 = slides.querySelector('[data-i="2"]');
+      const s4 = slides.querySelector('[data-i="3"]');
+      if(s1) s1.innerHTML = '<h2>1 · Highlights — '+b.label+'</h2><p>Slit output: <b>'+_mrmFmt(b.out,0)+' kg</b></p><p>Wastage %: <b>'+_mrmFmt(b.wastePct,2)+'</b> · B Grade %: <b>'+_mrmFmt(b.bPct,2)+'</b></p><p>Conversion Cost: <b>'+_mrmFmt(b.conv,2)+' ₹/kg</b></p>';
+      if(s2) s2.innerHTML = '<h2>2 · Conversion Cost</h2><p>Actual vs Target vs Equivalent from MetCost Pro.</p><p style="font-size:36px;font-weight:900;color:var(--accent);margin-top:16px" id="mrmSlideConv">'+_mrmFmt(b.conv,2)+' ₹/kg</p>';
+      if(s3) s3.innerHTML = '<h2>3 · Manpower &amp; Power</h2><p>Manpower ₹: <b>'+_mrmFmt(b.extras.manpowerCost,0)+'</b></p><p>Power units: <b>'+_mrmFmt(b.extras.powerUnits,0)+'</b> · Spares ₹: <b>'+_mrmFmt(b.extras.sparesCost,0)+'</b></p>';
+      if(s4) s4.innerHTML = '<h2>4 · Actions</h2><p>Review Conversion vs Target · Waste · Run days · Owner / Deadline in To-Do.</p>';
+    }
+  }catch(e){}
+  if(typeof toast==='function') toast(b.report || b.out ? ('MRM data ready for '+b.label) : ('No MetCost save for '+(b.ym||'')+' — save month in MetCost Pro first'));
+};
+
+window.downloadMrmPptx = async function(){
+  const b = _mrmGetMonthBundle();
+  if(!b.ym){ toast('Select a month'); return; }
+  if(!b.report && !b.out && !(b.rows && b.rows.length)){
+    toast('No MetCost data for '+b.ym+' — Process/Apply & Save month first');
+    return;
+  }
+  if(typeof PptxGenJS === 'undefined'){
+    toast('PPT library not loaded — check network / CDN');
+    return;
+  }
+  try{
+    const pptx = new PptxGenJS();
+    let _mrmLogo = '';
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf('mp_logo_mgr:')===0){ _mrmLogo = localStorage.getItem(k)||''; break; }
+      }
+      if(!_mrmLogo) _mrmLogo = sessionStorage.getItem('mp_logo_session')||'';
+    }catch(e){}
+    // Match plant template aspect (~13.33 x 7.5 is 16:9; template ~10"x7.5" landscape EMU ratio)
+    pptx.defineLayout({ name:'MRM', width:13.333, height:7.5 });
+    pptx.layout = 'MRM';
+    pptx.author = 'MetCost Pro';
+    pptx.title = 'Metallizer Performance Review '+b.label;
+
+    const n = (v,d)=>{
+      if(v==null||v==='') return '';
+      const x = Number(String(v).replace(/,/g,''));
+      if(!isFinite(x)) return String(v);
+      if(d===0) return Math.round(x).toLocaleString('en-IN');
+      return x.toFixed(d!=null?d:2);
+    };
+    const num = (v)=>{
+      if(v==null||v==='') return null;
+      const x = Number(String(v).replace(/,/g,''));
+      return isFinite(x) ? x : null;
+    };
+    const rowFind = (keys)=>{
+      for(const k of keys){
+        const r = (b.rows||[]).find(x => String(x[0]||'').toLowerCase().indexOf(k.toLowerCase())>=0);
+        if(r) return r;
+      }
+      return null;
+    };
+    const cell = (keys, col)=>{
+      const r = rowFind(keys);
+      return r ? r[col] : null;
+    };
+    const outKg = num(b.out);
+    const outMT = outKg!=null ? outKg/1000 : null;
+    const wastePct = num(b.wastePct);
+    const bPct = num(b.bPct);
+    const convA = num(b.conv);
+    const convE = num(cell(['Conversion Cost ₹/kg','Conversion Cost'], 2));
+    const convT = num(cell(['Conversion Cost ₹/kg','Conversion Cost'], 3));
+    const wireKg = num(b.totals.wireKg);
+    const boatPcs = num(b.totals.boatPcs);
+    const wirePerMT = (wireKg!=null && outMT) ? wireKg/outMT : null;
+    const boatPerMT = (boatPcs!=null && outMT) ? boatPcs/outMT : null;
+    const powerUnits = num(b.extras.powerUnits);
+    const powerPerKg = (powerUnits!=null && outKg) ? powerUnits/outKg : null;
+    const wasteKg = num(b.totals.wasteKg);
+    const bKg = num(b.totals.bGradeKg);
+    const barePct = num(b.totals.barePct) || num(cell(['Bare Film'],1));
+
+    // History for multi-month tracking (last 3 months ending selected)
+    const histMap = (typeof loadHistoryMap==='function') ? loadHistoryMap() : {};
+    const ymParts = (b.ym||'').split('-').map(Number);
+    const monthCols = [];
+    for(let i=2;i>=0;i--){
+      let y = ymParts[0], m = ymParts[1]-i;
+      while(m<=0){ m+=12; y--; }
+      const key = y+'-'+String(m).padStart(2,'0');
+      monthCols.push({ key, label: _mrmMonthLabel(key), h: histMap[key]||null });
+    }
+    const histVal = (h, fn)=>{
+      if(!h) return '';
+      try{ return fn(h); }catch(e){ return ''; }
+    };
+
+    const hdrFill = { color:'7F1D1D' };
+    const hdrColor = 'FFFFFF';
+    const accent = 'B91C1C';
+
+    // ═══ SLIDE 1 — Title (same as plant) ═══
+    let s = pptx.addSlide();
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:7.5, fill:{ color:'FFFFFF' } });
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:0.15, fill:{ color:accent } });
+    s.addText('MET/F/13', { x:11.2, y:0.35, w:1.8, h:0.3, fontSize:11, color:'64748B', align:'right' });
+    try{ if(_mrmLogo) s.addImage({ data:_mrmLogo, x:0.5, y:0.3, w:1.4, h:0.7 }); }catch(e){}
+    s.addText('Metallizer Performance Review '+b.label, {
+      x:0.6, y:3.0, w:12.1, h:0.8, fontSize:28, bold:true, color:'7F1D1D', align:'center'
+    });
+    s.addText('GLS Polyfilms', { x:0.6, y:3.9, w:12.1, h:0.4, fontSize:16, color:'334155', align:'center' });
+
+    // ═══ SLIDE 2 — Highlights / Low lights ═══
+    s = pptx.addSlide();
+    s.addText('Highlights', { x:0.5, y:0.3, w:12, h:0.4, fontSize:22, bold:true, color:accent });
+    const hiLines = [
+      '• No unsafe incidents reported. (update if needed)',
+      '• Met / Slit Output: '+(outMT!=null?n(outMT,1)+' MT':'—')+' ('+(outKg!=null?n(outKg,0)+' kg':'—')+')',
+      '• Wastage ended up with '+(wastePct!=null?n(wastePct,2)+'%':'—'),
+      '• B grade generation '+(bPct!=null?n(bPct,2)+'%':'—'),
+      '• Conversion Cost Actual '+(convA!=null?n(convA,2)+' ₹/kg':'—')+(convE!=null?' · Eqv '+n(convE,2):'')
+    ];
+    s.addText(hiLines.join('\n'), { x:0.5, y:0.85, w:12, h:2.8, fontSize:15, color:'1E293B', valign:'top' });
+    s.addText('Low lights', { x:0.5, y:3.9, w:12, h:0.35, fontSize:20, bold:true, color:accent });
+    const loLines = [
+      '• Review waste vs 1.0% target'+(wastePct!=null && wastePct>1?' (actual '+n(wastePct,2)+'%)':''),
+      '• B grade vs 0% target'+(bPct!=null?' (actual '+n(bPct,2)+'%)':''),
+      '• Conversion vs target'+(convT!=null?' (target '+n(convT,2)+' ₹/kg)':'')
+    ];
+    s.addText(loLines.join('\n'), { x:0.5, y:4.4, w:12, h:2.2, fontSize:15, color:'1E293B', valign:'top' });
+
+    // ═══ SLIDE 3 — Mixed Product Details (structure; values from eqv table if present) ═══
+    s = pptx.addSlide();
+    s.addText('Mixed Product Details', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    let mixRows = [[
+      {text:'Micron/OD', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.2', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.5', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.8', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Total (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Equv. (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}}
+    ]];
+    // Prefer state.eqv materials aggregated if available
+    try{
+      const eq = (state && state.eqv) ? state.eqv : [];
+      if(eq.length){
+        let tOut=0, tEq=0;
+        eq.forEach(r=>{
+          const out = num(r.output)||0;
+          const fac = num(r.factor)||1;
+          mixRows.push([String(r.material||''), '','','', n(out,1), n(out*fac,1)]);
+          tOut+=out; tEq+=out*fac;
+        });
+        mixRows.push([
+          {text:'Total', options:{bold:true}},
+          '','','',
+          {text:n(tOut,1), options:{bold:true}},
+          {text:n(tEq,1), options:{bold:true}}
+        ]);
+      } else {
+        // placeholder structure matching template
+        ['8','10','12','19','23','12 Mic. AlOx Coated','12 Mic Rele. Coated'].forEach(m=>{
+          mixRows.push([m,'','','','','']);
+        });
+        mixRows.push([{text:'Total',options:{bold:true}},'','','', outMT!=null?n(outMT,1):'', '']);
+      }
+    }catch(e){
+      mixRows.push(['Total','','','', outMT!=null?n(outMT,1):'','']);
+    }
+    s.addTable(mixRows, { x:0.35, y:0.8, w:12.6, colW:[3.2,1.6,1.6,1.6,2.3,2.3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:11, color:'0F172A' });
+    s.addText('Width & Length Eqv. from MetCost Equivalent table when available', { x:0.4, y:7.0, w:12, h:0.3, fontSize:10, color:'64748B' });
+
+    // ═══ SLIDE 4 — SB and Wastages ═══
+    s = pptx.addSlide();
+    s.addText('SB and Wastages', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    const wasteMT = wasteKg!=null ? wasteKg/1000 : null;
+    const bMT = bKg!=null ? bKg/1000 : null;
+    const wTgt = 1.0, bTgt = 0;
+    s.addTable([
+      [
+        {text:'Wastages-SAP', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'MTD (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'MTD%', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Target %', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Deviation%', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Remarks', options:{bold:true, fill:hdrFill, color:hdrColor}}
+      ],
+      ['Met Sheet Waste', n(wasteMT,1), n(wastePct,2), n(wTgt,1), wastePct!=null?n(wTgt-wastePct,2):'', 'From MetCost'],
+      ['Met Trim Waste','','','','',''],
+      ['Met Offcut Rolls','','','','',''],
+      ['B Grade', n(bMT,1), n(bPct,2), n(bTgt,0), bPct!=null?n(bTgt-bPct,2):'', 'From MetCost']
+    ], { x:0.3, y:0.85, w:12.7, colW:[2.8,1.6,1.4,1.5,1.7,3.7], border:[{pt:0.5,color:'CBD5E1'}], fontSize:11, color:'0F172A' });
+
+    // ═══ SLIDE 5 — Monthly Performance Tracking ═══
+    s = pptx.addSlide();
+    s.addText('Monthly Performance Tracking', { x:0.35, y:0.2, w:12, h:0.35, fontSize:18, bold:true, color:accent });
+    const mHdr = [{text:'Month', options:{bold:true, fill:hdrFill, color:hdrColor}}]
+      .concat(monthCols.map(c=>({text:c.label, options:{bold:true, fill:hdrFill, color:hdrColor}})));
+    const metricDefs = [
+      ['Met Feed/Input (MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Met Jumbo Production(MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Slitting Output(MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Slitting Input(MT)', h=>{ const v=num((h.totals||{}).slitKg); const w=num((h.totals||{}).wasteKg); return (v!=null)?n((v+(w||0))/1000,1):''; }],
+      ['Met Waste Produced(%)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Wastage')>=0); return r?n(r[1],2):(h.totals&&h.totals.wastePctOverride!=null?n(h.totals.wastePctOverride,2):''); }],
+      ['B Grade Generated(%)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('B Grade')>=0); return r?n(r[1],2):''; }],
+      ['Slitting Output Equivalent(MT)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Slit Production')>=0); const v=num(r&&r[2]); return v!=null?n(v/1000,1):''; }],
+      ['Al wire Consumption(Kg/MT)', h=>{ const w=num((h.totals||{}).wireKg); const o=num((h.totals||{}).slitKg); return (w!=null&&o)?n(w/(o/1000),1):''; }],
+      ['Evaporation Boat Consumption(Pc/MT)', h=>{ const w=num((h.totals||{}).boatPcs); const o=num((h.totals||{}).slitKg); return (w!=null&&o)?n(w/(o/1000),2):''; }],
+      ['Power Consumption(UPT)', h=>{ const p=num((h.extras||{}).powerUnits); const o=num((h.totals||{}).slitKg); return (p!=null&&o)?n(p/(o/1000),0):''; }],
+      ['Conversion Cost ₹/kg', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Conversion Cost ₹')>=0||String(x[0])==='Conversion Cost'); return r?n(r[1],2):''; }]
+    ];
+    const trackRows = [mHdr];
+    metricDefs.forEach(([name, fn])=>{
+      trackRows.push([name].concat(monthCols.map(c=> histVal(c.h, fn) || (c.key===b.ym && name.indexOf('Slitting Output(MT)')===0 && outMT!=null ? n(outMT,1) : (c.key===b.ym && name.indexOf('Conversion')===0 && convA!=null ? n(convA,2) : '')))));
+    });
+    // Force current month known values
+    trackRows.forEach(row=>{
+      if(row[0]==='Slitting Output(MT)' && outMT!=null) row[row.length-1]=n(outMT,1);
+      if(row[0]==='Met Waste Produced(%)' && wastePct!=null) row[row.length-1]=n(wastePct,2);
+      if(row[0]==='B Grade Generated(%)' && bPct!=null) row[row.length-1]=n(bPct,2);
+      if(row[0]==='Conversion Cost ₹/kg' && convA!=null) row[row.length-1]=n(convA,2);
+      if(row[0]==='Al wire Consumption(Kg/MT)' && wirePerMT!=null) row[row.length-1]=n(wirePerMT,1);
+      if(row[0]==='Evaporation Boat Consumption(Pc/MT)' && boatPerMT!=null) row[row.length-1]=n(boatPerMT,2);
+      if(row[0]==='Power Consumption(UPT)' && powerUnits!=null && outMT) row[row.length-1]=n(powerUnits/outMT,0);
+    });
+    s.addTable(trackRows, { x:0.25, y:0.6, w:12.8, colW:[4.4,2.8,2.8,2.8], border:[{pt:0.4,color:'CBD5E1'}], fontSize:10, color:'0F172A' });
+
+    // ═══ SLIDE 6 — Wastage Trend ═══
+    s = pptx.addSlide();
+    s.addText('Wastage-Trend', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    s.addText('% Non Usable Waste Generated (Met Sheet + Trim + Offcut)', { x:0.4, y:0.7, w:12, h:0.3, fontSize:12, color:'475569' });
+    const trendMonths = Object.keys(histMap).sort().slice(-12);
+    const wasteTrend = [['Month','% Waste']];
+    trendMonths.forEach(k=>{
+      const h = histMap[k];
+      const r = (h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Wastage')>=0);
+      const v = r ? r[1] : (h.totals && h.totals.wastePctOverride);
+      wasteTrend.push([_mrmMonthLabel(k), v!=null?n(v,2):'']);
+    });
+    if(wasteTrend.length===1) wasteTrend.push([b.label, wastePct!=null?n(wastePct,2):'']);
+    s.addTable(wasteTrend, { x:0.5, y:1.1, w:6, colW:[3,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    if(trendMonths.length>=2){
+      try{
+        s.addChart(pptx.charts.LINE, {
+          x:6.8, y:1.1, w:6, h:5,
+          showTitle:false, showLegend:false,
+          categories: wasteTrend.slice(1).map(r=>r[0]),
+          series: [{ name:'% Waste', values: wasteTrend.slice(1).map(r=>num(r[1])||0) }]
+        });
+      }catch(e){}
+    }
+
+    // ═══ SLIDE 7 — Down gradation Trend ═══
+    s = pptx.addSlide();
+    s.addText('Down gradation Trend', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    const bTrend = [['Month','% Down Gradation']];
+    trendMonths.forEach(k=>{
+      const h = histMap[k];
+      const r = (h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('B Grade')>=0);
+      bTrend.push([_mrmMonthLabel(k), r?n(r[1],2):'']);
+    });
+    if(bTrend.length===1) bTrend.push([b.label, bPct!=null?n(bPct,2):'']);
+    s.addTable(bTrend, { x:0.5, y:1.1, w:6, colW:[3,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    if(trendMonths.length>=2){
+      try{
+        s.addChart(pptx.charts.LINE, {
+          x:6.8, y:1.1, w:6, h:5,
+          showTitle:false, showLegend:false,
+          categories: bTrend.slice(1).map(r=>r[0]),
+          series: [{ name:'% B Grade', values: bTrend.slice(1).map(r=>num(r[1])||0) }]
+        });
+      }catch(e){}
+    }
+
+    // ═══ SLIDE 8 — Downtime Summary ═══
+    s = pptx.addSlide();
+    s.addText('Downtime Summary', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    // Aggregate planned stoppages if present
+    let stop = [];
+    try{ stop = (b.report && b.report.stoppages) || (state && state.stoppages) || []; }catch(e){}
+    if(!stop.length){
+      try{
+        const h = histMap[b.ym];
+        if(h && h.stoppages) stop = h.stoppages;
+      }catch(e){}
+    }
+    let m1=0, m2=0, other=0;
+    (stop||[]).forEach(r=>{
+      const mins = num(r.minutes)||num(r.hours)*60||0;
+      const hrs = mins/60;
+      const m = String(r.machine||'').toUpperCase();
+      if(m.indexOf('1')>=0 || m.indexOf('M-1')>=0 || m==='MET-1') m1+=hrs;
+      else if(m.indexOf('2')>=0 || m.indexOf('M-2')>=0 || m==='MET-2') m2+=hrs;
+      else other+=hrs;
+    });
+    const totH = m1+m2+other;
+    const daysInMonth = (()=>{ const [y,m]=b.ym.split('-').map(Number); return new Date(y,m,0).getDate(); })();
+    s.addTable([
+      [
+        {text:'Machine', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Met-1', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Met-2', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Total', options:{bold:true, fill:hdrFill, color:hdrColor}}
+      ],
+      ['Total (Hours)', n(m1,1), n(m2,1), n(totH,1)],
+      ['Process (Hours)', '','',''],
+      ['Mechanical (Hours)', '','',''],
+      ['E & I / Electrical (Hours)', '','',''],
+      ['Power downtime (Hours)', '','',''],
+      ['NO FEED/RM, Planned SD (Hours)', n(m1,1), n(m2,1), n(totH,1)],
+      ['No Order (Hours)', '0.0','0.0','0.0'],
+      ['No of Days (Downtime)', n(m1/24,1), n(m2/24,1), n(totH/24,1)],
+      ['Run Days', n(daysInMonth - m1/24,1), n(daysInMonth - m2/24,1), n(daysInMonth - totH/24,1)]
+    ], { x:0.4, y:0.85, w:12.5, colW:[4.5,2.6,2.6,2.8], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    s.addText('Planned stoppage minutes from MetCost → hours. Split Process/Mech/E&I when logged by reason.', { x:0.4, y:6.9, w:12, h:0.3, fontSize:10, color:'64748B' });
+
+    // ═══ SLIDE 9 — Conversion Cost (exact template layout) ═══
+    s = pptx.addSlide();
+    const costOrder = [
+      'Slit Production',
+      'Wastage %',
+      'B Grade %',
+      'Bare Film',
+      'Wire',
+      'Boat',
+      'Raw Material',
+      'Wastage',
+      'B Grade (Loss)',
+      'Manpower',
+      'Power',
+      'Cons',
+      'Indirect',
+      'Conversion Cost',
+      'Total Cost',
+      'Packing',
+      'Total with Packing'
+    ];
+    const costTable = [[
+      {text:'Conversion Cost:', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Actual', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Equivalent', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Target', options:{bold:true, fill:hdrFill, color:hdrColor}}
+    ]];
+    // Prefer full report rows in order
+    const used = new Set();
+    (b.rows||[]).forEach(r=>{
+      const name = String(r[0]||'');
+      if(!name || name==='Parameter') return;
+      costTable.push([
+        name,
+        r[1]===''||r[1]==null?'': (typeof r[1]==='number'?n(r[1],2):String(r[1])),
+        r[2]===''||r[2]==null?'': (typeof r[2]==='number'?n(r[2],2):String(r[2])),
+        r[3]===''||r[3]==null?'': (typeof r[3]==='number'?n(r[3],2):String(r[3]))
+      ]);
+      used.add(name);
+    });
+    if(costTable.length===1){
+      costTable.push(['Slit Production (Exc. 5 & 6 Grade)', outKg!=null?n(outKg,0):'', '', '']);
+      costTable.push(['Wastage % Slitter', wastePct!=null?n(wastePct,2):'', '', '1.30']);
+      costTable.push(['B Grade %', bPct!=null?n(bPct,2):'', '', '0.00']);
+      costTable.push(['Conversion Cost', convA!=null?n(convA,2):'', convE!=null?n(convE,2):'', convT!=null?n(convT,2):'']);
+    }
+    s.addTable(costTable, { x:0.3, y:0.25, w:12.7, colW:[5.2,2.5,2.5,2.5], border:[{pt:0.4,color:'CBD5E1'}], fontSize:10, color:'0F172A' });
+
+    // ═══ SLIDE 10 — Target next month ═══
+    s = pptx.addSlide();
+    // next month label
+    let ny=ymParts[0], nm=ymParts[1]+1; if(nm>12){ nm=1; ny++; }
+    const nextLabel = _mrmMonthLabel(ny+'-'+String(nm).padStart(2,'0'));
+    s.addText('Target for the Next Month of '+nextLabel, { x:0.4, y:0.3, w:12, h:0.45, fontSize:20, bold:true, color:accent });
+    let targets = [];
+    try{ targets = (state && state.targets && state.targets.length) ? state.targets : []; }catch(e){}
+    if(!targets.length){
+      targets = [
+        {param:'Slitting Output(MT) (Equivalent 12 MIC 2.2 OD)', target:'', unit:'MT'},
+        {param:'Number of Run Days', target:'', unit:'days'},
+        {param:'Running Time (Hours/Machine/Day)', target:'', unit:'hrs'},
+        {param:'Met Waste(%)', target:1.0, unit:'%'},
+        {param:'B Grade Generation(%)', target:0.1, unit:'%'},
+        {param:'Overall Efficiency(%)', target:98.9, unit:'%'},
+        {param:'Conversion Cost ₹/kg', target: convT!=null?convT:6.55, unit:'₹/kg'}
+      ];
+    }
+    s.addTable([
+      [{text:'Parameter', options:{bold:true, fill:hdrFill, color:hdrColor}},{text:'Target', options:{bold:true, fill:hdrFill, color:hdrColor}}],
+      ...targets.map(tr=>[tr.param, tr.target===''||tr.target==null?'':String(tr.target)])
+    ], { x:0.5, y:0.95, w:12, colW:[9,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:13, color:'0F172A' });
+
+    // ═══ SLIDE 11 — Thanks ═══
+    s = pptx.addSlide();
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:7.5, fill:{ color:'FFFFFF' } });
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:0.15, fill:{ color:accent } });
+    try{ if(_mrmLogo) s.addImage({ data:_mrmLogo, x:5.9, y:1.8, w:1.5, h:0.9 }); }catch(e){}
+    s.addText('Thanks', { x:0.6, y:3.2, w:12.1, h:0.7, fontSize:36, bold:true, color:accent, align:'center' });
+    s.addText('Generated from MetCost Pro · '+b.label, { x:0.6, y:4.1, w:12.1, h:0.35, fontSize:12, color:'64748B', align:'center' });
+
+    await pptx.writeFile({ fileName: 'Met_Presentation_Monthly_Review_'+b.ym+'.pptx' });
+    toast('Downloaded Met_Presentation_Monthly_Review_'+b.ym+'.pptx');
+  }catch(err){
+    console.error(err);
+    toast('PPT error: '+(err && err.message ? err.message : err));
+  }
+};
+
+
 window.setAppMode = function(mode){
   const met = mode !== 'mrm';
   document.getElementById('view-metcost').classList.toggle('on', met);
@@ -1213,7 +1729,7 @@ window.setAppMode = function(mode){
   document.getElementById('btnModeMet').classList.toggle('on', met);
   document.getElementById('btnModeMrm').classList.toggle('on', !met);
   try{ sessionStorage.setItem('mrskill_mode', met ? 'metcost' : 'mrm'); }catch(e){}
-  if(!met) refreshMrmFromHistory();
+  if(!met){ try{ refreshMrmFromHistory(); }catch(e){} }
 };
 
 let _mrmSi = 0;

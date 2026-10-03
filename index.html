@@ -46,13 +46,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=2527"></script>
+<script type="module" src="js/firebase-init.js?v=2534"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=2527">
+<link rel="stylesheet" href="css/app.css?v=2534">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -71,6 +71,16 @@ window.addEventListener('appinstalled', function () {
   html[dir="rtl"] .back-btn { flex-direction: row-reverse; }
   .i18n-miss { outline: 1px dashed #f472b6; background: rgba(244,114,182,.08); }
 </style>
+
+<style id="mrSkillHubThemeCss">
+#learnMRSkillView.mrSkillHub-light{background:#eef2f7!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillHubHeader{background:#fff;border-bottom-color:#cbd5e1!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillHubHeader button{color:#0f172a!important;background:#f1f5f9!important;border-color:#94a3b8!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillHubHeader div{color:#0f172a!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillHubHeader div div{color:#334155!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillThemeBtn{background:#f1f5f9!important;color:#0f172a!important}
+</style>
+
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -835,12 +845,13 @@ window.addEventListener('appinstalled', function () {
 
   <!-- ════ MR SKILL HUB VIEW ════ -->
   <div id="learnMRSkillView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(220,38,38,.2);flex-shrink:0;">
+    <div id="mrSkillHubHeader" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(220,38,38,.2);flex-shrink:0;">
       <button onclick="closeMRSkill()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
-      <div>
+      <div style="flex:1;min-width:0">
         <div style="font-size:16px;font-weight:900;color:#ef4444">🔑 MR Skill Hub</div>
         <div style="font-size:10px;color:rgba(255,255,255,.45)">MetCost Pro · MRM Presentation</div>
       </div>
+      <button type="button" id="mrSkillThemeBtn" onclick="toggleMRSkillTheme()" title="Light / Dark" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;cursor:pointer;font-family:inherit;flex-shrink:0">🌙</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
 
@@ -1308,19 +1319,19 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=2527"></script>
-<script src="js/app-login.js?v=2527"></script>
-<script src="js/app-login-device.js?v=2527"></script>
-<script src="js/app-login-session.js?v=2527"></script>
-<script src="js/app-schedule.js?v=2527"></script>
-<script src="js/app-team.js?v=2527"></script>
-<script src="js/app-team-import.js?v=2527"></script>
-<script src="js/app-team-print-learn.js?v=2527"></script>
-<script src="js/app.js?v=2527"></script>
-<script src="js/a11y.js?v=2527"></script>
-<script src="js/sched-clipboard.js?v=2527"></script>
-<script src="js/sched-undo.js?v=2527"></script>
-<script src="js/sched-cell-keys.js?v=2527"></script>
+<script src="js/app-core.js?v=2534"></script>
+<script src="js/app-login.js?v=2534"></script>
+<script src="js/app-login-device.js?v=2534"></script>
+<script src="js/app-login-session.js?v=2534"></script>
+<script src="js/app-schedule.js?v=2534"></script>
+<script src="js/app-team.js?v=2534"></script>
+<script src="js/app-team-import.js?v=2534"></script>
+<script src="js/app-team-print-learn.js?v=2534"></script>
+<script src="js/app.js?v=2534"></script>
+<script src="js/a11y.js?v=2534"></script>
+<script src="js/sched-clipboard.js?v=2534"></script>
+<script src="js/sched-undo.js?v=2534"></script>
+<script src="js/sched-cell-keys.js?v=2534"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

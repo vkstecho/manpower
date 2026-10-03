@@ -804,6 +804,95 @@ function updateSyncTime(){
 // ════════════════════════════════════════
 let _shiftDraft=null;
 
+
+window.handleCompanyLogoFile = function(input){
+  const file = input && input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 2*1024*1024){ toast(L('⚠️ File 2MB से छोटी रखें','⚠️ Keep file under 2MB')); input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = function(){
+    const dataUrl = String(reader.result||'');
+    const img = new Image();
+    img.onload = function(){
+      try{
+        const maxW = 400, maxH = 400;
+        let w = img.width, h = img.height;
+        const scale = Math.min(1, maxW/w, maxH/h);
+        w = Math.round(w*scale); h = Math.round(h*scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = canvas.toDataURL('image/png');
+        if(out.length > 180000) out = canvas.toDataURL('image/jpeg', 0.72);
+        if(out.length > 220000){
+          toast(L('⚠️ Logo अभी भी बड़ा है — simpler image try करें','⚠️ Logo still large — try a simpler image'));
+          return;
+        }
+        if(!_shiftDraft) _shiftDraft = {};
+        _shiftDraft.companyLogo = out;
+        const prev = document.getElementById('ss_logoPreview');
+        if(prev) prev.innerHTML = '<img src="'+out+'" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain"/>';
+        try{ _applyCompanyLogoToUI(out); }catch(e){}
+        toast(L('✅ Logo ready — Save दबाएँ','✅ Logo ready — press Save'));
+      }catch(e){ console.warn(e); toast('Logo process failed'); }
+    };
+    img.onerror = function(){ toast('Invalid image'); };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+};
+window.clearCompanyLogo = function(){
+  if(_shiftDraft) _shiftDraft.companyLogo = '';
+  const prev = document.getElementById('ss_logoPreview');
+  if(prev) prev.innerHTML = '<span style="font-size:11px;color:var(--muted2)">No logo</span>';
+  const inp = document.getElementById('ss_logoFile');
+  if(inp) inp.value = '';
+  try{ _applyCompanyLogoToUI(''); }catch(e){}
+  toast(L('Logo cleared — Save to apply','Logo cleared — Save to apply'));
+};
+window._applyCompanyLogoToUI = function(dataUrl){
+  const url = dataUrl || '';
+  try{
+    let el = document.getElementById('hdrCompanyLogo');
+    const brand = document.querySelector('.hdr-brand');
+    if(url){
+      if(!el && brand){
+        el = document.createElement('img');
+        el.id = 'hdrCompanyLogo';
+        el.alt = 'Company';
+        el.style.cssText = 'height:28px;max-width:120px;object-fit:contain;margin-right:8px;vertical-align:middle;border-radius:4px';
+        brand.insertBefore(el, brand.firstChild);
+      }
+      if(el){ el.src = url; el.style.display = ''; }
+    } else if(el){
+      el.style.display = 'none';
+      el.removeAttribute('src');
+    }
+  }catch(e){}
+  try{
+    const key = (typeof myShiftConfigKey==='function') ? myShiftConfigKey() : null;
+    if(key){
+      if(url) localStorage.setItem('mp_logo_'+key, url);
+      else localStorage.removeItem('mp_logo_'+key);
+    }
+    if(url) sessionStorage.setItem('mp_logo_session', url);
+    else sessionStorage.removeItem('mp_logo_session');
+  }catch(e){}
+};
+window._loadCompanyLogoToUI = function(){
+  try{
+    const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : null;
+    let url = (cfg && cfg.companyLogo) || '';
+    if(!url){
+      const key = (typeof myShiftConfigKey==='function') ? myShiftConfigKey() : null;
+      if(key) url = localStorage.getItem('mp_logo_'+key) || '';
+    }
+    _applyCompanyLogoToUI(url||'');
+  }catch(e){}
+};
+
+
 async function openShiftSettings(){
   try{ await _loadWaAppLinkSettings(); }catch(e){}
 
@@ -952,6 +1041,24 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
   <div style="font-size:11px;font-weight:800;color:#4ade80;margin:8px 0 6px">Designation <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minDesig" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('designation')}</div>
+
+
+  <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
+    <div style="font-size:13px;font-weight:900;color:#f97316;margin-bottom:6px">🏢 ${L('Company Logo (केवल आपकी team)','Company Logo (your team only)')}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.45">
+      ${L('यह logo सिर्फ आपके login और आपकी team को दिखेगा — दूसरे Manager को नहीं।','Shown only for your login and your team — not other Managers.')}
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+      <div id="ss_logoPreview" style="width:72px;height:72px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);display:flex;align-items:center;justify-content:center;overflow:hidden">
+        ${d.companyLogo ? `<img src="${d.companyLogo}" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain"/>` : '<span style="font-size:11px;color:var(--muted2)">No logo</span>'}
+      </div>
+      <div style="flex:1;min-width:160px">
+        <input type="file" id="ss_logoFile" accept="image/png,image/jpeg,image/webp,image/svg+xml" style="font-size:12px;max-width:100%" onchange="handleCompanyLogoFile(this)"/>
+        <div style="font-size:10px;color:var(--muted2);margin-top:4px">PNG / JPG / WebP · max ~150 KB after compress</div>
+        <button type="button" onclick="clearCompanyLogo()" style="margin-top:6px;padding:6px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:var(--lv);font-size:11px;font-weight:700;cursor:pointer">${L('Logo हटाएँ','Remove logo')}</button>
+      </div>
+    </div>
+  </div>
 
   <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border2)">
     <div style="font-size:13px;font-weight:900;color:#25D366;margin-bottom:6px">📲 WhatsApp templates (your team)</div>
@@ -1276,6 +1383,7 @@ async function _saveShiftSettings(){
   }
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
+    try{ _applyCompanyLogoToUI(_shiftDraft.companyLogo||''); }catch(e){}
     closeModal();
     toast(L('✅ शिफ्ट सेटिंग सेव हो गई','✅ Shift settings saved'));
   }
@@ -3018,6 +3126,8 @@ function _refreshAllImpl(){ refreshAll(); }
 
 
 function updatePendingBadge(){
+  try{ if(typeof _loadCompanyLogoToUI==='function') _loadCompanyLogoToUI(); }catch(e){}
+
   // Update pending tab badge (admin and manager)
   if(isAdminOrMgr()){
     const count = getRegs().filter(r=>r.status==='pending').length
@@ -4383,8 +4493,11 @@ function renderMyShift(){
           const disp = cellDisp(sh) || '·';
           const cls = cellClass(sh);
           const nm = String(selEmp.name||'').replace(/'/g,"\\'");
-          const click = `onclick="editShiftCell('${selEmp.id}','${nm}','${ds}','${String(sh).replace(/'/g,"\\'")}')"`;
-          mcells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:pointer">
+          const shEsc = String(sh).replace(/'/g,"\\'");
+          const selected = (window._myShiftMultiSel && window._myShiftMultiSel.has(ds));
+          mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
+            onclick="handleMyShiftDayClick(event,'${selEmp.id}','${nm}','${ds}','${shEsc}')"
+            style="cursor:pointer;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
             <div class="ms-day-num">${d}</div>
             <div class="ms-day-sh shc ${cls}">${disp}</div>
           </div>`;
@@ -4394,7 +4507,7 @@ function renderMyShift(){
           <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
-          <div class="ms-hint">${L('टैप करें → Schedule अपडेट + WhatsApp (Save पर)','Tap a day → updates Schedule + WhatsApp on Save')}</div>
+          <div class="ms-hint">${L('टैप करें → Schedule अपडेट + WhatsApp (Save पर)','Tap = select · Double-tap = picker · bulk + Save bar')}</div>
         </div>`;
       }
       el.innerHTML += `

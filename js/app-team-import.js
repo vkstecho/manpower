@@ -4160,21 +4160,34 @@ function _updateSaveBar(){
   const list  = document.getElementById('saveBarList');
   const title = document.getElementById('saveBarTitle');
   const sub   = document.getElementById('saveBarSub');
+  const barMy = document.getElementById('schedSaveBarMyShift');
+  const listMy = document.getElementById('saveBarListMy');
+  const titleMy = document.getElementById('saveBarTitleMy');
+  const subMy = document.getElementById('saveBarSubMy');
   const entries = Object.values(_pendingShiftChanges);
   if(!entries.length){
-    bar.style.display='none';
+    if(bar) bar.style.display='none';
+    if(barMy) barMy.style.display='none';
     // Also reposition multi-select bar if visible
     if(typeof _msUpdateBar === 'function') setTimeout(_msUpdateBar, 0);
     return;
   }
 
-  bar.style.display='block';
+  if(bar) bar.style.display='block';
+  if(barMy) barMy.style.display='block';
   // After Save bar shows, reposition multi-select bar above it
   if(typeof _msUpdateBar === 'function') setTimeout(_msUpdateBar, 50);
+  // Sync My Shift save bar copy
+  try{
+    if(listMy && list) listMy.innerHTML = list.innerHTML;
+    if(subMy && sub) subMy.textContent = sub.textContent || '';
+  }catch(e){}
 
   // Count unique employees
   const empIds = [...new Set(entries.map(e=>e.empId))];
-  title.textContent = `📝 ${entries.length} बदलाव pending — ${empIds.length} कर्मचारी`;
+  const _titleTxt = `📝 ${entries.length} बदलाव pending — ${empIds.length} कर्मचारी`;
+  if(title) title.textContent = _titleTxt;
+  if(titleMy) titleMy.textContent = _titleTxt;
 
   // WhatsApp count
   const withPhone = empIds.filter(id=>{
@@ -4624,15 +4637,48 @@ function _buildShiftSaveWaQueue(savedEntries){
       }
       if(buckets.CO.length && _typeOn(_waCfg.waCOEnabled !== undefined ? _waCfg.waCOEnabled : (_waCfg.waCOffEnabled !== undefined ? _waCfg.waCOffEnabled : true))){
         const datesList = buckets.CO.map(c=>'• '+_fmtDate(c.date)).join('\n');
+        // C-Off date = actual schedule dates marked C/O (not "today")
+        const coffDateStr = buckets.CO.map(c=>_fmtDate(c.date)).join(', ');
+        // Reason from pending entry if present, else leave record, else default
+        let reasonStr = '';
+        try{
+          const reasons = [];
+          buckets.CO.forEach(c=>{
+            if(c.reason) reasons.push(String(c.reason));
+            else {
+              try{
+                const leaves = (_cache && _cache.leaves) || {};
+                const arr = Array.isArray(leaves) ? leaves : Object.values(leaves||{});
+                const hit = arr.find(l=>l && String(l.empId)===String(empId) && (l.leaveType||'').match(/C-Off|Comp|CO/i) && (l.from===c.date || l.coffDate===c.date || l.to===c.date));
+                if(hit && hit.reason) reasons.push(String(hit.reason));
+              }catch(e2){}
+            }
+          });
+          reasonStr = [...new Set(reasons.filter(Boolean))].join('; ');
+        }catch(e){}
+        if(!reasonStr) reasonStr = 'Schedule marked C-Off';
         const tpl = (typeof getWATemplate==='function')
           ? getWATemplate('waCOTemplate', _waCfg.waCOTemplate || _waCfg.waCOffTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
           : '';
-        const msgLines = (typeof _fillNotifTemplate==='function')
-          ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
-          : (`🔔 Comp Off\n${emp.name}\n${datesList}`);
+        let msgLines = (typeof _fillNotifTemplate==='function')
+          ? _fillNotifTemplate(tpl, {
+              name: emp.name,
+              date: coffDateStr,
+              dates: datesList,
+              coffDate: coffDateStr,
+              reason: reasonStr,
+              manager: SESSION.name||'Manager',
+              changes: datesList
+            })
+          : '';
+        if(!msgLines || !String(msgLines).trim()){
+          msgLines = '🔄 *Man Power — C-Off*\n_'+coffDateStr+'_\n\nनमस्ते *'+emp.name+'*,\n\nआपको *Compensatory Off (C-Off)* दिया गया है।\n\n📅 *C-Off Date:* '+coffDateStr+'\n📝 *कारण:* '+reasonStr+'\n\n_— '+(SESSION.name||'Manager')+'_';
+        }
+        // Ensure placeholders not left blank if template used unknown keys
+        msgLines = String(msgLines).replace(/\{coffDate\}/g, coffDateStr).replace(/\{reason\}/g, reasonStr).replace(/\{dates\}/g, datesList);
         pushMsg(msgLines);
       }
-      if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.waAbsentEnabled : (_waCfg.waAbEnabled !== undefined ? _waCfg.waAbEnabled : true))){
+if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.waAbsentEnabled : (_waCfg.waAbEnabled !== undefined ? _waCfg.waAbEnabled : true))){
         const datesList = buckets.Ab.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
           ? getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate || _waCfg.waAbTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
