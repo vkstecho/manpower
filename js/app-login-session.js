@@ -2896,9 +2896,24 @@ async function doExtendAccess(){
 // ════════════════════════════════════════
 let _currentTab='home';
 
+
+function _setScheduleSidebarWide(on){
+  try{
+    const sb = document.getElementById('pcSidebar');
+    if(on){
+      document.body.classList.add('sched-wide');
+      if(sb) sb.classList.add('collapsed');
+    }else{
+      document.body.classList.remove('sched-wide');
+      if(sb) sb.classList.remove('collapsed');
+    }
+  }catch(e){}
+}
+
 function _goTabDirect(t){
   const prev = _currentTab;
   _currentTab=t;
+  try{ _setScheduleSidebarWide(t==='schedule'); }catch(e){}
   document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));
   const el=document.getElementById('tab-'+t); if(el) el.classList.add('on');
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
