@@ -530,7 +530,7 @@ body.theme-light .toast, body.theme-light #toast{
   </div>
 </div>
 
-<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · single file <b>MR_Skill/mr_skill.html</b></footer>
+<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.40 · eq fix <b>MR_Skill/mr_skill.html</b></footer>
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -1220,8 +1220,9 @@ function _eqRules(){
 }
 function _specialType(mat){
   const m=String(mat||'').toUpperCase();
-  if(/RCM|RELE/.test(m) || /RC\b/.test(m) || m.indexOf('RC')>=0 && /12/.test(m)) return 'rcm';
-  if(/ALM|ALOX|AL300|AL331|AL3/.test(m)) return 'alm';
+  // Only real special codes — do not match bare "RC" inside other codes
+  if(/RCM|RELE|RELEASE/.test(m)) return 'rcm';
+  if(/ALM|ALOX|AL300|AL331|G12AL|ALOX/.test(m)) return 'alm';
   return 'normal';
 }
 function _micFactor(micron){
@@ -1426,8 +1427,9 @@ window.processAllUploads=function(){
     });
   }
 
-  // Jumbo output for analytics
+  // Jumbo output for analytics + avg width/length for period eq factor
   let jOut={ 'M-1':0,'M-2':0,Total:0 }, jBase={ 'M-1':0,'M-2':0,Total:0 };
+  let jWidSum=0, jWidN=0, jLenSum=0, jLenN=0;
   jumbo.forEach(r=>{
     const dt=col(r,['Date of Production','Date','date']);
     if(!inYm(dt)) return;
@@ -1436,9 +1438,24 @@ window.processAllUploads=function(){
     const qty=Math.abs(_sapNum(col(r,['Quantity','qty'])));
     let mc=_sapMachMet(col(r,['Machine','machine']));
     if(mc==='Other') mc='M-1';
-    if(mv===101 && /^3SF/i.test(mat)){ jOut[mc]+=qty; jOut.Total+=qty; }
+    if(mv===101 && /^3SF/i.test(mat)){
+      jOut[mc]+=qty; jOut.Total+=qty;
+      const w=_sapNum(col(r,['Width','width']));
+      const L=_sapNum(col(r,['Length','length']));
+      // Jumbo-scale only
+      if(w>=2000 && w<=5000){ jWidSum+=w; jWidN++; }
+      if(L>=50000 && L<=150000){ jLenSum+=L; jLenN++; }
+    }
     if(mv===261 && /^3FG/i.test(mat)){ jBase[mc]+=qty; jBase.Total+=qty; }
   });
+  // Period width/length factor (plant sheet: ~3000/avgW × 72000/avgL)
+  const R=_eqRules();
+  let wlFac=1;
+  if(jWidN>0){ const avgW=jWidSum/jWidN; const wt=num(R.widthTarget)||3000; if(avgW>0) wlFac*=wt/avgW; }
+  if(jLenN>0){ const avgL=jLenSum/jLenN; const lt=num(R.lengthTarget)||72000; if(avgL>0) wlFac*=lt/avgL; }
+  if(!(wlFac>0) || !isFinite(wlFac)) wlFac=1;
+  // Apply WL factor once on total equivalent (not per slit roll)
+  eqOut = (eqOut||slitKg) * wlFac;
 
   state.totals={
     slitKg, wasteKg, bGradeKg, wireKg, boatPcs,
@@ -1471,6 +1488,13 @@ window.processAllUploads=function(){
     set('man_boatPcs', boatPcs?+boatPcs.toFixed(0):'');
   }catch(e){}
 
+  // Clear stale zero/wrong history for this month before save
+  try{
+    const map=loadHistoryMap();
+    if(map[ym] && (!(map[ym].totals||{}).slitKg || (map[ym].totals||{}).slitKg < slitKg*0.5)){
+      delete map[ym]; saveHistoryMap(map);
+    }
+  }catch(e){}
   recalculate();
   try{ renderProdAnalytics(); }catch(e){ console.warn(e); }
   try{ saveMonthHistory(); }catch(e){}
