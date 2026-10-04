@@ -580,8 +580,8 @@ async function buildNav(){
   // ── ALL POSSIBLE TABS (master list) ──
   const ALL_TABS = [
     {id:'home',      ico:'🏠', lbl:'होम',       lblEn:'Home',      roles:['worker','guest','manager','supervisor','member','pending_member']},
-    {id:'myshift',   ico:'🗓️', lbl:'मेरी शिफ्ट', lblEn:'My Shift',  roles:['worker','manager','supervisor','member','pending_member']},
-    {id:'schedule',  ico:'📅', lbl:'शेड्यूल',   lblEn:'Schedule',  roles:['worker','manager','supervisor','member']},
+    {id:'myshift',   ico:'⏰', lbl:'मेरी शिफ्ट', lblEn:'My Shift',  roles:['worker','manager','supervisor','member','pending_member']},
+    {id:'schedule',  ico:'📋', lbl:'शेड्यूल',   lblEn:'Schedule',  roles:['worker','manager','supervisor','member']},
     {id:'leave',     ico:'🏖️', lbl:'अवकाश',    lblEn:'Leave',     roles:['worker','manager','member']},
     {id:'reports',   ico:'📋', lbl:'रिपोर्ट',   lblEn:'Reports',   roles:['worker','manager','supervisor','member']},
     // Action (not a tab page) — sits beside Reports in nav / More sheet
