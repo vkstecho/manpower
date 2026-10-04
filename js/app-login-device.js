@@ -948,7 +948,7 @@ async function showOTPLoginScreen(emp, deviceId){
         </div>
         <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
           <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">6-digit OTP डालें *</div>
-          <input id="otpInput" type="tel" name="one-time-code" inputmode="numeric" placeholder="● ● ● ● ● ●" maxlength="6"
+          <input id="deviceOtpInput" type="tel" name="one-time-code" inputmode="numeric" placeholder="● ● ● ● ● ●" maxlength="6"
             autocomplete="one-time-code" enterkeyhint="done" autocapitalize="off" spellcheck="false"
             style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                    padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
@@ -956,7 +956,7 @@ async function showOTPLoginScreen(emp, deviceId){
             oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);_otpValidate()">
           <div id="otpErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
         </div>
-        <button id="verifyOtpBtn" onclick="_verifyDeviceOTP()" disabled
+        <button id="deviceVerifyOtpBtn" type="button" onclick="_verifyDeviceOTP()" disabled
           style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
                  border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
                  margin-bottom:10px;opacity:.4;pointer-events:none;font-family:inherit">
@@ -977,14 +977,53 @@ async function showOTPLoginScreen(emp, deviceId){
   ov.style.display='flex';
 }
 
+
+function _armDeviceOtpAutofillWatch(){
+  try{
+    _otpValidate();
+    let n = 0;
+    const tick = ()=>{
+      n++;
+      try{ _otpValidate(); }catch(e){}
+      const inp = document.getElementById('deviceOtpInput');
+      if(inp && (inp.value||'').replace(/\D/g,'').length===6){ _otpValidate(); return; }
+      if(n < 40) setTimeout(tick, 250); // ~10s watch for SMS autofill
+    };
+    setTimeout(tick, 300);
+    const inp = document.getElementById('deviceOtpInput');
+    if(inp){
+      try{ inp.focus(); }catch(e){}
+      inp.addEventListener('change', _otpValidate);
+      inp.addEventListener('keyup', _otpValidate);
+      inp.addEventListener('input', _otpValidate);
+    }
+  }catch(e){}
+}
+
 function _otpValidate(){
-  const val=(document.getElementById('otpInput')?.value||'');
-  const btn=document.getElementById('verifyOtpBtn');
-  if(val.length===6){
-    if(btn){ btn.style.opacity='1'; btn.style.pointerEvents='auto'; btn.disabled=false; }
-  } else {
-    if(btn){ btn.style.opacity='.4'; btn.style.pointerEvents='none'; btn.disabled=true; }
+  const ov = document.getElementById('otpLoginOverlay');
+  const deviceOpen = ov && ov.style.display && ov.style.display !== 'none';
+  const inp = document.getElementById(deviceOpen ? 'deviceOtpInput' : 'otpInput')
+    || document.getElementById('deviceOtpInput')
+    || document.getElementById('otpInput');
+  const btn = document.getElementById(deviceOpen ? 'deviceVerifyOtpBtn' : 'verifyOtpBtn')
+    || document.getElementById('deviceVerifyOtpBtn')
+    || document.getElementById('verifyOtpBtn');
+  let val = (inp && inp.value || '').replace(/\D/g,'').slice(0,6);
+  if(inp && inp.value !== val) inp.value = val;
+  const ok = val.length === 6;
+  if(btn){
+    btn.disabled = !ok;
+    btn.style.opacity = ok ? '1' : '.45';
+    btn.style.pointerEvents = ok ? 'auto' : 'auto'; // never block clicks permanently; disabled attr is enough
+    btn.style.cursor = ok ? 'pointer' : 'not-allowed';
   }
+  // Also enable the other pair if both exist (safety)
+  try{
+    const b2 = document.getElementById(deviceOpen ? 'verifyOtpBtn' : 'deviceVerifyOtpBtn');
+    if(b2 && deviceOpen){ /* leave main login alone */ }
+  }catch(e){}
+  return ok;
 }
 
 let _deviceOtpConfirm = null;
@@ -1005,8 +1044,8 @@ async function _sendDeviceOTP(isResend){
     const s1=document.getElementById('otpStep1');
     const s2=document.getElementById('otpStep2');
     if(s1) s1.style.display='none';
-    if(s2) s2.style.display='block';
-    document.getElementById('otpInput')?.focus();
+    if(s2) s2.style.display='block'; try{ _armDeviceOtpAutofillWatch(); }catch(e){};
+    document.getElementById('deviceOtpInput')?.focus(); try{ _armDeviceOtpAutofillWatch(); }catch(e){}
     _startWebOtpListen('otpInput', code=>{ if(code&&code.length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
@@ -1022,11 +1061,11 @@ async function _verifyDeviceOTP(){
   _stopWebOtpListen();
 
   if(_deviceOtpBusy) return;
-  const otp=(document.getElementById('otpInput')?.value||'').replace(/\D/g,'').slice(0,6);
+  const otp=(document.getElementById('deviceOtpInput')?.value||document.getElementById('otpInput')?.value||'').replace(/\D/g,'').slice(0,6);
   if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
   if(!_deviceOtpConfirm){ toast(L('⚠️ पहले OTP भेजें','⚠️ Send OTP first')); return; }
   _deviceOtpBusy=true;
-  const btn=document.getElementById('verifyOtpBtn');
+  const btn=document.getElementById('deviceVerifyOtpBtn')||document.getElementById('verifyOtpBtn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Verifying…'; }
   try{
     await _fbVerifyPhoneOtp(_deviceOtpConfirm, otp);

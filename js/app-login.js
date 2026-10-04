@@ -149,8 +149,17 @@ function _onMobileInput(val){
   }
 }
 function _onOtpInput(val){
+  val = String(val||'').replace(/\D/g,'').slice(0,6);
   const btn=document.getElementById('verifyOtpBtn');
-  if(btn){ const ok=val.length===6; btn.disabled=!ok; btn.style.opacity=ok?'1':'.5'; }
+  if(btn){
+    const ok=val.length===6;
+    btn.disabled=!ok;
+    btn.style.opacity=ok?'1':'.5';
+    btn.style.pointerEvents='auto';
+    btn.style.cursor=ok?'pointer':'not-allowed';
+  }
+  // Keep device overlay in sync if open
+  try{ if(typeof _otpValidate==='function') _otpValidate(); }catch(e){}
 }
 
 async function _sendOTP(isResend){
