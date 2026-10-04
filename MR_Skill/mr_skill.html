@@ -208,7 +208,7 @@ body.theme-light .toast, body.theme-light #toast{
   <button type="button" class="mode" id="btnModeMrm" onclick="setAppMode('mrm')">📊 MRM Presentation</button>
   <div class="spacer"></div>
   <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--muted)">Month
-    <input type="month" id="reportMonth" onchange="try{const m=document.getElementById('mrmMonthPick');if(m)m.value=this.value;}catch(e){}" style="width:auto"/>
+    <input type="month" id="reportMonth" onchange="try{const m=document.getElementById('mrmMonthPick');if(m)m.value=this.value;}catch(e){} try{if(document.getElementById('tab-stoppage') && !document.getElementById('tab-stoppage').classList.contains('hidden')) buildStoppageMonth();}catch(e){}" style="width:auto"/>
   </label>
   <button type="button" id="themeBtn" onclick="toggleTheme()" title="Light / Dark">🌙</button>
 </div>
@@ -418,6 +418,7 @@ body.theme-light .toast, body.theme-light #toast{
           <div class="btn-row" style="margin-top:4px">
             <button class="btn btn-p" onclick="buildStoppageMonth()">Build / refresh month rows</button>
             <button class="btn btn-g" onclick="saveStoppages()">Save stoppages</button>
+            <span class="hint" style="align-self:center">Auto: one row per day × M-1 &amp; M-2</span>
           </div>
         </div>
       </div>
@@ -433,7 +434,7 @@ body.theme-light .toast, body.theme-light #toast{
         </table>
       </div>
       <div class="btn-row">
-        <button class="btn btn-p" onclick="addStoppageRow()">+ Add row</button>
+        
         <button class="btn btn-g" onclick="saveStoppages()">Save list</button>
       </div>
     </div>
@@ -447,7 +448,6 @@ body.theme-light .toast, body.theme-light #toast{
         <button class="btn btn-p" onclick="recalculate()">Recalculate & Save month</button>
         <button class="btn btn-g" onclick="saveMonthHistory()">Save current month</button>
         <button class="btn btn-r" onclick="deleteMonthHistory()">Delete this month</button>
-        <button class="btn btn-o" onclick="exportConversionExcel()">⬇ Download Excel</button>
       </div>
       <div style="margin-top:10px">
         <label>Saved months (tap to open)</label>
@@ -732,6 +732,8 @@ document.getElementById('tabs').addEventListener('click', e=>{
   if(b.dataset.tab==='report') recalculate();
   if(b.dataset.tab==='target' && typeof renderTargets==='function') renderTargets();
   if(b.dataset.tab==='equiv' && typeof loadEqRulesToForm==='function') loadEqRulesToForm();
+  if(b.dataset.tab==='stoppage'){ try{ const el=document.getElementById('machineList'); if(el && !el.value.trim()) el.value='M-1, M-2'; buildStoppageMonth(); }catch(e){} }
+  if(b.dataset.tab==='report'){ try{renderProdAnalytics();}catch(e){} }
 });
 
 /* rates UI */
@@ -747,7 +749,7 @@ function rateOf(name){
   const r=state.rates.find(x=>x.material.toLowerCase()===name.toLowerCase());
   return r?num(r.rate):0;
 }
-window.saveRates=()=>{ localStorage.setItem(LS.rates, JSON.stringify(state.rates)); toast('Rates saved'); };
+window.saveRates=()=>{ localStorage.setItem(LS.rates, JSON.stringify(state.rates)); try{renderTargets();}catch(e){} try{recalculate();}catch(e){} toast('Rates saved — Wire/Boat ₹/kg targets updated'); };
 window.resetRates=()=>{ state.rates=JSON.parse(JSON.stringify(DEFAULT_RATES)); renderRates(); toast('Defaults restored'); };
 window.saveExtras=()=>{
   state.extras={
@@ -814,7 +816,7 @@ window.loadDefaultEquiv=()=>{ state.equiv=JSON.parse(JSON.stringify(DEFAULT_EQUI
 /* stoppage */
 function getMachines(){
   const el=document.getElementById('machineList');
-  const raw=(el&&el.value)||'M-1, M-2';
+  const raw=(el&&el.value&&String(el.value).trim())||'M-1, M-2';
   return raw.split(',').map(s=>s.trim()).filter(Boolean);
 }
 function renderStop(){
@@ -907,18 +909,45 @@ function bindDrop(kind){
 }
 ['mb51','jumbo','slit','prod'].forEach(bindDrop);
 
+function _sheetToRows(sheet){
+  // Detect header row: first row that looks like SAP column headers
+  const aoa=XLSX.utils.sheet_to_json(sheet,{header:1, defval:'', raw:false});
+  if(!aoa || !aoa.length) return [];
+  let headerIdx=0;
+  const headerHints=/material|matnr|movement|bwart|net\s*weight|quantity|machine|posting|date|grade|batch/i;
+  for(let i=0;i<Math.min(25, aoa.length);i++){
+    const row=aoa[i]||[];
+    const joined=row.map(c=>String(c||'')).join(' | ');
+    const hits=row.filter(c=>headerHints.test(String(c||''))).length;
+    if(hits>=2){ headerIdx=i; break; }
+  }
+  const headers=(aoa[headerIdx]||[]).map((h,i)=>String(h||'').trim()||('COL'+i));
+  const rows=[];
+  for(let r=headerIdx+1;r<aoa.length;r++){
+    const line=aoa[r]||[];
+    if(!line.some(c=>c!==''&&c!=null)) continue;
+    const obj={};
+    headers.forEach((h,i)=>{ obj[h]=line[i]!=null?line[i]:''; });
+    rows.push(obj);
+  }
+  return rows;
+}
 function readFile(kind, file){
   const reader=new FileReader();
   reader.onload=ev=>{
     try{
       if(typeof XLSX==='undefined'){ toast('XLSX library not loaded'); return; }
-      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array', cellDates:true});
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array', cellDates:true, cellNF:false, cellText:false});
       const sheet=wb.Sheets[wb.SheetNames[0]];
-      const rows=XLSX.utils.sheet_to_json(sheet,{defval:'', raw:false});
+      let rows=_sheetToRows(sheet);
+      if(!rows.length){
+        rows=XLSX.utils.sheet_to_json(sheet,{defval:'', raw:false});
+      }
       state.raw[kind]=rows;
+      const keys=rows[0]?Object.keys(rows[0]).slice(0,8).join(', '):'';
       document.getElementById('st-'+kind).innerHTML='<span class="tag tag-ok">✓ '+file.name+' · '+rows.length+' rows</span>';
-      toast(kind.toUpperCase()+' loaded ('+rows.length+' rows)');
-    }catch(err){ toast('Read error: '+err.message); }
+      toast(kind.toUpperCase()+' loaded ('+rows.length+' rows)'+(keys?' · cols: '+keys:''));
+    }catch(err){ toast('Read error: '+err.message); console.error(err); }
   };
   reader.readAsArrayBuffer(file);
 }
@@ -933,6 +962,35 @@ function col(row, names){
   }
   return '';
 }
+
+function _rowWeight(r){
+  let nw=Math.abs(_sapNum(col(r,['net weight','net wt','netweight','ntgew','weight in kg','net wt kg'])));
+  if(nw) return nw;
+  nw=Math.abs(_sapNum(col(r,['gross weight','gross wt','brgew'])));
+  if(nw) return nw;
+  nw=Math.abs(_sapNum(col(r,['qty in unit of entry','qty','quantity','menge','quantity ge'])));
+  return nw;
+}
+function _rowMove(r){
+  return _sapNum(col(r,['move type','movement type','bwart','movment type','mvmt type','movement','mvt','mvt type']));
+}
+function _rowIsFg(r, mat, mv, nw){
+  if(nw<=0) return false;
+  if(mv===101 || mv===101.0) return true;
+  // string move sometimes
+  const mvRaw=String(col(r,['move type','movement type','bwart','movment type'])||'').trim();
+  if(mvRaw==='101' || mvRaw.indexOf('101')===0) return true;
+  // Finished goods material patterns
+  if(/^3SF/i.test(mat) || /^3FG/i.test(mat) || /SLIT|MET\s*FG|FINISHED/i.test(mat)) {
+    if(mv===261 || mv===531 || mv===201) return false; // consume/scrap
+    if(!mv || mv===101) return true;
+  }
+  // Has grade 2-8 and weight → treat as FG row in Z_Slit
+  const grade=String(col(r,['grade','down grade','quality'])||'').replace(/\.0$/,'').trim();
+  if(grade && ['2','3','5','6','7','8'].indexOf(grade)>=0 && !/^3SC|^3RM/i.test(mat)) return true;
+  return false;
+}
+
 function toNum(v){
   if(v==null||v==='') return 0;
   if(typeof v==='number') return v;
@@ -1287,19 +1345,15 @@ window.processAllUploads=function(){
     if(mc==='Other') mc='S-1'; // still count unknown machine into S-1 + Total
     sRows++;
     const mat=String(col(r,['material','matnr','material number'])||'');
-    const mv=_sapNum(col(r,['move type','movement type','bwart','movment type','mvmt type']));
-    // Prefer Net Weight (kg); fallback Gross / Qty
-    let nw=Math.abs(_sapNum(col(r,['net weight','net wt','ntgew','weight'])));
-    if(!nw) nw=Math.abs(_sapNum(col(r,['gross weight','qty','quantity','menge'])));
-    // If value looks like MT (< 50 for a roll is unlikely kg of metallized film? keep as-is; SAP net weight is kg)
+    const mv=_rowMove(r);
+    let nw=_rowWeight(r);
     const grade=String(col(r,['grade','down grade','quality'])||'').replace(/\.0$/,'');
-    // Jumbo input to slit (261 + 3SF or any 3SF consume)
+    // Jumbo input to slit
     if((mv===261 || mv===261.0) && (/^3SF/i.test(mat)||/JUMBO|MET/i.test(mat))){ sIn[mc]+=nw; sIn.Total+=nw; }
     // Waste scrap (3SC*)
     if(/^3SC/i.test(mat) || (mv===531 && /waste|scrap|msw|mtw|tw/i.test(mat))){ sWaste[mc]+=nw; sWaste.Total+=nw; }
-    // FG output: movement 101 OR material looks like finished slit (no move type)
-    const isFg = (mv===101 || mv===101.0) || (!mv && nw>0 && !/^3SC/i.test(mat) && !/^3RM/i.test(mat) && grade);
-    if(isFg || mv===101){
+    // FG output — flexible detection
+    if(_rowIsFg(r, mat, mv, nw)){
       sOut[mc]+=nw; sOut.Total+=nw;
       if(sG[grade]){ sG[grade][mc]+=nw; sG[grade].Total+=nw; }
       const th=_sapMicron(r)||12;
@@ -1383,6 +1437,19 @@ window.processAllUploads=function(){
   const rows=jRows+sRows+mbRows;
   toast('Processed: slit '+slitKg.toFixed(0)+' kg · wire '+wireKg.toFixed(1)+' · boat '+boatPcs.toFixed(0)+' · rows '+rows);
 
+  // If totals look like MT (plant ~1000–2000 MT/month) not kg, scale ×1000
+  if(slitKg>0 && slitKg<5000 && sRows>200){
+    console.warn('[MetCost] Scaling slit/waste from MT→kg (×1000)');
+    slitKg*=1000; wasteKg*=1000; bGradeKg*=1000; eqOutKg*=1000;
+    ['S-1','S-2','Total'].forEach(k=>{ sOut[k]=(sOut[k]||0)*1000; sWaste[k]=(sWaste[k]||0)*1000; });
+    Object.keys(sG).forEach(g=>['S-1','S-2','Total'].forEach(k=>{ if(sG[g]) sG[g][k]=(sG[g][k]||0)*1000; }));
+    // matrix kg scale
+    Object.keys(matrix||{}).forEach(m=>Object.keys(matrix[m]||{}).forEach(o=>{ matrix[m][o]*=1000; }));
+  }
+  if(jOut.Total>0 && jOut.Total<5000 && jRows>100){
+    ['M-1','M-2','Total'].forEach(k=>{ jOut[k]=(jOut[k]||0)*1000; jBase[k]=(jBase[k]||0)*1000; });
+  }
+
   state.totals={
     slitKg, wasteKg, bGradeKg, wireKg, boatPcs, rows, source:'excel', ym,
     eqvKg: eqOutKg||0,
@@ -1418,7 +1485,15 @@ window.processAllUploads=function(){
   }catch(e){}
   try{ fillPeriodCostsFromState(); }catch(e){}
   try{ renderProdAnalytics(); }catch(e){ console.warn(e); }
-  if(slitKg<=0 && jOut.Total<=0) toast('Processed '+ym+' but output = 0 — check movement 101 rows');
+  try{
+    const card=document.getElementById('prodAnalyticsCard');
+    if(card){ card.style.display='block'; card.scrollIntoView({behavior:'smooth',block:'nearest'}); }
+  }catch(e){}
+  if(slitKg<=0 && jOut.Total<=0){
+    const sample=(state.raw.slit&&state.raw.slit[0])?Object.keys(state.raw.slit[0]).join(', '):'no rows';
+    toast('Output 0 kg — columns: '+sample.slice(0,80));
+    console.warn('[MetCost] slit sample', state.raw.slit&&state.raw.slit[0]);
+  }
   else toast('Processed '+ym+' · Slit '+(slitKg/1000).toFixed(1)+' MT · Jumbo '+(jOut.Total/1000).toFixed(1)+' MT');
   recalculate();
 };
@@ -1784,6 +1859,7 @@ if(!state.targets) state.targets = JSON.parse(JSON.stringify(DEFAULT_TARGETS));
   const now=new Date();
   document.getElementById('reportMonth').value=now.toISOString().slice(0,7);
   try{ const mp=document.getElementById('mrmMonthPick'); if(mp) mp.value=now.toISOString().slice(0,7); }catch(e){}
+  try{ const el=document.getElementById('machineList'); if(el && !String(el.value||'').trim()) el.value='M-1, M-2'; }catch(e){}
   try{ const r=JSON.parse(localStorage.getItem(LS.rates)||'null'); if(r) state.rates=r; }catch(e){}
   try{ const r=JSON.parse(localStorage.getItem(LS.equiv)||'null'); if(r) state.equiv=r; }catch(e){}
   try{ const er=JSON.parse(localStorage.getItem('metcost_eq_rules_v1')||'null'); if(er) state.eqRules=Object.assign(JSON.parse(JSON.stringify(DEFAULT_EQ_RULES)),er); }catch(e){}
@@ -1833,12 +1909,15 @@ function renderTargets(){
   const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(3) : 0;
   const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(3) : 0;
   const rmPerKg = +(wirePerKg + boatPerKg).toFixed(3); // plant rule: RM = Wire + Boat cost
+  // Always sync consumption ₹/kg from Rates × norm (kg/MT or pcs/MT)
   state.targets.forEach(r=>{
-    const blank = (r.target==='' || r.target==null);
-    if(/^Wire ₹\/kg/i.test(r.param) && blank && wirePerKg) r.target=wirePerKg;
-    else if(/^Boat ₹\/kg/i.test(r.param) && blank && boatPerKg) r.target=boatPerKg;
-    else if(/Raw Material/i.test(r.param) && (blank || true)) r.target=rmPerKg; // always sync RM = W+B
-    else if(/^Power ₹\/kg/i.test(r.param) && blank && powerRate) r.target=+(0.44*powerRate).toFixed(3);
+    if(/^Wire ₹\/kg/i.test(r.param) && wirePerKg) r.target=wirePerKg;
+    else if(/^Boat ₹\/kg/i.test(r.param) && boatPerKg) r.target=boatPerKg;
+    else if(/Raw Material/i.test(r.param)) r.target=rmPerKg; // always Wire+Boat
+    else if(/^Power ₹\/kg/i.test(r.param) && powerRate){
+      const blank = (r.target==='' || r.target==null);
+      if(blank) r.target=+(0.44*powerRate).toFixed(3);
+    }
   });
   // Totals: Conversion + RM ; + Packing
   const getT = (re)=>{ const x=state.targets.find(r=>re.test(r.param)); return x?num(x.target):0; };

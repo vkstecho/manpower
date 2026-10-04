@@ -7165,15 +7165,61 @@ function _sbFilteredEmps(list){
   });
 }
 
+function _isSeniorEmp(emp){
+  if(!emp) return false;
+  try{
+    // Managers are G-only, not "senior rotation"
+    if(emp.sec==='MGR' || emp.isTeamManager===true
+      || String(emp.accessLevel||'').toLowerCase()==='manager'
+      || String(emp.role||'').toLowerCase()==='manager') return false;
+  }catch(e){}
+  const des = String(emp.designation||emp.desig||emp.role||emp.resp||'').toLowerCase();
+  const nameHint = String(emp.name||'').toLowerCase();
+  // Senior Engineer / Sr. Engineer / Sr Team Member / Lead / Supervisor (shop floor)
+  if(/\bsenior\b/.test(des) || /\bsr\.?\b/.test(des) || /\blead\b/.test(des)) return true;
+  if(/senior\s*engineer/.test(des) || /sr\.?\s*engineer/.test(des)) return true;
+  if(/sr\.?\s*team\s*member/.test(des) || /senior\s*team/.test(des)) return true;
+  if(/\bsupervisor\b/.test(des) && !/trainee/.test(des)) return true;
+  // Explicit flag if set on employee
+  if(emp.isSenior===true || emp.senior===true || String(emp.level||'').toLowerCase()==='senior') return true;
+  return false;
+}
+/** Preferred day-shift code for seniors: D if available, else A, else first rotation code */
+function _seniorPreferredShift(rotationOrder){
+  const codes = rotationOrder || [];
+  if(codes.indexOf('D')>=0) return 'D';
+  if(codes.indexOf('A')>=0) return 'A';
+  return codes[0] || 'D';
+}
+/**
+ * Pick shift for a new work block.
+ * Seniors: prefer Day (D/A) on new blocks; still rotate after weekly off if last block was already preferred day
+ *   → after O: if lastWork was preferred day → give next (N/C); if last was night → back to preferred day
+ * Juniors: normal nextShiftAfter(lastWork)
+ */
+function _pickBlockShift(emp, lastWork, rotationOrder, nextShiftAfter){
+  if(!_isSeniorEmp(emp)) return nextShiftAfter(lastWork);
+  const pref = _seniorPreferredShift(rotationOrder);
+  if(!lastWork) return pref;
+  // After a full block of preferred day, rotate to next (night / other)
+  if(String(lastWork).toUpperCase()===String(pref).toUpperCase()){
+    return nextShiftAfter(pref);
+  }
+  // Coming off night/other → prefer day again
+  return pref;
+}
+
 function autoGenSchedule(monthKey){
-  // ── If ≤3 days left in the CURRENT calendar month → build NEXT month ──
+  // ── Last 3 calendar days of month → build NEXT month ──
+  // remainingIncludingToday = daysInMonth - day + 1  (e.g. 29 Oct of 31 → 3)
   try{
     if(!window._autoGenSkipMonthNudge){
       const now = new Date();
-      const daysInCur = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-      const remaining = daysInCur - now.getDate(); // 0 on last day, 1 if tomorrow is last…
-      if(remaining <= 3){
-        const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
+      const y = now.getFullYear(), m = now.getMonth(); // 0-based
+      const daysInCur = new Date(y, m+1, 0).getDate();
+      const remainingIncludingToday = daysInCur - now.getDate() + 1;
+      if(remainingIncludingToday <= 3){
+        const nm = new Date(y, m+1, 1);
         const nextKey = nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0');
         if(String(monthKey) !== nextKey){
           const sel = document.getElementById('sb_month');
@@ -7190,23 +7236,30 @@ function autoGenSchedule(monthKey){
             try{ if(typeof _sbUpdateDayOptions==='function') _sbUpdateDayOptions(); }catch(e){}
           }
           toast((typeof L==='function')
-            ? L('📅 इस महीने ≤3 दिन बचे हैं — अगले महीने ('+nextKey+') की Schedule बना रहे हैं','📅 ≤3 days left this month — building next month ('+nextKey+') schedule')
-            : ('📅 ≤3 days left — building '+nextKey));
-          // Reload board for next month, then auto-gen (once)
+            ? L('📅 महीने के अंतिम 3 दिन — अगले महीने ('+nextKey+') की Schedule','📅 Last 3 days of month — building next month ('+nextKey+')')
+            : ('📅 Last 3 days — building '+nextKey));
           window._autoGenSkipMonthNudge = true;
           window._autoGenPendingKey = nextKey;
+          const tryGen = function(attempt){
+            attempt = attempt||0;
+            const tbody = document.getElementById('sb_tbody');
+            const ready = tbody && tbody.querySelector('[data-empid]');
+            if(ready || attempt>=12){
+              try{
+                const k = window._autoGenPendingKey || nextKey;
+                window._autoGenPendingKey = null;
+                autoGenSchedule(k);
+              }finally{
+                window._autoGenSkipMonthNudge = false;
+              }
+              return;
+            }
+            setTimeout(function(){ tryGen(attempt+1); }, 250);
+          };
           try{
             if(typeof loadScheduleBuilder==='function'){
               loadScheduleBuilder();
-              setTimeout(function(){
-                try{
-                  const k = window._autoGenPendingKey || nextKey;
-                  window._autoGenPendingKey = null;
-                  autoGenSchedule(k);
-                }finally{
-                  window._autoGenSkipMonthNudge = false;
-                }
-              }, 400);
+              setTimeout(function(){ tryGen(0); }, 300);
               return;
             }
           }catch(e){ window._autoGenSkipMonthNudge = false; }
@@ -7214,11 +7267,7 @@ function autoGenSchedule(monthKey){
         }
       }
     }
-  }catch(e){ console.warn('[autoGen month nudge]', e); }
-  finally{
-    // if we didn't return early, clear one-shot flag after this run
-    if(window._autoGenPendingKey==null) window._autoGenSkipMonthNudge = false;
-  }
+  }catch(e){ console.warn('[autoGen month nudge]', e); window._autoGenSkipMonthNudge = false; }
 
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
@@ -7250,8 +7299,21 @@ function autoGenSchedule(monthKey){
       const d = String(_des(a)).localeCompare(String(_des(b)));
       if(d !== 0) return d;
     }
-    return (a.name||'').localeCompare(b.name||'');
+    const nameCmp = (a.name||'').localeCompare(b.name||'');
+    if(nameCmp !== 0) return nameCmp;
+    return 0;
   });
+  // Within same section: Senior engineers first (preferred day blocks assigned earlier for coverage)
+  try{
+    emps = emps.slice().sort((a,b)=>{
+      const sa = String((typeof getEmpSection==='function'?getEmpSection(a):'')||a.section||a.sec||'');
+      const sb = String((typeof getEmpSection==='function'?getEmpSection(b):'')||b.section||b.sec||'');
+      if(sa!==sb) return sa.localeCompare(sb);
+      const senA = _isSeniorEmp(a)?0:1, senB = _isSeniorEmp(b)?0:1;
+      if(senA!==senB) return senA-senB;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+  }catch(e){}
   // Apply primary + sub filters (Excel values) before Auto Generate
   try{ emps = _sbFilteredEmps(emps); }catch(e){}
   if(!emps.length){
@@ -7473,8 +7535,11 @@ function autoGenSchedule(monthKey){
       }
 
       // Working day: keep same shift for entire block between Weekly Offs
+      // Seniors prefer Day (D/A) on alternate blocks; juniors use normal rotation
       if(!currentBlockShift){
-        currentBlockShift = nextShiftAfter(lastWork);
+        currentBlockShift = (typeof _pickBlockShift==='function')
+          ? _pickBlockShift(emp, lastWork, rotationOrder, nextShiftAfter)
+          : nextShiftAfter(lastWork);
         lastWork = currentBlockShift;
       }
       schedule[d-1] = currentBlockShift;
@@ -7487,6 +7552,10 @@ function autoGenSchedule(monthKey){
   let msg = `✅ ${generated} कर्मचारियों की Schedule auto-generate हो गई!`;
   if(leaveProtected > 0) msg += ` · 🛡️ ${leaveProtected} approved leave दिन सुरक्षित`;
   if(preserved > 0) msg += ` · ${preserved} मौजूदा shifts रखीं`;
+  try{
+    const nSen = emps.filter(e=>_isSeniorEmp(e)).length;
+    if(nSen) msg += (typeof L==='function'?L(` · 👔 ${nSen} Senior → Day (D/A) priority`,` · 👔 ${nSen} Senior → Day (D/A) priority`):'');
+  }catch(e){}
   msg += ' Save करें।';
   toast(msg);
 
