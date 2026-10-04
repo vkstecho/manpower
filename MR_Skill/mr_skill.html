@@ -540,7 +540,7 @@ body.theme-light .toast, body.theme-light #toast{
   </div>
 </div>
 
-<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.42 · matrix + wastage (film-14) <b>MR_Skill/mr_skill.html</b></footer>
+<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.44 · met waste = MSW+MTW+G6 (no TW) <b>MR_Skill/mr_skill.html</b></footer>
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -1358,10 +1358,12 @@ window.processAllUploads=function(){
     let mc=_sapMachSlit(col(r,['Machine','machine']));
     if(mc==='Other') mc='S-1';
 
-    // Waste: 3SC-MSW + 3SC-MTW
+    // Slit 3SC waste kept only as fallback; primary waste from MB51 (user rule)
     if(/^3SC-MSW$/i.test(mat) || /^3SC-MTW$/i.test(mat)){
-      wasteMSW+=nw; return;
+      wasteMSW+=nw; return; // met waste fallback if MB51 has none
     }
+    // 3SC-TW is bare film — tracked only when MB51 provides it
+
 
     // FG: Move Type 101
     if(mv===101){
@@ -1411,21 +1413,32 @@ window.processAllUploads=function(){
     });
   }
 
-  const wasteKg = wasteMSW + g6; // MSW+MTW+Grade6
   const slitKg = good;          // already excluded 5 & 6
   const bGradeKg = g3;
 
-  // ═══ MB51 wire / boat ═══
+  // ═══ MB51: Wire, Boat, Waste (MSW+MTW+TW) — primary source (user rule) ═══
   let wireKg=0, boatPcs=0;
+  let mbMsw=0, mbMtw=0, mbTw=0, mbG6=0;
   mb51.forEach(r=>{
-    const dt=col(r,['Posting Date','Date','posting date','date']);
+    const dt=col(r,['Posting Date','Date','posting date','date','document date']);
     if(!inYm(dt)) return;
-    const mat=String(col(r,['Material','material'])||'').trim();
-    const qty=Math.abs(_sapNum(col(r,['Qty in unit of entry','qty','quantity','menge'])));
+    const mat=String(col(r,['Material','material','matnr'])||'').trim();
+    const qty=Math.abs(_sapNum(col(r,['Qty in unit of entry','Qty in unit of entry','qty','quantity','menge'])));
     if(/^3RM-ALW$/i.test(mat)) wireKg+=qty;
     if(/^3RM-EVB$/i.test(mat)) boatPcs+=qty;
+    // Waste from MB51
+    if(/^3SC-MSW$/i.test(mat)) mbMsw+=qty;
+    if(/^3SC-MTW$/i.test(mat)) mbMtw+=qty;
+    if(/^3SC-TW$/i.test(mat)) mbTw+=qty; // Bare film waste — NOT in met waste
   });
-  // Fallback jumbo
+  // Met waste = MSW + MTW only (TW is bare film, separate)
+  const mbMetWaste = mbMsw + mbMtw;
+  if(mbMetWaste>0){
+    wasteMSW = mbMetWaste; // MSW+MTW from MB51 (primary)
+  }
+  // Met Waste Qty = MSW + MTW + Grade 6  (TW excluded)
+  const wasteKg = (wasteMSW||0) + (g6||0);
+  // Fallback jumbo for wire/boat
   if(!wireKg || !boatPcs){
     jumbo.forEach(r=>{
       const dt=col(r,['Date of Production','Date','date']);
@@ -1472,7 +1485,12 @@ window.processAllUploads=function(){
     rows: sRows, source:'excel', ym,
     eqvKg: eqOut||slitKg,
     jumboOutKg: jOut.Total,
-    baseFilmKg: jBase.Total
+    baseFilmKg: jBase.Total,
+    bareWasteKg: (typeof mbTw!=='undefined'?mbTw:0),
+    wasteMsw: (typeof mbMsw!=='undefined'?mbMsw:0),
+    wasteMtw: (typeof mbMtw!=='undefined'?mbMtw:0),
+    wasteTw: (typeof mbTw!=='undefined'?mbTw:0),
+    wasteG6: g6||0
   };
   state.prod={
     jumbo:{ base:jBase, out:jOut, wire:{Total:wireKg}, boat:{Total:boatPcs}, rolls:{ 'M-1':0,'M-2':0,Total:0 }, micSum:{ 'M-1':0,'M-2':0,Total:0 }, micN:{ 'M-1':0,'M-2':0,Total:0 }, widSum:{ 'M-1':0,'M-2':0,Total:0 }, lenSum:{ 'M-1':0,'M-2':0,Total:0 }, spdSum:{ 'M-1':0,'M-2':0,Total:0 }, spdN:{ 'M-1':0,'M-2':0,Total:0 }, setupSum:{ 'M-1':0,'M-2':0,Total:0 }, timeN:{ 'M-1':0,'M-2':0,Total:0 } },
@@ -2052,7 +2070,7 @@ function renderTargets(){
   if(!state.targets || !Array.isArray(state.targets) || !state.targets.length){
     state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
   }
-  autoCalcTargets();
+  window.autoCalcTargets();
   tb.innerHTML=state.targets.map((r,i)=>{
     let cls='';
     if(/Raw Material/i.test(r.param)) cls='row-rm';
@@ -2064,12 +2082,12 @@ function renderTargets(){
     const ro = auto ? 'readonly style="background:var(--surface2,#eef2ff);cursor:default"' : '';
     return `<tr class="${cls}"><td><b>${esc(r.param)}</b>${auto?' <span style="font-size:11px;color:var(--muted)">(auto)</span>':''}</td>
       <td><input type="number" step="0.01" value="${val}" ${ro}
-        onchange="state.targets[${i}].target=this.value===''?'':num(this.value);autoCalcTargets(${i})"/></td>
+        onchange="state.targets[${i}].target=this.value===''?'':num(this.value);window.autoCalcTargets(${i})"/></td>
       <td>${esc(r.unit)}</td></tr>`;
   }).join('');
 }
 window.saveTargets=function(){
-  autoCalcTargets();
+  window.autoCalcTargets();
   localStorage.setItem('metcost_targets_v1', JSON.stringify(state.targets));
   try{ recalculate(); }catch(e){}
   toast('Targets saved');
