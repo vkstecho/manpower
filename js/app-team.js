@@ -192,6 +192,7 @@ function _renderTeamImpl(search=''){
           </div>
           ${(isAdmin() || isMgr())?`<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
             <button class="act-btn edit" style="padding:7px 10px;font-size:11px" onclick="openEditEmpForm('${e.id}')" title="Edit">✏️</button>
+            ${(()=>{ const ph=String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10); return ph.length===10 ? `<a class="act-btn" href="tel:+91${ph}" style="padding:7px 10px;font-size:11px;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);border-radius:7px;color:#22c55e;font-weight:800" title="${L('Call','Call')}" onclick="event.stopPropagation()">📞</a>` : ''; })()}
             ${isAdmin()?`<button style="padding:7px 10px;font-size:11px;background:rgba(96,165,250,.12);border:1px solid rgba(96,165,250,.35);border-radius:7px;color:#60a5fa;cursor:pointer;font-weight:800" onclick="openTeamMemberExpiryModal('${e.id}','${escHtml(String(e.name||'').replace(/'/g,"\'"))}')" title="App expiry">📅</button>`:''}
             ${isAdminOrMgr()?`<button class="act-btn del"  style="padding:7px 10px;font-size:11px" onclick="confirmDelEmp('${e.id}','${escHtml(e.name)}')">🗑️</button>`:''}
             <button style="padding:7px 10px;font-size:11px;background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.3);border-radius:7px;color:#38bdf8;cursor:pointer" onclick="openDeviceManager('${e.id}','${escHtml(e.name)}')">📱</button>

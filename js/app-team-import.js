@@ -821,6 +821,7 @@ function openEditEmpForm(empId){
     </select>
     <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('इस भाषा में WhatsApp messages जाएंगे','WhatsApp messages will use this language')}</div>
   </div>
+  <div style="height:16px;flex-shrink:0"></div>
   <div class="modal-sticky-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
   <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();event.stopPropagation();saveEmployee('${empId}')">💾 ${L('सेव करें','Save')}</button>
   <button type="button" class="cancel-btn" onclick="event.preventDefault();closeModal()">${L('रद्द करें','Cancel')}</button>

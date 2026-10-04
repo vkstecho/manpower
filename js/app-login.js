@@ -657,6 +657,54 @@ async function _notifyManagerMemberLogin(userData, mobile){
  * Link/create mobileUsers as approved, claim device, launch, notify manager (no approval).
  * Then offer device password / fingerprint so this device is remembered.
  */
+
+/** If this mobile left/was removed earlier but employee record still has shifts, relink & restore access */
+async function _tryRejoinPreserveShifts(mobile){
+  try{
+    const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
+    if(mob.length!==10) return false;
+    let mu = null;
+    try{ mu = await fbGet('mobileUsers/'+mob); }catch(e){}
+    const st = (mu && mu.status) ? String(mu.status) : '';
+    // Only auto-rejoin for previously linked left/removed users (not first-time)
+    const wasAway = ['left_team','removed','revoked','left','inactive'].indexOf(st)>=0
+      || (mu && mu.leftAt);
+    // Find employee by phone still on roster (not permanently deleted)
+    const roster = await _resolveEmpByMobile(mob);
+    if(!roster) return false;
+    if(['resigned'].indexOf(String(roster.status||''))>=0) return false;
+    // Preserve ms / shiftMap — employee record is the source of truth
+    const hasShifts = (Array.isArray(roster.ms) && roster.ms.length) || (roster.shiftMap && Object.keys(roster.shiftMap).length);
+    if(wasAway || hasShifts){
+      await fbSet('mobileUsers/'+mob, {
+        ...(mu||{}),
+        status: 'approved',
+        role: (mu && mu.role==='manager') ? 'member' : (mu && mu.role) || 'member',
+        name: roster.name || mu?.name || '',
+        empId: roster.empId || mu?.empId || '',
+        empObjId: roster.id,
+        mobile: mob,
+        managerId: roster.managerId || mu?.managerId || '',
+        rejoinedAt: new Date().toISOString(),
+        rejoinPreserveShifts: true,
+        leftAt: null,
+        leftReason: null
+      });
+      // Reactivate employee if marked left/removed
+      if(roster.status==='left' || roster.status==='removed' || roster.status==='left_team'){
+        try{
+          await fbUpdate('employees/'+roster.id, {
+            status: 'active',
+            rejoinedAt: new Date().toISOString()
+          });
+        }catch(e){}
+      }
+      return true;
+    }
+  }catch(e){ console.warn('rejoin preserve', e); }
+  return false;
+}
+
 async function _loginRosterMemberAfterOtp(mobile, empMatch){
   const mob = (typeof _normMobileKey==='function') ? _normMobileKey(mobile) : String(mobile||'').replace(/\D/g,'').slice(-10);
   if(!mob || mob.length!==10 || !empMatch) return false;
@@ -755,6 +803,22 @@ async function _checkUserAfterOTP(){
       _launchAsHardAdmin(mobile);
       return;
     }
+    // Rejoin: same mobile left/removed earlier → restore mobileUsers link to existing employee (keeps ms/shifts)
+    try{
+      if(typeof _tryRejoinPreserveShifts==='function'){
+        const rejoined = await _tryRejoinPreserveShifts(mobile);
+        if(rejoined){
+          const roster = await _resolveEmpByMobile(mobile);
+          if(roster){
+            const ok = await _loginRosterMemberAfterOtp(mobile, roster);
+            if(ok){
+              try{ toast(L('✅ वापस join — पुरानी shifts बहाल','✅ Rejoined — previous shifts restored')); }catch(e){}
+              return;
+            }
+          }
+        }
+      }
+    }catch(e){ console.warn('[otp] rejoin', e); }
     // Roster auto-link ONLY when mobileUsers already marks them as approved member/worker.
     // Brand-new numbers (no mobileUsers) always see Manager / Team Member choice — even if
     // the same phone appears on someone's Excel roster (that was the registration gap).

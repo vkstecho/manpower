@@ -2777,7 +2777,7 @@ async function confirmLeaveTeamTransfer(useRecommended){
       }
     }catch(ex){ console.warn('mu transfer', ex); }
 
-    setProg('4/6 · Copying shift settings…');
+    setProg('4/6 · Copying shift settings, logo & leave quotas…');
     try{
       const oldCfgKey = ('mgr:'+oldKey).replace(/[:.#$\[\]]/g,'_');
       const newCfgKey = ('mgr:'+newKey).replace(/[:.#$\[\]]/g,'_');
@@ -2786,10 +2786,33 @@ async function confirmLeaveTeamTransfer(useRecommended){
         await fbSet('shiftConfigs/'+newCfgKey, {
           ...cfg,
           transferredFrom: oldKey,
+          transferredAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         });
+        // Ensure logo is present for new manager profile UI
+        if(cfg.companyLogo){
+          try{ await fbUpdate('mobileUsers/'+newKey, { companyLogo: cfg.companyLogo, teamLogo: cfg.companyLogo }); }catch(e){}
+        }
       }
     }catch(ex){ console.warn('cfg transfer', ex); }
+    // Leave quotas (manager settings)
+    try{
+      const oldLq = 'leaveQuotas/'+(('mgr:'+oldKey).replace(/[:.#$\[\]]/g,'_'));
+      const newLq = 'leaveQuotas/'+(('mgr:'+newKey).replace(/[:.#$\[\]]/g,'_'));
+      // also try raw mobile keys used by openLeaveQuotaSettings
+      const paths = [
+        ['leaveQuotas/'+oldKey, 'leaveQuotas/'+newKey],
+        [oldLq, newLq]
+      ];
+      for(const [from,to] of paths){
+        try{
+          const q = await fbGet(from);
+          if(q && typeof q==='object'){
+            await fbSet(to, { ...q, transferredFrom: oldKey, transferredAt: new Date().toISOString() });
+          }
+        }catch(e1){}
+      }
+    }catch(ex){ console.warn('leaveQuotas transfer', ex); }
 
     setProg('5/6 · Closing your Manager access…');
     let oldUser = null;
@@ -4419,7 +4442,159 @@ async function downloadMyShiftCalendar(){
 }
 
 var _myShiftViewEmpId=null;
-function setMyShiftViewEmp(id){try{_myShiftViewEmpId=id||null;renderMyShift()}catch(e){}}
+
+/* ── My Shift: manager edit member calendar (click + multi-select) ── */
+window._myShiftMultiSel = window._myShiftMultiSel || new Set();
+window._myShiftMultiEmp = window._myShiftMultiEmp || null;
+window._myShiftLastTap = window._myShiftLastTap || {ds:null, t:0};
+
+function setMyShiftViewEmp(id){
+  try{
+    _myShiftViewEmpId = id || null;
+    window._myShiftMultiSel = new Set();
+    window._myShiftMultiEmp = id || null;
+    _hideMyShiftBulkBar();
+    renderMyShift();
+  }catch(e){}
+}
+
+/** Single tap = toggle multi-select; double-tap (or long-press path) = open picker for one day */
+function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
+  try{
+    if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+    if(!canEditSchedule()){
+      toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'));
+      return;
+    }
+    // Multi-select mode: toggle cells and show bulk bar
+    if(window._myShiftMultiMode){
+      if(window._myShiftMultiEmp && window._myShiftMultiEmp !== empId){
+        window._myShiftMultiSel = new Set();
+      }
+      window._myShiftMultiEmp = empId;
+      if(!window._myShiftMultiSel) window._myShiftMultiSel = new Set();
+      if(window._myShiftMultiSel.has(date)) window._myShiftMultiSel.delete(date);
+      else window._myShiftMultiSel.add(date);
+      const cell = document.querySelector('.ms-day[data-ms-date="'+date+'"][data-ms-empid="'+empId+'"]');
+      if(cell){
+        if(window._myShiftMultiSel.has(date)){
+          cell.classList.add('ms-multi-on');
+          cell.style.outline = '2px solid #f97316';
+          cell.style.background = 'rgba(249,115,22,.12)';
+        } else {
+          cell.classList.remove('ms-multi-on');
+          cell.style.outline = '';
+          cell.style.background = '';
+        }
+      }
+      if(window._myShiftMultiSel.size === 0){ _hideMyShiftBulkBar(); return; }
+      _showMyShiftBulkBar(empId, empName);
+      return;
+    }
+    // Default: open shift picker for this day (saves via existing Save bar after pick)
+    if(typeof editShiftCell === 'function'){
+      editShiftCell(empId, empName, date, currentShift);
+    } else {
+      toast('Edit picker unavailable');
+    }
+  }catch(e){ console.warn('[handleMyShiftDayClick]', e); }
+}
+
+function toggleMyShiftMultiMode(){
+  window._myShiftMultiMode = !window._myShiftMultiMode;
+  if(!window._myShiftMultiMode){
+    window._myShiftMultiSel = new Set();
+    _hideMyShiftBulkBar();
+  }
+  try{ renderMyShift(); }catch(e){}
+  toast(window._myShiftMultiMode
+    ? L('☑️ Multi-Select ON — दिनों को टैप करें','☑️ Multi-Select ON — tap days, then pick shift')
+    : L('Multi-Select OFF','Multi-Select OFF'));
+}
+
+function _hideMyShiftBulkBar(){
+  const bar = document.getElementById('myShiftBulkBar');
+  if(bar) bar.remove();
+}
+
+function _showMyShiftBulkBar(empId, empName){
+  _hideMyShiftBulkBar();
+  const n = (window._myShiftMultiSel && window._myShiftMultiSel.size) || 0;
+  if(!n) return;
+  const cfg = (typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {}) || {};
+  const codes = [];
+  (cfg.shifts || []).forEach(s=>{
+    if(s && s.code && s.active !== false) codes.push(String(s.code).toUpperCase());
+  });
+  // defaults if empty
+  if(!codes.length) codes.push('D','N','A','B','C');
+  const extra = [
+    {v:'O', label:'Off'},
+    {v:'L', label:'Leave'},
+    {v:'D+N', label:'D+N'}
+  ];
+  const shiftBtns = codes.slice(0,8).map(code=>
+    `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${code}')"
+      style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">${code}</button>`
+  ).join('') + extra.map(x=>
+    `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${x.v}')"
+      style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">${x.label}</button>`
+  ).join('');
+
+  const bar = document.createElement('div');
+  bar.id = 'myShiftBulkBar';
+  bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px';
+  bar.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="font-size:12px;font-weight:800;color:#f97316">${n} day${n>1?'s':''} selected · ${escHtml(empName||'')}</div>
+      <button type="button" onclick="clearMyShiftMulti()" style="border:none;background:transparent;color:var(--muted2);font-size:12px;cursor:pointer;font-weight:700">${L('Clear','Clear')}</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${shiftBtns}</div>
+    <div style="font-size:11px;color:var(--muted2)">${L('Shift चुनें → तुरंत save','Pick shift → saves immediately')} · ${L('Double-tap cell = single day picker','Double-tap cell = single day picker')}</div>
+  `;
+  document.body.appendChild(bar);
+}
+
+function clearMyShiftMulti(){
+  window._myShiftMultiSel = new Set();
+  _hideMyShiftBulkBar();
+  try{ renderMyShift(); }catch(e){}
+}
+
+async function applyMyShiftBulk(empId, empName, shiftVal){
+  if(!canEditSchedule()){ toast(L('❌ Permission नहीं','❌ No permission')); return; }
+  const dates = Array.from(window._myShiftMultiSel || []).sort();
+  if(!dates.length){ toast(L('कोई दिन चुना नहीं','No days selected')); return; }
+  if(shiftVal === 'L' && typeof openLeaveReasonModal === 'function'){
+    // For leave, open reason for first day then apply L with reason to all via stage
+    try{
+      // Stage L for all dates without reason first is incomplete; use multi leave path
+      window._myShiftPendingLeaveDates = dates.slice();
+      window._myShiftPendingLeaveEmp = {id:empId, name:empName};
+    }catch(e){}
+  }
+  let n=0;
+  for(const ds of dates){
+    try{
+      const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>x.id===empId);
+      const cur = emp ? (getShift(emp, ds)||'') : '';
+      if(typeof stageSingleShiftChange === 'function'){
+        stageSingleShiftChange(empId, empName, ds, cur, shiftVal);
+        n++;
+      } else if(typeof handleShiftBtnClick === 'function'){
+        handleShiftBtnClick(empId, empName, ds, cur, shiftVal);
+        n++;
+      }
+    }catch(e){ console.warn('bulk day', ds, e); }
+  }
+  window._myShiftMultiSel = new Set();
+  _hideMyShiftBulkBar();
+  toast('✅ '+n+' '+L('दिन staged — नीचे Save दबाएँ','days staged — tap Save below'));
+  try{ renderMyShift(); }catch(e){}
+  try{ if(typeof _updateSaveBar==='function') _updateSaveBar(); }catch(e){}
+}
+
+
 function renderMyShift(){
   const el = document.getElementById('myShiftContent');
   if(!el) return;
@@ -4530,7 +4705,15 @@ function renderMyShift(){
           <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
-          <div class="ms-hint">${L('टैप करें → Schedule अपडेट + WhatsApp (Save पर)','Tap = select · Double-tap = picker · bulk + Save bar')}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
+            <button type="button" onclick="toggleMyShiftMultiMode()" id="myShiftMultiBtn"
+              style="padding:8px 12px;border-radius:10px;border:1.5px solid ${window._myShiftMultiMode?'#f97316':'var(--border2)'};background:${window._myShiftMultiMode?'rgba(249,115,22,.2)':'var(--card)'};color:${window._myShiftMultiMode?'#f97316':'var(--text)'};font-weight:800;font-size:12px;cursor:pointer">
+              ${window._myShiftMultiMode?L('✕ Cancel Multi','✕ Cancel Multi'):L('☑️ Multi-Select','☑️ Multi-Select')}
+            </button>
+            <span class="ms-hint" style="margin:0">${window._myShiftMultiMode
+              ? L('दिन टैप करें → नीचे से shift चुनें','Tap days → pick shift on bar')
+              : L('दिन टैप करें → shift चुनें (Save से commit)','Tap a day → pick shift (then Save)')}</span>
+          </div>
         </div>`;
       }
       el.innerHTML += `
