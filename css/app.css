@@ -109,6 +109,166 @@ body.light .learn-screen .learn-card, body.light .learn-screen [class*="learn-bt
   color:#0f172a !important;
 }
 
+/* ===== Light theme: Learn & Grow + Skill Hub — high contrast ===== */
+body.light .learn-screen{
+  background:#f0f2f5 !important;
+  color:#0f172a !important;
+}
+body.light .learn-screen .learn-title,
+body.light .learn-screen h1,
+body.light .learn-screen h2{
+  color:#c2410c !important;
+  -webkit-text-fill-color:#c2410c !important;
+  background:none !important;
+}
+body.light .learn-screen .learn-sub,
+body.light .learn-screen .learn-tagline{
+  color:#334155 !important;
+}
+/* Main skill buttons: solid borders + stronger fills */
+body.light #learnMainButtons button,
+body.light .learn-screen button[onclick*="openLearnSection"],
+body.light #learnMRSkillView button[onclick],
+body.light .learn-screen [style*="linear-gradient"][style*="rgba"]{
+  box-shadow:0 2px 8px rgba(15,23,42,.08) !important;
+}
+body.light #learnMainButtons button{
+  background:#fff !important;
+  border-width:2px !important;
+  color:#0f172a !important;
+}
+body.light #learnMainButtons button > div:last-child,
+body.light #learnMainButtons button div[style*="font-size"]{
+  color:#0f172a !important;
+  -webkit-text-fill-color:#0f172a !important;
+}
+body.light #learnMainButtons button div[style*="background-clip"],
+body.light #learnMRSkillView div[style*="background-clip"]{
+  -webkit-text-fill-color:unset !important;
+  background:none !important;
+  color:#0f172a !important;
+  font-weight:900 !important;
+}
+/* Per-card accent borders in light mode */
+body.light #learnMainButtons button:nth-of-type(1){
+  border-color:#ea580c !important;
+  background:linear-gradient(135deg,#fff7ed,#ffedd5) !important;
+}
+body.light #learnMainButtons button:nth-of-type(2){
+  border-color:#16a34a !important;
+  background:linear-gradient(135deg,#f0fdf4,#dcfce7) !important;
+}
+body.light #learnMainButtons button:nth-of-type(3){
+  border-color:#e11d48 !important;
+  background:linear-gradient(135deg,#fff1f2,#ffe4e6) !important;
+}
+body.light #learnMainButtons button:nth-of-type(4){
+  border-color:#7c3aed !important;
+  background:linear-gradient(135deg,#f5f3ff,#ede9fe) !important;
+}
+body.light #learnMainButtons button:nth-of-type(5){
+  border-color:#0284c7 !important;
+  background:linear-gradient(135deg,#f0f9ff,#e0f2fe) !important;
+}
+/* Icon boxes more saturated */
+body.light #learnMainButtons button > div:first-child{
+  opacity:1 !important;
+  filter:none !important;
+  border:1px solid rgba(0,0,0,.08) !important;
+}
+/* Back + theme toggle on learn / hub */
+body.light .learn-back,
+body.light #learnScreen .back-btn,
+body.light button[onclick*="closeLearn"],
+body.light button[onclick*="closeMRSkill"]{
+  background:#fff !important;
+  border:2px solid #cbd5e1 !important;
+  color:#0f172a !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.08) !important;
+}
+body.light .hdr button,
+body.light .learn-screen .hdr button,
+body.light button[onclick*="toggleTheme"],
+body.light #themeBtn{
+  background:#fff !important;
+  border:1px solid #cbd5e1 !important;
+  color:#0f172a !important;
+}
+/* MR Skill hub cards */
+body.light #learnMRSkillView{
+  background:#f0f2f5 !important;
+  color:#0f172a !important;
+}
+body.light #learnMRSkillView button,
+body.light #learnMRSkillView [role="button"]{
+  background:#ffffff !important;
+  border:2px solid #a78bfa !important;
+  color:#0f172a !important;
+  box-shadow:0 2px 10px rgba(15,23,42,.08) !important;
+}
+body.light #learnMRSkillView button:first-of-type,
+body.light #learnMRSkillView > div > button:nth-of-type(1){
+  border-color:#7c3aed !important;
+  background:linear-gradient(135deg,#f5f3ff,#ede9fe) !important;
+}
+body.light #learnMRSkillView button:nth-of-type(2){
+  border-color:#e11d48 !important;
+  background:linear-gradient(135deg,#fff1f2,#ffe4e6) !important;
+}
+body.light #learnMRSkillView div[style*="-webkit-text-fill-color"]{
+  -webkit-text-fill-color:#0f172a !important;
+  background:none !important;
+  color:#0f172a !important;
+}
+body.light #learnMRSkillView span,
+body.light #learnMRSkillView p,
+body.light #learnMRSkillView div{
+  color:#334155;
+}
+body.light #learnMRSkillView div[style*="font-weight:900"],
+body.light #learnMRSkillView div[style*="font-weight:900"] *{
+  color:#0f172a !important;
+}
+/* LIVE badges stay green */
+body.light #learnMainButtons span[style*="green"],
+body.light #learnMRSkillView span[style*="#22c55e"],
+body.light #learnMRSkillView span[style*="22c55e"]{
+  color:#15803d !important;
+  font-weight:700 !important;
+}
+/* Purple Learn banner */
+body.light .learn-banner,
+body.light [style*="Learn & Grow"]{
+  color:#fff !important;
+}
+body.light .chip{
+  background:#e2e8f0 !important;
+  color:#1e293b !important;
+  border:1px solid #94a3b8 !important;
+}
+body.light .chip.on{
+  background:#ea580c !important;
+  color:#fff !important;
+  border-color:#c2410c !important;
+}
+/* Generic light buttons that were too faint */
+body.light .act-btn,
+body.light .action-secondary,
+body.light .cancel-btn{
+  background:#e2e8f0 !important;
+  color:#0f172a !important;
+  border:1px solid #94a3b8 !important;
+}
+body.light .submit-btn,
+body.light .action-primary,
+body.light .big-btn{
+  background:#ea580c !important;
+  color:#fff !important;
+  border:1px solid #c2410c !important;
+  font-weight:700 !important;
+}
+
+
 /* Schedule Excel template download — high contrast in light & dark */
 .sched-template-dl-btn, #dlSchedTemplateBtn{
   border:2px solid #0284c7 !important;
@@ -121,4 +281,216 @@ body.light .sched-template-dl-btn, body.light #dlSchedTemplateBtn{
   border-color:#0369a1 !important;
   background:linear-gradient(135deg,#0284c7,#0369a1) !important;
   color:#fff !important;
+}
+
+
+/* ========== LIGHT THEME: ALL BUTTONS & CONTROLS VISIBLE ========== */
+body.light{
+  --btn-text:#0f172a;
+  --btn-border:#94a3b8;
+  --btn-fill:#e2e8f0;
+  --btn-primary:#ea580c;
+  --btn-primary-text:#ffffff;
+}
+
+/* Base button readability */
+body.light button,
+body.light .btn,
+body.light input[type="button"],
+body.light input[type="submit"],
+body.light .submit-btn,
+body.light .cancel-btn,
+body.light .big-btn,
+body.light .act-btn,
+body.light .action-primary,
+body.light .action-secondary,
+body.light .sched-admin-btn,
+body.light .back-btn,
+body.light .nb,
+body.light .ltb,
+body.light .learn-back,
+body.light .team-btn-add,
+body.light .team-btn-import,
+body.light .team-btn-delete,
+body.light .chip,
+body.light .nav-btn{
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
+/* Primary / save / submit */
+body.light .submit-btn,
+body.light .action-primary,
+body.light .big-btn,
+body.light .team-btn-add,
+body.light button.primary,
+body.light .btn-p,
+body.light .btn-primary{
+  background:#ea580c !important;
+  color:#ffffff !important;
+  border:1px solid #c2410c !important;
+  font-weight:700 !important;
+  box-shadow:0 2px 6px rgba(234,88,12,.25) !important;
+}
+
+/* Secondary / cancel */
+body.light .cancel-btn,
+body.light .action-secondary,
+body.light .btn-r,
+body.light .btn-secondary{
+  background:#e2e8f0 !important;
+  color:#0f172a !important;
+  border:1px solid #94a3b8 !important;
+  font-weight:600 !important;
+}
+
+/* Green / success actions */
+body.light .btn-g,
+body.light .team-btn-import,
+body.light button.success{
+  background:#16a34a !important;
+  color:#ffffff !important;
+  border:1px solid #15803d !important;
+  font-weight:700 !important;
+}
+
+/* Danger / delete */
+body.light .team-btn-delete,
+body.light button.danger,
+body.light .btn-danger{
+  background:#e11d48 !important;
+  color:#ffffff !important;
+  border:1px solid #be123c !important;
+  font-weight:700 !important;
+}
+
+/* Header icon buttons (bell, theme, lang, logo) */
+body.light .hdr button,
+body.light .hdr .icon-btn,
+body.light .hdr .nb,
+body.light .hdr .chip{
+  background:#ffffff !important;
+  border:1px solid #cbd5e1 !important;
+  color:#0f172a !important;
+  box-shadow:0 1px 3px rgba(0,0,0,.06) !important;
+}
+body.light .hdr button:hover,
+body.light .hdr .icon-btn:hover{
+  background:#f1f5f9 !important;
+  border-color:#94a3b8 !important;
+}
+
+/* Bottom nav */
+body.light .nav-btn{
+  color:#64748b !important;
+}
+body.light .nav-btn.on{
+  color:#ea580c !important;
+  font-weight:700 !important;
+}
+
+/* Chips / filters */
+body.light .chip{
+  background:#f1f5f9 !important;
+  color:#1e293b !important;
+  border:1px solid #94a3b8 !important;
+  font-weight:600 !important;
+}
+body.light .chip.on{
+  background:#ea580c !important;
+  color:#fff !important;
+  border-color:#c2410c !important;
+}
+
+/* Schedule toolbar */
+body.light .sched-admin-btn,
+body.light .sched-toolbar button,
+body.light #schedTools button,
+body.light .ltb{
+  background:#ffffff !important;
+  color:#0f172a !important;
+  border:1px solid #94a3b8 !important;
+  font-weight:600 !important;
+}
+body.light .sched-admin-btn:hover,
+body.light .ltb:hover{
+  background:#f1f5f9 !important;
+  border-color:#64748b !important;
+}
+
+/* Team page buttons */
+body.light .team-btn-add,
+body.light .team-btn-import,
+body.light .team-btn-delete,
+body.light #teamActions button,
+body.light .team-toolbar button{
+  opacity:1 !important;
+  min-height:40px;
+  font-weight:700 !important;
+}
+
+/* Leave / MyShift / Reports action rows */
+body.light .leave-actions button,
+body.light .myshift-actions button,
+body.light .reports-actions button,
+body.light .todo-actions button,
+body.light .pending-actions button{
+  background:#ffffff !important;
+  border:1px solid #94a3b8 !important;
+  color:#0f172a !important;
+  font-weight:600 !important;
+}
+
+/* Modal sticky actions */
+body.light .modal-sticky-actions .submit-btn{
+  background:#ea580c !important;
+  color:#fff !important;
+}
+body.light .modal-sticky-actions .cancel-btn{
+  background:#e2e8f0 !important;
+  color:#0f172a !important;
+}
+
+/* Back buttons everywhere */
+body.light .back-btn,
+body.light .learn-back,
+body.light button[onclick*="goBack"],
+body.light button[onclick*="close"]{
+  background:#ffffff !important;
+  border:2px solid #cbd5e1 !important;
+  color:#0f172a !important;
+  font-weight:700 !important;
+  box-shadow:0 1px 4px rgba(0,0,0,.08) !important;
+}
+
+/* Disabled still readable but muted */
+body.light button:disabled,
+body.light .submit-btn:disabled{
+  opacity:0.55 !important;
+  color:#64748b !important;
+}
+
+/* Text on cards must not be washed out */
+body.light .card,
+body.light .card b,
+body.light .card h2,
+body.light .card h3,
+body.light .stitle{
+  color:#0f172a !important;
+}
+body.light .card .muted,
+body.light .muted{
+  color:#475569 !important;
+}
+
+/* Shift cells stay colored but text readable */
+body.light .shc,
+body.light .ms-day-sh{
+  font-weight:700 !important;
+}
+
+/* Ensure no global opacity on interactive controls */
+body.light a.btn,
+body.light [role="button"]{
+  opacity:1 !important;
 }
