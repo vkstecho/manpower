@@ -448,6 +448,8 @@ body.theme-light .toast, body.theme-light #toast{
         <button class="btn btn-p" onclick="recalculate()">Recalculate & Save month</button>
         <button class="btn btn-g" onclick="saveMonthHistory()">Save current month</button>
         <button class="btn btn-r" onclick="deleteMonthHistory()">Delete this month</button>
+        <button class="btn btn-g" onclick="downloadConversionExcel()">⬇ Download Excel</button>
+        <button class="btn" onclick="explainEquivalent()" title="Show equivalent formulas">ℹ Equivalent formulas</button>
       </div>
       <div style="margin-top:10px">
         <label>Saved months (tap to open)</label>
@@ -456,7 +458,15 @@ body.theme-light .toast, body.theme-light #toast{
       <div class="stat" id="reportStats"></div>
       <div class="scroll" style="margin-top:12px">
         <table id="reportTable">
-          <thead><tr><th>Parameter</th><th>Actual</th><th>Equivalent</th><th>Target</th><th>Unit</th></tr></thead>
+          <thead><tr><th>Parameter</th><th>Actual</th><th style="cursor:pointer;text-decoration:underline" onclick="explainEquivalent()" title="Click for formulas">Equivalent ℹ</th><th>Target</th><th>Unit</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <h3 style="margin:18px 0 8px;font-size:15px">Product matrix (Slit FG · MT) — Micron × OD</h3>
+      <p class="hint">Segregation same as plant workbook. Equv. = Mic×OD×Special. Width Eqv. applies period width/length factor.</p>
+      <div class="scroll">
+        <table id="tblProdMatrixConv">
+          <thead></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -530,7 +540,7 @@ body.theme-light .toast, body.theme-light #toast{
   </div>
 </div>
 
-<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.40 · eq fix <b>MR_Skill/mr_skill.html</b></footer>
+<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.42 · matrix + wastage (film-14) <b>MR_Skill/mr_skill.html</b></footer>
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -1561,33 +1571,62 @@ window.renderProdAnalytics=function(){
     sBody.innerHTML=rows.map(([lab,fn])=>`<tr><td><b>${lab}</b></td><td>${fn('S-1')}</td><td>${fn('S-2')}</td><td>${fn('Total')}</td></tr>`).join('');
   }
 
-  // Product matrix
-  const thead=document.querySelector('#tblProdMatrix thead');
-  const tbody=document.querySelector('#tblProdMatrix tbody');
-  if(thead && tbody && P.matrix){
-    const ods=['2.2','2.5','2.8','ALOX','RC','?'];
-    const microns=Object.keys(P.matrix).map(Number).filter(n=>n>0).sort((a,b)=>a-b);
-    thead.innerHTML=`<tr><th>Micron / OD</th>${ods.map(o=>`<th>${o}</th>`).join('')}<th>Total (MT)</th><th>Equiv. (MT)</th></tr>`;
+  // Product matrix — plant layout (Micron/OD × 2.2 / 2.5 / 2.8 + AlOx + Rele.Coated)
+  function _fillMatrixTable(thead, tbody, P){
+    if(!thead || !tbody || !P || !P.matrix) return;
+    const ods=['2.2','2.5','2.8'];
+    // Fixed plant row order
+    const rowOrder = [
+      {key:'8', label:'8'},
+      {key:'10', label:'10'},
+      {key:'12', label:'12'},
+      {key:'19', label:'19'},
+      {key:'23', label:'23'},
+      {key:'12Alox', label:'12 Mic. AlOx Coated', matHint:'ALM', mic:12},
+      {key:'12Rcm', label:'12 Mic Rele. Coated', matHint:'RCM', mic:12}
+    ];
+    // Include any other micron keys present
+    Object.keys(P.matrix).forEach(k=>{
+      if(!rowOrder.find(r=>r.key===k) && !isNaN(Number(k))){
+        rowOrder.push({key:k, label:k});
+      }
+    });
+    thead.innerHTML=`<tr><th>Micron/OD</th><th>2.2</th><th>2.5</th><th>2.8</th><th>Total (MT)</th><th>Equv. (MT)</th></tr>`;
     let gTot=0, gEq=0;
-    const odTot={}; ods.forEach(o=>odTot[o]=0);
-    tbody.innerHTML=microns.map(m=>{
+    const odTot={'2.2':0,'2.5':0,'2.8':0};
+    let html='';
+    rowOrder.forEach(row=>{
+      const bucket=P.matrix[row.key]||{};
       let rowTot=0, rowEq=0;
       const cells=ods.map(o=>{
-        const kg=(P.matrix[m]&&P.matrix[m][o])||0;
+        const kg=bucket[o]||0;
         rowTot+=kg; odTot[o]+=kg;
-        let odN=2.2, matHint='';
-        if(o==='ALOX'){ matHint='ALM'; odN=2.2; }
-        else if(o==='RC'){ matHint='RCM'; odN=2.2; }
-        else if(o!=='?'){ odN=Number(o)||2.2; }
-        const fac=_eqFactorFor(m, odN, matHint, 0, 0);
+        const odN=Number(o);
+        const mic=row.mic!=null?row.mic:Number(row.key)||12;
+        const matHint=row.matHint||'';
+        const fac=_eqFactorFor(mic, odN, matHint, 0, 0);
         rowEq+=kg*fac;
-        return `<td>${kg? (kg/1000).toFixed(1):'0.0'}</td>`;
+        return `<td>${(kg/1000).toFixed(1)}</td>`;
       }).join('');
       gTot+=rowTot; gEq+=rowEq;
-      return `<tr><td><b>${m}</b></td>${cells}<td><b>${(rowTot/1000).toFixed(1)}</b></td><td><b>${(rowEq/1000).toFixed(1)}</b></td></tr>`;
-    }).join('');
-    tbody.innerHTML += `<tr class="row-total"><td><b>Total</b></td>${ods.map(o=>`<td><b>${(odTot[o]/1000).toFixed(1)}</b></td>`).join('')}<td><b>${(gTot/1000).toFixed(1)}</b></td><td><b>${(gEq/1000).toFixed(1)}</b></td></tr>`;
+      if(rowTot>0 || ['8','10','12','19','23','12Alox','12Rcm'].indexOf(row.key)>=0){
+        html+=`<tr><td><b>${row.label}</b></td>${cells}<td><b>${(rowTot/1000).toFixed(1)}</b></td><td><b>${(rowEq/1000).toFixed(1)}</b></td></tr>`;
+      }
+    });
+    // Width equivalent (period WL factor applied to eq)
+    const eqFromTotals = num((state.totals||{}).eqvKg);
+    const widthEq = eqFromTotals>0 ? eqFromTotals/1000 : gEq/1000;
+    html+=`<tr class="row-total"><td><b>Total</b></td>
+      <td><b>${(odTot['2.2']/1000).toFixed(1)}</b></td>
+      <td><b>${(odTot['2.5']/1000).toFixed(1)}</b></td>
+      <td><b>${(odTot['2.8']/1000).toFixed(1)}</b></td>
+      <td><b>${(gTot/1000).toFixed(1)}</b></td>
+      <td><b>${(gEq/1000).toFixed(1)}</b></td></tr>`;
+    html+=`<tr><td colspan="5" style="text-align:right;color:var(--muted)">Width Eqv. (with period W×L factor)</td><td><b>${widthEq.toFixed(1)}</b></td></tr>`;
+    tbody.innerHTML=html;
   }
+  _fillMatrixTable(document.querySelector('#tblProdMatrix thead'), document.querySelector('#tblProdMatrix tbody'), P);
+  _fillMatrixTable(document.querySelector('#tblProdMatrixConv thead'), document.querySelector('#tblProdMatrixConv tbody'), P);
 
   // OEE
   const oeeBody=document.querySelector('#tblOee tbody');
@@ -1921,44 +1960,99 @@ if(!state.targets) state.targets = JSON.parse(JSON.stringify(DEFAULT_TARGETS));
 
 
 
+function _tGet(re){
+  const x=(state.targets||[]).find(r=>re.test(r.param));
+  return x?num(x.target):0;
+}
+function _tSet(re, val){
+  const x=(state.targets||[]).find(r=>re.test(r.param));
+  if(x) x.target = (val===''||val==null)?'':+(Number(val).toFixed(2));
+}
+/** Auto-calc dependent Target rows from plant rules */
+window.autoCalcTargets=function(fromIdx){
+  if(!state.targets || !state.targets.length) return;
+  // Read editable inputs from DOM if present
+  try{
+    document.querySelectorAll('#targetTable tbody input').forEach((inp,i)=>{
+      if(state.targets[i]) state.targets[i].target = inp.value===''?'':num(inp.value);
+    });
+  }catch(e){}
+
+  const wireRate=rateOf('Wire')||rateOf('Al Wire')||0;
+  const boatRate=rateOf('Boat')||rateOf('EV Boat')||0;
+  const powerRate=rateOf('Power')||rateOf('Electricity')||0;
+  const filmRate=rateOf('Base Film')||140;
+
+  let wKgMT=_tGet(/Wire \(kg\/MT\)/i); if(!(wKgMT>0)) wKgMT=9.2;
+  let bPcsMT=_tGet(/Boat \(pcs\/MT\)/i); if(!(bPcsMT>0)) bPcsMT=1.8;
+
+  // Wire ₹/kg = rate × kg/MT / 1000
+  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : _tGet(/^Wire ₹\/kg/i);
+  // Boat ₹/kg = rate × pcs/MT / 1000
+  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : _tGet(/^Boat ₹\/kg/i);
+  _tSet(/^Wire ₹\/kg/i, wirePerKg);
+  _tSet(/^Boat ₹\/kg/i, boatPerKg);
+
+  // Raw Material = Wire + Boat
+  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(2);
+  _tSet(/Raw Material/i, rmPerKg);
+
+  // Power ₹/kg from 0.44 units/kg × rate (if power rate set)
+  if(powerRate){
+    const p=_tGet(/^Power ₹\/kg/i);
+    if(!p) _tSet(/^Power ₹\/kg/i, +(0.44*powerRate).toFixed(2));
+  }
+
+  // Wastage Loss target = 126 × (Wastage%/100)  [plant factor]
+  const wPct=_tGet(/Wastage %/i);
+  if(wPct) _tSet(/Wastage Loss/i, +(126 * wPct / 100).toFixed(2));
+
+  // B Grade Loss = 20 × (B%/100)
+  const bPct=_tGet(/B Grade %/i);
+  _tSet(/B Grade Loss/i, +(20 * bPct / 100).toFixed(2));
+
+  // Conversion = Wastage Loss + B Grade Loss + Manpower + Power + Cons & Spares + Indirect
+  const conv = +(
+    _tGet(/Wastage Loss/i) +
+    _tGet(/B Grade Loss/i) +
+    _tGet(/Manpower/i) +
+    _tGet(/^Power ₹\/kg/i) +
+    _tGet(/Cons & Spares/i) +
+    _tGet(/Indirect/i)
+  ).toFixed(2);
+  _tSet(/^Conversion Cost/i, conv);
+
+  // Total Cost = Conversion + Raw Material
+  const total = +(conv + rmPerKg).toFixed(2);
+  _tSet(/^Total Cost ₹\/kg/i, total);
+
+  // Total with Packing = Total + Packing
+  const pack=_tGet(/Packing & Freight/i);
+  _tSet(/Total with Packing/i, +(total + pack).toFixed(2));
+
+  // Refresh display without full rebuild of focus
+  try{
+    document.querySelectorAll('#targetTable tbody tr').forEach((tr,i)=>{
+      const inp=tr.querySelector('input');
+      if(!inp || !state.targets[i]) return;
+      const p=state.targets[i].param||'';
+      const auto = /Raw Material|Wire ₹\/kg|Boat ₹\/kg|Wastage Loss|B Grade Loss|Conversion Cost|Total Cost|Total with Packing/i.test(p);
+      if(auto){
+        inp.value = state.targets[i].target===''||state.targets[i].target==null ? '' : state.targets[i].target;
+        inp.style.background = 'var(--surface2,#f0f4ff)';
+        inp.title = 'Auto-calculated — changes when inputs above change';
+      }
+    });
+  }catch(e){}
+};
+
 function renderTargets(){
   const tb=document.querySelector('#targetTable tbody');
   if(!tb) return;
   if(!state.targets || !Array.isArray(state.targets) || !state.targets.length){
     state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
   }
-  // auto-fill computed targets from rates when blank
-  // Wire ₹/kg target ≈ rate * wireKg/MT / 1000; Boat similar; Raw Material = Wire₹/kg + Boat₹/kg
-  const wireRate=rateOf('Wire')||rateOf('Al Wire')||0;
-  const boatRate=rateOf('Boat')||rateOf('EV Boat')||0;
-  const powerRate=rateOf('Power')||rateOf('Electricity')||0;
-  const wireKgMT = num((state.targets.find(x=>/Wire \(kg\/MT\)/i.test(x.param))||{}).target);
-  const boatPcsMT = num((state.targets.find(x=>/Boat \(pcs\/MT\)/i.test(x.param))||{}).target);
-  const wKgMT = wireKgMT>0?wireKgMT:9.2;
-  const bPcsMT = boatPcsMT>0?boatPcsMT:1.8;
-  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : 0;
-  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : 0;
-  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(2); // plant rule: RM = Wire + Boat cost
-  // Always sync consumption ₹/kg from Rates × norm (kg/MT or pcs/MT)
-  state.targets.forEach(r=>{
-    if(/^Wire ₹\/kg/i.test(r.param) && wirePerKg) r.target=wirePerKg;
-    else if(/^Boat ₹\/kg/i.test(r.param) && boatPerKg) r.target=boatPerKg;
-    else if(/Raw Material/i.test(r.param)) r.target=rmPerKg; // always Wire+Boat
-    else if(/^Power ₹\/kg/i.test(r.param) && powerRate){
-      const blank = (r.target==='' || r.target==null);
-      if(blank) r.target=+(0.44*powerRate).toFixed(2);
-    }
-  });
-  // Totals: Conversion + RM ; + Packing
-  const getT = (re)=>{ const x=state.targets.find(r=>re.test(r.param)); return x?num(x.target):0; };
-  const convT = getT(/^Conversion Cost/i);
-  const packT = getT(/Packing & Freight/i);
-  const totalCost = +(convT + rmPerKg).toFixed(2);
-  const totalPack = +(totalCost + packT).toFixed(2);
-  state.targets.forEach(r=>{
-    if(/^Total Cost ₹\/kg/i.test(r.param)) r.target=totalCost;
-    if(/Total with Packing/i.test(r.param)) r.target=totalPack;
-  });
+  autoCalcTargets();
   tb.innerHTML=state.targets.map((r,i)=>{
     let cls='';
     if(/Raw Material/i.test(r.param)) cls='row-rm';
@@ -1966,13 +2060,18 @@ function renderTargets(){
     else if(/Total with Packing/i.test(r.param)) cls='row-pack';
     else if(/^Total Cost/i.test(r.param)) cls='row-total';
     const val = (r.target===''||r.target==null) ? '' : r.target;
-    return `<tr class="${cls}"><td><b>${esc(r.param)}</b></td>
-      <td><input type="number" step="0.01" value="${val}" onchange="state.targets[${i}].target=this.value===''?'':num(this.value)"/></td>
+    const auto = /Raw Material|Wire ₹\/kg|Boat ₹\/kg|Wastage Loss|B Grade Loss|^Conversion Cost|^Total Cost|Total with Packing/i.test(r.param);
+    const ro = auto ? 'readonly style="background:var(--surface2,#eef2ff);cursor:default"' : '';
+    return `<tr class="${cls}"><td><b>${esc(r.param)}</b>${auto?' <span style="font-size:11px;color:var(--muted)">(auto)</span>':''}</td>
+      <td><input type="number" step="0.01" value="${val}" ${ro}
+        onchange="state.targets[${i}].target=this.value===''?'':num(this.value);autoCalcTargets(${i})"/></td>
       <td>${esc(r.unit)}</td></tr>`;
   }).join('');
 }
 window.saveTargets=function(){
+  autoCalcTargets();
   localStorage.setItem('metcost_targets_v1', JSON.stringify(state.targets));
+  try{ recalculate(); }catch(e){}
   toast('Targets saved');
 };
 window.resetTargets=function(){
@@ -1980,6 +2079,57 @@ window.resetTargets=function(){
   renderTargets();
   toast('Target defaults restored');
 };
+
+/** Explain Equivalent formulas (click Equivalent header / values) */
+window.explainEquivalent=function(){
+  const t=state.totals||{};
+  const out=num(t.slitKg), eq=num(t.eqvKg);
+  const avg = out>0 ? (eq/out) : 1;
+  const R=_eqRules();
+  const msg =
+    'EQUIVALENT OUTPUT FORMULAS\n\n'+
+    '1) Per FG roll (Move 101, exclude Grade 5 & 6):\n'+
+    '   Factor = Micron × OD × Special\n\n'+
+    '   Micron: 8µ→'+((R.micron||{})['8']||1.88)+'  10µ→'+((R.micron||{})['10']||1.2)+'  12µ→'+((R.micron||{})['12']||1)+'  >12→'+((R.micron||{}).gt12||1)+'\n'+
+    '   OD (from material code only, e.g. M22→2.2, ABM25→2.5):\n'+
+    '      2.2→'+((R.od||{})['2.2']||1)+'  2.5→'+((R.od||{})['2.5']||1.24)+'  2.8→'+((R.od||{})['2.8']||1.44)+'\n'+
+    '   Special: Normal→1  RCM→'+((R.special||{}).rcm||2.17)+'  ALM/AlOx→'+((R.special||{}).alm||3.6)+'\n\n'+
+    '2) Period width/length (jumbo averages once):\n'+
+    '   × (3000 / avg width mm) × (72000 / avg length m)\n\n'+
+    '3) Eqv Output kg = Σ (roll kg × factor) × WL period factor\n\n'+
+    'This month:\n'+
+    '   Good output = '+(out?out.toFixed(2):0)+' kg\n'+
+    '   Eqv output  = '+(eq?eq.toFixed(2):0)+' kg\n'+
+    '   Avg factor  = '+avg.toFixed(4)+'\n\n'+
+    'Equivalent ₹/kg columns = Actual × (Good / Eqv)';
+  alert(msg);
+};
+
+/** Download Conversion Cost table as Excel */
+window.downloadConversionExcel=function(){
+  if(!state.report || !state.report.rows || !state.report.rows.length){
+    toast('No conversion data — Process files first'); return;
+  }
+  const ym = monthKey();
+  const header = ['Parameter','Actual','Equivalent','Target','Unit'];
+  const aoa = [header].concat(state.report.rows.map(r=>[
+    r[0],
+    r[1]===''||r[1]==null?'':Number(r[1]),
+    r[2]===''||r[2]==null?'':Number(r[2]),
+    r[3]===''||r[3]==null?'':Number(r[3]),
+    r[4]||''
+  ]));
+  aoa.push([]);
+  aoa.push(['Month', ym]);
+  aoa.push(['Output kg', (state.totals||{}).slitKg||'']);
+  aoa.push(['Eqv kg', (state.totals||{}).eqvKg||'']);
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Conversion Cost');
+  XLSX.writeFile(wb, 'ConversionCost_'+ym+'.xlsx');
+  toast('Downloaded ConversionCost_'+ym+'.xlsx');
+};
+
 
 /* ===== App mode: metcost | mrm ===== */
 
