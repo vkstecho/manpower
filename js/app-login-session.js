@@ -600,10 +600,17 @@ async function buildNav(){
 
   // Determine effective role for nav
   // Pending Team Member: only Home (own shift) + To-Do (+ Learn header always on)
+  // Elevated members (schedule/leave/reports) must never get pending_member nav (missing Schedule)
+  let _navElevated = false;
+  try{
+    const e = (typeof _myEmployeeRecord==='function') ? _myEmployeeRecord() : null;
+    const raw = (e && e.perms) || {};
+    _navElevated = !!(raw.schedule || raw.leave || raw.reports || raw.pending);
+  }catch(e){}
   const effectiveRole = isAdmin() ? 'admin'
     : isMgr() ? 'manager'
-    : isPendingMember() ? 'pending_member'
-    : (SESSION.role==='member') ? 'member'
+    : (isPendingMember() && !_navElevated) ? 'pending_member'
+    : (SESSION.role==='member' || _navElevated) ? 'member'
     : isSupervisor() ? 'supervisor'
     : isGuest() ? 'guest'
     : 'worker';
@@ -3008,9 +3015,10 @@ function goTab(t){
   if(t==='resign'){ try{ openResignationForm(); }catch(e){} return; }
 
   if(typeof isPendingMember==='function' && isPendingMember()){
-    const allowed = ['home','todo'];
+    // Still pending AND no elevated rights
+    const allowed = ['home','myshift','todo'];
     if(t && !allowed.includes(t)){
-      toast(L('⏳ Manager approve होने तक सिर्फ Home / To-Do / Learn उपलब्ध हैं','⏳ Until Manager approves, only Home / To-Do / Learn are available'));
+      toast(L('⏳ Manager approve होने तक सिर्फ Home / My Shift / To-Do / Learn उपलब्ध हैं','⏳ Until Manager approves, only Home / My Shift / To-Do / Learn are available'));
       t = 'home';
     }
   }

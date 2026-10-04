@@ -198,6 +198,29 @@ body.theme-light .row-pack td{color:#c2410c}
         <button class="btn btn-r" onclick="clearUploads()">Clear uploads</button>
       </div>
     </div>
+
+    <div class="card">
+      <h2>Period costs (this month)</h2>
+      <p class="hint">Enter these after upload (or with manual kg). They feed <b>Conversion Cost</b> for the selected month. Same values sync to the Rates tab.</p>
+      <div class="grid2">
+        <div>
+          <label>⚡ Electricity units consumed</label>
+          <input type="number" id="up_powerUnits" step="1" placeholder="e.g. 667937" oninput="syncPeriodCostFromUpload('power')"/>
+        </div>
+        <div>
+          <label>🔧 Consumable / Cons. &amp; Spares cost ₹</label>
+          <input type="number" id="up_sparesCost" step="1" placeholder="e.g. 220106" oninput="syncPeriodCostFromUpload('spares')"/>
+        </div>
+        <div>
+          <label>👥 Manpower cost ₹ (period)</label>
+          <input type="number" id="up_manpowerCost" step="1" placeholder="e.g. 1400000" oninput="syncPeriodCostFromUpload('manpower')"/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button type="button" class="btn btn-p" style="width:100%" onclick="applyPeriodCostsAndCalc()">Apply &amp; recalculate Conversion Cost</button>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <h2>Detected month totals</h2>
       <div class="stat" id="uploadStats">
@@ -896,6 +919,54 @@ window.loadManualInputs = function(){
   }catch(e){ toast('Load failed'); }
 };
 
+
+window.syncPeriodCostFromUpload = function(which){
+  try{
+    if(!state.extras) state.extras = {};
+    if(which==='power' || !which){
+      const v = document.getElementById('up_powerUnits');
+      const r = document.getElementById('powerUnits');
+      if(v){ state.extras.powerUnits = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    if(which==='spares' || !which){
+      const v = document.getElementById('up_sparesCost');
+      const r = document.getElementById('sparesCost');
+      if(v){ state.extras.sparesCost = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    if(which==='manpower' || !which){
+      const v = document.getElementById('up_manpowerCost');
+      const r = document.getElementById('manpowerCost');
+      if(v){ state.extras.manpowerCost = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    try{ localStorage.setItem(LS.extras, JSON.stringify(state.extras)); }catch(e){}
+  }catch(e){ console.warn(e); }
+};
+window.applyPeriodCostsAndCalc = function(){
+  syncPeriodCostFromUpload();
+  try{
+    const map = [['up_powerUnits','man_powerUnits'],['up_sparesCost','man_spares'],['up_manpowerCost','man_manpower']];
+    map.forEach(([a,b])=>{
+      const elA=document.getElementById(a), elB=document.getElementById(b);
+      if(elA && elB && elA.value!=='') elB.value = elA.value;
+    });
+  }catch(e){}
+  if(typeof saveRates==='function'){ try{ saveRates(); }catch(e){} }
+  if(typeof recalculate==='function') recalculate();
+  toast('Period costs applied — open Conversion Cost');
+};
+window.fillPeriodCostsFromState = function(){
+  try{
+    const ex = state.extras || {};
+    const set = (id, v)=>{ const el=document.getElementById(id); if(el && v!=null && v!=='') el.value = v; };
+    set('up_powerUnits', ex.powerUnits);
+    set('up_sparesCost', ex.sparesCost);
+    set('up_manpowerCost', ex.manpowerCost);
+    set('powerUnits', ex.powerUnits);
+    set('sparesCost', ex.sparesCost);
+    set('manpowerCost', ex.manpowerCost);
+  }catch(e){}
+};
+
 window.processAllUploads=function(){
   const ym=monthKey();
   let slitKg=0, wasteKg=0, bGradeKg=0, wireKg=0, boatPcs=0, rows=0;
@@ -961,7 +1032,7 @@ window.processAllUploads=function(){
     set('man_boatPcs', boatPcs ? +Number(boatPcs).toFixed(0) : '');
     // power / spares / manpower from extras if already set on Rates
     if(state.extras){
-      if(state.extras.powerUnits) set('man_powerUnits', state.extras.powerUnits);
+      if(state.extras.powerUnits){ set('man_powerUnits', state.extras.powerUnits); set('up_powerUnits', state.extras.powerUnits); }
       if(state.extras.sparesCost) set('man_spares', state.extras.sparesCost);
       if(state.extras.manpowerCost) set('man_manpower', state.extras.manpowerCost);
     }
@@ -972,6 +1043,7 @@ window.processAllUploads=function(){
     }
     if(typeof saveManualInputs==='function') saveManualInputs();
   }catch(e){ console.warn('manual autofill', e); }
+  try{ fillPeriodCostsFromState(); }catch(e){}
   toast('Processed for '+ym+' — manual fields filled');
   recalculate();
 };

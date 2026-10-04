@@ -970,6 +970,31 @@ async function saveEmployee(empId){
     }
   }
 
+  // If Manager granted schedule/leave/reports, auto-approve their mobileUsers so they are not stuck as pending (Home/Schedule locked)
+  try{
+    const perms = (update && update.perms) || {};
+    if(perms.schedule || perms.leave || perms.reports || perms.pending){
+      const empRec = (_cache.employees||[]).find(x=>x.id===empId) || {};
+      const phone = (typeof _normMobileKey==='function')
+        ? _normMobileKey(update.phone || update.mobile || empRec.phone || empRec.mobile || '')
+        : String(update.phone || empRec.phone || '').replace(/\D/g,'').slice(-10);
+      if(phone && phone.length===10){
+        const mu = await fbGet('mobileUsers/'+phone);
+        if(mu && mu.role==='member' && mu.status==='pending'){
+          await fbUpdate('mobileUsers/'+phone, {
+            status: 'approved',
+            pendingApproval: false,
+            approvedAt: new Date().toISOString(),
+            approvedBy: (SESSION && SESSION.mobile) || 'manager'
+          });
+        } else if(mu && mu.role==='member'){
+          // Ensure flags clean
+          await fbUpdate('mobileUsers/'+phone, { status: 'approved', pendingApproval: false });
+        }
+      }
+    }
+  }catch(apErr){ console.warn('[saveEmployee] auto-approve member', apErr); }
+
   // Patch local cache so UI updates immediately (before modal closes)
   try{
     if(!_cache.employees) _cache.employees = [];
