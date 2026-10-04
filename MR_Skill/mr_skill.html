@@ -355,7 +355,7 @@ body.theme-light .toast, body.theme-light #toast{
         <div><label>Manpower cost ₹ (period)</label><input type="number" id="manpowerCost" step="1"/></div>
         <div><label>Indirect expense ₹/kg</label><input type="number" id="indirectPerKg" step="0.01" value="0.26"/></div>
         <div><label>Packing & freight ₹/kg</label><input type="number" id="packingPerKg" step="0.01" value="1.67"/></div>
-        <div><label>Target conversion ₹/kg</label><input type="number" id="targetConv" step="0.01" value="6.55"/></div>
+        <div class="hint" style="align-self:end;padding-bottom:8px">Target conversion ₹/kg is set in <b>6. Target</b> tab</div>
       </div>
       <div class="btn-row"><button class="btn btn-g" onclick="saveExtras()">Save extras</button></div>
     </div>
@@ -530,7 +530,7 @@ body.theme-light .toast, body.theme-light #toast{
   </div>
 </div>
 
-<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · single file <b>MR_Skill/mr_skill.html</b></footer>
+<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · v2.5.40 · eq fix <b>MR_Skill/mr_skill.html</b></footer>
 <div id="toast" class="toast hidden"></div>
 
 <script>
@@ -622,7 +622,7 @@ function loadMonthHistory(ym){
       '<div class="s"><b>'+(tgt!=null&&tgt!==""?Number(tgt).toFixed(2):'—')+'</b><span>Conversion ₹/kg Target</span></div>'+
       '<div class="s"><b>'+(t.slitKg?Number(t.slitKg).toFixed(0):'—')+'</b><span>Output kg</span></div>'+
       '<div class="s"><b style="font-size:12px">'+ym+'</b><span>Loaded from history</span></div>';
-    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(3)) : v);
+    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(2)) : v);
     document.querySelector('#reportTable tbody').innerHTML = state.report.rows.map(r=>
       '<tr><td><b>'+r[0]+'</b></td><td>'+fmt(r[1])+'</td><td>'+fmt(r[2])+'</td><td>'+fmt(r[3])+'</td><td>'+r[4]+'</td></tr>'
     ).join('');
@@ -687,7 +687,7 @@ const DEFAULT_EQ_RULES = {
   special: { normal: 1.0, rcm: 2.17, alm: 3.6 },  // RCM / AlOx (ALM)
   widthTarget: 3000,   // mm
   lengthTarget: 72000, // m
-  applyWidthLength: true
+  applyWidthLength: false
 };
 const DEFAULT_EQUIV = [
   { material:'G12301M22', od:1, sp:1, mic:1, output:36, rolls:10, speed:800, width:3000, length:72000 },
@@ -720,6 +720,7 @@ function toast(msg){
   el.textContent=msg; el.classList.remove('hidden');
   clearTimeout(window._tt); window._tt=setTimeout(()=>el.classList.add('hidden'),2800);
 }
+function fmt2(v){ const n=Number(v); if(!isFinite(n)) return '0.00'; return (Math.round(n*100)/100).toFixed(2); }
 function num(v){ const n=Number(v); return isFinite(n)?n:0; }
 function monthKey(){
   const m=document.getElementById('reportMonth').value;
@@ -761,8 +762,8 @@ window.saveExtras=()=>{
     sparesCost:num(document.getElementById('sparesCost').value),
     manpowerCost:num(document.getElementById('manpowerCost').value),
     indirectPerKg:num(document.getElementById('indirectPerKg').value),
-    packingPerKg:num(document.getElementById('packingPerKg').value),
-    targetConv:num(document.getElementById('targetConv').value)
+    packingPerKg:num(document.getElementById('packingPerKg').value)
+    // targetConv lives in Target tab only
   };
   localStorage.setItem(LS.extras, JSON.stringify(state.extras));
   toast('Extras saved');
@@ -774,7 +775,6 @@ function loadExtrasToForm(){
   document.getElementById('manpowerCost').value=e.manpowerCost||'';
   document.getElementById('indirectPerKg').value=e.indirectPerKg??0.26;
   document.getElementById('packingPerKg').value=e.packingPerKg??1.67;
-  document.getElementById('targetConv').value=e.targetConv??6.55;
 }
 
 /* equiv */
@@ -1194,11 +1194,24 @@ function _sapMachMet(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')
 function _sapMachSlit(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')>=0||s.indexOf('M-1')>=0) return 'S-1'; if(s.indexOf('M2')>=0||s.indexOf('M-2')>=0) return 'S-2'; return 'Other'; }
 function _sapOdFromMat(mat){
   const m=String(mat||'');
-  let x=m.match(/ABM(\d{2})/i)||m.match(/SM(\d{2})/i)||m.match(/M(\d{2})R?\b/i);
-  if(x){ const v=parseInt(x[1],10); return v>=20 ? Math.round(v/10*10)/10 : v; }
-  if(/AL3|ALOX|AL300|AL331/i.test(m)) return 'ALOX';
-  if(/RC/i.test(m)) return 'RC';
-  return null;
+  // Optical density ONLY from material code (NOT from Z_Slit "OD" column — that is often diameter/width)
+  // Examples: ABM25→2.5, ABM22→2.2, SM28→2.8, …M22→2.2, …M25→2.5
+  let x=m.match(/ABM(\d{2})/i)||m.match(/SM(\d{2})/i)||m.match(/[A-Z]M(\d{2})(?:R)?$/i)||m.match(/M(\d{2})(?:R)?$/i);
+  if(x){
+    const v=parseInt(x[1],10);
+    if(v>=20 && v<=40) return Math.round(v)/10; // 22→2.2, 25→2.5, 28→2.8
+    if(v>=2 && v<=4) return v; // rare already-decimal coding
+  }
+  if(/ALOX|ALM|AL3\d{2}|G12AL/i.test(m)) return 2.2; // AlOx — special handled separately
+  if(/RCM|RELE/i.test(m)) return 2.2;
+  return 2.2; // baseline
+}
+function _sapOdSafe(r, mat){
+  // Prefer material code; only use OD column if value is a real OD (2–3.5)
+  const fromMat=_sapOdFromMat(mat);
+  const fromCol=_sapNum(col(r,['OD','od','optical density']));
+  if(fromCol>=2 && fromCol<=3.5) return fromCol;
+  return fromMat||2.2;
 }
 function _sapMicron(r){ return _sapNum(col(r,['thickness','micron','mic'])); }
 
@@ -1207,8 +1220,9 @@ function _eqRules(){
 }
 function _specialType(mat){
   const m=String(mat||'').toUpperCase();
-  if(/RCM|RELE/.test(m) || /RC\b/.test(m) || m.indexOf('RC')>=0 && /12/.test(m)) return 'rcm';
-  if(/ALM|ALOX|AL300|AL331|AL3/.test(m)) return 'alm';
+  // Only real special codes — do not match bare "RC" inside other codes
+  if(/RCM|RELE|RELEASE/.test(m)) return 'rcm';
+  if(/ALM|ALOX|AL300|AL331|G12AL|ALOX/.test(m)) return 'alm';
   return 'normal';
 }
 function _micFactor(micron){
@@ -1247,8 +1261,10 @@ function _widthLenFactor(width, length){
   let f=1;
   const w=Number(width), L=Number(length);
   const wt=num(R.widthTarget)||3000, lt=num(R.lengthTarget)||72000;
-  if(w>100) f *= wt/w;
-  if(L>1000) f *= lt/L;
+  // Only apply on jumbo-scale width (>=2000mm). Slit rolls (~600–1200mm) must NOT get width factor
+  // or equivalent inflates 2–4× vs plant sheet.
+  if(w>=2000 && w<=5000) f *= wt/w;
+  if(L>=50000 && L<=150000) f *= lt/L;
   return f;
 }
 /** Full plant factor: Mic × OD × Special × (optional width/length) */
@@ -1353,7 +1369,9 @@ window.processAllUploads=function(){
       else if(od>=2.7) odKey='2.8';
       else if(od>=2.4) odKey='2.5';
       try{
-        const fac=_eqFactorFor(thick, odKey==='ALOX'||odKey==='RC'?2.2:num(odKey), mat, 0, 0);
+        // Eqv per roll: Mic × OD × Special only (width/length off for slit rolls)
+        const odN=_sapOdSafe(r, mat);
+        const fac=_eqFactorFor(thick, odN, mat, 0, 0); // width=0,length=0 → no WL factor
         eqOut+=nw*(fac||1);
       }catch(e){ eqOut+=nw; }
       const m=String(Math.round(thick)||12);
@@ -1409,8 +1427,9 @@ window.processAllUploads=function(){
     });
   }
 
-  // Jumbo output for analytics
+  // Jumbo output for analytics + avg width/length for period eq factor
   let jOut={ 'M-1':0,'M-2':0,Total:0 }, jBase={ 'M-1':0,'M-2':0,Total:0 };
+  let jWidSum=0, jWidN=0, jLenSum=0, jLenN=0;
   jumbo.forEach(r=>{
     const dt=col(r,['Date of Production','Date','date']);
     if(!inYm(dt)) return;
@@ -1419,9 +1438,24 @@ window.processAllUploads=function(){
     const qty=Math.abs(_sapNum(col(r,['Quantity','qty'])));
     let mc=_sapMachMet(col(r,['Machine','machine']));
     if(mc==='Other') mc='M-1';
-    if(mv===101 && /^3SF/i.test(mat)){ jOut[mc]+=qty; jOut.Total+=qty; }
+    if(mv===101 && /^3SF/i.test(mat)){
+      jOut[mc]+=qty; jOut.Total+=qty;
+      const w=_sapNum(col(r,['Width','width']));
+      const L=_sapNum(col(r,['Length','length']));
+      // Jumbo-scale only
+      if(w>=2000 && w<=5000){ jWidSum+=w; jWidN++; }
+      if(L>=50000 && L<=150000){ jLenSum+=L; jLenN++; }
+    }
     if(mv===261 && /^3FG/i.test(mat)){ jBase[mc]+=qty; jBase.Total+=qty; }
   });
+  // Period width/length factor (plant sheet: ~3000/avgW × 72000/avgL)
+  const R=_eqRules();
+  let wlFac=1;
+  if(jWidN>0){ const avgW=jWidSum/jWidN; const wt=num(R.widthTarget)||3000; if(avgW>0) wlFac*=wt/avgW; }
+  if(jLenN>0){ const avgL=jLenSum/jLenN; const lt=num(R.lengthTarget)||72000; if(avgL>0) wlFac*=lt/avgL; }
+  if(!(wlFac>0) || !isFinite(wlFac)) wlFac=1;
+  // Apply WL factor once on total equivalent (not per slit roll)
+  eqOut = (eqOut||slitKg) * wlFac;
 
   state.totals={
     slitKg, wasteKg, bGradeKg, wireKg, boatPcs,
@@ -1446,14 +1480,21 @@ window.processAllUploads=function(){
 
   try{
     const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&!isNaN(v)) el.value=v; };
-    set('man_outKg', slitKg?+slitKg.toFixed(3):'');
-    set('man_eqvKg', eqOut?+eqOut.toFixed(3):'');
-    set('man_wasteKg', wasteKg?+wasteKg.toFixed(3):'');
-    set('man_bKg', bGradeKg?+bGradeKg.toFixed(3):'');
-    set('man_wireKg', wireKg?+wireKg.toFixed(3):'');
+    set('man_outKg', slitKg?+slitKg.toFixed(2):'');
+    set('man_eqvKg', eqOut?+eqOut.toFixed(2):'');
+    set('man_wasteKg', wasteKg?+wasteKg.toFixed(2):'');
+    set('man_bKg', bGradeKg?+bGradeKg.toFixed(2):'');
+    set('man_wireKg', wireKg?+wireKg.toFixed(2):'');
     set('man_boatPcs', boatPcs?+boatPcs.toFixed(0):'');
   }catch(e){}
 
+  // Clear stale zero/wrong history for this month before save
+  try{
+    const map=loadHistoryMap();
+    if(map[ym] && (!(map[ym].totals||{}).slitKg || (map[ym].totals||{}).slitKg < slitKg*0.5)){
+      delete map[ym]; saveHistoryMap(map);
+    }
+  }catch(e){}
   recalculate();
   try{ renderProdAnalytics(); }catch(e){ console.warn(e); }
   try{ saveMonthHistory(); }catch(e){}
@@ -1599,7 +1640,7 @@ window.renderProdAnalytics=function(){
     ptHost.innerHTML='<thead><tr><th>Micron</th><th>OD</th><th>Special</th><th>Rolls</th><th>Output (MT)</th><th>Equiv (MT)</th><th>Avg factor</th></tr></thead><tbody>'+
       list.map(p=>{
         const fac=p.kg>0?(p.eq/p.kg):1;
-        return `<tr><td>${p.micron}</td><td>${p.od}</td><td>${p.special}</td><td>${p.rolls}</td><td>${(p.kg/1000).toFixed(2)}</td><td>${(p.eq/1000).toFixed(2)}</td><td>${fac.toFixed(3)}</td></tr>`;
+        return `<tr><td>${p.micron}</td><td>${p.od}</td><td>${p.special}</td><td>${p.rolls}</td><td>${(p.kg/1000).toFixed(2)}</td><td>${(p.eq/1000).toFixed(2)}</td><td>${fac.toFixed(2)}</td></tr>`;
       }).join('')+'</tbody>';
   }
 };
@@ -1698,26 +1739,27 @@ window.recalculate=function(){
   const targetWaste = 1.3 * Math.max(baseFilm-14,0)/100;
   const targetConvSum = targetWaste + 0 + targetMan + targetPower + targetSpares + indirect;
 
+  const r2=(v)=>{ if(v===''||v==null) return ''; const n=Number(v); return isFinite(n)?Math.round(n*100)/100:''; };
   state.report = {
-    ym, out, eqOut, avgEq, outMT, runDays, stopH, daysInMonth,
+    ym, out:r2(out), eqOut:r2(eqOut), avgEq:r2(avgEq), outMT:r2(outMT), runDays:r2(runDays), stopH:r2(stopH), daysInMonth,
     rows: [
-      ['Slit Production (kg)', out, eqOut, '', 'kg'],
-      ['Wastage %', wastePct, wastePct*scale, 1.3, '%'],
-      ['B Grade %', bPct, bPct*scale, 0, '%'],
-      ['Wire (kg/MT)', wirePerMT, wirePerMT*scale, 9.2, 'kg/MT'],
-      ['Boat (pcs/MT)', boatPerMT, boatPerMT*scale, 1.8, 'pcs/MT'],
-      ['Wire ₹/kg', wireCostPerKg, eq(wireCostPerKg), targetWire, '₹/kg'],
-      ['Boat ₹/kg', boatCostPerKg, eq(boatCostPerKg), targetBoat, '₹/kg'],
-      ['Raw Material ₹/kg', rmPerKg, eq(rmPerKg), targetWire+targetBoat, '₹/kg'],
-      ['Wastage Loss ₹/kg', wasteLoss, eq(wasteLoss), targetWaste, '₹/kg'],
-      ['B Grade Loss ₹/kg', bLoss, eq(bLoss), 0, '₹/kg'],
-      ['Manpower ₹/kg', manPerKg, eq(manPerKg), targetMan, '₹/kg'],
-      ['Power ₹/kg', powerPerKg, eq(powerPerKg), targetPower, '₹/kg'],
-      ['Cons & Spares ₹/kg', sparesPerKg, eq(sparesPerKg), targetSpares, '₹/kg'],
-      ['Indirect ₹/kg', indirect, indirect, indirect, '₹/kg'],
-      ['Conversion Cost ₹/kg', conversion, eq(conversion), targetConvSum, '₹/kg'],
-      ['Total Cost ₹/kg', total, eq(total), targetConvSum+targetWire+targetBoat, '₹/kg'],
-      ['Packing & Freight ₹/kg', packing, packing, packing, '₹/kg'],
+      ['Slit Production (kg)', r2(out), r2(eqOut), '', 'kg'],
+      ['Wastage %', r2(wastePct), r2(wastePct*scale), 1.30, '%'],
+      ['B Grade %', r2(bPct), r2(bPct*scale), 0, '%'],
+      ['Wire (kg/MT)', r2(wirePerMT), r2(wirePerMT*scale), 9.20, 'kg/MT'],
+      ['Boat (pcs/MT)', r2(boatPerMT), r2(boatPerMT*scale), 1.80, 'pcs/MT'],
+      ['Wire ₹/kg', r2(wireCostPerKg), r2(eq(wireCostPerKg)), r2(targetWire), '₹/kg'],
+      ['Boat ₹/kg', r2(boatCostPerKg), r2(eq(boatCostPerKg)), r2(targetBoat), '₹/kg'],
+      ['Raw Material ₹/kg', r2(rmPerKg), r2(eq(rmPerKg)), r2(targetWire+targetBoat), '₹/kg'],
+      ['Wastage Loss ₹/kg', r2(wasteLoss), r2(eq(wasteLoss)), r2(targetWaste), '₹/kg'],
+      ['B Grade Loss ₹/kg', r2(bLoss), r2(eq(bLoss)), 0, '₹/kg'],
+      ['Manpower ₹/kg', r2(manPerKg), r2(eq(manPerKg)), r2(targetMan), '₹/kg'],
+      ['Power ₹/kg', r2(powerPerKg), r2(eq(powerPerKg)), r2(targetPower), '₹/kg'],
+      ['Cons & Spares ₹/kg', r2(sparesPerKg), r2(eq(sparesPerKg)), r2(targetSpares), '₹/kg'],
+      ['Indirect ₹/kg', r2(indirect), r2(indirect), r2(indirect), '₹/kg'],
+      ['Conversion Cost ₹/kg', r2(conversion), r2(eq(conversion)), r2(targetConvSum), '₹/kg'],
+      ['Total Cost ₹/kg', r2(total), r2(eq(total)), r2(targetConvSum+targetWire+targetBoat), '₹/kg'],
+      ['Packing & Freight ₹/kg', r2(packing), r2(packing), r2(packing), '₹/kg'],
       ['Total with Packing ₹/kg', totalPack, eq(totalPack), '', '₹/kg'],
       ['Scrap Al credit ₹/kg', -scrapWireCredit, -eq(scrapWireCredit), '', '₹/kg'],
       ['Al Dust credit ₹/kg', -dustCredit, -eq(dustCredit), '', '₹/kg'],
@@ -1755,7 +1797,7 @@ window.recalculate=function(){
     <div class="s"><b>${runDays.toFixed(1)}</b><span>Run days (est.)</span></div>`;
   const tb=document.querySelector('#reportTable tbody');
   tb.innerHTML=state.report.rows.map(r=>{
-    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(3)) : v);
+    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(2)) : v);
     const name=String(r[0]||'');
     let cls='';
     if(/Raw Material/i.test(name)) cls='row-rm';
@@ -1894,9 +1936,9 @@ function renderTargets(){
   const boatPcsMT = num((state.targets.find(x=>/Boat \(pcs\/MT\)/i.test(x.param))||{}).target);
   const wKgMT = wireKgMT>0?wireKgMT:9.2;
   const bPcsMT = boatPcsMT>0?boatPcsMT:1.8;
-  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(3) : 0;
-  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(3) : 0;
-  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(3); // plant rule: RM = Wire + Boat cost
+  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : 0;
+  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : 0;
+  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(2); // plant rule: RM = Wire + Boat cost
   // Always sync consumption ₹/kg from Rates × norm (kg/MT or pcs/MT)
   state.targets.forEach(r=>{
     if(/^Wire ₹\/kg/i.test(r.param) && wirePerKg) r.target=wirePerKg;
@@ -1904,15 +1946,15 @@ function renderTargets(){
     else if(/Raw Material/i.test(r.param)) r.target=rmPerKg; // always Wire+Boat
     else if(/^Power ₹\/kg/i.test(r.param) && powerRate){
       const blank = (r.target==='' || r.target==null);
-      if(blank) r.target=+(0.44*powerRate).toFixed(3);
+      if(blank) r.target=+(0.44*powerRate).toFixed(2);
     }
   });
   // Totals: Conversion + RM ; + Packing
   const getT = (re)=>{ const x=state.targets.find(r=>re.test(r.param)); return x?num(x.target):0; };
   const convT = getT(/^Conversion Cost/i);
   const packT = getT(/Packing & Freight/i);
-  const totalCost = +(convT + rmPerKg).toFixed(3);
-  const totalPack = +(totalCost + packT).toFixed(3);
+  const totalCost = +(convT + rmPerKg).toFixed(2);
+  const totalPack = +(totalCost + packT).toFixed(2);
   state.targets.forEach(r=>{
     if(/^Total Cost ₹\/kg/i.test(r.param)) r.target=totalCost;
     if(/Total with Packing/i.test(r.param)) r.target=totalPack;
