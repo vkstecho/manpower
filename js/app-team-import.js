@@ -7166,6 +7166,60 @@ function _sbFilteredEmps(list){
 }
 
 function autoGenSchedule(monthKey){
+  // ── If ≤3 days left in the CURRENT calendar month → build NEXT month ──
+  try{
+    if(!window._autoGenSkipMonthNudge){
+      const now = new Date();
+      const daysInCur = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+      const remaining = daysInCur - now.getDate(); // 0 on last day, 1 if tomorrow is last…
+      if(remaining <= 3){
+        const nm = new Date(now.getFullYear(), now.getMonth()+1, 1);
+        const nextKey = nm.getFullYear()+'-'+String(nm.getMonth()+1).padStart(2,'0');
+        if(String(monthKey) !== nextKey){
+          const sel = document.getElementById('sb_month');
+          if(sel){
+            let has = false;
+            for(let i=0;i<sel.options.length;i++){ if(sel.options[i].value===nextKey){ has=true; break; } }
+            if(!has){
+              const opt=document.createElement('option');
+              opt.value=nextKey;
+              opt.textContent=nm.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
+              sel.appendChild(opt);
+            }
+            sel.value=nextKey;
+            try{ if(typeof _sbUpdateDayOptions==='function') _sbUpdateDayOptions(); }catch(e){}
+          }
+          toast((typeof L==='function')
+            ? L('📅 इस महीने ≤3 दिन बचे हैं — अगले महीने ('+nextKey+') की Schedule बना रहे हैं','📅 ≤3 days left this month — building next month ('+nextKey+') schedule')
+            : ('📅 ≤3 days left — building '+nextKey));
+          // Reload board for next month, then auto-gen (once)
+          window._autoGenSkipMonthNudge = true;
+          window._autoGenPendingKey = nextKey;
+          try{
+            if(typeof loadScheduleBuilder==='function'){
+              loadScheduleBuilder();
+              setTimeout(function(){
+                try{
+                  const k = window._autoGenPendingKey || nextKey;
+                  window._autoGenPendingKey = null;
+                  autoGenSchedule(k);
+                }finally{
+                  window._autoGenSkipMonthNudge = false;
+                }
+              }, 400);
+              return;
+            }
+          }catch(e){ window._autoGenSkipMonthNudge = false; }
+          monthKey = nextKey;
+        }
+      }
+    }
+  }catch(e){ console.warn('[autoGen month nudge]', e); }
+  finally{
+    // if we didn't return early, clear one-shot flag after this run
+    if(window._autoGenPendingKey==null) window._autoGenSkipMonthNudge = false;
+  }
+
   const [yr, mo] = monthKey.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
   let emps = getEmps().filter(e => e.status !== 'resigned');

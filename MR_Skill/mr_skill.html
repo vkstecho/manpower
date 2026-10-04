@@ -162,6 +162,44 @@ body.theme-light .row-pack td{color:#c2410c}
 .machine-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
 .machine-tags span{padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:11px;font-weight:700}
 
+
+/* Light theme — stronger contrast (v2) */
+body.theme-light{
+  --bg:#f1f5f9; --panel:#ffffff; --card:#ffffff; --border:#64748b;
+  --text:#020617; --muted:#1e293b; --accent:#5b21b6;
+}
+body.theme-light, body.theme-light .card, body.theme-light .panel{
+  color:var(--text) !important;
+}
+body.theme-light input, body.theme-light select, body.theme-light textarea{
+  color:#020617 !important; background:#fff !important;
+  border:1.5px solid #64748b !important;
+}
+body.theme-light input::placeholder, body.theme-light textarea::placeholder{
+  color:#64748b !important; opacity:1 !important;
+}
+body.theme-light th{ background:#e2e8f0 !important; color:#0f172a !important; font-weight:800; }
+body.theme-light td{ color:#0f172a !important; border-color:#cbd5e1 !important; }
+body.theme-light .hint, body.theme-light .muted, body.theme-light .chip{
+  color:#1e293b !important;
+}
+body.theme-light .drop{
+  border:2px dashed #475569 !important; background:#f8fafc !important; color:#0f172a !important;
+}
+body.theme-light .drop .ok, body.theme-light .file-status, body.theme-light [id^="st-"]{
+  color:#047857 !important; font-weight:800 !important;
+}
+body.theme-light .kpi, body.theme-light .stat-box, body.theme-light .s{
+  background:#fff !important; border:1px solid #94a3b8 !important; color:#0f172a !important;
+}
+body.theme-light .kpi b, body.theme-light .s b{ color:#0f172a !important; }
+body.theme-light .tab-btn, body.theme-light button.tab{
+  color:#1e293b !important;
+}
+body.theme-light .toast, body.theme-light #toast{
+  background:#0f172a !important; color:#f8fafc !important;
+}
+
 </style>
 </head>
 <body class="theme-dark">
@@ -170,7 +208,7 @@ body.theme-light .row-pack td{color:#c2410c}
   <button type="button" class="mode" id="btnModeMrm" onclick="setAppMode('mrm')">📊 MRM Presentation</button>
   <div class="spacer"></div>
   <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--muted)">Month
-    <input type="month" id="reportMonth" style="width:auto"/>
+    <input type="month" id="reportMonth" onchange="try{const m=document.getElementById('mrmMonthPick');if(m)m.value=this.value;}catch(e){}" style="width:auto"/>
   </label>
   <button type="button" id="themeBtn" onclick="toggleTheme()" title="Light / Dark">🌙</button>
 </div>
@@ -409,6 +447,7 @@ body.theme-light .row-pack td{color:#c2410c}
         <button class="btn btn-p" onclick="recalculate()">Recalculate & Save month</button>
         <button class="btn btn-g" onclick="saveMonthHistory()">Save current month</button>
         <button class="btn btn-r" onclick="deleteMonthHistory()">Delete this month</button>
+        <button class="btn btn-o" onclick="exportConversionExcel()">⬇ Download Excel</button>
       </div>
       <div style="margin-top:10px">
         <label>Saved months (tap to open)</label>
@@ -460,6 +499,10 @@ body.theme-light .row-pack td{color:#c2410c}
     <div class="card" id="mrmHome">
       <h2 style="font-size:18px;font-weight:900;color:var(--bad)">📊 MRM Presentation</h2>
       <p class="hint">Builds <b>Metallizer Performance Review</b> for the month selected in the top bar. Data comes from <b>MetCost Pro</b> (Excel upload or manual + rates + history). Same structure as plant MRM PPT: Highlights, Conversion Cost, Targets.</p>
+      <div class="field" style="margin-top:12px;max-width:280px">
+        <label style="font-weight:800">MRM Month (for PPT download)</label>
+        <input type="month" id="mrmMonthPick" onchange="onMrmMonthChange(this.value)" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700"/>
+      </div>
       <div class="stat" style="margin-top:12px">
         <div class="s"><b id="mrmMonth">—</b><span>Month</span></div>
         <div class="s"><b id="mrmConv">—</b><span>Conversion ₹/kg</span></div>
@@ -896,15 +939,41 @@ function toNum(v){
   const s=String(v).replace(/,/g,'').replace(/[^\d.-]/g,'');
   return num(s);
 }
+function parseAnyDate(dateVal){
+  if(dateVal==null||dateVal==='') return null;
+  if(dateVal instanceof Date && !isNaN(dateVal)) return dateVal;
+  if(typeof dateVal==='number' && dateVal>20000 && dateVal<60000){
+    // Excel serial (days since 1899-12-30)
+    const d=new Date(Date.UTC(1899,11,30)+dateVal*86400000);
+    return isNaN(d)?null:d;
+  }
+  const s=String(dateVal).trim();
+  // YYYY-MM-DD or YYYY/MM/DD
+  let m=s.match(/(20\d{2})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  // DD-MM-YYYY or DD/MM/YYYY
+  m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](20\d{2})/);
+  if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+  // DD-MMM-YYYY
+  m=s.match(/(\d{1,2})[- ]([A-Za-z]{3})[- ](20\d{2})/);
+  if(m){ const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    const mo=months[m[2].toLowerCase().slice(0,3)]; if(mo!=null) return new Date(+m[3], mo, +m[1]); }
+  const d=new Date(s);
+  return isNaN(d)?null:d;
+}
 function inMonth(dateVal, ym){
   if(!dateVal || !ym) return true;
   try{
-    let d;
-    if(dateVal instanceof Date) d=dateVal;
-    else d=new Date(dateVal);
-    if(isNaN(d)) {
+    const d=parseAnyDate(dateVal);
+    if(!d){
       const s=String(dateVal);
       if(s.includes(ym) || s.replace(/\//g,'-').startsWith(ym)) return true;
+      // ym is 2026-09 — also match Sep-2026 style
+      const parts=ym.split('-');
+      if(parts.length===2){
+        const mon=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'][+parts[1]-1];
+        if(mon && s.toLowerCase().includes(mon) && s.includes(parts[0])) return true;
+      }
       return false;
     }
     const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
@@ -1174,10 +1243,10 @@ window.processAllUploads=function(){
   let jRows=0;
 
   jumbo.forEach(r=>{
-    const dt=col(r,['date of production','date','posting date','production date']);
+    const dt=col(r,['date of production','date','posting date','production date','budat']);
     if(dt && !inMonth(dt,ym)) return;
-    const mc=_sapMachMet(col(r,['machine']));
-    if(mc==='Other') return;
+    let mc=_sapMachMet(col(r,['machine','work center','arbpl']));
+    if(mc==='Other') mc='M-1';
     jRows++;
     const mat=String(col(r,['material','matnr'])||'');
     const mv=_sapNum(col(r,['movment type','movement type','bwart','move type']));
@@ -1212,21 +1281,25 @@ window.processAllUploads=function(){
   let eqOutKg=0;
 
   slit.forEach(r=>{
-    const dt=col(r,['date','posting date','production date']);
+    const dt=col(r,['date','posting date','production date','budat','erdat']);
     if(dt && !inMonth(dt,ym)) return;
-    const mc=_sapMachSlit(col(r,['machine']));
-    if(mc==='Other') return;
+    let mc=_sapMachSlit(col(r,['machine','work center','arbpl','resource']));
+    if(mc==='Other') mc='S-1'; // still count unknown machine into S-1 + Total
     sRows++;
-    const mat=String(col(r,['material','matnr'])||'');
-    const mv=_sapNum(col(r,['move type','movement type','bwart','movment type']));
-    const nw=Math.abs(_sapNum(col(r,['net weight','qty','quantity','ntgew','weight'])));
-    const grade=String(col(r,['grade','down grade'])||'').replace(/\.0$/,'');
-    // Jumbo input to slit (261 + 3SF)
-    if(mv===261 && /^3SF/i.test(mat)){ sIn[mc]+=nw; sIn.Total+=nw; }
+    const mat=String(col(r,['material','matnr','material number'])||'');
+    const mv=_sapNum(col(r,['move type','movement type','bwart','movment type','mvmt type']));
+    // Prefer Net Weight (kg); fallback Gross / Qty
+    let nw=Math.abs(_sapNum(col(r,['net weight','net wt','ntgew','weight'])));
+    if(!nw) nw=Math.abs(_sapNum(col(r,['gross weight','qty','quantity','menge'])));
+    // If value looks like MT (< 50 for a roll is unlikely kg of metallized film? keep as-is; SAP net weight is kg)
+    const grade=String(col(r,['grade','down grade','quality'])||'').replace(/\.0$/,'');
+    // Jumbo input to slit (261 + 3SF or any 3SF consume)
+    if((mv===261 || mv===261.0) && (/^3SF/i.test(mat)||/JUMBO|MET/i.test(mat))){ sIn[mc]+=nw; sIn.Total+=nw; }
     // Waste scrap (3SC*)
-    if(/^3SC/i.test(mat) || mv===531 && /waste|scrap|msw|mtw|tw/i.test(mat)){ sWaste[mc]+=nw; sWaste.Total+=nw; }
-    // FG output (saleable grades + ungraded FG still count as output kg)
-    if(mv===101){
+    if(/^3SC/i.test(mat) || (mv===531 && /waste|scrap|msw|mtw|tw/i.test(mat))){ sWaste[mc]+=nw; sWaste.Total+=nw; }
+    // FG output: movement 101 OR material looks like finished slit (no move type)
+    const isFg = (mv===101 || mv===101.0) || (!mv && nw>0 && !/^3SC/i.test(mat) && !/^3RM/i.test(mat) && grade);
+    if(isFg || mv===101){
       sOut[mc]+=nw; sOut.Total+=nw;
       if(sG[grade]){ sG[grade][mc]+=nw; sG[grade].Total+=nw; }
       const th=_sapMicron(r)||12;
@@ -1265,14 +1338,50 @@ window.processAllUploads=function(){
   if(mbWire>0){ jWire.Total=mbWire; if(!jWire['M-1'] && !jWire['M-2']) jWire['M-1']=mbWire; }
   if(mbBoat>0){ jBoat.Total=mbBoat; if(!jBoat['M-1'] && !jBoat['M-2']) jBoat['M-1']=mbBoat; }
 
-  const slitKg=sOut.Total;
+  let slitKg=sOut.Total;
+  // Fallback: if month/machine filters yielded 0, sum slit FG without month filter
+  if(slitKg<=0 && slit.length){
+    let fb=0, fbW=0, fbB=0, fbEq=0;
+    slit.forEach(r=>{
+      const mat=String(col(r,['material','matnr','material number'])||'');
+      const mv=_sapNum(col(r,['move type','movement type','bwart','movment type','mvmt type']));
+      let nw=Math.abs(_sapNum(col(r,['net weight','net wt','ntgew','weight'])));
+      if(!nw) nw=Math.abs(_sapNum(col(r,['gross weight','qty','quantity','menge'])));
+      const grade=String(col(r,['grade','down grade','quality'])||'').replace(/\.0$/,'');
+      if(mv===101 || (!mv && nw>0 && grade && !/^3SC|^3RM/i.test(mat))){
+        fb+=nw; sOut.Total+=nw; sOut['S-1']+=nw;
+        if(sG[grade]){ sG[grade].Total+=nw; sG[grade]['S-1']+=nw; }
+        const th=_sapMicron(r)||12;
+        const od=_sapOdFromMat(mat);
+        const odNum=typeof od==='number'?od:2.2;
+        const fac=_eqFactorFor(th, odNum, mat, 0, 0);
+        fbEq+=nw*fac;
+      }
+      if(/^3SC/i.test(mat) || mv===531){ fbW+=nw; }
+    });
+    if(fb>0){
+      slitKg=fb; eqOutKg=fbEq||eqOutKg;
+      sWaste.Total=Math.max(sWaste.Total, fbW);
+      toast('Used all-file fallback for slit ('+fb.toFixed(0)+' kg) — check month filter if unexpected');
+    }
+  }
   // B-grade = Grade 3 only; Grades 5 & 6 count as waste (with 3SC scrap)
   const bGradeKg=(sG['3']?sG['3'].Total:0);
   const gradeWasteKg=(sG['5']?sG['5'].Total:0) + (sG['6']?sG['6'].Total:0);
   const wasteKg=sWaste.Total + gradeWasteKg;
-  const wireKg=mbWire>0 ? mbWire : jWire.Total;
-  const boatPcs=mbBoat>0 ? mbBoat : jBoat.Total;
+  let wireKg=mbWire>0 ? mbWire : jWire.Total;
+  let boatPcs=mbBoat>0 ? mbBoat : jBoat.Total;
+  // MB51 fallback without month if wire/boat still 0
+  if(wireKg<=0 && mb51.length){
+    mb51.forEach(r=>{
+      const mat=String(col(r,['material','matnr'])||'');
+      const qty=Math.abs(_sapNum(col(r,['qty in unit of entry','qty','quantity','menge'])));
+      if(/3RM-ALW|ALW/i.test(mat)) wireKg+=qty;
+      if(/3RM-EVB|EVB/i.test(mat)) boatPcs+=qty;
+    });
+  }
   const rows=jRows+sRows+mbRows;
+  toast('Processed: slit '+slitKg.toFixed(0)+' kg · wire '+wireKg.toFixed(1)+' · boat '+boatPcs.toFixed(0)+' · rows '+rows);
 
   state.totals={
     slitKg, wasteKg, bGradeKg, wireKg, boatPcs, rows, source:'excel', ym,
@@ -1674,6 +1783,7 @@ if(!state.targets) state.targets = JSON.parse(JSON.stringify(DEFAULT_TARGETS));
 (function init(){
   const now=new Date();
   document.getElementById('reportMonth').value=now.toISOString().slice(0,7);
+  try{ const mp=document.getElementById('mrmMonthPick'); if(mp) mp.value=now.toISOString().slice(0,7); }catch(e){}
   try{ const r=JSON.parse(localStorage.getItem(LS.rates)||'null'); if(r) state.rates=r; }catch(e){}
   try{ const r=JSON.parse(localStorage.getItem(LS.equiv)||'null'); if(r) state.equiv=r; }catch(e){}
   try{ const er=JSON.parse(localStorage.getItem('metcost_eq_rules_v1')||'null'); if(er) state.eqRules=Object.assign(JSON.parse(JSON.stringify(DEFAULT_EQ_RULES)),er); }catch(e){}
@@ -1712,16 +1822,33 @@ function renderTargets(){
     state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
   }
   // auto-fill computed targets from rates when blank
+  // Wire ₹/kg target ≈ rate * wireKg/MT / 1000; Boat similar; Raw Material = Wire₹/kg + Boat₹/kg
   const wireRate=rateOf('Wire')||rateOf('Al Wire')||0;
   const boatRate=rateOf('Boat')||rateOf('EV Boat')||0;
   const powerRate=rateOf('Power')||rateOf('Electricity')||0;
-  const filmRate=rateOf('Film')||rateOf('BOPP')||rateOf('Base Film')||0;
+  const wireKgMT = num((state.targets.find(x=>/Wire \(kg\/MT\)/i.test(x.param))||{}).target);
+  const boatPcsMT = num((state.targets.find(x=>/Boat \(pcs\/MT\)/i.test(x.param))||{}).target);
+  const wKgMT = wireKgMT>0?wireKgMT:9.2;
+  const bPcsMT = boatPcsMT>0?boatPcsMT:1.8;
+  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(3) : 0;
+  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(3) : 0;
+  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(3); // plant rule: RM = Wire + Boat cost
   state.targets.forEach(r=>{
-    if(r.target!=='' && r.target!=null) return;
-    if(/^Wire ₹\/kg/i.test(r.param) && wireRate) r.target=+(wireRate*9.2/1000).toFixed(3);
-    else if(/^Boat ₹\/kg/i.test(r.param) && boatRate) r.target=+(boatRate*1.8/1000).toFixed(3);
-    else if(/^Power ₹\/kg/i.test(r.param) && powerRate) r.target=+(0.44*powerRate).toFixed(3);
-    else if(/Raw Material/i.test(r.param) && filmRate) r.target=+(filmRate).toFixed(3);
+    const blank = (r.target==='' || r.target==null);
+    if(/^Wire ₹\/kg/i.test(r.param) && blank && wirePerKg) r.target=wirePerKg;
+    else if(/^Boat ₹\/kg/i.test(r.param) && blank && boatPerKg) r.target=boatPerKg;
+    else if(/Raw Material/i.test(r.param) && (blank || true)) r.target=rmPerKg; // always sync RM = W+B
+    else if(/^Power ₹\/kg/i.test(r.param) && blank && powerRate) r.target=+(0.44*powerRate).toFixed(3);
+  });
+  // Totals: Conversion + RM ; + Packing
+  const getT = (re)=>{ const x=state.targets.find(r=>re.test(r.param)); return x?num(x.target):0; };
+  const convT = getT(/^Conversion Cost/i);
+  const packT = getT(/Packing & Freight/i);
+  const totalCost = +(convT + rmPerKg).toFixed(3);
+  const totalPack = +(totalCost + packT).toFixed(3);
+  state.targets.forEach(r=>{
+    if(/^Total Cost ₹\/kg/i.test(r.param)) r.target=totalCost;
+    if(/Total with Packing/i.test(r.param)) r.target=totalPack;
   });
   tb.innerHTML=state.targets.map((r,i)=>{
     let cls='';
@@ -1753,8 +1880,17 @@ function _mrmMonthLabel(ym){
   const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return (names[(m||1)-1] || m) + '-' + String(y).slice(2);
 }
+window.onMrmMonthChange=function(v){
+  if(!v) return;
+  try{
+    const el=document.getElementById('reportMonth');
+    if(el) el.value=v;
+  }catch(e){}
+  try{ refreshMrmFromHistory(); }catch(e){}
+};
 function _mrmGetMonthBundle(){
-  const ym = (typeof monthKey === 'function') ? monthKey() : (document.getElementById('reportMonth')||{}).value;
+  const pick=(document.getElementById('mrmMonthPick')||{}).value;
+  const ym = pick || ((typeof monthKey === 'function') ? monthKey() : (document.getElementById('reportMonth')||{}).value);
   let conv = null, out = null, wastePct = null, bPct = null, rows = [], totals = {}, extras = {}, report = null;
   try{
     const map = (typeof loadHistoryMap === 'function') ? loadHistoryMap() : {};

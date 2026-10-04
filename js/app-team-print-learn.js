@@ -365,99 +365,47 @@ async function exportSchedExcel(){
   });
 
   toast(L('⏳ Excel तैयार हो रहा है…','⏳ Preparing Excel…'));
-  const logoDataUrl = await _loadVksLogoDataUrl();
   const fileBase = 'VKS-Tech-ManPower-Schedule-'+(dates[0]||'export')+'-to-'+(dates[dates.length-1]||'');
 
-  // 1) Branded HTML table (Excel opens this) — includes vkslogo512 like print
+  // Pure .xlsx (no HTML/image objects) so Excel allows free row/column selection
   try{
-    const escH = (s)=> String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-    const thFixed = FIXED.map(h=>'<th style="background:#1e293b;color:#fff;padding:6px 8px;border:1px solid #334155;font-size:11px;white-space:nowrap">'+escH(h)+'</th>').join('');
-    const thDates = headerDates.map(h=>'<th style="background:#1e293b;color:#fff;padding:6px 4px;border:1px solid #334155;font-size:10px;text-align:center">'+escH(h)+'</th>').join('');
-    const thWeek = FIXED.map(()=>'<th style="background:#334155;color:#94a3b8;padding:3px 4px;border:1px solid #475569;font-size:9px"></th>').join('')
-      + weekdayRow.map(w=>'<th style="background:#334155;color:#e2e8f0;padding:3px 4px;border:1px solid #475569;font-size:9px;text-align:center">'+escH(w)+'</th>').join('');
-    const body = dataRows.map(r=>{
-      const cells = r.map((c,i)=>{
-        const isShift = i >= FIXED.length;
-        const val = escH(c);
-        const bg = isShift ? (
-          c==='D'?'#f59e0b':c==='N'?'#4f46e5':c==='G'?'#0284c7':c==='O'?'#475569':c==='L'?'#be123c':
-          (c==='C/O'||c==='CO')?'#92400e':c==='H'?'#ea580c':'#fff'
-        ) : '#fff';
-        const fg = isShift && (c==='D') ? '#000' : (isShift && c ? '#fff' : '#1e293b');
-        return '<td style="padding:4px 6px;border:1px solid #cbd5e1;font-size:11px;text-align:'+(isShift?'center':'left')+';background:'+bg+';color:'+fg+';font-weight:'+(isShift?'800':'600')+'">'+val+'</td>';
-      }).join('');
-      return '<tr>'+cells+'</tr>';
-    }).join('');
-    const logoImg = logoDataUrl
-      ? '<img src="'+logoDataUrl+'" width="52" height="52" alt="VKS Tech" style="border-radius:12px;border:1px solid #e2e8f0;background:#fff;padding:2px"/>'
-      : '';
-    const html = `<!DOCTYPE html><html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="utf-8"/>
-<title>VKS Tech — Man Power Schedule</title>
-<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Schedule</x:Name></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-<style>
-  body{font-family:Arial,sans-serif;margin:12px;color:#1e293b}
-  table{border-collapse:collapse}
-</style></head><body>
-  <table style="width:100%;margin-bottom:12px;border:none"><tr>
-    <td style="border:none;vertical-align:middle;width:64px">${logoImg}</td>
-    <td style="border:none;vertical-align:middle;padding-left:10px">
-      <div style="font-size:18px;font-weight:900">VKS Tech — Technology is power</div>
-      <div style="font-size:11px;color:#64748b">vkstech.com · Made by VKS Tech</div>
-    </td>
-    <td style="border:none;text-align:right;vertical-align:middle">
-      <div style="font-size:16px;font-weight:900">Man Power — Shift Schedule</div>
-      <div style="font-size:12px;color:#475569;font-weight:700">${escH(lbl)}</div>
-      <div style="font-size:10px;color:#64748b">Generated: ${escH(genAt)} · ${sorted.length} employees</div>
-    </td>
-  </tr></table>
-  <table>
-    <thead>
-      <tr>${thFixed}${thDates}</tr>
-      <tr>${thWeek}</tr>
-    </thead>
-    <tbody>${body}</tbody>
-  </table>
-  <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;text-align:center">
-    ${logoDataUrl?'<img src="'+logoDataUrl+'" width="16" height="16" style="vertical-align:middle;border-radius:3px"/>':''}
-    VKS Tech — Technology is power · vkstech.com
-  </div>
-</body></html>`;
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = fileBase + '.xls';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
-    toast('✅ Excel downloaded ('+sorted.length+' members) · VKS Tech branding');
-    return;
-  }catch(err){
-    console.warn('[exportSchedExcel] HTML/xls failed', err);
-  }
-
-  // 2) Fallback: .xlsx via SheetJS (text branding, same columns)
-  try{
-    if(!window.XLSX){
-      await new Promise((res,rej)=>{
+    if(typeof ensureXlsx==='function') await ensureXlsx();
+    else if(typeof XLSX==='undefined'){
+      await new Promise((resolve,reject)=>{
         const s=document.createElement('script');
         s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-        s.onload=res; s.onerror=rej; document.head.appendChild(s);
+        s.onload=resolve; s.onerror=reject;
+        document.head.appendChild(s);
       });
     }
+  }catch(e){ console.warn('[xlsx]', e); }
+
+  if(typeof XLSX==='undefined'){
+    toast('❌ Excel library not loaded');
+    return;
+  }
+
+  try{
     const aoa = [];
-    aoa.push(['VKS Tech — Technology is power']);
-    aoa.push(['Man Power — Shift Schedule', lbl||'', 'Generated: '+genAt]);
-    aoa.push(['vkstech.com · Made by VKS Tech']);
+    aoa.push(['Man Power — Shift Schedule']);
+    aoa.push([lbl||'', 'Generated: '+genAt]);
+    aoa.push(['VKS Tech — Technology is power · vkstech.com']);
     aoa.push([]);
     aoa.push([...FIXED, ...headerDates]);
     aoa.push([...FIXED.map(()=>''), ...weekdayRow]);
     dataRows.forEach(r=> aoa.push(r));
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws['!cols'] = FIXED.map((h,i)=>({ wch: i===0 ? 18 : 14 })).concat(headerDates.map(()=>({ wch: 8 })));
+    // Column widths — do NOT lock cells
+    ws['!cols'] = FIXED.map((h,i)=>({ wch: i===0 ? 18 : (i===4?12:12) })).concat(headerDates.map(()=>({ wch: 7 })));
+    // Explicitly no protection
+    if(ws['!protect']) delete ws['!protect'];
     const wb = XLSX.utils.book_new();
+    // Ensure workbook not locked
+    wb.Workbook = wb.Workbook || {};
+    wb.Workbook.Sheets = wb.Workbook.Sheets || [];
     XLSX.utils.book_append_sheet(wb, ws, 'Schedule');
     XLSX.writeFile(wb, fileBase + '.xlsx');
-    toast('✅ Excel downloaded ('+sorted.length+' members)');
+    toast('✅ Excel downloaded ('+sorted.length+' members) — cells selectable');
   }catch(err2){
     console.warn('[exportSchedExcel] xlsx failed', err2);
     toast('❌ Download failed');
