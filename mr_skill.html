@@ -1,0 +1,2502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<meta name="theme-color" content="#0f172a"/>
+<title>MR Skill · MetCost Pro & MRM</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+
+:root, body.theme-dark{
+  --bg:#0b1220; --panel:#111827; --card:#1e293b; --border:#334155;
+  --text:#f1f5f9; --muted:#94a3b8; --accent:#a78bfa; --ok:#34d399;
+  --warn:#fbbf24; --bad:#f87171; --blue:#38bdf8; --orange:#fb923c;
+}
+body.theme-light{
+  --bg:#eef2f7; --panel:#ffffff; --card:#ffffff; --border:#94a3b8;
+  --text:#0f172a; --muted:#334155; --accent:#6d28d9; --ok:#047857;
+  --warn:#b45309; --bad:#b91c1c; --blue:#0369a1; --orange:#c2410c;
+}
+body.theme-light header{background:linear-gradient(135deg,#ede9fe,#e0f2fe);border-bottom-color:var(--border)}
+body.theme-light header h1{background:linear-gradient(90deg,#7c3aed,#0284c7);-webkit-background-clip:text;color:transparent}
+body.theme-light .eq-peach{background:rgba(251,146,60,.2)}
+body.theme-light .eq-blue{background:rgba(56,189,248,.2)}
+body.theme-light .hint[style*="422006"]{background:#fef3c7!important;color:#92400e!important}
+
+/* Light theme readability — stronger contrast */
+body.theme-light{
+  --bg:#e8edf5; --panel:#ffffff; --card:#ffffff; --border:#64748b;
+  --text:#0f172a; --muted:#1e293b; --accent:#5b21b6;
+  --green:#047857; --red:#b91c1c; --orange:#c2410c; --blue:#0369a1;
+}
+body.theme-light label{color:#0f172a!important;font-weight:800}
+body.theme-light .hint{color:#334155!important}
+body.theme-light .card{border:1px solid #94a3b8!important;box-shadow:0 1px 3px rgba(15,23,42,.08)}
+body.theme-light .card h2{color:#0f172a!important}
+body.theme-light input, body.theme-light select, body.theme-light textarea{
+  background:#fff!important;color:#0f172a!important;border:1.5px solid #64748b!important;
+}
+body.theme-light input::placeholder, body.theme-light textarea::placeholder{color:#64748b!important;opacity:1}
+body.theme-light .drop{
+  background:#f1f5f9!important;border:2px dashed #475569!important;color:#0f172a!important;font-weight:700
+}
+body.theme-light .drop.over{border-color:#7c3aed!important;background:#ede9fe!important}
+body.theme-light table{background:#fff;color:#0f172a}
+body.theme-light th{
+  background:#e2e8f0!important;color:#0f172a!important;font-weight:800;border-bottom:2px solid #64748b
+}
+body.theme-light td{color:#0f172a!important;border-color:#cbd5e1!important}
+body.theme-light .scroll{border:1px solid #94a3b8!important}
+body.theme-light .btn{font-weight:800}
+body.theme-light .btn-p{background:#6d28d9!important;color:#fff!important;border-color:#5b21b6!important}
+body.theme-light .btn-g{color:#047857!important;border-color:#059669!important;background:#ecfdf5!important}
+body.theme-light .btn-o{color:#c2410c!important;border-color:#ea580c!important;background:#fff7ed!important}
+body.theme-light .btn-r{color:#b91c1c!important;background:#fef2f2!important;border-color:#f87171!important}
+body.theme-light #tabs button{color:#334155!important;border-color:#94a3b8!important;background:#f8fafc!important;font-weight:700}
+body.theme-light #tabs button.on{color:#5b21b6!important;background:#ede9fe!important;border-color:#7c3aed!important;font-weight:800}
+body.theme-light .kpi{background:#f8fafc!important;border:1px solid #94a3b8!important}
+body.theme-light .kpi b, body.theme-light .kpi strong, body.theme-light .kpi .v{color:#0f172a!important}
+body.theme-light .kpi span, body.theme-light .kpi small{color:#475569!important}
+body.theme-light .tag{font-weight:700}
+body.theme-light .tag-ok{background:#d1fae5!important;color:#065f46!important}
+body.theme-light header{background:linear-gradient(135deg,#ede9fe,#e0f2fe)!important;border-bottom:1px solid #94a3b8!important}
+body.theme-light header h1{background:linear-gradient(90deg,#6d28d9,#0369a1);-webkit-background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
+body.theme-light .mode-bar button{color:#334155!important;border-color:#94a3b8}
+body.theme-light .mode-bar button.mode.on{color:#5b21b6!important;background:rgba(124,58,237,.14)!important;font-weight:800}
+body.theme-light .row-rm{background:rgba(14,165,233,.12)!important}
+body.theme-light .row-rm td{color:#0c4a6e!important;font-weight:700}
+body.theme-light .row-conv{background:rgba(124,58,237,.12)!important}
+body.theme-light .row-conv td{color:#4c1d95!important;font-weight:700}
+body.theme-light .row-total{background:rgba(5,150,105,.12)!important}
+body.theme-light .row-total td{color:#065f46!important;font-weight:700}
+body.theme-light .row-pack{background:rgba(234,88,12,.12)!important}
+body.theme-light .row-pack td{color:#9a3412!important;font-weight:700}
+body.theme-light .muted, body.theme-light [style*="var(--muted)"]{color:#334155!important}
+
+#themeBtn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer}
+.hist-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hist-chip{padding:6px 10px;border-radius:999px;border:1px solid var(--border);background:var(--card);font-size:11px;font-weight:700;cursor:pointer;color:var(--muted)}
+.hist-chip.on{border-color:var(--accent);color:var(--accent);background:rgba(167,139,250,.15)}
+.hist-chip b{color:var(--text)}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+header{background:linear-gradient(135deg,#1e1b4b,#0f172a);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:50}
+header .hdr-right{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#themeBtn{min-width:44px}
+header h1{font-size:18px;font-weight:800;background:linear-gradient(90deg,#c084fc,#38bdf8);-webkit-background-clip:text;color:transparent}
+header .sub{font-size:12px;color:var(--muted)}
+nav{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20}
+nav button{padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer}
+nav button.on{background:rgba(167,139,250,.25);border-color:var(--accent);color:#e9d5ff}
+main{padding:16px;max-width:1200px;margin:0 auto}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:14px}
+.card h2{font-size:15px;font-weight:800;margin-bottom:10px;color:#e2e8f0}
+.card p.hint{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.45}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}}
+label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin-bottom:4px}
+input,select,textarea{width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:13px}
+input:focus,select:focus{outline:2px solid rgba(167,139,250,.4)}
+.btn{padding:10px 14px;border-radius:10px;border:none;font-weight:800;font-size:13px;cursor:pointer}
+.btn-p{background:linear-gradient(135deg,#7c3aed,#2563eb);color:#fff}
+.btn-g{background:rgba(52,211,153,.15);color:var(--ok);border:1px solid rgba(52,211,153,.35)}
+.btn-o{background:rgba(251,146,60,.15);color:var(--orange);border:1px solid rgba(251,146,60,.35)}
+.btn-r{background:rgba(248,113,113,.12);color:var(--bad);border:1px solid rgba(248,113,113,.3)}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left}
+th{background:#0f172a;color:var(--muted);font-weight:700;position:sticky;top:0}
+td input{padding:6px;font-size:12px}
+.tag{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}
+.tag-ok{background:rgba(52,211,153,.15);color:var(--ok)}
+.tag-warn{background:rgba(251,191,36,.15);color:var(--warn)}
+.tag-bad{background:rgba(248,113,113,.15);color:var(--bad)}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:18px;text-align:center;background:rgba(30,41,59,.5);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--accent);background:rgba(167,139,250,.08)}
+.stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:12px 0}
+.stat .s{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px}
+.stat .s b{display:block;font-size:18px;font-weight:900}
+.stat .s span{font-size:11px;color:var(--muted)}
+.hidden{display:none!important}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#1e293b;border:1px solid var(--accent);padding:10px 16px;border-radius:12px;font-size:13px;font-weight:700;z-index:99;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+.scroll{overflow:auto;max-height:420px;border-radius:10px;border:1px solid var(--border)}
+.eq-peach{background:rgba(251,146,60,.12)}
+.eq-blue{background:rgba(56,189,248,.12)}
+footer{text-align:center;padding:20px;color:var(--muted);font-size:11px}
+
+/* App mode switch */
+.mode-bar{display:flex;gap:6px;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--border);align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:40}
+.mode-bar button.mode{padding:8px 14px;border-radius:10px;border:1px solid var(--border);background:var(--card);color:var(--muted);font-weight:800;font-size:12px;cursor:pointer}
+.mode-bar button.mode.on{background:rgba(167,139,250,.25);border-color:var(--accent);color:#e9d5ff}
+body.theme-light .mode-bar button.mode.on{color:#5b21b6;background:rgba(124,58,237,.12)}
+.mode-bar .spacer{flex:1}
+#view-mrm{display:none}
+#view-mrm.on{display:block}
+#view-metcost.on{display:block}
+#view-metcost{display:none}
+.mrm-wrap{padding:16px;max-width:960px;margin:0 auto}
+.mrm-wrap .slide{min-height:50vh;padding:24px;border-radius:16px;background:var(--card);border:1px solid var(--border);margin-bottom:12px}
+.mrm-wrap .slide h2{font-size:24px;margin-bottom:10px}
+.mrm-wrap .slide p{color:var(--muted);line-height:1.55;font-size:14px}
+
+.row-rm{background:rgba(56,189,248,.12)!important}
+.row-rm td{color:#7dd3fc}
+.row-conv{background:rgba(167,139,250,.15)!important}
+.row-conv td{color:#ddd6fe;font-weight:700}
+.row-total{background:rgba(52,211,153,.12)!important}
+.row-total td{color:#6ee7b7;font-weight:800}
+.row-pack{background:rgba(251,146,60,.12)!important}
+.row-pack td{color:#fdba74;font-weight:700}
+body.theme-light .row-rm{background:rgba(14,165,233,.1)!important}
+body.theme-light .row-rm td{color:#0369a1}
+body.theme-light .row-conv{background:rgba(124,58,237,.1)!important}
+body.theme-light .row-conv td{color:#5b21b6}
+body.theme-light .row-total{background:rgba(5,150,105,.1)!important}
+body.theme-light .row-total td{color:#047857}
+body.theme-light .row-pack{background:rgba(234,88,12,.1)!important}
+body.theme-light .row-pack td{color:#c2410c}
+.stop-grid input, .stop-grid select{font-size:11px;padding:6px}
+.stop-grid th{font-size:11px;white-space:nowrap}
+.machine-tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.machine-tags span{padding:4px 10px;border-radius:999px;border:1px solid var(--border);font-size:11px;font-weight:700}
+
+
+/* Light theme — stronger contrast (v2) */
+body.theme-light{
+  --bg:#f1f5f9; --panel:#ffffff; --card:#ffffff; --border:#64748b;
+  --text:#020617; --muted:#1e293b; --accent:#5b21b6;
+}
+body.theme-light, body.theme-light .card, body.theme-light .panel{
+  color:var(--text) !important;
+}
+body.theme-light input, body.theme-light select, body.theme-light textarea{
+  color:#020617 !important; background:#fff !important;
+  border:1.5px solid #64748b !important;
+}
+body.theme-light input::placeholder, body.theme-light textarea::placeholder{
+  color:#64748b !important; opacity:1 !important;
+}
+body.theme-light th{ background:#e2e8f0 !important; color:#0f172a !important; font-weight:800; }
+body.theme-light td{ color:#0f172a !important; border-color:#cbd5e1 !important; }
+body.theme-light .hint, body.theme-light .muted, body.theme-light .chip{
+  color:#1e293b !important;
+}
+body.theme-light .drop{
+  border:2px dashed #475569 !important; background:#f8fafc !important; color:#0f172a !important;
+}
+body.theme-light .drop .ok, body.theme-light .file-status, body.theme-light [id^="st-"]{
+  color:#047857 !important; font-weight:800 !important;
+}
+body.theme-light .kpi, body.theme-light .stat-box, body.theme-light .s{
+  background:#fff !important; border:1px solid #94a3b8 !important; color:#0f172a !important;
+}
+body.theme-light .kpi b, body.theme-light .s b{ color:#0f172a !important; }
+body.theme-light .tab-btn, body.theme-light button.tab{
+  color:#1e293b !important;
+}
+body.theme-light .toast, body.theme-light #toast{
+  background:#0f172a !important; color:#f8fafc !important;
+}
+
+</style>
+</head>
+<body class="theme-dark">
+<div class="mode-bar">
+  <button type="button" class="mode on" id="btnModeMet" onclick="setAppMode('metcost')">📈 MetCost Pro</button>
+  <button type="button" class="mode" id="btnModeMrm" onclick="setAppMode('mrm')">📊 MRM Presentation</button>
+  <div class="spacer"></div>
+  <label style="margin:0;display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:var(--muted)">Month
+    <input type="month" id="reportMonth" onchange="try{const m=document.getElementById('mrmMonthPick');if(m)m.value=this.value;}catch(e){} try{if(document.getElementById('tab-stoppage') && !document.getElementById('tab-stoppage').classList.contains('hidden')) buildStoppageMonth();}catch(e){}" style="width:auto"/>
+  </label>
+  <button type="button" id="themeBtn" onclick="toggleTheme()" title="Light / Dark">🌙</button>
+</div>
+
+<!-- ===================== METCOST VIEW ===================== -->
+<div id="view-metcost" class="on">
+<nav id="tabs">
+  <button class="on" data-tab="upload">1. Upload SAP</button>
+  <button data-tab="rates">2. Rates</button>
+  <button data-tab="equiv">3. Equivalent Table</button>
+  <button data-tab="stoppage">4. Planned Stoppage</button>
+  <button data-tab="report">5. Conversion Cost</button>
+  <button data-tab="target">6. Target</button>
+  
+</nav>
+<main>
+  <section id="tab-upload">
+    <div class="card">
+      <h2>Upload SAP Excel files</h2>
+      <p class="hint">Upload MB51, Z_Jumbo / ZJUMBO_PROD, and Z_Slit / ZSLIT_PROD. Processed in the browser.</p>
+      <div class="grid2">
+        <div>
+          <label>MB51 (PRDN)</label>
+          <div class="drop" id="drop-mb51" data-kind="mb51">Drop MB51.xlsx or click</div>
+          <input type="file" id="file-mb51" accept=".xlsx,.xls,.csv" hidden/>
+          <div id="st-mb51" style="margin-top:8px;font-size:12px;color:var(--muted)">Not loaded</div>
+        </div>
+        <div>
+          <label>Z_Jumbo (MET PROD)</label>
+          <div class="drop" id="drop-jumbo" data-kind="jumbo">Drop Z_Jumbo.xlsx or click</div>
+          <input type="file" id="file-jumbo" accept=".xlsx,.xls,.csv" hidden/>
+          <div id="st-jumbo" style="margin-top:8px;font-size:12px;color:var(--muted)">Not loaded</div>
+        </div>
+        <div>
+          <label>Z_Slit (SLIT PROD)</label>
+          <div class="drop" id="drop-slit" data-kind="slit">Drop Z_Slit.xlsx or click</div>
+          <input type="file" id="file-slit" accept=".xlsx,.xls,.csv" hidden/>
+          <div id="st-slit" style="margin-top:8px;font-size:12px;color:var(--muted)">Not loaded</div>
+        </div>
+        <div>
+          <label>Optional: Production summary</label>
+          <div class="drop" id="drop-prod" data-kind="prod">Drop Production.xlsx (optional)</div>
+          <input type="file" id="file-prod" accept=".xlsx,.xls,.csv" hidden/>
+          <div id="st-prod" style="margin-top:8px;font-size:12px;color:var(--muted)">Optional</div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-p" onclick="processAllUploads()">Process uploaded files</button>
+        <button class="btn btn-r" onclick="clearUploads()">Clear uploads</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Period costs (this month)</h2>
+      <p class="hint">Enter these after upload (or with manual kg). They feed <b>Conversion Cost</b> for the selected month. Same values sync to the Rates tab.</p>
+      <div class="grid2">
+        <div>
+          <label>⚡ Electricity units consumed</label>
+          <input type="number" id="up_powerUnits" step="1" placeholder="e.g. 667937" oninput="syncPeriodCostFromUpload('power')"/>
+        </div>
+        <div>
+          <label>🔧 Consumable / Cons. &amp; Spares cost ₹</label>
+          <input type="number" id="up_sparesCost" step="1" placeholder="e.g. 220106" oninput="syncPeriodCostFromUpload('spares')"/>
+        </div>
+        <div>
+          <label>👥 Manpower cost ₹ (period)</label>
+          <input type="number" id="up_manpowerCost" step="1" placeholder="e.g. 1400000" oninput="syncPeriodCostFromUpload('manpower')"/>
+        </div>
+        <div style="display:flex;align-items:flex-end">
+          <button type="button" class="btn btn-p" style="width:100%" onclick="applyPeriodCostsAndCalc()">Apply &amp; recalculate Conversion Cost</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Detected month totals</h2>
+      <div class="stat" id="uploadStats">
+        <div class="s"><b id="s-slit">—</b><span>Slit output (kg)</span></div>
+        <div class="s"><b id="s-waste">—</b><span>Waste (kg)</span></div>
+        <div class="s"><b id="s-wire">—</b><span>Wire consumed (kg)</span></div>
+        <div class="s"><b id="s-boat">—</b><span>Boats (pcs)</span></div>
+        <div class="s"><b id="s-rows">—</b><span>Rows parsed</span></div>
+      </div>
+    </div>
+
+    <div class="card" id="prodAnalyticsCard">
+      <h2>Production analytics (from SAP)</h2>
+      <p class="hint">Built from Z_Jumbo (M-1 / M-2) and Z_Slit (S-1 / S-2). Optical density is read from material code (ABM22→2.2, ABM25→2.5, SM28→2.8). Equivalent factors are editable in <b>3. Equivalent Table</b>.</p>
+      <h3 style="margin:14px 0 8px;font-size:14px">Metalliser — Z_Jumbo</h3>
+      <div class="scroll"><table id="tblJumboMach"><thead><tr><th>Parameter</th><th>M-1</th><th>M-2</th><th>Total</th></tr></thead><tbody></tbody></table></div>
+      <h3 style="margin:14px 0 8px;font-size:14px">Slitter — Z_Slit</h3>
+      <div class="scroll"><table id="tblSlitMach"><thead><tr><th>Parameter</th><th>S-1</th><th>S-2</th><th>Total</th></tr></thead><tbody></tbody></table></div>
+      <h3 style="margin:14px 0 8px;font-size:14px">Product matrix (Slit FG · MT) — Micron × OD</h3>
+      <div class="scroll"><table id="tblProdMatrix"><thead></thead><tbody></tbody></table></div>
+      <h3 style="margin:14px 0 8px;font-size:14px">OEE snapshot</h3>
+      <div class="scroll"><table id="tblOee"><thead><tr><th>Parameter</th><th>Value</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint" style="margin-top:8px">OEE uses Planned running days from stoppage tab (or default 22). Target output default 72 MT/day — edit in Rates extras or set below.</p>
+      <div class="grid2" style="margin-top:8px">
+        <div><label>Planned running days</label><input type="number" id="oee_planDays" step="0.5" value="22"/></div>
+        <div><label>Target output MT / day</label><input type="number" id="oee_targetMtDay" step="0.1" value="72"/></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Manual input (no Excel required)</h2>
+      <p class="hint">If you do not upload MB51 / Z_Jumbo / Z_Slit, enter all values here for the selected month, then click <b>Apply manual values</b>. These feed the same Conversion Cost calculation.</p>
+      <div class="grid2">
+        <div><label>Slit / good output (kg)</label><input type="number" id="man_outKg" step="0.001" placeholder="e.g. 1141662"/></div>
+        <div><label>Equivalent output (kg) — optional</label><input type="number" id="man_eqvKg" step="0.001" placeholder="Leave blank to auto from Eqv table"/></div>
+        <div><label>Waste produced (kg)</label><input type="number" id="man_wasteKg" step="0.001" placeholder="e.g. 17806"/></div>
+        <div><label>B grade (kg)</label><input type="number" id="man_bKg" step="0.001" placeholder="e.g. 4608"/></div>
+        <div><label>Wire consumed (kg)</label><input type="number" id="man_wireKg" step="0.001" placeholder="e.g. 11162"/></div>
+        <div><label>Boats consumed (pcs)</label><input type="number" id="man_boatPcs" step="1" placeholder="e.g. 2484"/></div>
+        <div><label>Power units consumed</label><input type="number" id="man_powerUnits" step="1" placeholder="e.g. 667937"/></div>
+        <div><label>Cons. &amp; Spares cost ₹</label><input type="number" id="man_spares" step="1" placeholder="e.g. 220106"/></div>
+        <div><label>Manpower cost ₹ (period)</label><input type="number" id="man_manpower" step="1" placeholder="e.g. 1400000"/></div>
+        <div><label>Waste % (optional override)</label><input type="number" id="man_wastePct" step="0.001" placeholder="Auto from kg if blank"/></div>
+        <div><label>B grade % (optional override)</label><input type="number" id="man_bPct" step="0.001" placeholder="Auto from kg if blank"/></div>
+        <div><label>Bare film waste % (optional)</label><input type="number" id="man_barePct" step="0.001" placeholder="e.g. 1.62"/></div>
+      </div>
+      <div class="btn-row">
+        <button type="button" class="btn btn-p" onclick="applyManualInputs()">Apply manual values</button>
+        <button type="button" class="btn btn-g" onclick="saveManualInputs()">Save manual form</button>
+        <button type="button" class="btn btn-o" onclick="loadManualInputs()">Load saved manual</button>
+      </div>
+      <p class="hint" style="margin-top:8px">Tip: Rates (Wire ₹/kg, Power ₹/unit, etc.) stay on the <b>Rates</b> tab. After Apply, open <b>Conversion Cost</b> and Recalculate if needed.</p>
+    </div>
+  </section>
+
+  <section id="tab-rates" class="hidden">
+    <div class="card">
+      <h2>Material & utility rates</h2>
+      <p class="hint">Saved in this browser for the plant.</p>
+      <div class="scroll">
+        <table id="ratesTable"><thead><tr><th>Material</th><th>Rate</th><th>Unit</th></tr></thead><tbody></tbody></table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="saveRates()">Save rates</button>
+        <button class="btn btn-o" onclick="resetRates()">Reset defaults</button>
+      </div>
+      <div class="grid2" style="margin-top:14px">
+        <div><label>Power units consumed (period)</label><input type="number" id="powerUnits" step="1"/></div>
+        <div><label>Cons. & Spares cost ₹</label><input type="number" id="sparesCost" step="1"/></div>
+        <div><label>Manpower cost ₹ (period)</label><input type="number" id="manpowerCost" step="1"/></div>
+        <div><label>Indirect expense ₹/kg</label><input type="number" id="indirectPerKg" step="0.01" value="0.26"/></div>
+        <div><label>Packing & freight ₹/kg</label><input type="number" id="packingPerKg" step="0.01" value="1.67"/></div>
+        <div class="hint" style="align-self:end;padding-bottom:8px">Target conversion ₹/kg is set in <b>6. Target</b> tab</div>
+      </div>
+      <div class="btn-row"><button class="btn btn-g" onclick="saveExtras()">Save extras</button></div>
+    </div>
+  </section>
+
+  <section id="tab-equiv" class="hidden">
+    <div class="card">
+      <h2>Equivalent table</h2>
+      <p class="hint">Plant rule: <b>Factor = Micron × OD × Special</b> (× optional Width/Length). Baseline 12µ / OD 2.2 / Normal = 1.0. All values below are editable.</p>
+      <div class="card" style="margin:10px 0;padding:12px;border:1px solid var(--border)">
+        <h3 style="font-size:13px;margin:0 0 8px">Factor rules (editable)</h3>
+        <div class="grid2" id="eqRulesForm">
+          <div><label>8 µ factor</label><input type="number" step="0.01" id="eq_mic8" value="1.88" onchange="saveEqRules()"/></div>
+          <div><label>10 µ factor</label><input type="number" step="0.01" id="eq_mic10" value="1.2" onchange="saveEqRules()"/></div>
+          <div><label>12 µ factor</label><input type="number" step="0.01" id="eq_mic12" value="1" onchange="saveEqRules()"/></div>
+          <div><label>&gt;12 µ factor</label><input type="number" step="0.01" id="eq_micGt12" value="1" onchange="saveEqRules()"/></div>
+          <div><label>OD 2.2 factor</label><input type="number" step="0.01" id="eq_od22" value="1" onchange="saveEqRules()"/></div>
+          <div><label>OD 2.5 factor</label><input type="number" step="0.01" id="eq_od25" value="1.24" onchange="saveEqRules()"/></div>
+          <div><label>OD 2.8 factor</label><input type="number" step="0.01" id="eq_od28" value="1.44" onchange="saveEqRules()"/></div>
+          <div><label>Normal special</label><input type="number" step="0.01" id="eq_spN" value="1" onchange="saveEqRules()"/></div>
+          <div><label>RCM special</label><input type="number" step="0.01" id="eq_spRcm" value="2.17" onchange="saveEqRules()"/></div>
+          <div><label>ALM / AlOx special</label><input type="number" step="0.01" id="eq_spAlm" value="3.6" onchange="saveEqRules()"/></div>
+          <div><label>Width target (mm)</label><input type="number" step="1" id="eq_wT" value="3000" onchange="saveEqRules()"/></div>
+          <div><label>Length target (m)</label><input type="number" step="1" id="eq_lT" value="72000" onchange="saveEqRules()"/></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px">
+          <input type="checkbox" id="eq_applyWL" checked onchange="saveEqRules()"/> Apply width/length factors (target÷actual)
+        </label>
+        <button class="btn btn-g" style="margin-top:8px" onclick="saveEqRules();toast('Factor rules saved')">Save factor rules</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-p" onclick="addEquivRow()">+ Add material</button>
+        <button class="btn btn-g" onclick="saveEquiv()">Save material table</button>
+        <button class="btn btn-o" onclick="loadDefaultEquiv()">Load sample materials</button>
+      </div>
+      <div class="scroll" style="margin-top:10px">
+        <table id="equivTable">
+          <thead><tr>
+            <th>Material</th><th>OD Eqv.</th><th>Sp. Mat Eqv.</th><th>Micron Eqv.</th>
+            <th>Output (MT)</th><th>Total Eqv. Factor</th><th>No. of Rolls</th>
+            <th>Avg Speed</th><th>Avg Width</th><th>Avg Length</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-stoppage" class="hidden">
+    <div class="card">
+      <h2>Planned machine stoppage — full month</h2>
+      <p class="hint">One row per date (vertical). Enter minutes of planned downtime per machine. Run days = calendar days − downtime days (any machine with minutes &gt; 0 counts as down for that day unless only partial — we use minute totals for run-day estimate).</p>
+      <div class="grid2">
+        <div>
+          <label>Machines (comma-separated — add any)</label>
+          <input type="text" id="machineList" value="M-1, M-2" placeholder="M-1, M-2, S-1"/>
+        </div>
+        <div>
+          <label>Build month grid from</label>
+          <div class="btn-row" style="margin-top:4px">
+            <button class="btn btn-p" onclick="buildStoppageMonth()">Build / refresh month rows</button>
+            <button class="btn btn-g" onclick="saveStoppages()">Save stoppages</button>
+            <span class="hint" style="align-self:center">Auto: one row per day × M-1 &amp; M-2</span>
+          </div>
+        </div>
+      </div>
+      <div class="stat" style="margin-top:10px">
+        <div class="s"><b id="stopRunDays">—</b><span>Est. run days</span></div>
+        <div class="s"><b id="stopTotalMin">—</b><span>Total planned minutes</span></div>
+        <div class="s"><b id="stopDownDays">—</b><span>Days with downtime</span></div>
+      </div>
+      <div class="scroll stop-grid" style="margin-top:12px;max-height:520px">
+        <table id="stopTable">
+          <thead><tr><th>Date</th><th>Machine</th><th>Minutes</th><th>Reason</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        
+        <button class="btn btn-g" onclick="saveStoppages()">Save list</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-report" class="hidden">
+    <div class="card">
+      <h2>Conversion Cost — Target vs Actual</h2>
+      <p class="hint">Each month is saved in historical data — switch month to recall.</p>
+      <div class="btn-row">
+        <button class="btn btn-p" onclick="recalculate()">Recalculate & Save month</button>
+        <button class="btn btn-g" onclick="saveMonthHistory()">Save current month</button>
+        <button class="btn btn-r" onclick="deleteMonthHistory()">Delete this month</button>
+      </div>
+      <div style="margin-top:10px">
+        <label>Saved months (tap to open)</label>
+        <div class="hist-list" id="histList"></div>
+      </div>
+      <div class="stat" id="reportStats"></div>
+      <div class="scroll" style="margin-top:12px">
+        <table id="reportTable">
+          <thead><tr><th>Parameter</th><th>Actual</th><th>Equivalent</th><th>Target</th><th>Unit</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  
+  <section id="tab-target" class="hidden">
+    <div class="card">
+      <h2>Target — same layout as Conversion Cost</h2>
+      <p class="hint">Edit target norms for the selected month. Used in the Conversion Cost Target column.</p>
+      <div class="btn-row">
+        <button class="btn btn-g" onclick="saveTargets()">Save targets</button>
+        <button class="btn btn-o" onclick="resetTargets()">Reset defaults</button>
+      </div>
+      <div class="scroll" style="margin-top:12px">
+        <table id="targetTable">
+          <thead><tr><th>Parameter</th><th>Target</th><th>Unit</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-export" class="hidden">
+    <div class="card">
+      <h2>Export Conversion Cost Excel</h2>
+      <p class="hint">Downloads <b>Conversion_Cost_YYYY-MM.xlsx</b></p>
+      <div class="btn-row">
+        <button class="btn btn-p" style="display:none">Download</button>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+
+<!-- ===================== MRM VIEW ===================== -->
+<div id="view-mrm">
+  <div class="mrm-wrap">
+    <div class="card" id="mrmHome">
+      <h2 style="font-size:18px;font-weight:900;color:var(--bad)">📊 MRM Presentation</h2>
+      <p class="hint">Builds <b>Metallizer Performance Review</b> for the month selected in the top bar. Data comes from <b>MetCost Pro</b> (Excel upload or manual + rates + history). Same structure as plant MRM PPT: Highlights, Conversion Cost, Targets.</p>
+      <div class="field" style="margin-top:12px;max-width:280px">
+        <label style="font-weight:800">MRM Month (for PPT download)</label>
+        <input type="month" id="mrmMonthPick" onchange="onMrmMonthChange(this.value)" style="width:100%;padding:10px;border-radius:10px;border:1.5px solid var(--border);background:var(--card);color:var(--text);font-weight:700"/>
+      </div>
+      <div class="stat" style="margin-top:12px">
+        <div class="s"><b id="mrmMonth">—</b><span>Month</span></div>
+        <div class="s"><b id="mrmConv">—</b><span>Conversion ₹/kg</span></div>
+        <div class="s"><b id="mrmOut">—</b><span>Output kg</span></div>
+        <div class="s"><b id="mrmWaste">—</b><span>Waste %</span></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-p" onclick="downloadMrmPptx()">⬇ Download MRM PPT</button>
+        <button class="btn btn-g" onclick="refreshMrmFromHistory()">Refresh from MetCost</button>
+        <button class="btn btn-o" onclick="startMrmSlides()">Start on-screen slides</button>
+      </div>
+      <p class="hint" style="margin-top:10px">1) Open <b>MetCost Pro</b> → select month → Process Excel or Apply manual → Recalculate &amp; Save month.<br>2) Switch to <b>MRM Presentation</b> → Download MRM PPT for that month.</p>
+    </div>
+    <div class="btn-row" id="mrmNav" style="display:none">
+      <button class="btn btn-p" onclick="mrmPrev()">← Prev</button>
+      <button class="btn btn-p" onclick="mrmNext()">Next →</button>
+      <button class="btn btn-o" onclick="endMrmSlides()">Exit slides</button>
+    </div>
+    <div id="mrmSlides" style="display:none">
+      <div class="slide" data-i="0"><h2>1 · Agenda</h2><p>Safety · Production · Quality · Conversion Cost · Manpower · Actions</p></div>
+      <div class="slide" data-i="1"><h2>2 · Conversion Cost</h2><p>Actual vs Target vs Equivalent for the selected month.</p><p style="font-size:36px;font-weight:900;color:var(--accent);margin-top:16px" id="mrmSlideConv">— ₹/kg</p></div>
+      <div class="slide" data-i="2"><h2>3 · Manpower & Attendance</h2><p>Shift coverage, leave, absenteeism — review from Man Power schedule.</p></div>
+      <div class="slide" data-i="3"><h2>4 · Actions</h2><p>Owner · Deadline · Status — capture in To-Do after the meeting.</p></div>
+    </div>
+  </div>
+</div>
+
+<footer style="text-align:center;padding:16px;color:var(--muted);font-size:11px">MR Skill · single file <b>MR_Skill/mr_skill.html</b></footer>
+<div id="toast" class="toast hidden"></div>
+
+<script>
+
+(function(){
+'use strict';
+
+const LS = {
+  rates: 'metcost_rates_v1',
+  equiv: 'metcost_equiv_v1',
+  stop: 'metcost_stop_v1',
+  extras: 'metcost_extras_v1',
+  data: 'metcost_parsed_v1',
+  history: 'metcost_history_v1',
+  theme: 'metcost_theme_v1'
+};
+
+function loadHistoryMap(){
+  try{ return JSON.parse(localStorage.getItem(LS.history)||'{}') || {}; }catch(e){ return {}; }
+}
+function saveHistoryMap(map){
+  try{ localStorage.setItem(LS.history, JSON.stringify(map)); }catch(e){ toast('Storage full — history not saved'); }
+}
+function saveMonthHistory(){
+  const ym = monthKey();
+  if(!state.report){ recalculate(); }
+  if(!state.report){ toast('Nothing to save'); return; }
+  const map = loadHistoryMap();
+  map[ym] = {
+    savedAt: new Date().toISOString(),
+    totals: JSON.parse(JSON.stringify(state.totals||{})),
+    extras: JSON.parse(JSON.stringify(state.extras||{})),
+    report: JSON.parse(JSON.stringify(state.report)),
+    stoppages: (state.stoppages||[]).filter(s=>String(s.date||'').startsWith(ym))
+  };
+  saveHistoryMap(map);
+  renderHistList();
+  toast('Saved history for '+ym);
+}
+function deleteMonthHistory(){
+  const ym = monthKey();
+  const map = loadHistoryMap();
+  if(!map[ym]){ toast('No history for '+ym); return; }
+  delete map[ym];
+  saveHistoryMap(map);
+  renderHistList();
+  toast('Deleted history '+ym);
+}
+function loadMonthHistory(ym){
+  const map = loadHistoryMap();
+  const h = map[ym];
+  if(!h){
+    // Keep live processed totals for this month if present
+    if(state.totals && state.totals.source==='excel' && state.totals.ym===ym && state.totals.slitKg>0){
+      try{ recalculate(); }catch(e){}
+      return;
+    }
+    state.report = null;
+    state.totals = { slitKg:0, wasteKg:0, bGradeKg:0, wireKg:0, boatPcs:0, rows:0 };
+    document.getElementById('s-slit').textContent='—';
+    document.getElementById('s-waste').textContent='—';
+    document.getElementById('s-wire').textContent='—';
+    document.getElementById('s-boat').textContent='—';
+    document.getElementById('s-rows').textContent='—';
+    document.getElementById('reportStats').innerHTML='<div class="s"><b>—</b><span>No saved data for '+ym+'</span></div>';
+    document.querySelector('#reportTable tbody').innerHTML='<tr><td colspan="5" style="color:var(--muted)">Upload SAP or open a saved month</td></tr>';
+    renderHistList();
+    return false;
+  }
+  state.totals = h.totals || state.totals;
+  if(h.extras) Object.assign(state.extras, h.extras);
+  loadExtrasToForm();
+  state.report = h.report;
+  // show totals chips
+  const t = state.totals||{};
+  document.getElementById('s-slit').textContent = t.slitKg?Number(t.slitKg).toFixed(0):'—';
+  document.getElementById('s-waste').textContent = t.wasteKg?Number(t.wasteKg).toFixed(0):'—';
+  document.getElementById('s-wire').textContent = t.wireKg?Number(t.wireKg).toFixed(1):'—';
+  document.getElementById('s-boat').textContent = t.boatPcs?Number(t.boatPcs).toFixed(0):'—';
+  document.getElementById('s-rows').textContent = String(t.rows||'—');
+  // render report from saved
+  if(state.report && state.report.rows){
+    const conv = (state.report.rows.find(r=>String(r[0]).indexOf('Conversion Cost')===0)||[])[1];
+    const eqc = (state.report.rows.find(r=>String(r[0]).indexOf('Conversion Cost')===0)||[])[2];
+    const tgt = (state.report.rows.find(r=>String(r[0]).indexOf('Conversion Cost')===0)||[])[3];
+    document.getElementById('reportStats').innerHTML =
+      '<div class="s"><b>'+(conv!=null?Number(conv).toFixed(2):'—')+'</b><span>Conversion ₹/kg Actual</span></div>'+
+      '<div class="s"><b>'+(eqc!=null?Number(eqc).toFixed(2):'—')+'</b><span>Conversion ₹/kg Eqv.</span></div>'+
+      '<div class="s"><b>'+(tgt!=null&&tgt!==""?Number(tgt).toFixed(2):'—')+'</b><span>Conversion ₹/kg Target</span></div>'+
+      '<div class="s"><b>'+(t.slitKg?Number(t.slitKg).toFixed(0):'—')+'</b><span>Output kg</span></div>'+
+      '<div class="s"><b style="font-size:12px">'+ym+'</b><span>Loaded from history</span></div>';
+    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(2)) : v);
+    document.querySelector('#reportTable tbody').innerHTML = state.report.rows.map(r=>
+      '<tr><td><b>'+r[0]+'</b></td><td>'+fmt(r[1])+'</td><td>'+fmt(r[2])+'</td><td>'+fmt(r[3])+'</td><td>'+r[4]+'</td></tr>'
+    ).join('');
+  }
+  renderHistList();
+  toast('Loaded '+ym+' from history');
+  return true;
+}
+function renderHistList(){
+  const el=document.getElementById('histList');
+  if(!el) return;
+  const map=loadHistoryMap();
+  const keys=Object.keys(map).sort().reverse();
+  const cur=monthKey();
+  if(!keys.length){ el.innerHTML='<span style="font-size:12px;color:var(--muted)">No months saved yet — Recalculate & Save</span>'; return; }
+  el.innerHTML=keys.map(k=>{
+    const conv=(map[k].report&&map[k].report.rows&&(map[k].report.rows.find(r=>String(r[0]).indexOf('Conversion Cost')===0)||[])[1]);
+    const label = conv!=null ? (' · '+Number(conv).toFixed(2)+' ₹/kg') : '';
+    return '<button type="button" class="hist-chip'+(k===cur?' on':'')+'" onclick="switchToMonth(\''+k+'\')"><b>'+k+'</b>'+label+'</button>';
+  }).join('');
+}
+window.switchToMonth=function(ym){
+  document.getElementById('reportMonth').value=ym;
+  loadMonthHistory(ym);
+  // show report tab
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on'));
+  const btn=[...document.querySelectorAll('#tabs button')].find(b=>b.dataset.tab==='report');
+  if(btn) btn.classList.add('on');
+  document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById('tab-report').classList.remove('hidden');
+};
+window.saveMonthHistory=saveMonthHistory;
+window.deleteMonthHistory=deleteMonthHistory;
+
+function applyTheme(mode){
+  document.body.classList.remove('theme-dark','theme-light');
+  document.body.classList.add(mode==='light'?'theme-light':'theme-dark');
+  const b=document.getElementById('themeBtn');
+  if(b) b.textContent = mode==='light' ? '☀️' : '🌙';
+  try{ localStorage.setItem(LS.theme, mode); }catch(e){}
+}
+window.toggleTheme=function(){
+  const light=document.body.classList.contains('theme-light');
+  applyTheme(light?'dark':'light');
+};
+
+
+const DEFAULT_RATES = [
+  { material:'Wire', rate:394, unit:'₹/Kgs' },
+  { material:'Boat', rate:1247.7, unit:'₹/PCs' },
+  { material:'Power', rate:8.07, unit:'₹/Unit' },
+  { material:'Base Film', rate:140, unit:'₹/Kgs' },
+  { material:'Al Dust', rate:105, unit:'₹/Kgs' },
+  { material:'Scrap Al', rate:276, unit:'₹/Kgs' }
+];
+
+
+/* Editable equivalence rules (user-confirmed plant standards) */
+const DEFAULT_EQ_RULES = {
+  micron: { '8': 1.88, '10': 1.2, '12': 1.0, 'gt12': 1.0 },  // >12 µ → 1
+  od: { '2.2': 1.0, '2.5': 1.24, '2.8': 1.44 },
+  special: { normal: 1.0, rcm: 2.17, alm: 3.6 },  // RCM / AlOx (ALM)
+  widthTarget: 3000,   // mm
+  lengthTarget: 72000, // m
+  applyWidthLength: false
+};
+const DEFAULT_EQUIV = [
+  { material:'G12301M22', od:1, sp:1, mic:1, output:36, rolls:10, speed:800, width:3000, length:72000 },
+  { material:'G12301M25', od:1.24, sp:1, mic:1, output:29, rolls:8, speed:700, width:3000, length:72000 },
+  { material:'G12301M28', od:1.44, sp:1, mic:1, output:25, rolls:7, speed:620, width:3000, length:72000 },
+  { material:'G10301M22', od:1, sp:1, mic:1.2, output:30, rolls:10, speed:800, width:3000, length:72000 },
+  { material:'G10301M25', od:1.24, sp:1, mic:1.2, output:24.2, rolls:10, speed:700, width:3000, length:72000 },
+  { material:'G10301M28', od:1.44, sp:1, mic:1.2, output:20.8, rolls:10, speed:620, width:3000, length:72000 },
+  { material:'G08301M22', od:1, sp:1, mic:1.88, output:19, rolls:8, speed:700, width:3000, length:72000 },
+  { material:'G08301M25', od:1.24, sp:1, mic:1.88, output:15.5, rolls:6.5, speed:700, width:3000, length:72000 },
+  { material:'G12ALM01', od:1, sp:3.6, mic:1, output:10, rolls:13, speed:620, width:2280, length:24000 },
+  { material:'G12RCM22', od:1, sp:2.17, mic:1, output:12.3, rolls:14, speed:650, width:1910, length:24000 },
+  { material:'CPP-20 MIC M22', od:1, sp:4.09, mic:1, output:8.8, rolls:16, speed:630, width:2010, length:15000 }
+];
+
+let state = {
+  rates: JSON.parse(JSON.stringify(DEFAULT_RATES)),
+  equiv: JSON.parse(JSON.stringify(DEFAULT_EQUIV)),
+  eqRules: JSON.parse(JSON.stringify(DEFAULT_EQ_RULES)),
+  stoppages: [],
+  extras: { powerUnits:0, sparesCost:0, manpowerCost:0, indirectPerKg:0.26, packingPerKg:1.67, targetConv:6.55 },
+  raw: { mb51:[], jumbo:[], slit:[], prod:[] },
+  totals: { slitKg:0, wasteKg:0, bGradeKg:0, wireKg:0, boatPcs:0, rows:0 },
+  report: null,
+  prod: null
+};
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.remove('hidden');
+  clearTimeout(window._tt); window._tt=setTimeout(()=>el.classList.add('hidden'),2800);
+}
+function fmt2(v){ const n=Number(v); if(!isFinite(n)) return '0.00'; return (Math.round(n*100)/100).toFixed(2); }
+function num(v){ const n=Number(v); return isFinite(n)?n:0; }
+function monthKey(){
+  const m=document.getElementById('reportMonth').value;
+  return m || new Date().toISOString().slice(0,7);
+}
+
+/* tabs */
+document.getElementById('tabs').addEventListener('click', e=>{
+  const b=e.target.closest('button[data-tab]'); if(!b) return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('on'));
+  b.classList.add('on');
+  document.querySelectorAll('main > section').forEach(s=>s.classList.add('hidden'));
+  document.getElementById('tab-'+b.dataset.tab).classList.remove('hidden');
+  if(b.dataset.tab==='report') recalculate();
+  if(b.dataset.tab==='target' && typeof renderTargets==='function') renderTargets();
+  if(b.dataset.tab==='equiv' && typeof loadEqRulesToForm==='function') loadEqRulesToForm();
+  if(b.dataset.tab==='stoppage'){ try{ const el=document.getElementById('machineList'); if(el && !el.value.trim()) el.value='M-1, M-2'; buildStoppageMonth(); }catch(e){} }
+  if(b.dataset.tab==='report'){ try{renderProdAnalytics();}catch(e){} }
+});
+
+/* rates UI */
+function renderRates(){
+  const tb=document.querySelector('#ratesTable tbody');
+  tb.innerHTML=state.rates.map((r,i)=>`<tr>
+    <td><input value="${esc(r.material)}" onchange="state.rates[${i}].material=this.value"/></td>
+    <td><input type="number" step="0.01" value="${r.rate}" onchange="state.rates[${i}].rate=num(this.value)"/></td>
+    <td><input value="${esc(r.unit)}" onchange="state.rates[${i}].unit=this.value"/></td>
+  </tr>`).join('');
+}
+function rateOf(name){
+  const r=state.rates.find(x=>x.material.toLowerCase()===name.toLowerCase());
+  return r?num(r.rate):0;
+}
+window.saveRates=()=>{ localStorage.setItem(LS.rates, JSON.stringify(state.rates)); try{renderTargets();}catch(e){} try{recalculate();}catch(e){} toast('Rates saved — Wire/Boat ₹/kg targets updated'); };
+window.resetRates=()=>{ state.rates=JSON.parse(JSON.stringify(DEFAULT_RATES)); renderRates(); toast('Defaults restored'); };
+window.saveExtras=()=>{
+  state.extras={
+    powerUnits:num(document.getElementById('powerUnits').value),
+    sparesCost:num(document.getElementById('sparesCost').value),
+    manpowerCost:num(document.getElementById('manpowerCost').value),
+    indirectPerKg:num(document.getElementById('indirectPerKg').value),
+    packingPerKg:num(document.getElementById('packingPerKg').value)
+    // targetConv lives in Target tab only
+  };
+  localStorage.setItem(LS.extras, JSON.stringify(state.extras));
+  toast('Extras saved');
+};
+function loadExtrasToForm(){
+  const e=state.extras||{};
+  document.getElementById('powerUnits').value=e.powerUnits||'';
+  document.getElementById('sparesCost').value=e.sparesCost||'';
+  document.getElementById('manpowerCost').value=e.manpowerCost||'';
+  document.getElementById('indirectPerKg').value=e.indirectPerKg??0.26;
+  document.getElementById('packingPerKg').value=e.packingPerKg??1.67;
+}
+
+/* equiv */
+function eqFactor(row){
+  /* Primary: 36 MT reference / Output(MT)  — matches plant sheet "36MT/Output"
+     Also multiplies OD × Sp × Micron relative to 1 so material difficulty still applies
+     when OD/Sp/Mic deviate from the pure 36/output ratio. */
+  const out = num(row.output);
+  const od=num(row.od)||1, sp=num(row.sp)||1, mic=num(row.mic)||1;
+  const fromOut = out > 0 ? (36 / out) : (od*sp*mic);
+  // Prefer explicit 36/output when output set; keep OD*Sp*Mic as alternate if no output
+  return +fromOut.toFixed(4);
+}
+window.onEquivFieldChange = function(i, field, val){
+  if(!state.equiv[i]) return;
+  state.equiv[i][field] = num(val);
+  // When Output changes, refresh factor display (36/output)
+  renderEquiv();
+}
+function renderEquiv(){
+  const tb=document.querySelector('#equivTable tbody');
+  tb.innerHTML=state.equiv.map((r,i)=>{
+    const f=eqFactor(r);
+    return `<tr>
+      <td><input value="${esc(r.material)}" onchange="state.equiv[${i}].material=this.value"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.od}" onchange="onEquivFieldChange(${i},'od',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.sp}" onchange="onEquivFieldChange(${i},'sp',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.01" value="${r.mic}" onchange="onEquivFieldChange(${i},'mic',this.value)"/></td>
+      <td class="eq-peach"><input type="number" step="0.1" value="${r.output}" onchange="onEquivFieldChange(${i},'output',this.value)"/></td>
+      <td class="eq-blue"><b>${f}</b></td>
+      <td><input type="number" step="0.1" value="${r.rolls}" onchange="state.equiv[${i}].rolls=num(this.value)"/></td>
+      <td><input type="number" value="${r.speed}" onchange="state.equiv[${i}].speed=num(this.value)"/></td>
+      <td><input type="number" value="${r.width}" onchange="state.equiv[${i}].width=num(this.value)"/></td>
+      <td><input type="number" value="${r.length}" onchange="state.equiv[${i}].length=num(this.value)"/></td>
+      <td><button class="btn btn-r" onclick="state.equiv.splice(${i},1);renderEquiv()">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+window.addEquivRow=()=>{ state.equiv.push({material:'NEW',od:1,sp:1,mic:1,output:36,rolls:10,speed:800,width:3000,length:72000}); renderEquiv(); };
+window.saveEquiv=()=>{ localStorage.setItem(LS.equiv, JSON.stringify(state.equiv)); toast('Equivalent table saved'); };
+window.loadDefaultEquiv=()=>{ state.equiv=JSON.parse(JSON.stringify(DEFAULT_EQUIV)); renderEquiv(); toast('Sample table loaded'); };
+
+/* stoppage */
+function getMachines(){
+  const el=document.getElementById('machineList');
+  const raw=(el&&el.value&&String(el.value).trim())||'M-1, M-2';
+  return raw.split(',').map(s=>s.trim()).filter(Boolean);
+}
+function renderStop(){
+  const tb=document.querySelector('#stopTable tbody');
+  if(!tb) return;
+  const machines=getMachines();
+  if(!(state.stoppages||[]).length){
+    tb.innerHTML='<tr><td colspan="5" style="color:var(--muted)">No rows — click Build / refresh month rows</td></tr>';
+    updateStopStats();
+    return;
+  }
+  tb.innerHTML=state.stoppages.map((s,i)=>{
+    const opts=machines.map(m=>`<option value="${esc(m)}"${m===s.machine?' selected':''}>${esc(m)}</option>`).join('');
+    const mins = s.minutes!=null ? s.minutes : (s.hours!=null ? num(s.hours)*60 : 0);
+    return `<tr>
+      <td><input type="date" value="${esc(s.date||'')}" onchange="state.stoppages[${i}].date=this.value;updateStopStats()"/></td>
+      <td><select onchange="state.stoppages[${i}].machine=this.value">${opts}<option value="__new__">+ other…</option></select></td>
+      <td><input type="number" min="0" step="1" value="${mins}" onchange="state.stoppages[${i}].minutes=num(this.value);delete state.stoppages[${i}].hours;updateStopStats()"/></td>
+      <td><input type="text" value="${esc(s.reason||'')}" onchange="state.stoppages[${i}].reason=this.value" placeholder="Reason"/></td>
+      <td><button type="button" class="btn btn-r" onclick="state.stoppages.splice(${i},1);renderStop()">✕</button></td>
+    </tr>`;
+  }).join('');
+  updateStopStats();
+}
+function updateStopStats(){
+  const ym=monthKey();
+  const rows=(state.stoppages||[]).filter(s=>String(s.date||'').startsWith(ym));
+  let totalMin=0;
+  const downDays=new Set();
+  rows.forEach(s=>{
+    const m=s.minutes!=null?num(s.minutes):(num(s.hours)*60);
+    if(m>0){ totalMin+=m; downDays.add(s.date); }
+  });
+  const [y,mo]=(ym||'2026-01').split('-').map(Number);
+  const daysInMonth=new Date(y,mo,0).getDate();
+  // Run days: full calendar days minus days that have any planned downtime
+  const runDays=Math.max(0, daysInMonth - downDays.size);
+  const el1=document.getElementById('stopRunDays');
+  const el2=document.getElementById('stopTotalMin');
+  const el3=document.getElementById('stopDownDays');
+  if(el1) el1.textContent=String(runDays);
+  if(el2) el2.textContent=String(Math.round(totalMin));
+  if(el3) el3.textContent=String(downDays.size);
+  return {runDays, totalMin, downDays:downDays.size, daysInMonth};
+}
+window.buildStoppageMonth=function(){
+  const ym=monthKey();
+  if(!ym) return toast('Select month');
+  const [y,mo]=ym.split('-').map(Number);
+  const days=new Date(y,mo,0).getDate();
+  const machines=getMachines();
+  const existing=state.stoppages||[];
+  const keep=existing.filter(s=>!String(s.date||'').startsWith(ym));
+  const rows=[];
+  for(let d=1;d<=days;d++){
+    const date=ym+'-'+String(d).padStart(2,'0');
+    machines.forEach(machine=>{
+      const prev=existing.find(s=>s.date===date && s.machine===machine);
+      rows.push({
+        date,
+        machine,
+        minutes: prev ? (prev.minutes!=null?prev.minutes:(num(prev.hours)*60)) : 0,
+        reason: prev ? (prev.reason||'') : ''
+      });
+    });
+  }
+  state.stoppages=keep.concat(rows).sort((a,b)=>String(a.date).localeCompare(b.date)||String(a.machine).localeCompare(b.machine));
+  renderStop();
+  toast('Month grid ready: '+days+' days × '+machines.length+' machines');
+};
+window.addStoppageRow=function(){
+  const ym=monthKey();
+  const machines=getMachines();
+  state.stoppages=state.stoppages||[];
+  state.stoppages.push({date:ym+'-01', machine:machines[0]||'M-1', minutes:0, reason:''});
+  renderStop();
+};
+window.saveStoppages=()=>{ localStorage.setItem(LS.stop, JSON.stringify(state.stoppages)); toast('Stoppages saved'); updateStopStats(); };
+window.addStoppage=window.addStoppageRow;
+
+/* uploads */
+function bindDrop(kind){
+  const drop=document.getElementById('drop-'+kind);
+  const file=document.getElementById('file-'+kind);
+  drop.onclick=()=>file.click();
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave=()=>drop.classList.remove('over');
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); if(e.dataTransfer.files[0]) readFile(kind, e.dataTransfer.files[0]); };
+  file.onchange=()=>{ if(file.files[0]) readFile(kind, file.files[0]); };
+}
+['mb51','jumbo','slit','prod'].forEach(bindDrop);
+
+function _sheetToRows(sheet){
+  // Detect header row: first row that looks like SAP column headers
+  const aoa=XLSX.utils.sheet_to_json(sheet,{header:1, defval:'', raw:false});
+  if(!aoa || !aoa.length) return [];
+  let headerIdx=0;
+  const headerHints=/material|matnr|movement|bwart|net\s*weight|quantity|machine|posting|date|grade|batch/i;
+  for(let i=0;i<Math.min(25, aoa.length);i++){
+    const row=aoa[i]||[];
+    const joined=row.map(c=>String(c||'')).join(' | ');
+    const hits=row.filter(c=>headerHints.test(String(c||''))).length;
+    if(hits>=2){ headerIdx=i; break; }
+  }
+  const headers=(aoa[headerIdx]||[]).map((h,i)=>String(h||'').trim()||('COL'+i));
+  const rows=[];
+  for(let r=headerIdx+1;r<aoa.length;r++){
+    const line=aoa[r]||[];
+    if(!line.some(c=>c!==''&&c!=null)) continue;
+    const obj={};
+    headers.forEach((h,i)=>{ obj[h]=line[i]!=null?line[i]:''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+function readFile(kind, file){
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      if(typeof XLSX==='undefined'){ toast('XLSX library not loaded'); return; }
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array', cellDates:true, cellNF:false, cellText:false});
+      const sheet=wb.Sheets[wb.SheetNames[0]];
+      let rows=_sheetToRows(sheet);
+      if(!rows.length){
+        rows=XLSX.utils.sheet_to_json(sheet,{defval:'', raw:false});
+      }
+      state.raw[kind]=rows;
+      const keys=rows[0]?Object.keys(rows[0]).slice(0,8).join(', '):'';
+      document.getElementById('st-'+kind).innerHTML='<span class="tag tag-ok">✓ '+file.name+' · '+rows.length+' rows</span>';
+      toast(kind.toUpperCase()+' loaded ('+rows.length+' rows)'+(keys?' · cols: '+keys:''));
+    }catch(err){ toast('Read error: '+err.message); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function normKey(k){ return String(k||'').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function col(row, names){
+  if(!row) return '';
+  // 1) Exact key match (SAP headers as-is)
+  for(const n of names){
+    if(Object.prototype.hasOwnProperty.call(row, n) && row[n]!=='' && row[n]!=null) return row[n];
+  }
+  // 2) Case-insensitive / normalized match
+  const keys=Object.keys(row);
+  for(const n of names){
+    const want=normKey(n);
+    const found=keys.find(k=>normKey(k)===want || (want.length>=4 && normKey(k).includes(want)));
+    if(found!=null && row[found]!=='' && row[found]!=null) return row[found];
+  }
+  // 3) Allow numeric 0
+  for(const n of names){
+    const want=normKey(n);
+    const found=keys.find(k=>normKey(k)===want);
+    if(found!=null && (row[found]===0 || row[found]==='0')) return row[found];
+  }
+  return '';
+}
+
+function _rowWeight(r){
+  let nw=Math.abs(_sapNum(col(r,['net weight','net wt','netweight','ntgew','weight in kg','net wt kg'])));
+  if(nw) return nw;
+  nw=Math.abs(_sapNum(col(r,['gross weight','gross wt','brgew'])));
+  if(nw) return nw;
+  nw=Math.abs(_sapNum(col(r,['qty in unit of entry','qty','quantity','menge','quantity ge'])));
+  return nw;
+}
+function _rowMove(r){
+  return _sapNum(col(r,['move type','movement type','bwart','movment type','mvmt type','movement','mvt','mvt type']));
+}
+function _rowIsFg(r, mat, mv, nw){
+  if(nw<=0) return false;
+  if(mv===101 || mv===101.0) return true;
+  // string move sometimes
+  const mvRaw=String(col(r,['move type','movement type','bwart','movment type'])||'').trim();
+  if(mvRaw==='101' || mvRaw.indexOf('101')===0) return true;
+  // Finished goods material patterns
+  if(/^3SF/i.test(mat) || /^3FG/i.test(mat) || /SLIT|MET\s*FG|FINISHED/i.test(mat)) {
+    if(mv===261 || mv===531 || mv===201) return false; // consume/scrap
+    if(!mv || mv===101) return true;
+  }
+  // Has grade 2-8 and weight → treat as FG row in Z_Slit
+  const grade=String(col(r,['grade','down grade','quality'])||'').replace(/\.0$/,'').trim();
+  if(grade && ['2','3','5','6','7','8'].indexOf(grade)>=0 && !/^3SC|^3RM/i.test(mat)) return true;
+  return false;
+}
+
+function toNum(v){
+  if(v==null||v==='') return 0;
+  if(typeof v==='number') return v;
+  const s=String(v).replace(/,/g,'').replace(/[^\d.-]/g,'');
+  return num(s);
+}
+function parseAnyDate(dateVal){
+  if(dateVal==null||dateVal==='') return null;
+  if(dateVal instanceof Date && !isNaN(dateVal)) return dateVal;
+  if(typeof dateVal==='number' && dateVal>20000 && dateVal<60000){
+    // Excel serial (days since 1899-12-30)
+    const d=new Date(Date.UTC(1899,11,30)+dateVal*86400000);
+    return isNaN(d)?null:d;
+  }
+  const s=String(dateVal).trim();
+  // YYYY-MM-DD or YYYY/MM/DD
+  let m=s.match(/(20\d{2})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if(m) return new Date(+m[1], +m[2]-1, +m[3]);
+  // DD-MM-YYYY or DD/MM/YYYY
+  m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](20\d{2})/);
+  if(m) return new Date(+m[3], +m[2]-1, +m[1]);
+  // DD-MMM-YYYY
+  m=s.match(/(\d{1,2})[- ]([A-Za-z]{3})[- ](20\d{2})/);
+  if(m){ const months={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+    const mo=months[m[2].toLowerCase().slice(0,3)]; if(mo!=null) return new Date(+m[3], mo, +m[1]); }
+  const d=new Date(s);
+  return isNaN(d)?null:d;
+}
+function inMonth(dateVal, ym){
+  if(!dateVal || !ym) return true;
+  try{
+    const d=parseAnyDate(dateVal);
+    if(!d){
+      const s=String(dateVal);
+      if(s.includes(ym) || s.replace(/\//g,'-').startsWith(ym)) return true;
+      // ym is 2026-09 — also match Sep-2026 style
+      const parts=ym.split('-');
+      if(parts.length===2){
+        const mon=['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'][+parts[1]-1];
+        if(mon && s.toLowerCase().includes(mon) && s.includes(parts[0])) return true;
+      }
+      return false;
+    }
+    const key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    return key===ym;
+  }catch(e){ return true; }
+}
+
+
+window.applyManualInputs = function(){
+  const out = num(document.getElementById('man_outKg').value);
+  const waste = num(document.getElementById('man_wasteKg').value);
+  const bKg = num(document.getElementById('man_bKg').value);
+  const wire = num(document.getElementById('man_wireKg').value);
+  const boat = num(document.getElementById('man_boatPcs').value);
+  const eqv = num(document.getElementById('man_eqvKg').value);
+  const power = document.getElementById('man_powerUnits').value;
+  const spares = document.getElementById('man_spares').value;
+  const manp = document.getElementById('man_manpower').value;
+  const wastePctO = document.getElementById('man_wastePct').value;
+  const bPctO = document.getElementById('man_bPct').value;
+  const barePct = document.getElementById('man_barePct').value;
+
+  if(!out && !wire && !boat && !waste){
+    toast('Enter at least output or consumption values');
+    return;
+  }
+
+  state.totals = {
+    slitKg: out,
+    wasteKg: waste,
+    bGradeKg: bKg,
+    wireKg: wire,
+    boatPcs: boat,
+    rows: 0,
+    eqvKg: eqv || 0,
+    wastePctOverride: wastePctO === '' ? null : num(wastePctO),
+    bPctOverride: bPctO === '' ? null : num(bPctO),
+    barePct: barePct === '' ? null : num(barePct),
+    source: 'manual'
+  };
+
+  // push period costs into extras + form on Rates tab
+  if(power !== ''){ state.extras.powerUnits = num(power); const el=document.getElementById('powerUnits'); if(el) el.value=power; }
+  if(spares !== ''){ state.extras.sparesCost = num(spares); const el=document.getElementById('sparesCost'); if(el) el.value=spares; }
+  if(manp !== ''){ state.extras.manpowerCost = num(manp); const el=document.getElementById('manpowerCost'); if(el) el.value=manp; }
+  try{ localStorage.setItem(LS.extras, JSON.stringify(state.extras)); }catch(e){}
+
+  document.getElementById('s-slit').textContent = out ? out.toFixed(0) : '—';
+  document.getElementById('s-waste').textContent = waste ? waste.toFixed(0) : '—';
+  document.getElementById('s-wire').textContent = wire ? wire.toFixed(1) : '—';
+  document.getElementById('s-boat').textContent = boat ? boat.toFixed(0) : '—';
+  document.getElementById('s-rows').textContent = 'manual';
+
+  saveManualInputs();
+  toast('Manual values applied for '+monthKey());
+  if(typeof recalculate === 'function') recalculate();
+};
+window.saveManualInputs = function(){
+  const payload = {
+    man_outKg: document.getElementById('man_outKg').value,
+    man_eqvKg: document.getElementById('man_eqvKg').value,
+    man_wasteKg: document.getElementById('man_wasteKg').value,
+    man_bKg: document.getElementById('man_bKg').value,
+    man_wireKg: document.getElementById('man_wireKg').value,
+    man_boatPcs: document.getElementById('man_boatPcs').value,
+    man_powerUnits: document.getElementById('man_powerUnits').value,
+    man_spares: document.getElementById('man_spares').value,
+    man_manpower: document.getElementById('man_manpower').value,
+    man_wastePct: document.getElementById('man_wastePct').value,
+    man_bPct: document.getElementById('man_bPct').value,
+    man_barePct: document.getElementById('man_barePct').value,
+    ym: monthKey()
+  };
+  try{
+    const all = JSON.parse(localStorage.getItem('metcost_manual_v1')||'{}');
+    all[monthKey()] = payload;
+    localStorage.setItem('metcost_manual_v1', JSON.stringify(all));
+  }catch(e){}
+  toast('Manual form saved');
+};
+window.loadManualInputs = function(){
+  try{
+    const all = JSON.parse(localStorage.getItem('metcost_manual_v1')||'{}');
+    const p = all[monthKey()] || all;
+    if(!p || typeof p !== 'object'){ toast('No saved manual data'); return; }
+    const keys = ['man_outKg','man_eqvKg','man_wasteKg','man_bKg','man_wireKg','man_boatPcs','man_powerUnits','man_spares','man_manpower','man_wastePct','man_bPct','man_barePct'];
+    keys.forEach(k=>{ const el=document.getElementById(k); if(el && p[k]!=null) el.value=p[k]; });
+    toast('Manual form loaded');
+  }catch(e){ toast('Load failed'); }
+};
+
+
+window.syncPeriodCostFromUpload = function(which){
+  try{
+    if(!state.extras) state.extras = {};
+    if(which==='power' || !which){
+      const v = document.getElementById('up_powerUnits');
+      const r = document.getElementById('powerUnits');
+      if(v){ state.extras.powerUnits = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    if(which==='spares' || !which){
+      const v = document.getElementById('up_sparesCost');
+      const r = document.getElementById('sparesCost');
+      if(v){ state.extras.sparesCost = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    if(which==='manpower' || !which){
+      const v = document.getElementById('up_manpowerCost');
+      const r = document.getElementById('manpowerCost');
+      if(v){ state.extras.manpowerCost = v.value === '' ? null : num(v.value); if(r) r.value = v.value; }
+    }
+    try{ localStorage.setItem(LS.extras, JSON.stringify(state.extras)); }catch(e){}
+  }catch(e){ console.warn(e); }
+};
+window.applyPeriodCostsAndCalc = function(){
+  syncPeriodCostFromUpload();
+  try{
+    const map = [['up_powerUnits','man_powerUnits'],['up_sparesCost','man_spares'],['up_manpowerCost','man_manpower']];
+    map.forEach(([a,b])=>{
+      const elA=document.getElementById(a), elB=document.getElementById(b);
+      if(elA && elB && elA.value!=='') elB.value = elA.value;
+    });
+  }catch(e){}
+  if(typeof saveRates==='function'){ try{ saveRates(); }catch(e){} }
+  if(typeof recalculate==='function') recalculate();
+  toast('Period costs applied — open Conversion Cost');
+};
+window.fillPeriodCostsFromState = function(){
+  try{
+    const ex = state.extras || {};
+    const set = (id, v)=>{ const el=document.getElementById(id); if(el && v!=null && v!=='') el.value = v; };
+    set('up_powerUnits', ex.powerUnits);
+    set('up_sparesCost', ex.sparesCost);
+    set('up_manpowerCost', ex.manpowerCost);
+    set('powerUnits', ex.powerUnits);
+    set('sparesCost', ex.sparesCost);
+    set('manpowerCost', ex.manpowerCost);
+  }catch(e){}
+};
+
+
+/* ===== SAP column helpers (MB51 / Z_Jumbo / Z_Slit) ===== */
+function _sapNum(v){ if(v==null||v==='') return 0; if(typeof v==='number') return isFinite(v)?v:0; return num(String(v).replace(/,/g,'')); }
+function _sapMachMet(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')>=0||s.indexOf('M-1')>=0) return 'M-1'; if(s.indexOf('M2')>=0||s.indexOf('M-2')>=0) return 'M-2'; return 'Other'; }
+function _sapMachSlit(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')>=0||s.indexOf('M-1')>=0) return 'S-1'; if(s.indexOf('M2')>=0||s.indexOf('M-2')>=0) return 'S-2'; return 'Other'; }
+function _sapOdFromMat(mat){
+  const m=String(mat||'');
+  // Optical density ONLY from material code (NOT from Z_Slit "OD" column — that is often diameter/width)
+  // Examples: ABM25→2.5, ABM22→2.2, SM28→2.8, …M22→2.2, …M25→2.5
+  let x=m.match(/ABM(\d{2})/i)||m.match(/SM(\d{2})/i)||m.match(/[A-Z]M(\d{2})(?:R)?$/i)||m.match(/M(\d{2})(?:R)?$/i);
+  if(x){
+    const v=parseInt(x[1],10);
+    if(v>=20 && v<=40) return Math.round(v)/10; // 22→2.2, 25→2.5, 28→2.8
+    if(v>=2 && v<=4) return v; // rare already-decimal coding
+  }
+  if(/ALOX|ALM|AL3\d{2}|G12AL/i.test(m)) return 2.2; // AlOx — special handled separately
+  if(/RCM|RELE/i.test(m)) return 2.2;
+  return 2.2; // baseline
+}
+function _sapOdSafe(r, mat){
+  // Prefer material code; only use OD column if value is a real OD (2–3.5)
+  const fromMat=_sapOdFromMat(mat);
+  const fromCol=_sapNum(col(r,['OD','od','optical density']));
+  if(fromCol>=2 && fromCol<=3.5) return fromCol;
+  return fromMat||2.2;
+}
+function _sapMicron(r){ return _sapNum(col(r,['thickness','micron','mic'])); }
+
+function _eqRules(){
+  return state.eqRules || DEFAULT_EQ_RULES;
+}
+function _specialType(mat){
+  const m=String(mat||'').toUpperCase();
+  if(/RCM|RELE/.test(m) || /RC\b/.test(m) || m.indexOf('RC')>=0 && /12/.test(m)) return 'rcm';
+  if(/ALM|ALOX|AL300|AL331|AL3/.test(m)) return 'alm';
+  return 'normal';
+}
+function _micFactor(micron){
+  const R=_eqRules().micron||{};
+  const m=Number(micron)||12;
+  if(Math.abs(m-8)<0.6) return num(R['8'])||1.88;
+  if(Math.abs(m-10)<0.6) return num(R['10'])||1.2;
+  if(Math.abs(m-12)<0.6) return num(R['12'])||1.0;
+  if(m>12) return num(R.gt12)!=null?num(R.gt12):1.0;
+  // other thin films closer to 8
+  if(m<9) return num(R['8'])||1.88;
+  if(m<11) return num(R['10'])||1.2;
+  return 1.0;
+}
+function _odFactor(od){
+  const R=_eqRules().od||{};
+  const o=Number(od);
+  if(!isFinite(o)) return 1;
+  // nearest of 2.2 / 2.5 / 2.8
+  const keys=[2.2,2.5,2.8];
+  let best=2.2, d=99;
+  keys.forEach(k=>{ const dd=Math.abs(k-o); if(dd<d){d=dd;best=k;} });
+  const key=String(best);
+  return num(R[key])|| (best===2.5?1.24:best===2.8?1.44:1);
+}
+function _spFactor(mat){
+  const R=_eqRules().special||{};
+  const t=_specialType(mat);
+  if(t==='rcm') return num(R.rcm)||2.17;
+  if(t==='alm') return num(R.alm)||3.6;
+  return num(R.normal)||1;
+}
+function _widthLenFactor(width, length){
+  const R=_eqRules();
+  if(!R.applyWidthLength) return 1;
+  let f=1;
+  const w=Number(width), L=Number(length);
+  const wt=num(R.widthTarget)||3000, lt=num(R.lengthTarget)||72000;
+  // Only apply on jumbo-scale width (>=2000mm). Slit rolls (~600–1200mm) must NOT get width factor
+  // or equivalent inflates 2–4× vs plant sheet.
+  if(w>=2000 && w<=5000) f *= wt/w;
+  if(L>=50000 && L<=150000) f *= lt/L;
+  return f;
+}
+/** Full plant factor: Mic × OD × Special × (optional width/length) */
+function _eqFactorFor(micron, od, mat, width, length){
+  const f = _micFactor(micron) * _odFactor(od) * _spFactor(mat) * _widthLenFactor(width, length);
+  return (f>0 && isFinite(f)) ? f : 1;
+}
+function _isSaleableGrade(g){
+  // Saleable: 2,3,7,8 — Grades 5 & 6 treated as waste
+  const s=String(g||'').replace(/\.0$/,'').trim();
+  return ['2','3','7','8'].indexOf(s)>=0;
+}
+function _isGoodGrade(g){
+  // Primary quality grades for OEE Q% — 2,7,8 saleable good; 3=B; 5-6 down but saleable
+  const s=String(g||'').replace(/\.0$/,'').trim();
+  return ['2','7','8'].indexOf(s)>=0;
+}
+
+
+function _emptyMach(keys){
+  const o={}; keys.forEach(k=>o[k]=0); o.Total=0; return o;
+}
+
+window.processAllUploads=function(){
+  try{
+  let ym=monthKey();
+  const slit=state.raw.slit||[];
+  const jumbo=state.raw.jumbo||[];
+  const mb51=state.raw.mb51||[];
+  if(!slit.length && !jumbo.length && !mb51.length){
+    toast('Upload at least one SAP file first'); return;
+  }
+
+  // Auto-detect month from first available Date
+  function detectYm(rows){
+    const counts={};
+    (rows||[]).forEach(r=>{
+      const dt=col(r,['Date','Date of Production','Posting Date','date','posting date','production date']);
+      const d=parseAnyDate(dt);
+      if(!d) return;
+      const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      counts[k]=(counts[k]||0)+1;
+    });
+    let best=null,n=0;
+    Object.keys(counts).forEach(k=>{ if(counts[k]>n){ n=counts[k]; best=k; } });
+    return best;
+  }
+  const det=detectYm(slit)||detectYm(jumbo)||detectYm(mb51);
+  if(det){
+    ym=det;
+    try{ const el=document.getElementById('reportMonth'); if(el) el.value=ym; }catch(e){}
+  }
+
+  function inYm(dt){
+    if(!dt) return true;
+    const d=parseAnyDate(dt);
+    if(!d) return true; // keep row if date unreadable
+    const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+    return k===ym;
+  }
+
+  let good=0, wasteMSW=0, g5=0, g6=0, g3=0, eqOut=0;
+  let sRows=0, fgRows=0;
+  let byMach={ 'S-1':0,'S-2':0 };
+  const matrix={};
+
+  // ═══ Z_SLIT — exact plant rules ═══
+  slit.forEach(r=>{
+    const dt=col(r,['Date','date','posting date','production date']);
+    if(!inYm(dt)) return;
+    sRows++;
+    const mat=String(col(r,['Material','material','matnr'])||'').trim();
+    const mvRaw=col(r,['Move Type','move type','Movement Type','movement type','bwart','Movment Type']);
+    const mv=_sapNum(mvRaw);
+    const nw=Math.abs(_sapNum(col(r,['Net Weight','net weight','Net Wt','ntgew'])));
+    if(!nw) return;
+    const grade=String(col(r,['Grade','grade','Down Grade','down grade'])||'').replace(/\.0$/,'').trim();
+    const thick=_sapNum(col(r,['Thickness','thickness','micron','mic']))||12;
+    let od=_sapNum(col(r,['OD','od']));
+    if(!od) od=_sapOdFromMat(mat);
+    let mc=_sapMachSlit(col(r,['Machine','machine']));
+    if(mc==='Other') mc='S-1';
+
+    // Waste: 3SC-MSW + 3SC-MTW
+    if(/^3SC-MSW$/i.test(mat) || /^3SC-MTW$/i.test(mat)){
+      wasteMSW+=nw; return;
+    }
+
+    // FG: Move Type 101
+    if(mv===101){
+      fgRows++;
+      if(grade==='5'){ g5+=nw; return; }
+      if(grade==='6'){ g6+=nw; return; }
+      if(grade==='3') g3+=nw;
+      // good output (not 5, not 6)
+      good+=nw;
+      byMach[mc]=(byMach[mc]||0)+nw;
+      // equivalent per roll
+      let odKey='2.2';
+      if(/ALOX|ALM|AL\d/i.test(mat)) odKey='ALOX';
+      else if(/RCM|RELE/i.test(mat)) odKey='RC';
+      else if(od>=2.7) odKey='2.8';
+      else if(od>=2.4) odKey='2.5';
+      try{
+        // Eqv per roll: Mic × OD × Special only (width/length off for slit rolls)
+        const odN=_sapOdSafe(r, mat);
+        const fac=_eqFactorFor(thick, odN, mat, 0, 0); // width=0,length=0 → no WL factor
+        eqOut+=nw*(fac||1);
+      }catch(e){ eqOut+=nw; }
+      const m=String(Math.round(thick)||12);
+      if(!matrix[m]) matrix[m]={};
+      matrix[m][odKey]=(matrix[m][odKey]||0)+nw;
+    }
+  });
+
+  // If still 0 FG — fallback: any row with Move Type 101 regardless of month parse
+  if(good===0 && g5===0 && g6===0 && slit.length){
+    console.warn('[MetCost] Fallback: sum all 101 without month filter');
+    slit.forEach(r=>{
+      const mat=String(col(r,['Material','material'])||'');
+      const mv=_sapNum(col(r,['Move Type','move type','Movement Type','Movment Type']));
+      const nw=Math.abs(_sapNum(col(r,['Net Weight','net weight'])));
+      if(!nw) return;
+      if(/^3SC-MSW$/i.test(mat)||/^3SC-MTW$/i.test(mat)){ wasteMSW+=nw; return; }
+      if(mv===101){
+        fgRows++;
+        const grade=String(col(r,['Grade','grade'])||'').replace(/\.0$/,'').trim();
+        if(grade==='5'){ g5+=nw; return; }
+        if(grade==='6'){ g6+=nw; return; }
+        if(grade==='3') g3+=nw;
+        good+=nw;
+        eqOut+=nw;
+      }
+    });
+  }
+
+  const wasteKg = wasteMSW + g6; // MSW+MTW+Grade6
+  const slitKg = good;          // already excluded 5 & 6
+  const bGradeKg = g3;
+
+  // ═══ MB51 wire / boat ═══
+  let wireKg=0, boatPcs=0;
+  mb51.forEach(r=>{
+    const dt=col(r,['Posting Date','Date','posting date','date']);
+    if(!inYm(dt)) return;
+    const mat=String(col(r,['Material','material'])||'').trim();
+    const qty=Math.abs(_sapNum(col(r,['Qty in unit of entry','qty','quantity','menge'])));
+    if(/^3RM-ALW$/i.test(mat)) wireKg+=qty;
+    if(/^3RM-EVB$/i.test(mat)) boatPcs+=qty;
+  });
+  // Fallback jumbo
+  if(!wireKg || !boatPcs){
+    jumbo.forEach(r=>{
+      const dt=col(r,['Date of Production','Date','date']);
+      if(!inYm(dt)) return;
+      const mat=String(col(r,['Material','material'])||'');
+      const qty=Math.abs(_sapNum(col(r,['Quantity','qty','quantity'])));
+      if(!wireKg && /^3RM-ALW$/i.test(mat)) wireKg+=qty;
+      if(!boatPcs && /^3RM-EVB$/i.test(mat)) boatPcs+=qty;
+    });
+  }
+
+  // Jumbo output for analytics
+  let jOut={ 'M-1':0,'M-2':0,Total:0 }, jBase={ 'M-1':0,'M-2':0,Total:0 };
+  jumbo.forEach(r=>{
+    const dt=col(r,['Date of Production','Date','date']);
+    if(!inYm(dt)) return;
+    const mat=String(col(r,['Material','material'])||'');
+    const mv=_sapNum(col(r,['Movment Type','Move Type','movement type']));
+    const qty=Math.abs(_sapNum(col(r,['Quantity','qty'])));
+    let mc=_sapMachMet(col(r,['Machine','machine']));
+    if(mc==='Other') mc='M-1';
+    if(mv===101 && /^3SF/i.test(mat)){ jOut[mc]+=qty; jOut.Total+=qty; }
+    if(mv===261 && /^3FG/i.test(mat)){ jBase[mc]+=qty; jBase.Total+=qty; }
+  });
+
+  state.totals={
+    slitKg, wasteKg, bGradeKg, wireKg, boatPcs,
+    rows: sRows, source:'excel', ym,
+    eqvKg: eqOut||slitKg,
+    jumboOutKg: jOut.Total,
+    baseFilmKg: jBase.Total
+  };
+  state.prod={
+    jumbo:{ base:jBase, out:jOut, wire:{Total:wireKg}, boat:{Total:boatPcs}, rolls:{ 'M-1':0,'M-2':0,Total:0 }, micSum:{ 'M-1':0,'M-2':0,Total:0 }, micN:{ 'M-1':0,'M-2':0,Total:0 }, widSum:{ 'M-1':0,'M-2':0,Total:0 }, lenSum:{ 'M-1':0,'M-2':0,Total:0 }, spdSum:{ 'M-1':0,'M-2':0,Total:0 }, spdN:{ 'M-1':0,'M-2':0,Total:0 }, setupSum:{ 'M-1':0,'M-2':0,Total:0 }, timeN:{ 'M-1':0,'M-2':0,Total:0 } },
+    slit:{ input:{ 'S-1':0,'S-2':0,Total:0 }, out:{ 'S-1':byMach['S-1']||0,'S-2':byMach['S-2']||0,Total:slitKg }, waste:{ 'S-1':0,'S-2':0,Total:wasteKg }, grades:{ '3':{Total:g3},'5':{Total:g5},'6':{Total:g6} } },
+    matrix, prodTypes:[], eqOutKg: eqOut||slitKg
+  };
+
+  try{
+    document.getElementById('s-slit').textContent=slitKg?slitKg.toFixed(0):'—';
+    document.getElementById('s-waste').textContent=wasteKg?wasteKg.toFixed(0):'—';
+    document.getElementById('s-wire').textContent=wireKg?wireKg.toFixed(1):'—';
+    document.getElementById('s-boat').textContent=boatPcs?boatPcs.toFixed(0):'—';
+    document.getElementById('s-rows').textContent=String(sRows||slit.length);
+  }catch(e){}
+
+  try{
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null&&!isNaN(v)) el.value=v; };
+    set('man_outKg', slitKg?+slitKg.toFixed(2):'');
+    set('man_eqvKg', eqOut?+eqOut.toFixed(2):'');
+    set('man_wasteKg', wasteKg?+wasteKg.toFixed(2):'');
+    set('man_bKg', bGradeKg?+bGradeKg.toFixed(2):'');
+    set('man_wireKg', wireKg?+wireKg.toFixed(2):'');
+    set('man_boatPcs', boatPcs?+boatPcs.toFixed(0):'');
+  }catch(e){}
+
+  recalculate();
+  try{ renderProdAnalytics(); }catch(e){ console.warn(e); }
+  try{ saveMonthHistory(); }catch(e){}
+
+  console.log('[MetCost]', { ym, slitKg, wasteKg, g5, g6, g3, fgRows, wireKg, boatPcs, sample: slit[0]&&Object.keys(slit[0]) });
+
+  if(slitKg<=0){
+    const keys=slit[0]?Object.keys(slit[0]).join(', '):'no slit rows';
+    toast('❌ Output 0 — cols: '+keys.slice(0,60)+' · FG rows '+fgRows);
+  } else {
+    toast('✅ '+ym+' · Good '+(slitKg/1000).toFixed(1)+' MT · Waste '+(wasteKg/1000).toFixed(2)+' MT · FG '+fgRows);
+  }
+  }catch(err){
+    console.error('[MetCost process]', err);
+    toast('❌ Process error: '+(err&&err.message?err.message:String(err)));
+  }
+};
+
+
+
+function _fmtMT(kg){ return kg? (kg/1000).toFixed(2) : '0.00'; }
+function _fmtN(n,d){ d=d==null?1:d; return n? Number(n).toFixed(d) : '0'; }
+function _avg(sum,n){ return n>0? sum/n : 0; }
+
+window.renderProdAnalytics=function(){
+  const P=state.prod; if(!P) return;
+  const J=P.jumbo, S=P.slit;
+
+  // Metalliser table
+  const jBody=document.querySelector('#tblJumboMach tbody');
+  if(jBody && J){
+    const rows=[
+      ['Base Film input (MT)', k=>_fmtMT(J.base[k])],
+      ['Met Jumbo Output (MT)', k=>_fmtMT(J.out[k])],
+      ['Average Micron', k=>_fmtN(_avg(J.micSum[k],J.micN[k]),2)],
+      ['Average Width (mm)', k=>_fmtN(_avg(J.widSum[k],J.rolls[k]),0)],
+      ['Average Length (m)', k=>_fmtN(_avg(J.lenSum[k],J.rolls[k]),0)],
+      ['No. of Rolls', k=>String(J.rolls[k]|0)],
+      ['Wire consumed (kg)', k=>_fmtN(J.wire[k],1)],
+      ['Boats consumed (pcs)', k=>_fmtN(J.boat[k],0)],
+      ['Avg Machine Speed', k=>_fmtN(_avg(J.spdSum[k],J.spdN[k]),0)],
+      ['Avg Setup / changeover (min)', k=>_fmtN(_avg(J.setupSum[k],J.timeN[k]),1)],
+      ['Equivalent Output (MT)*', k=>_fmtMT((J.out[k]||0)*(P.eqOutKg&&P.slit&&P.slit.out.Total? (P.eqOutKg/Math.max(P.slit.out.Total,1)):1))],
+    ];
+    jBody.innerHTML=rows.map(([lab,fn])=>`<tr><td><b>${lab}</b></td><td>${fn('M-1')}</td><td>${fn('M-2')}</td><td>${fn('Total')}</td></tr>`).join('');
+  }
+
+  // Slitter table
+  const sBody=document.querySelector('#tblSlitMach tbody');
+  if(sBody && S){
+    const wastePct=k=>{ const o=S.out[k]||0,w=S.waste[k]||0; return (o+w)>0? ((w*100)/(o+w)).toFixed(2) : '0.00'; };
+    const rows=[
+      ['Met Jumbo Input (MT)', k=>_fmtMT(S.input[k])],
+      ['Slit Output (MT)', k=>_fmtMT(S.out[k])],
+      ['Met Waste Qty (kg)  (3SC + Gr 5/6)', k=>_fmtN((S.waste[k]||0)+(S.grades['5']?S.grades['5'][k]:0)+(S.grades['6']?S.grades['6'][k]:0),1)],
+      ['Met Waste %', k=>{ const o=S.out[k]||0; const w=(S.waste[k]||0)+(S.grades['5']?S.grades['5'][k]:0)+(S.grades['6']?S.grades['6'][k]:0); return (o+w)>0?((w*100)/(o+w)).toFixed(2):'0.00'; }],
+      ['Grade 2 (MT)  saleable', k=>_fmtMT(S.grades['2'][k])],
+      ['Grade 3 (MT)  B-grade', k=>_fmtMT(S.grades['3'][k])],
+      ['Grade 5 (MT)  → waste', k=>_fmtMT(S.grades['5'][k])],
+      ['Grade 6 (MT)  → waste', k=>_fmtMT(S.grades['6'][k])],
+      ['Grade 7 (MT)  saleable', k=>_fmtMT(S.grades['7'][k])],
+      ['Grade 8 (MT)  saleable', k=>_fmtMT(S.grades['8'][k])],
+    ];
+    sBody.innerHTML=rows.map(([lab,fn])=>`<tr><td><b>${lab}</b></td><td>${fn('S-1')}</td><td>${fn('S-2')}</td><td>${fn('Total')}</td></tr>`).join('');
+  }
+
+  // Product matrix
+  const thead=document.querySelector('#tblProdMatrix thead');
+  const tbody=document.querySelector('#tblProdMatrix tbody');
+  if(thead && tbody && P.matrix){
+    const ods=['2.2','2.5','2.8','ALOX','RC','?'];
+    const microns=Object.keys(P.matrix).map(Number).filter(n=>n>0).sort((a,b)=>a-b);
+    thead.innerHTML=`<tr><th>Micron / OD</th>${ods.map(o=>`<th>${o}</th>`).join('')}<th>Total (MT)</th><th>Equiv. (MT)</th></tr>`;
+    let gTot=0, gEq=0;
+    const odTot={}; ods.forEach(o=>odTot[o]=0);
+    tbody.innerHTML=microns.map(m=>{
+      let rowTot=0, rowEq=0;
+      const cells=ods.map(o=>{
+        const kg=(P.matrix[m]&&P.matrix[m][o])||0;
+        rowTot+=kg; odTot[o]+=kg;
+        let odN=2.2, matHint='';
+        if(o==='ALOX'){ matHint='ALM'; odN=2.2; }
+        else if(o==='RC'){ matHint='RCM'; odN=2.2; }
+        else if(o!=='?'){ odN=Number(o)||2.2; }
+        const fac=_eqFactorFor(m, odN, matHint, 0, 0);
+        rowEq+=kg*fac;
+        return `<td>${kg? (kg/1000).toFixed(1):'0.0'}</td>`;
+      }).join('');
+      gTot+=rowTot; gEq+=rowEq;
+      return `<tr><td><b>${m}</b></td>${cells}<td><b>${(rowTot/1000).toFixed(1)}</b></td><td><b>${(rowEq/1000).toFixed(1)}</b></td></tr>`;
+    }).join('');
+    tbody.innerHTML += `<tr class="row-total"><td><b>Total</b></td>${ods.map(o=>`<td><b>${(odTot[o]/1000).toFixed(1)}</b></td>`).join('')}<td><b>${(gTot/1000).toFixed(1)}</b></td><td><b>${(gEq/1000).toFixed(1)}</b></td></tr>`;
+  }
+
+  // OEE
+  const oeeBody=document.querySelector('#tblOee tbody');
+  if(oeeBody){
+    const planDays=num((document.getElementById('oee_planDays')||{}).value)||22;
+    const tgtDay=num((document.getElementById('oee_targetMtDay')||{}).value)||72;
+    const actualMt=(state.totals.slitKg||0)/1000;
+    const eqMt=(state.totals.eqvKg||state.totals.slitKg||0)/1000;
+    // downtime: prefer stoppage stats
+    let downDays=0;
+    try{
+      const st=typeof updateStopStats==='function'?updateStopStats():null;
+      if(st && st.totalMin) downDays=st.totalMin/60/24;
+    }catch(e){}
+    const avail = planDays>0 ? Math.max(0,Math.min(100, ((planDays-downDays)/planDays)*100)) : 0;
+    const targetMt = planDays*tgtDay;
+    const perf = targetMt>0 ? (actualMt/targetMt)*100 : 0;
+    // Quality = saleable good grades (2+7+8) / total FG — plant rule
+    const gGood = (S&&S.grades)? ((S.grades['2']?S.grades['2'].Total:0)+(S.grades['7']?S.grades['7'].Total:0)+(S.grades['8']?S.grades['8'].Total:0))/1000 : 0;
+    const qual = actualMt>0 ? (gGood/actualMt)*100 : 0;
+    const eee = (avail/100)*(perf/100)*(qual/100)*100;
+    const lines=[
+      ['Actual Slit Output (MT)', actualMt.toFixed(1)],
+      ['Equivalent Output (MT)', eqMt.toFixed(1)],
+      ['Planned Running Days', planDays.toFixed(1)],
+      ['Downtime (Days)', downDays.toFixed(2)],
+      ['Availability A (%)', avail.toFixed(2)],
+      ['Performance P (%)  (Target '+targetMt.toFixed(0)+' MT)', perf.toFixed(2)],
+      ['Quality Q (%)  (Grades 2+7+8 / Total)', qual.toFixed(2)],
+      ['OEE (A×P×Q) %', eee.toFixed(1)],
+    ];
+    oeeBody.innerHTML=lines.map(([a,b])=>`<tr><td><b>${a}</b></td><td>${b}</td></tr>`).join('');
+  }
+
+  // Month-wise product type list
+  let ptHost=document.getElementById('tblProdTypes');
+  if(!ptHost){
+    const card=document.getElementById('prodAnalyticsCard');
+    if(card){
+      const h=document.createElement('h3');
+      h.style.cssText='margin:14px 0 8px;font-size:14px';
+      h.textContent='Product types this month (for equivalence)';
+      const wrap=document.createElement('div'); wrap.className='scroll';
+      ptHost=document.createElement('table'); ptHost.id='tblProdTypes';
+      wrap.appendChild(ptHost); card.appendChild(h); card.appendChild(wrap);
+    }
+  }
+  if(ptHost && P.prodTypes){
+    const list=Object.keys(P.prodTypes).map(k=>P.prodTypes[k]).sort((a,b)=>b.kg-a.kg);
+    ptHost.innerHTML='<thead><tr><th>Micron</th><th>OD</th><th>Special</th><th>Rolls</th><th>Output (MT)</th><th>Equiv (MT)</th><th>Avg factor</th></tr></thead><tbody>'+
+      list.map(p=>{
+        const fac=p.kg>0?(p.eq/p.kg):1;
+        return `<tr><td>${p.micron}</td><td>${p.od}</td><td>${p.special}</td><td>${p.rolls}</td><td>${(p.kg/1000).toFixed(2)}</td><td>${(p.eq/1000).toFixed(2)}</td><td>${fac.toFixed(2)}</td></tr>`;
+      }).join('')+'</tbody>';
+  }
+};
+
+window.clearUploads=()=>{
+  state.raw={mb51:[],jumbo:[],slit:[],prod:[]};
+  state.totals={slitKg:0,wasteKg:0,bGradeKg:0,wireKg:0,boatPcs:0,rows:0};
+  ['mb51','jumbo','slit','prod'].forEach(k=>{
+    document.getElementById('st-'+k).textContent=k==='prod'?'Optional':'Not loaded';
+    document.getElementById('file-'+k).value='';
+  });
+  toast('Uploads cleared');
+};
+
+/* calculate conversion cost */
+window.recalculate=function(){
+  const t=state.totals;
+  const ex=state.extras;
+  const out=t.slitKg||0;
+  const outMT=out/1000;
+
+  // average eq factor from table weighted by output MT if available
+  let eqSum=0, eqW=0;
+  state.equiv.forEach(r=>{
+    const f=eqFactor(r); const w=num(r.output)||0;
+    if(w>0){ eqSum+=f*w; eqW+=w; }
+  });
+  const avgEq = eqW>0 ? eqSum/eqW : 1;
+  let eqOut = out * (avgEq>0?avgEq:1); // simplified: scale kg by avg factor
+  if(t.eqvKg && num(t.eqvKg)>0) eqOut = num(t.eqvKg);
+
+  const wireRate=rateOf('Wire'), boatRate=rateOf('Boat'), powerRate=rateOf('Power');
+  const baseFilm=rateOf('Base Film'), alDust=rateOf('Al Dust'), scrapAl=rateOf('Scrap Al');
+
+  const wireKg=t.wireKg, boatPcs=t.boatPcs;
+  const wirePerMT = outMT>0 ? wireKg/outMT : 0;
+  const boatPerMT = outMT>0 ? boatPcs/outMT : 0;
+
+  const wireCostPerKg = out>0 ? (wireKg*wireRate)/out : 0;
+  const boatCostPerKg = out>0 ? (boatPcs*boatRate)/out : 0;
+  const rmPerKg = wireCostPerKg + boatCostPerKg;
+
+  // Denominator for ₹/kg = Good Output (slitKg) — user rule
+  // Wastage % = Waste Qty × 100 / (Good Output + Waste Qty)
+  let wastePct = out>0 ? (num(t.wasteKg)*100)/(out+num(t.wasteKg)) : 0;
+  // B Grade % = 3 Grade Qty × 100 / (Slit Output + Waste Qty + 3 Grade Qty)
+  const bQty=num(t.bGradeKg);
+  const wQty=num(t.wasteKg);
+  let bPct = (out+wQty+bQty)>0 ? (bQty*100)/(out+wQty+bQty) : 0;
+  if(t.wastePctOverride!=null && t.wastePctOverride!=='') wastePct = num(t.wastePctOverride);
+  if(t.bPctOverride!=null && t.bPctOverride!=='') bPct = num(t.bPctOverride);
+
+  // Official sheet (Con. Cost):
+  // Wastage Loss ₹/kg = 126 × (Waste%/100)  [target: 1.3%→1.638 ⇒ factor 126]
+  // Optional override: film rate × Waste%/100 if extras.wastageLossRate set
+  // B Grade Loss ₹/kg = 20 × (B%/100)  [sheet: 0.385%→0.077]
+  const filmRate = baseFilm>0 ? baseFilm : (rateOf('Base Film')||rateOf('Film')||0);
+  const wasteLossFactor = num(ex.wastageLossRate) || 126; // matches plant workbook
+  const wasteLoss = wasteLossFactor * (wastePct/100);
+  const bLossFactor = num(ex.bGradeLossRate) || 20;
+  const bLoss = bLossFactor * (bPct/100);
+
+  // Wire/Boat ₹/kg already use Good Output as denominator above
+  const manPerKg = out>0 && ex.manpowerCost ? ex.manpowerCost/out : (out>0?0:1);
+  const powerPerKg = out>0 && ex.powerUnits ? (ex.powerUnits*powerRate)/out : 0;
+  const sparesPerKg = out>0 && ex.sparesCost ? ex.sparesCost/out : 0;
+  const indirect = num(ex.indirectPerKg);
+  const packing = num(ex.packingPerKg);
+
+  const conversion = wasteLoss + bLoss + manPerKg + powerPerKg + sparesPerKg + indirect;
+  const total = conversion + rmPerKg;
+  const totalPack = total + packing;
+
+  // scrap credits (sheet style fractions of wire)
+  const scrapWireCredit = out>0 && wireKg ? (wireKg*0.037*scrapAl)/out : 0;
+  const dustCredit = out>0 && wireKg ? (wireKg*0.382*alDust)/out : 0;
+  const totalAfterScrap = totalPack - scrapWireCredit - dustCredit;
+
+  // stoppage minutes → run days
+  const ym=monthKey();
+  const stStats = (typeof updateStopStats==='function') ? updateStopStats() : {runDays:0,totalMin:0,daysInMonth:30};
+  const stopH = (stStats.totalMin||0)/60;
+  const daysInMonth = stStats.daysInMonth || (()=>{ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); })();
+  const runDays = stStats.runDays!=null ? stStats.runDays : Math.max(0, daysInMonth - stopH/24);
+
+  // equivalent column: scale costs by out/eqOut
+  const scale = eqOut>0 ? out/eqOut : 1;
+  const eq = (v)=> v*scale;
+
+  const targetConv = num(ex.targetConv);
+  const targetWire = 9.2 * wireRate / 1000;
+  const targetBoat = 1.8 * boatRate / 1000;
+  const targetPower = 0.44 * powerRate;
+  const targetMan = 0.8;
+  const targetSpares = 0.3;
+  const targetWaste = 1.3 * Math.max(baseFilm-14,0)/100;
+  const targetConvSum = targetWaste + 0 + targetMan + targetPower + targetSpares + indirect;
+
+  const r2=(v)=>{ if(v===''||v==null) return ''; const n=Number(v); return isFinite(n)?Math.round(n*100)/100:''; };
+  state.report = {
+    ym, out:r2(out), eqOut:r2(eqOut), avgEq:r2(avgEq), outMT:r2(outMT), runDays:r2(runDays), stopH:r2(stopH), daysInMonth,
+    rows: [
+      ['Slit Production (kg)', r2(out), r2(eqOut), '', 'kg'],
+      ['Wastage %', r2(wastePct), r2(wastePct*scale), 1.30, '%'],
+      ['B Grade %', r2(bPct), r2(bPct*scale), 0, '%'],
+      ['Wire (kg/MT)', r2(wirePerMT), r2(wirePerMT*scale), 9.20, 'kg/MT'],
+      ['Boat (pcs/MT)', r2(boatPerMT), r2(boatPerMT*scale), 1.80, 'pcs/MT'],
+      ['Wire ₹/kg', r2(wireCostPerKg), r2(eq(wireCostPerKg)), r2(targetWire), '₹/kg'],
+      ['Boat ₹/kg', r2(boatCostPerKg), r2(eq(boatCostPerKg)), r2(targetBoat), '₹/kg'],
+      ['Raw Material ₹/kg', r2(rmPerKg), r2(eq(rmPerKg)), r2(targetWire+targetBoat), '₹/kg'],
+      ['Wastage Loss ₹/kg', r2(wasteLoss), r2(eq(wasteLoss)), r2(targetWaste), '₹/kg'],
+      ['B Grade Loss ₹/kg', r2(bLoss), r2(eq(bLoss)), 0, '₹/kg'],
+      ['Manpower ₹/kg', r2(manPerKg), r2(eq(manPerKg)), r2(targetMan), '₹/kg'],
+      ['Power ₹/kg', r2(powerPerKg), r2(eq(powerPerKg)), r2(targetPower), '₹/kg'],
+      ['Cons & Spares ₹/kg', r2(sparesPerKg), r2(eq(sparesPerKg)), r2(targetSpares), '₹/kg'],
+      ['Indirect ₹/kg', r2(indirect), r2(indirect), r2(indirect), '₹/kg'],
+      ['Conversion Cost ₹/kg', r2(conversion), r2(eq(conversion)), r2(targetConvSum), '₹/kg'],
+      ['Total Cost ₹/kg', r2(total), r2(eq(total)), r2(targetConvSum+targetWire+targetBoat), '₹/kg'],
+      ['Packing & Freight ₹/kg', r2(packing), r2(packing), r2(packing), '₹/kg'],
+      ['Total with Packing ₹/kg', totalPack, eq(totalPack), '', '₹/kg'],
+      ['Scrap Al credit ₹/kg', -scrapWireCredit, -eq(scrapWireCredit), '', '₹/kg'],
+      ['Al Dust credit ₹/kg', -dustCredit, -eq(dustCredit), '', '₹/kg'],
+      ['Total after scrap sale ₹/kg', totalAfterScrap, eq(totalAfterScrap), '', '₹/kg'],
+      ['Planned stoppage hours', stopH, '', '', 'hrs'],
+      ['Est. run days', runDays, '', daysInMonth, 'days']
+    ]
+  };
+
+
+  // Overlay Target column from Target section when set
+  try{
+    if(state.targets && state.report && state.report.rows){
+      const map={};
+      state.targets.forEach(t=>{ if(t.target!==''&&t.target!=null) map[t.param]=num(t.target); });
+      state.report.rows = state.report.rows.map(r=>{
+        const key=r[0];
+        // fuzzy match
+        const hit = map[key] != null ? map[key] :
+          (map[Object.keys(map).find(k=>key.indexOf(k)===0 || k.indexOf(key)===0)] );
+        if(hit!=null && r[3]==='') r[3]=hit;
+        else if(hit!=null && /Conversion Cost|Manpower|Wastage %|Boat|Wire \(kg|Cons|Indirect|Packing|B Grade %/i.test(key)) r[3]=hit;
+        return r;
+      });
+    }
+  }catch(e){}
+
+  // UI
+  const st=document.getElementById('reportStats');
+  st.innerHTML=`
+    <div class="s"><b>${conversion.toFixed(2)}</b><span>Conversion ₹/kg Actual</span></div>
+    <div class="s"><b>${eq(conversion).toFixed(2)}</b><span>Conversion ₹/kg Eqv.</span></div>
+    <div class="s"><b>${targetConvSum.toFixed(2)}</b><span>Conversion ₹/kg Target</span></div>
+    <div class="s"><b>${out.toFixed(0)}</b><span>Output kg</span></div>
+    <div class="s"><b>${runDays.toFixed(1)}</b><span>Run days (est.)</span></div>`;
+  const tb=document.querySelector('#reportTable tbody');
+  tb.innerHTML=state.report.rows.map(r=>{
+    const fmt=v=> (v===''||v==null)?'—':(typeof v==='number'? (Math.abs(v)>20?v.toFixed(2):v.toFixed(2)) : v);
+    const name=String(r[0]||'');
+    let cls='';
+    if(/Raw Material/i.test(name)) cls='row-rm';
+    else if(/^Conversion Cost/i.test(name)) cls='row-conv';
+    else if(/Total with Packing/i.test(name)) cls='row-pack';
+    else if(/^Total Cost/i.test(name) || /after scrap/i.test(name)) cls='row-total';
+    return `<tr class="${cls}"><td><b>${r[0]}</b></td><td>${fmt(r[1])}</td><td>${fmt(r[2])}</td><td>${fmt(r[3])}</td><td>${r[4]}</td></tr>`;
+  }).join('');
+  if(typeof renderTargets==='function') renderTargets();
+  // auto-save this month into historical data
+  try{ saveMonthHistory(); }catch(e){}
+};
+
+/* export */
+window.exportConversionExcel=function(){
+  if(typeof XLSX==='undefined'){ toast('XLSX missing'); return; }
+  recalculate();
+  const rep=state.report; if(!rep){ toast('Calculate first'); return; }
+  const wb=XLSX.utils.book_new();
+
+  // Con. Cost sheet
+  const costAoA=[
+    ['GLS / MetCost Pro — Conversion Cost'],
+    ['Month', rep.ym],
+    [],
+    ['Parameter','Actual','Equivalent','Target','Unit'],
+    ...rep.rows.map(r=>[r[0],r[1],r[2],r[3],r[4]]),
+    [],
+    ['Notes'],
+    ['Generated by MetCost Pro from MB51 / Z_Jumbo / Z_Slit uploads'],
+    ['Equivalent factors: OD × Sp.Material × Micron (width/length excluded)'],
+    ['Rates and stoppages as set in app']
+  ];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(costAoA), 'Con. Cost');
+
+  // Rates
+  const ratesAoA=[['Material','Rate','Unit'], ...state.rates.map(r=>[r.material,r.rate,r.unit]),
+    [],['Power Units', state.extras.powerUnits],['Cons & Spares ₹', state.extras.sparesCost],
+    ['Manpower ₹', state.extras.manpowerCost],['Indirect ₹/kg', state.extras.indirectPerKg]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ratesAoA), 'Rates');
+
+  // Equivalent
+  const eqAoA=[['Material','OD Eqv.','Sp. Mat Eqv.','Micron Eqv.','Output(MT)','Total Eqv. Factor','No. of Rolls','Avg Speed','Avg Width','Avg Length'],
+    ...state.equiv.map(r=>[r.material,r.od,r.sp,r.mic,r.output,eqFactor(r),r.rolls,r.speed,r.width,r.length]),
+    [],['Excluding Width & Length Equivalence']];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(eqAoA), 'Equivalent');
+
+  // Stoppage
+  const stAoA=[['Date','Machine','Hours','Reason'], ...state.stoppages.map(s=>[s.date,s.machine,s.hours,s.reason])];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stAoA), 'Planned Stoppage');
+
+  // Totals raw
+  const totAoA=[['Metric','Value'],['Slit kg',state.totals.slitKg],['Waste kg',state.totals.wasteKg],
+    ['B Grade kg',state.totals.bGradeKg],['Wire kg',state.totals.wireKg],['Boat pcs',state.totals.boatPcs],['Rows',state.totals.rows]];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(totAoA), 'Parsed Totals');
+
+  const fname='Conversion_Cost_'+rep.ym+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('Downloaded '+fname);
+};
+
+function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+window.num=num; window.state=state; window.renderEquiv=renderEquiv; window.renderStop=renderStop;
+
+const DEFAULT_TARGETS = [
+  {param:'Slit Production (kg)', target:'', unit:'kg'},
+  {param:'Wastage %', target:1.3, unit:'%'},
+  {param:'B Grade %', target:0, unit:'%'},
+  {param:'Wire (kg/MT)', target:9.2, unit:'kg/MT'},
+  {param:'Boat (pcs/MT)', target:1.8, unit:'pcs/MT'},
+  {param:'Wire ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Boat ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Raw Material ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Wastage Loss ₹/kg', target:'', unit:'₹/kg'},
+  {param:'B Grade Loss ₹/kg', target:0, unit:'₹/kg'},
+  {param:'Manpower ₹/kg', target:0.8, unit:'₹/kg'},
+  {param:'Power ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Cons & Spares ₹/kg', target:0.3, unit:'₹/kg'},
+  {param:'Indirect ₹/kg', target:0.26, unit:'₹/kg'},
+  {param:'Conversion Cost ₹/kg', target:6.55, unit:'₹/kg'},
+  {param:'Total Cost ₹/kg', target:'', unit:'₹/kg'},
+  {param:'Packing & Freight ₹/kg', target:1.67, unit:'₹/kg'},
+  {param:'Total with Packing ₹/kg', target:'', unit:'₹/kg'}
+];
+if(!state.targets) state.targets = JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+
+/* init */
+(function init(){
+  const now=new Date();
+  document.getElementById('reportMonth').value=now.toISOString().slice(0,7);
+  try{ const mp=document.getElementById('mrmMonthPick'); if(mp) mp.value=now.toISOString().slice(0,7); }catch(e){}
+  try{ const el=document.getElementById('machineList'); if(el && !String(el.value||'').trim()) el.value='M-1, M-2'; }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem(LS.rates)||'null'); if(r) state.rates=r; }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem(LS.equiv)||'null'); if(r) state.equiv=r; }catch(e){}
+  try{ const er=JSON.parse(localStorage.getItem('metcost_eq_rules_v1')||'null'); if(er) state.eqRules=Object.assign(JSON.parse(JSON.stringify(DEFAULT_EQ_RULES)),er); }catch(e){}
+  try{ if(typeof loadEqRulesToForm==='function') loadEqRulesToForm(); }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem(LS.stop)||'null'); if(r) state.stoppages=r; }catch(e){}
+  try{ const r=JSON.parse(localStorage.getItem(LS.extras)||'null'); if(r) state.extras=Object.assign(state.extras,r); }catch(e){}
+  // theme
+  let theme='dark';
+  try{ theme=localStorage.getItem(LS.theme)||'dark'; }catch(e){}
+  applyTheme(theme==='light'?'light':'dark');
+  try{
+    const tg=JSON.parse(localStorage.getItem('metcost_targets_v1')||'null');
+    if(Array.isArray(tg) && tg.length) state.targets=tg;
+  }catch(e){}
+  if(!state.targets || !Array.isArray(state.targets) || !state.targets.length){
+    state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+  }
+  renderRates(); renderEquiv(); renderStop(); loadExtrasToForm();
+  if(typeof renderTargets==='function') renderTargets();
+  renderHistList();
+  // load history for current month if any
+  loadMonthHistory(monthKey());
+  document.getElementById('reportMonth').addEventListener('change', function(){
+    const ym=monthKey();
+    loadMonthHistory(ym);
+    try{ loadManualInputs(); }catch(e){}
+  });
+})();
+
+
+
+function renderTargets(){
+  const tb=document.querySelector('#targetTable tbody');
+  if(!tb) return;
+  if(!state.targets || !Array.isArray(state.targets) || !state.targets.length){
+    state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+  }
+  // auto-fill computed targets from rates when blank
+  // Wire ₹/kg target ≈ rate * wireKg/MT / 1000; Boat similar; Raw Material = Wire₹/kg + Boat₹/kg
+  const wireRate=rateOf('Wire')||rateOf('Al Wire')||0;
+  const boatRate=rateOf('Boat')||rateOf('EV Boat')||0;
+  const powerRate=rateOf('Power')||rateOf('Electricity')||0;
+  const wireKgMT = num((state.targets.find(x=>/Wire \(kg\/MT\)/i.test(x.param))||{}).target);
+  const boatPcsMT = num((state.targets.find(x=>/Boat \(pcs\/MT\)/i.test(x.param))||{}).target);
+  const wKgMT = wireKgMT>0?wireKgMT:9.2;
+  const bPcsMT = boatPcsMT>0?boatPcsMT:1.8;
+  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : 0;
+  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : 0;
+  const rmPerKg = +(wirePerKg + boatPerKg).toFixed(2); // plant rule: RM = Wire + Boat cost
+  // Always sync consumption ₹/kg from Rates × norm (kg/MT or pcs/MT)
+  state.targets.forEach(r=>{
+    if(/^Wire ₹\/kg/i.test(r.param) && wirePerKg) r.target=wirePerKg;
+    else if(/^Boat ₹\/kg/i.test(r.param) && boatPerKg) r.target=boatPerKg;
+    else if(/Raw Material/i.test(r.param)) r.target=rmPerKg; // always Wire+Boat
+    else if(/^Power ₹\/kg/i.test(r.param) && powerRate){
+      const blank = (r.target==='' || r.target==null);
+      if(blank) r.target=+(0.44*powerRate).toFixed(2);
+    }
+  });
+  // Totals: Conversion + RM ; + Packing
+  const getT = (re)=>{ const x=state.targets.find(r=>re.test(r.param)); return x?num(x.target):0; };
+  const convT = getT(/^Conversion Cost/i);
+  const packT = getT(/Packing & Freight/i);
+  const totalCost = +(convT + rmPerKg).toFixed(2);
+  const totalPack = +(totalCost + packT).toFixed(2);
+  state.targets.forEach(r=>{
+    if(/^Total Cost ₹\/kg/i.test(r.param)) r.target=totalCost;
+    if(/Total with Packing/i.test(r.param)) r.target=totalPack;
+  });
+  tb.innerHTML=state.targets.map((r,i)=>{
+    let cls='';
+    if(/Raw Material/i.test(r.param)) cls='row-rm';
+    else if(/^Conversion Cost/i.test(r.param)) cls='row-conv';
+    else if(/Total with Packing/i.test(r.param)) cls='row-pack';
+    else if(/^Total Cost/i.test(r.param)) cls='row-total';
+    const val = (r.target===''||r.target==null) ? '' : r.target;
+    return `<tr class="${cls}"><td><b>${esc(r.param)}</b></td>
+      <td><input type="number" step="0.01" value="${val}" onchange="state.targets[${i}].target=this.value===''?'':num(this.value)"/></td>
+      <td>${esc(r.unit)}</td></tr>`;
+  }).join('');
+}
+window.saveTargets=function(){
+  localStorage.setItem('metcost_targets_v1', JSON.stringify(state.targets));
+  toast('Targets saved');
+};
+window.resetTargets=function(){
+  state.targets=JSON.parse(JSON.stringify(DEFAULT_TARGETS));
+  renderTargets();
+  toast('Target defaults restored');
+};
+
+/* ===== App mode: metcost | mrm ===== */
+
+function _mrmMonthLabel(ym){
+  if(!ym || ym.length < 7) return ym || '—';
+  const [y,m] = ym.split('-').map(Number);
+  const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return (names[(m||1)-1] || m) + '-' + String(y).slice(2);
+}
+window.onMrmMonthChange=function(v){
+  if(!v) return;
+  try{
+    const el=document.getElementById('reportMonth');
+    if(el) el.value=v;
+  }catch(e){}
+  try{ refreshMrmFromHistory(); }catch(e){}
+};
+function _mrmGetMonthBundle(){
+  const pick=(document.getElementById('mrmMonthPick')||{}).value;
+  const ym = pick || ((typeof monthKey === 'function') ? monthKey() : (document.getElementById('reportMonth')||{}).value);
+  let conv = null, out = null, wastePct = null, bPct = null, rows = [], totals = {}, extras = {}, report = null;
+  try{
+    const map = (typeof loadHistoryMap === 'function') ? loadHistoryMap() : {};
+    const h = map[ym];
+    if(h){
+      totals = h.totals || {};
+      extras = h.extras || {};
+      report = h.report || null;
+      rows = (h.report && h.report.rows) ? h.report.rows : [];
+    } else if(state && state.report){
+      report = state.report;
+      rows = state.report.rows || [];
+      totals = state.totals || {};
+      extras = state.extras || {};
+    } else if(state && state.totals){
+      totals = state.totals;
+      extras = state.extras || {};
+      rows = (state.report && state.report.rows) || [];
+      report = state.report;
+    }
+  }catch(e){}
+  const rowVal = (namePart, col)=>{
+    const r = (rows||[]).find(x => String(x[0]||'').indexOf(namePart) >= 0);
+    if(!r) return null;
+    const v = r[col];
+    return (v === '' || v == null) ? null : v;
+  };
+  conv = rowVal('Conversion Cost ₹/kg', 1);
+  if(conv == null) conv = rowVal('Conversion Cost', 1);
+  out = totals.slitKg != null ? totals.slitKg : rowVal('Slit Production', 1);
+  wastePct = totals.wastePctOverride != null ? totals.wastePctOverride : rowVal('Wastage %', 1);
+  bPct = totals.bPctOverride != null ? totals.bPctOverride : rowVal('B Grade %', 1);
+  return { ym, label: _mrmMonthLabel(ym), conv, out, wastePct, bPct, rows, totals, extras, report };
+}
+function _mrmFmt(v, d){
+  if(v == null || v === '' || (typeof v === 'number' && !isFinite(v))) return '—';
+  if(typeof v === 'number') return (Math.abs(v) >= 100 ? v.toFixed(d != null ? d : 0) : v.toFixed(d != null ? d : 2));
+  return String(v);
+}
+window.refreshMrmFromHistory = function(){
+  const b = _mrmGetMonthBundle();
+  const elM = document.getElementById('mrmMonth');
+  const elC = document.getElementById('mrmConv');
+  const elO = document.getElementById('mrmOut');
+  const elW = document.getElementById('mrmWaste');
+  if(elM) elM.textContent = b.label || b.ym || '—';
+  if(elC) elC.textContent = b.conv != null ? Number(b.conv).toFixed(2) : '—';
+  if(elO) elO.textContent = b.out != null ? Number(b.out).toFixed(0) : '—';
+  if(elW) elW.textContent = b.wastePct != null ? Number(b.wastePct).toFixed(2) : '—';
+  try{
+    const slides = document.getElementById('mrmSlides');
+    if(slides){
+      const s1 = slides.querySelector('[data-i="0"]');
+      const s2 = slides.querySelector('[data-i="1"]');
+      const s3 = slides.querySelector('[data-i="2"]');
+      const s4 = slides.querySelector('[data-i="3"]');
+      if(s1) s1.innerHTML = '<h2>1 · Highlights — '+b.label+'</h2><p>Slit output: <b>'+_mrmFmt(b.out,0)+' kg</b></p><p>Wastage %: <b>'+_mrmFmt(b.wastePct,2)+'</b> · B Grade %: <b>'+_mrmFmt(b.bPct,2)+'</b></p><p>Conversion Cost: <b>'+_mrmFmt(b.conv,2)+' ₹/kg</b></p>';
+      if(s2) s2.innerHTML = '<h2>2 · Conversion Cost</h2><p>Actual vs Target vs Equivalent from MetCost Pro.</p><p style="font-size:36px;font-weight:900;color:var(--accent);margin-top:16px" id="mrmSlideConv">'+_mrmFmt(b.conv,2)+' ₹/kg</p>';
+      if(s3) s3.innerHTML = '<h2>3 · Manpower &amp; Power</h2><p>Manpower ₹: <b>'+_mrmFmt(b.extras.manpowerCost,0)+'</b></p><p>Power units: <b>'+_mrmFmt(b.extras.powerUnits,0)+'</b> · Spares ₹: <b>'+_mrmFmt(b.extras.sparesCost,0)+'</b></p>';
+      if(s4) s4.innerHTML = '<h2>4 · Actions</h2><p>Review Conversion vs Target · Waste · Run days · Owner / Deadline in To-Do.</p>';
+    }
+  }catch(e){}
+  if(typeof toast==='function') toast(b.report || b.out ? ('MRM data ready for '+b.label) : ('No MetCost save for '+(b.ym||'')+' — save month in MetCost Pro first'));
+};
+
+window.downloadMrmPptx = async function(){
+  const b = _mrmGetMonthBundle();
+  if(!b.ym){ toast('Select a month'); return; }
+  if(!b.report && !b.out && !(b.rows && b.rows.length)){
+    toast('No MetCost data for '+b.ym+' — Process/Apply & Save month first');
+    return;
+  }
+  if(typeof PptxGenJS === 'undefined'){
+    toast('PPT library not loaded — check network / CDN');
+    return;
+  }
+  try{
+    const pptx = new PptxGenJS();
+    let _mrmLogo = '';
+    try{
+      for(let i=0;i<localStorage.length;i++){
+        const k = localStorage.key(i);
+        if(k && k.indexOf('mp_logo_mgr:')===0){ _mrmLogo = localStorage.getItem(k)||''; break; }
+      }
+      if(!_mrmLogo) _mrmLogo = sessionStorage.getItem('mp_logo_session')||'';
+    }catch(e){}
+    // Match plant template aspect (~13.33 x 7.5 is 16:9; template ~10"x7.5" landscape EMU ratio)
+    pptx.defineLayout({ name:'MRM', width:13.333, height:7.5 });
+    pptx.layout = 'MRM';
+    pptx.author = 'MetCost Pro';
+    pptx.title = 'Metallizer Performance Review '+b.label;
+
+    const n = (v,d)=>{
+      if(v==null||v==='') return '';
+      const x = Number(String(v).replace(/,/g,''));
+      if(!isFinite(x)) return String(v);
+      if(d===0) return Math.round(x).toLocaleString('en-IN');
+      return x.toFixed(d!=null?d:2);
+    };
+    const num = (v)=>{
+      if(v==null||v==='') return null;
+      const x = Number(String(v).replace(/,/g,''));
+      return isFinite(x) ? x : null;
+    };
+    const rowFind = (keys)=>{
+      for(const k of keys){
+        const r = (b.rows||[]).find(x => String(x[0]||'').toLowerCase().indexOf(k.toLowerCase())>=0);
+        if(r) return r;
+      }
+      return null;
+    };
+    const cell = (keys, col)=>{
+      const r = rowFind(keys);
+      return r ? r[col] : null;
+    };
+    const outKg = num(b.out);
+    const outMT = outKg!=null ? outKg/1000 : null;
+    const wastePct = num(b.wastePct);
+    const bPct = num(b.bPct);
+    const convA = num(b.conv);
+    const convE = num(cell(['Conversion Cost ₹/kg','Conversion Cost'], 2));
+    const convT = num(cell(['Conversion Cost ₹/kg','Conversion Cost'], 3));
+    const wireKg = num(b.totals.wireKg);
+    const boatPcs = num(b.totals.boatPcs);
+    const wirePerMT = (wireKg!=null && outMT) ? wireKg/outMT : null;
+    const boatPerMT = (boatPcs!=null && outMT) ? boatPcs/outMT : null;
+    const powerUnits = num(b.extras.powerUnits);
+    const powerPerKg = (powerUnits!=null && outKg) ? powerUnits/outKg : null;
+    const wasteKg = num(b.totals.wasteKg);
+    const bKg = num(b.totals.bGradeKg);
+    const barePct = num(b.totals.barePct) || num(cell(['Bare Film'],1));
+
+    // History for multi-month tracking (last 3 months ending selected)
+    const histMap = (typeof loadHistoryMap==='function') ? loadHistoryMap() : {};
+    const ymParts = (b.ym||'').split('-').map(Number);
+    const monthCols = [];
+    for(let i=2;i>=0;i--){
+      let y = ymParts[0], m = ymParts[1]-i;
+      while(m<=0){ m+=12; y--; }
+      const key = y+'-'+String(m).padStart(2,'0');
+      monthCols.push({ key, label: _mrmMonthLabel(key), h: histMap[key]||null });
+    }
+    const histVal = (h, fn)=>{
+      if(!h) return '';
+      try{ return fn(h); }catch(e){ return ''; }
+    };
+
+    const hdrFill = { color:'7F1D1D' };
+    const hdrColor = 'FFFFFF';
+    const accent = 'B91C1C';
+
+    // ═══ SLIDE 1 — Title (same as plant) ═══
+    let s = pptx.addSlide();
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:7.5, fill:{ color:'FFFFFF' } });
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:0.15, fill:{ color:accent } });
+    s.addText('MET/F/13', { x:11.2, y:0.35, w:1.8, h:0.3, fontSize:11, color:'64748B', align:'right' });
+    try{ if(_mrmLogo) s.addImage({ data:_mrmLogo, x:0.5, y:0.3, w:1.4, h:0.7 }); }catch(e){}
+    s.addText('Metallizer Performance Review '+b.label, {
+      x:0.6, y:3.0, w:12.1, h:0.8, fontSize:28, bold:true, color:'7F1D1D', align:'center'
+    });
+    s.addText('GLS Polyfilms', { x:0.6, y:3.9, w:12.1, h:0.4, fontSize:16, color:'334155', align:'center' });
+
+    // ═══ SLIDE 2 — Highlights / Low lights ═══
+    s = pptx.addSlide();
+    s.addText('Highlights', { x:0.5, y:0.3, w:12, h:0.4, fontSize:22, bold:true, color:accent });
+    const hiLines = [
+      '• No unsafe incidents reported. (update if needed)',
+      '• Met / Slit Output: '+(outMT!=null?n(outMT,1)+' MT':'—')+' ('+(outKg!=null?n(outKg,0)+' kg':'—')+')',
+      '• Wastage ended up with '+(wastePct!=null?n(wastePct,2)+'%':'—'),
+      '• B grade generation '+(bPct!=null?n(bPct,2)+'%':'—'),
+      '• Conversion Cost Actual '+(convA!=null?n(convA,2)+' ₹/kg':'—')+(convE!=null?' · Eqv '+n(convE,2):'')
+    ];
+    s.addText(hiLines.join('\n'), { x:0.5, y:0.85, w:12, h:2.8, fontSize:15, color:'1E293B', valign:'top' });
+    s.addText('Low lights', { x:0.5, y:3.9, w:12, h:0.35, fontSize:20, bold:true, color:accent });
+    const loLines = [
+      '• Review waste vs 1.0% target'+(wastePct!=null && wastePct>1?' (actual '+n(wastePct,2)+'%)':''),
+      '• B grade vs 0% target'+(bPct!=null?' (actual '+n(bPct,2)+'%)':''),
+      '• Conversion vs target'+(convT!=null?' (target '+n(convT,2)+' ₹/kg)':'')
+    ];
+    s.addText(loLines.join('\n'), { x:0.5, y:4.4, w:12, h:2.2, fontSize:15, color:'1E293B', valign:'top' });
+
+    // ═══ SLIDE 3 — Mixed Product Details (structure; values from eqv table if present) ═══
+    s = pptx.addSlide();
+    s.addText('Mixed Product Details', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    let mixRows = [[
+      {text:'Micron/OD', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.2', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.5', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'2.8', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Total (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Equv. (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}}
+    ]];
+    // Prefer state.eqv materials aggregated if available
+    try{
+      const eq = (state && state.eqv) ? state.eqv : [];
+      if(eq.length){
+        let tOut=0, tEq=0;
+        eq.forEach(r=>{
+          const out = num(r.output)||0;
+          const fac = num(r.factor)||1;
+          mixRows.push([String(r.material||''), '','','', n(out,1), n(out*fac,1)]);
+          tOut+=out; tEq+=out*fac;
+        });
+        mixRows.push([
+          {text:'Total', options:{bold:true}},
+          '','','',
+          {text:n(tOut,1), options:{bold:true}},
+          {text:n(tEq,1), options:{bold:true}}
+        ]);
+      } else {
+        // placeholder structure matching template
+        ['8','10','12','19','23','12 Mic. AlOx Coated','12 Mic Rele. Coated'].forEach(m=>{
+          mixRows.push([m,'','','','','']);
+        });
+        mixRows.push([{text:'Total',options:{bold:true}},'','','', outMT!=null?n(outMT,1):'', '']);
+      }
+    }catch(e){
+      mixRows.push(['Total','','','', outMT!=null?n(outMT,1):'','']);
+    }
+    s.addTable(mixRows, { x:0.35, y:0.8, w:12.6, colW:[3.2,1.6,1.6,1.6,2.3,2.3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:11, color:'0F172A' });
+    s.addText('Width & Length Eqv. from MetCost Equivalent table when available', { x:0.4, y:7.0, w:12, h:0.3, fontSize:10, color:'64748B' });
+
+    // ═══ SLIDE 4 — SB and Wastages ═══
+    s = pptx.addSlide();
+    s.addText('SB and Wastages', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    const wasteMT = wasteKg!=null ? wasteKg/1000 : null;
+    const bMT = bKg!=null ? bKg/1000 : null;
+    const wTgt = 1.0, bTgt = 0;
+    s.addTable([
+      [
+        {text:'Wastages-SAP', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'MTD (MT)', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'MTD%', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Target %', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Deviation%', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Remarks', options:{bold:true, fill:hdrFill, color:hdrColor}}
+      ],
+      ['Met Sheet Waste', n(wasteMT,1), n(wastePct,2), n(wTgt,1), wastePct!=null?n(wTgt-wastePct,2):'', 'From MetCost'],
+      ['Met Trim Waste','','','','',''],
+      ['Met Offcut Rolls','','','','',''],
+      ['B Grade', n(bMT,1), n(bPct,2), n(bTgt,0), bPct!=null?n(bTgt-bPct,2):'', 'From MetCost']
+    ], { x:0.3, y:0.85, w:12.7, colW:[2.8,1.6,1.4,1.5,1.7,3.7], border:[{pt:0.5,color:'CBD5E1'}], fontSize:11, color:'0F172A' });
+
+    // ═══ SLIDE 5 — Monthly Performance Tracking ═══
+    s = pptx.addSlide();
+    s.addText('Monthly Performance Tracking', { x:0.35, y:0.2, w:12, h:0.35, fontSize:18, bold:true, color:accent });
+    const mHdr = [{text:'Month', options:{bold:true, fill:hdrFill, color:hdrColor}}]
+      .concat(monthCols.map(c=>({text:c.label, options:{bold:true, fill:hdrFill, color:hdrColor}})));
+    const metricDefs = [
+      ['Met Feed/Input (MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Met Jumbo Production(MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Slitting Output(MT)', h=>{ const v=num((h.totals||{}).slitKg); return v!=null?n(v/1000,1):''; }],
+      ['Slitting Input(MT)', h=>{ const v=num((h.totals||{}).slitKg); const w=num((h.totals||{}).wasteKg); return (v!=null)?n((v+(w||0))/1000,1):''; }],
+      ['Met Waste Produced(%)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Wastage')>=0); return r?n(r[1],2):(h.totals&&h.totals.wastePctOverride!=null?n(h.totals.wastePctOverride,2):''); }],
+      ['B Grade Generated(%)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('B Grade')>=0); return r?n(r[1],2):''; }],
+      ['Slitting Output Equivalent(MT)', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Slit Production')>=0); const v=num(r&&r[2]); return v!=null?n(v/1000,1):''; }],
+      ['Al wire Consumption(Kg/MT)', h=>{ const w=num((h.totals||{}).wireKg); const o=num((h.totals||{}).slitKg); return (w!=null&&o)?n(w/(o/1000),1):''; }],
+      ['Evaporation Boat Consumption(Pc/MT)', h=>{ const w=num((h.totals||{}).boatPcs); const o=num((h.totals||{}).slitKg); return (w!=null&&o)?n(w/(o/1000),2):''; }],
+      ['Power Consumption(UPT)', h=>{ const p=num((h.extras||{}).powerUnits); const o=num((h.totals||{}).slitKg); return (p!=null&&o)?n(p/(o/1000),0):''; }],
+      ['Conversion Cost ₹/kg', h=>{ const r=(h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Conversion Cost ₹')>=0||String(x[0])==='Conversion Cost'); return r?n(r[1],2):''; }]
+    ];
+    const trackRows = [mHdr];
+    metricDefs.forEach(([name, fn])=>{
+      trackRows.push([name].concat(monthCols.map(c=> histVal(c.h, fn) || (c.key===b.ym && name.indexOf('Slitting Output(MT)')===0 && outMT!=null ? n(outMT,1) : (c.key===b.ym && name.indexOf('Conversion')===0 && convA!=null ? n(convA,2) : '')))));
+    });
+    // Force current month known values
+    trackRows.forEach(row=>{
+      if(row[0]==='Slitting Output(MT)' && outMT!=null) row[row.length-1]=n(outMT,1);
+      if(row[0]==='Met Waste Produced(%)' && wastePct!=null) row[row.length-1]=n(wastePct,2);
+      if(row[0]==='B Grade Generated(%)' && bPct!=null) row[row.length-1]=n(bPct,2);
+      if(row[0]==='Conversion Cost ₹/kg' && convA!=null) row[row.length-1]=n(convA,2);
+      if(row[0]==='Al wire Consumption(Kg/MT)' && wirePerMT!=null) row[row.length-1]=n(wirePerMT,1);
+      if(row[0]==='Evaporation Boat Consumption(Pc/MT)' && boatPerMT!=null) row[row.length-1]=n(boatPerMT,2);
+      if(row[0]==='Power Consumption(UPT)' && powerUnits!=null && outMT) row[row.length-1]=n(powerUnits/outMT,0);
+    });
+    s.addTable(trackRows, { x:0.25, y:0.6, w:12.8, colW:[4.4,2.8,2.8,2.8], border:[{pt:0.4,color:'CBD5E1'}], fontSize:10, color:'0F172A' });
+
+    // ═══ SLIDE 6 — Wastage Trend ═══
+    s = pptx.addSlide();
+    s.addText('Wastage-Trend', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    s.addText('% Non Usable Waste Generated (Met Sheet + Trim + Offcut)', { x:0.4, y:0.7, w:12, h:0.3, fontSize:12, color:'475569' });
+    const trendMonths = Object.keys(histMap).sort().slice(-12);
+    const wasteTrend = [['Month','% Waste']];
+    trendMonths.forEach(k=>{
+      const h = histMap[k];
+      const r = (h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('Wastage')>=0);
+      const v = r ? r[1] : (h.totals && h.totals.wastePctOverride);
+      wasteTrend.push([_mrmMonthLabel(k), v!=null?n(v,2):'']);
+    });
+    if(wasteTrend.length===1) wasteTrend.push([b.label, wastePct!=null?n(wastePct,2):'']);
+    s.addTable(wasteTrend, { x:0.5, y:1.1, w:6, colW:[3,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    if(trendMonths.length>=2){
+      try{
+        s.addChart(pptx.charts.LINE, {
+          x:6.8, y:1.1, w:6, h:5,
+          showTitle:false, showLegend:false,
+          categories: wasteTrend.slice(1).map(r=>r[0]),
+          series: [{ name:'% Waste', values: wasteTrend.slice(1).map(r=>num(r[1])||0) }]
+        });
+      }catch(e){}
+    }
+
+    // ═══ SLIDE 7 — Down gradation Trend ═══
+    s = pptx.addSlide();
+    s.addText('Down gradation Trend', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    const bTrend = [['Month','% Down Gradation']];
+    trendMonths.forEach(k=>{
+      const h = histMap[k];
+      const r = (h.report&&h.report.rows||[]).find(x=>String(x[0]).indexOf('B Grade')>=0);
+      bTrend.push([_mrmMonthLabel(k), r?n(r[1],2):'']);
+    });
+    if(bTrend.length===1) bTrend.push([b.label, bPct!=null?n(bPct,2):'']);
+    s.addTable(bTrend, { x:0.5, y:1.1, w:6, colW:[3,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    if(trendMonths.length>=2){
+      try{
+        s.addChart(pptx.charts.LINE, {
+          x:6.8, y:1.1, w:6, h:5,
+          showTitle:false, showLegend:false,
+          categories: bTrend.slice(1).map(r=>r[0]),
+          series: [{ name:'% B Grade', values: bTrend.slice(1).map(r=>num(r[1])||0) }]
+        });
+      }catch(e){}
+    }
+
+    // ═══ SLIDE 8 — Downtime Summary ═══
+    s = pptx.addSlide();
+    s.addText('Downtime Summary', { x:0.4, y:0.25, w:12, h:0.4, fontSize:20, bold:true, color:accent });
+    // Aggregate planned stoppages if present
+    let stop = [];
+    try{ stop = (b.report && b.report.stoppages) || (state && state.stoppages) || []; }catch(e){}
+    if(!stop.length){
+      try{
+        const h = histMap[b.ym];
+        if(h && h.stoppages) stop = h.stoppages;
+      }catch(e){}
+    }
+    let m1=0, m2=0, other=0;
+    (stop||[]).forEach(r=>{
+      const mins = num(r.minutes)||num(r.hours)*60||0;
+      const hrs = mins/60;
+      const m = String(r.machine||'').toUpperCase();
+      if(m.indexOf('1')>=0 || m.indexOf('M-1')>=0 || m==='MET-1') m1+=hrs;
+      else if(m.indexOf('2')>=0 || m.indexOf('M-2')>=0 || m==='MET-2') m2+=hrs;
+      else other+=hrs;
+    });
+    const totH = m1+m2+other;
+    const daysInMonth = (()=>{ const [y,m]=b.ym.split('-').map(Number); return new Date(y,m,0).getDate(); })();
+    s.addTable([
+      [
+        {text:'Machine', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Met-1', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Met-2', options:{bold:true, fill:hdrFill, color:hdrColor}},
+        {text:'Total', options:{bold:true, fill:hdrFill, color:hdrColor}}
+      ],
+      ['Total (Hours)', n(m1,1), n(m2,1), n(totH,1)],
+      ['Process (Hours)', '','',''],
+      ['Mechanical (Hours)', '','',''],
+      ['E & I / Electrical (Hours)', '','',''],
+      ['Power downtime (Hours)', '','',''],
+      ['NO FEED/RM, Planned SD (Hours)', n(m1,1), n(m2,1), n(totH,1)],
+      ['No Order (Hours)', '0.0','0.0','0.0'],
+      ['No of Days (Downtime)', n(m1/24,1), n(m2/24,1), n(totH/24,1)],
+      ['Run Days', n(daysInMonth - m1/24,1), n(daysInMonth - m2/24,1), n(daysInMonth - totH/24,1)]
+    ], { x:0.4, y:0.85, w:12.5, colW:[4.5,2.6,2.6,2.8], border:[{pt:0.5,color:'CBD5E1'}], fontSize:12, color:'0F172A' });
+    s.addText('Planned stoppage minutes from MetCost → hours. Split Process/Mech/E&I when logged by reason.', { x:0.4, y:6.9, w:12, h:0.3, fontSize:10, color:'64748B' });
+
+    // ═══ SLIDE 9 — Conversion Cost (exact template layout) ═══
+    s = pptx.addSlide();
+    const costOrder = [
+      'Slit Production',
+      'Wastage %',
+      'B Grade %',
+      'Bare Film',
+      'Wire',
+      'Boat',
+      'Raw Material',
+      'Wastage',
+      'B Grade (Loss)',
+      'Manpower',
+      'Power',
+      'Cons',
+      'Indirect',
+      'Conversion Cost',
+      'Total Cost',
+      'Packing',
+      'Total with Packing'
+    ];
+    const costTable = [[
+      {text:'Conversion Cost:', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Actual', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Equivalent', options:{bold:true, fill:hdrFill, color:hdrColor}},
+      {text:'Target', options:{bold:true, fill:hdrFill, color:hdrColor}}
+    ]];
+    // Prefer full report rows in order
+    const used = new Set();
+    (b.rows||[]).forEach(r=>{
+      const name = String(r[0]||'');
+      if(!name || name==='Parameter') return;
+      costTable.push([
+        name,
+        r[1]===''||r[1]==null?'': (typeof r[1]==='number'?n(r[1],2):String(r[1])),
+        r[2]===''||r[2]==null?'': (typeof r[2]==='number'?n(r[2],2):String(r[2])),
+        r[3]===''||r[3]==null?'': (typeof r[3]==='number'?n(r[3],2):String(r[3]))
+      ]);
+      used.add(name);
+    });
+    if(costTable.length===1){
+      costTable.push(['Slit Production (Exc. 5 & 6 Grade)', outKg!=null?n(outKg,0):'', '', '']);
+      costTable.push(['Wastage % Slitter', wastePct!=null?n(wastePct,2):'', '', '1.30']);
+      costTable.push(['B Grade %', bPct!=null?n(bPct,2):'', '', '0.00']);
+      costTable.push(['Conversion Cost', convA!=null?n(convA,2):'', convE!=null?n(convE,2):'', convT!=null?n(convT,2):'']);
+    }
+    s.addTable(costTable, { x:0.3, y:0.25, w:12.7, colW:[5.2,2.5,2.5,2.5], border:[{pt:0.4,color:'CBD5E1'}], fontSize:10, color:'0F172A' });
+
+    // ═══ SLIDE 10 — Target next month ═══
+    s = pptx.addSlide();
+    // next month label
+    let ny=ymParts[0], nm=ymParts[1]+1; if(nm>12){ nm=1; ny++; }
+    const nextLabel = _mrmMonthLabel(ny+'-'+String(nm).padStart(2,'0'));
+    s.addText('Target for the Next Month of '+nextLabel, { x:0.4, y:0.3, w:12, h:0.45, fontSize:20, bold:true, color:accent });
+    let targets = [];
+    try{ targets = (state && state.targets && state.targets.length) ? state.targets : []; }catch(e){}
+    if(!targets.length){
+      targets = [
+        {param:'Slitting Output(MT) (Equivalent 12 MIC 2.2 OD)', target:'', unit:'MT'},
+        {param:'Number of Run Days', target:'', unit:'days'},
+        {param:'Running Time (Hours/Machine/Day)', target:'', unit:'hrs'},
+        {param:'Met Waste(%)', target:1.0, unit:'%'},
+        {param:'B Grade Generation(%)', target:0.1, unit:'%'},
+        {param:'Overall Efficiency(%)', target:98.9, unit:'%'},
+        {param:'Conversion Cost ₹/kg', target: convT!=null?convT:6.55, unit:'₹/kg'}
+      ];
+    }
+    s.addTable([
+      [{text:'Parameter', options:{bold:true, fill:hdrFill, color:hdrColor}},{text:'Target', options:{bold:true, fill:hdrFill, color:hdrColor}}],
+      ...targets.map(tr=>[tr.param, tr.target===''||tr.target==null?'':String(tr.target)])
+    ], { x:0.5, y:0.95, w:12, colW:[9,3], border:[{pt:0.5,color:'CBD5E1'}], fontSize:13, color:'0F172A' });
+
+    // ═══ SLIDE 11 — Thanks ═══
+    s = pptx.addSlide();
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:7.5, fill:{ color:'FFFFFF' } });
+    s.addShape(pptx.shapes.RECTANGLE, { x:0, y:0, w:13.333, h:0.15, fill:{ color:accent } });
+    try{ if(_mrmLogo) s.addImage({ data:_mrmLogo, x:5.9, y:1.8, w:1.5, h:0.9 }); }catch(e){}
+    s.addText('Thanks', { x:0.6, y:3.2, w:12.1, h:0.7, fontSize:36, bold:true, color:accent, align:'center' });
+    s.addText('Generated from MetCost Pro · '+b.label, { x:0.6, y:4.1, w:12.1, h:0.35, fontSize:12, color:'64748B', align:'center' });
+
+    await pptx.writeFile({ fileName: 'Met_Presentation_Monthly_Review_'+b.ym+'.pptx' });
+    toast('Downloaded Met_Presentation_Monthly_Review_'+b.ym+'.pptx');
+  }catch(err){
+    console.error(err);
+    toast('PPT error: '+(err && err.message ? err.message : err));
+  }
+};
+
+
+window.setAppMode = function(mode){
+  const met = mode !== 'mrm';
+  document.getElementById('view-metcost').classList.toggle('on', met);
+  document.getElementById('view-mrm').classList.toggle('on', !met);
+  document.getElementById('btnModeMet').classList.toggle('on', met);
+  document.getElementById('btnModeMrm').classList.toggle('on', !met);
+  try{ sessionStorage.setItem('mrskill_mode', met ? 'metcost' : 'mrm'); }catch(e){}
+  if(!met){ try{ refreshMrmFromHistory(); }catch(e){} }
+};
+
+let _mrmSi = 0;
+window.startMrmSlides = function(){
+  document.getElementById('mrmHome').style.display = 'none';
+  document.getElementById('mrmSlides').style.display = 'block';
+  document.getElementById('mrmNav').style.display = 'flex';
+  mrmShow(0);
+};
+window.endMrmSlides = function(){
+  document.getElementById('mrmHome').style.display = 'block';
+  document.getElementById('mrmSlides').style.display = 'none';
+  document.getElementById('mrmNav').style.display = 'none';
+};
+function mrmShow(i){
+  const slides = [...document.querySelectorAll('#mrmSlides .slide')];
+  _mrmSi = Math.max(0, Math.min(slides.length-1, i));
+  slides.forEach((s,n)=> s.style.display = n===_mrmSi ? 'block' : 'none');
+}
+window.mrmNext = function(){ mrmShow(_mrmSi+1); };
+window.mrmPrev = function(){ mrmShow(_mrmSi-1); };
+window.refreshMrmFromHistory = function(){
+  const ym = (typeof monthKey === 'function') ? monthKey() : (document.getElementById('reportMonth').value||'');
+  document.getElementById('mrmMonth').textContent = ym || '—';
+  let conv = '—', out = '—';
+  try{
+    const map = (typeof loadHistoryMap === 'function') ? loadHistoryMap() : {};
+    const h = map[ym];
+    if(h && h.report && h.report.rows){
+      const row = h.report.rows.find(r => String(r[0]).indexOf('Conversion Cost') === 0);
+      if(row && row[1] != null) conv = Number(row[1]).toFixed(2);
+      if(h.totals && h.totals.slitKg) out = Number(h.totals.slitKg).toFixed(0);
+    } else if(state && state.report && state.report.rows){
+      const row = state.report.rows.find(r => String(r[0]).indexOf('Conversion Cost') === 0);
+      if(row && row[1] != null) conv = Number(row[1]).toFixed(2);
+      if(state.totals && state.totals.slitKg) out = Number(state.totals.slitKg).toFixed(0);
+    }
+  }catch(e){}
+  document.getElementById('mrmConv').textContent = conv;
+  document.getElementById('mrmOut').textContent = out;
+  document.getElementById('mrmSlideConv').textContent = (conv !== '—' ? conv + ' ₹/kg' : '— ₹/kg');
+};
+
+// Boot mode from query ?mode=mrm|metcost
+(function bootMode(){
+  let mode = 'metcost';
+  try{
+    const q = new URLSearchParams(location.search);
+    if(q.get('mode') === 'mrm' || q.get('mode') === 'mrmpres') mode = 'mrm';
+    else if(q.get('mode') === 'metcost') mode = 'metcost';
+    else {
+      const s = sessionStorage.getItem('mrskill_mode');
+      if(s === 'mrm') mode = 'mrm';
+    }
+  }catch(e){}
+  setAppMode(mode);
+})();
+})();
+</script>
+</body>
+</html>
