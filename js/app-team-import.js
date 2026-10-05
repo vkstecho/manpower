@@ -2145,15 +2145,15 @@ function openEditInstructions(){
   let sectionsHTML = sections.map(([key, sec])=>`
     <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <input value="${escHtml(sec.title||'')}" id="isec_title_${key}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:#fff;font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
+        <input value="${escHtml(sec.title||'')}" id="isec_title_${key}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
         <button onclick="deleteInstSection('${key}')" style="background:rgba(244,63,94,.15);border:none;color:#f43f5e;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:6px">🗑️</button>
       </div>
       <div id="isec_items_${key}">
         ${(sec.items||[]).map((item,i)=>`
           <div style="display:flex;gap:6px;margin-bottom:6px;align-items:flex-start" id="iitem_${key}_${i}">
-            <input value="${item.icon||''}" id="iicon_${key}_${i}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px;color:#fff;font-size:13px;width:44px;text-align:center;flex-shrink:0;font-family:inherit" placeholder="🔧">
+            <input value="${item.icon||''}" id="iicon_${key}_${i}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-size:13px;width:44px;text-align:center;flex-shrink:0;font-family:inherit" placeholder="🔧">
             <div style="flex:1">
-              <input value="${(item.text||'').replace(/"/g,'&quot;')}" id="itext_${key}_${i}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:#fff;font-size:12px;width:100%;margin-bottom:4px;font-family:inherit" placeholder="नियम लिखें...">
+              <input value="${(item.text||'').replace(/"/g,'&quot;')}" id="itext_${key}_${i}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-size:12px;width:100%;margin-bottom:4px;font-family:inherit" placeholder="नियम लिखें...">
               <input value="${(item.note||'').replace(/"/g,'&quot;')}" id="inote_${key}_${i}" style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--muted2);font-size:11px;width:100%;font-family:inherit" placeholder="Note (optional)">
             </div>
             <button onclick="removeInstItem('${key}',${i})" style="background:none;border:none;color:#f43f5e;cursor:pointer;font-size:16px;padding:4px;flex-shrink:0;margin-top:2px">✕</button>
@@ -2184,9 +2184,9 @@ function addInstItem(sectionKey){
   div.style.cssText = 'display:flex;gap:6px;margin-bottom:6px;align-items:flex-start';
   div.id = `iitem_${sectionKey}_${i}`;
   div.innerHTML = `
-    <input id="iicon_${sectionKey}_${i}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px;color:#fff;font-size:13px;width:44px;text-align:center;flex-shrink:0;font-family:inherit" placeholder="🔧">
+    <input id="iicon_${sectionKey}_${i}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-size:13px;width:44px;text-align:center;flex-shrink:0;font-family:inherit" placeholder="🔧">
     <div style="flex:1">
-      <input id="itext_${sectionKey}_${i}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 8px;color:#fff;font-size:12px;width:100%;margin-bottom:4px;font-family:inherit" placeholder="नियम लिखें...">
+      <input id="itext_${sectionKey}_${i}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 8px;color:var(--text);font-size:12px;width:100%;margin-bottom:4px;font-family:inherit" placeholder="नियम लिखें...">
       <input id="inote_${sectionKey}_${i}" style="background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:5px 8px;color:var(--muted2);font-size:11px;width:100%;font-family:inherit" placeholder="Note (optional)">
     </div>
     <button onclick="this.closest('[id^=iitem_]').remove()" style="background:none;border:none;color:#f43f5e;cursor:pointer;font-size:16px;padding:4px;flex-shrink:0;margin-top:2px">✕</button>`;
@@ -2211,7 +2211,7 @@ function addInstSection(){
   div.style.cssText = 'background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px';
   div.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <input placeholder="📌 Section का नाम" id="isec_title_${newKey}" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:#fff;font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
+      <input placeholder="📌 Section का नाम" id="isec_title_${newKey}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
       <button onclick="this.closest('[style*=border-radius]').remove()" style="background:rgba(244,63,94,.15);border:none;color:#f43f5e;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:6px">🗑️</button>
     </div>
     <div id="isec_items_${newKey}"></div>
@@ -2910,7 +2910,7 @@ const _i18n_HI_EN = {
   'कोई छुट्टी पेंडिंग नहीं':                'No leaves pending',
   'कोई नया रजिस्ट्रेशन नहीं':                'No new registrations',
   'कोई रिपोर्ट नहीं':                        'No reports',
-  'कोई रिपोर्ट पेंडिंग नहीं':                'No reports pending',
+  '${L('कोई रिपोर्ट पेंडिंग नहीं','No reports pending')}':                'No reports pending',
   'छुट्टी का प्रकार':                        'Leave Type',
   'जल्द आ रहा है!':                          'Coming soon!',
   'ज़िम्मेदारी':                              'Responsibility',

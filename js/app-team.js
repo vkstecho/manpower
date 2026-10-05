@@ -49,7 +49,7 @@ function _renderTeamImpl(search=''){
   _renderDynamicChips('teamFilter', _buildTeamSectionChips(), _teamSec, 'setTeamSec');
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
     ? `<div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ नया कर्मचारी जोड़ें</button>
+        <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ ${L("नया कर्मचारी जोड़ें","Add employee")}</button>
         <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 Excel से Team Import','📊 Import Team from Excel')}</button>
       </div>${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी Members Delete करें (OTP verify)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
 
@@ -173,7 +173,7 @@ function _renderTeamImpl(search=''){
         <div class="card-row">
           ${avatarHtml}
           <div class="card-body">
-            <div class="card-name">${escHtml(e.name)}${isMe?' <span style="font-size:10px;color:var(--m1)">(आप)</span>':''}</div>
+            <div class="card-name">${escHtml(e.name)}${isMe?' <span style="font-size:10px;color:var(--m1)">${L("(आप)","(You)")}</span>':''}</div>
             <div class="card-sub">${escHtml(e.empId||'—')} · ${e.mc||'—'} · ${e.resp||'—'}${e.designation?` · <span style="color:var(--desig-color,#7c3aed)">${escHtml(e.designation)}</span>`:''}</div>
             <div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span class="shc ${cellClass(sh)}">${cellDisp(sh)}</span>
@@ -203,7 +203,7 @@ function _renderTeamImpl(search=''){
   }
 
   const el = document.getElementById('teamList');
-  el.innerHTML = html || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">कोई कर्मचारी नहीं मिला</div></div>';
+  el.innerHTML = html || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">${L("कोई कर्मचारी नहीं मिला","No employees found")}</div></div>';
 
   // ── Left / Resigned Members Section ──
   // Merge: firebase leftEmployees path + status='resigned' employees from main table
@@ -284,7 +284,7 @@ function renderSalaryCost(){
   if(!monthInput || !tableEl) return;
 
   const monthVal = monthInput.value;
-  if(!monthVal){ tableEl.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted2)">Month चुनें</div>'; return; }
+  if(!monthVal){ tableEl.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted2)">${L("Month चुनें","Select month")}</div>'; return; }
 
   const [yr, mo] = monthVal.split('-').map(Number);
   const daysInMonth = new Date(yr, mo, 0).getDate();
@@ -730,7 +730,7 @@ async function adminExtendExpiry(empId, empName, days){
 }
 
 async function adminRemoveDevice(empId, empName){
-  const ok = await confirmModal('Device हटाएं?', `<b>${empName}</b> का device हटाया जाएगा।<br>Login के लिए Admin approval लेनी होगी।`, '🗑️ हाँ, हटाएं', 'रद्द करें');
+  const ok = await confirmModal(L('Device हटाएं?','Remove device?'), `<b>${empName}</b> ${L('का device हटाया जाएगा।<br>Login के लिए Admin approval लेनी होगी।','device will be removed.<br>Admin approval will be needed to login.')}`, L('🗑️ हाँ, हटाएं','🗑️ Yes, Remove'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
     await fbUpdate('deviceApprovals/'+empId,{
@@ -743,7 +743,7 @@ async function adminRemoveDevice(empId, empName){
 }
 
 async function adminRevokeAccess(empId, empName){
-  const ok = await confirmModal('Access Revoke करें?', `<b>${empName}</b> की App access revoke होगी।<br>वो login नहीं कर पाएंगे।`, '🚫 हाँ, Revoke करें', 'रद्द करें');
+  const ok = await confirmModal(L('Access Revoke करें?','Revoke access?'), `<b>${empName}</b> ${L('की App access revoke होगी।<br>वो login नहीं कर पाएंगे।','app access will be revoked.<br>They will not be able to login.')}`, L('🚫 हाँ, Revoke करें','🚫 Yes, Revoke'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
     await fbUpdate('userApprovals/'+empId,{
@@ -793,7 +793,7 @@ function showEmpNcrs(empId){
       <div style="width:42px;height:42px;border-radius:10px;background:rgba(244,63,94,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚠️</div>
       <div>
         <div style="font-size:17px;font-weight:900;color:#fff">${escHtml(emp.name)}</div>
-        <div style="font-size:12px;color:var(--lv)">कुल ${ncrs.length} NCR दर्ज हैं</div>
+        <div style="font-size:12px;color:var(--lv)">${L("कुल","Total")} ${ncrs.length} NCR दर्ज हैं</div>
       </div>
     </div>
     <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
@@ -883,7 +883,7 @@ function openEmpUploadWizard(){
       style="border:2px dashed rgba(249,115,22,.4);border-radius:14px;padding:24px;text-align:center;cursor:pointer;background:rgba(249,115,22,.04);margin-bottom:12px"
       ondragover="event.preventDefault()" ondrop="_empUploadDrop(event)">
       <div style="font-size:32px;margin-bottom:8px">📁</div>
-      <div style="font-size:14px;font-weight:800;color:#f97316">File चुनें या यहाँ Drop करें</div>
+      <div style="font-size:14px;font-weight:800;color:#f97316">${L("File चुनें या यहाँ Drop करें","Choose file or drop here")}</div>
       <div style="font-size:11px;color:var(--muted2);margin-top:4px">.xlsx, .xls, .csv supported</div>
     </div>
     <input type="file" id="empUploadFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="_empUploadFileChosen(this)">

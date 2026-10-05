@@ -673,7 +673,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMetTrainView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
       <button type="button" onclick="closeLearnSection()" aria-label="Back"
-        style="background:rgba(249,115,22,.2);border:2px solid rgba(251,146,60,.85);border-radius:10px;padding:8px 14px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.35)">← वापस</button>
+        style="background:rgba(249,115,22,.15);border:2px solid #ea580c;border-radius:10px;padding:8px 14px;color:#c2410c;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.35)">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px">⚙️</span>
         <div>
@@ -704,7 +704,7 @@ window.addEventListener('appinstalled', function () {
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111518;border-bottom:1px solid rgba(0,180,160,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00b4a0,#e8a200)"></div>
-      <button onclick="window.closeSupSkill()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="window.closeSupSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 30 30" fill="none">
           <circle cx="15" cy="15" r="11" stroke="#00b4a0" stroke-width="1.4" opacity=".5"/>
@@ -740,7 +740,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ MS & AI HUB VIEW ════ -->
   <div id="learnMSAIView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
     <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(56,189,248,.2);flex-shrink:0;">
-      <button onclick="closeMSAI()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMSAI()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">🤖 MS & AI — Fast Growth</div>
         <div style="font-size:10px;color:rgba(255,255,255,.45)">Excel · Word · PowerPoint · AI Tools</div>
@@ -800,7 +800,7 @@ window.addEventListener('appinstalled', function () {
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#065f46;border-bottom:1px solid rgba(34,197,94,.4);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981,#059669)"></div>
-      <button onclick="closeExcelExpert()" style="background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeExcelExpert()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:22px">📊</span>
         <div>
@@ -826,7 +826,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ COMING SOON VIEW ════ -->
   <div id="learnComingSoonView" style="display:none;padding:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-      <button onclick="closeLearnSection()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnSection()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
     </div>
     <div style="text-align:center;padding:40px 20px">
       <div id="learnCSIcon" style="font-size:64px;margin-bottom:16px"></div>
@@ -846,12 +846,12 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ MR SKILL HUB VIEW ════ -->
   <div id="learnMRSkillView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
     <div id="mrSkillHubHeader" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(220,38,38,.2);flex-shrink:0;">
-      <button onclick="closeMRSkill()" style="background:rgba(255,255,255,.08);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMRSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="flex:1;min-width:0">
         <div style="font-size:16px;font-weight:900;color:#ef4444">🔑 MR Skill Hub</div>
         <div style="font-size:10px;color:rgba(255,255,255,.45)">MetCost Pro · MRM Presentation</div>
       </div>
-      <button type="button" id="mrSkillThemeBtn" onclick="toggleMRSkillTheme()" title="Light / Dark" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:10px;padding:8px 12px;color:#fff;font-size:16px;cursor:pointer;font-family:inherit;flex-shrink:0">🌙</button>
+      <button type="button" id="mrSkillThemeBtn" onclick="toggleMRSkillTheme()" title="Light / Dark" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-size:16px;cursor:pointer;font-family:inherit;flex-shrink:0">🌙</button>
     </div>
     <div style="padding:16px;display:flex;flex-direction:column;gap:14px;">
 
@@ -884,7 +884,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMetCostView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(168,85,247,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#a855f7,#0ea5e9)"></div>
-      <button onclick="closeMetCostPro()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMetCostPro()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 30 30" fill="none"><rect x="4" y="8" width="22" height="16" rx="3" stroke="#c084fc" stroke-width="1.4" opacity=".6"/><path d="M8 18L12 14L16 16L22 11" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="11" r="2" fill="#22c55e"/></svg>
         <div>
@@ -913,7 +913,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMRMPresView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(239,68,68,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b)"></div>
-      <button onclick="closeMRMPres()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMRMPres()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:22px">📊</div>
         <div>
@@ -938,7 +938,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnKPIDashboardView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(34,197,94,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981)"></div>
-      <button onclick="closeKPIDashboard()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeKPIDashboard()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:22px">📊</span>
         <div>
@@ -967,7 +967,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnTimeStudyView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(13,148,136,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0d9488,#06b6d4)"></div>
-      <button onclick="closeTimeStudy()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 13px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeTimeStudy()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
         <div>
@@ -997,7 +997,7 @@ window.addEventListener('appinstalled', function () {
 
     <!-- Module Header -->
     <div style="padding:14px 14px 0;display:flex;align-items:center;gap:10px">
-      <button onclick="closeLearnModule()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
       <div>
         <div id="moduleTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
         <div id="moduleSubtitle" style="font-size:11px;color:var(--muted2)"></div>
@@ -1034,7 +1034,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ CAREER BOOST VIEW ════ -->
   <div id="careerBoostView" style="display:none;padding:14px 14px 30px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="closeCareerBoost()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeCareerBoost()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
       <div>
         <div id="careerBoostTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
         <div id="careerBoostSub" style="font-size:11px;color:var(--muted2)"></div>
@@ -1064,7 +1064,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ ABOUT / DEDICATION VIEW ════ -->
   <div id="learnAboutView" style="display:none;padding:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="closeLearnModule()" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:6px 12px;color:#fff;font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
       <div style="font-size:16px;font-weight:900;color:#fbbf24">🙏 About & Dedication</div>
     </div>
     <div id="aboutContent"></div>
@@ -1127,7 +1127,7 @@ window.addEventListener('appinstalled', function () {
 <div class="overlay" id="excelUploadOverlay" onclick="closeExcelUpload()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title">📤 Excel से Shift Schedule अपलोड करें</div>
+    <div class="modal-title">📤 Upload Shift Schedule from Excel</div>
     <p style="font-size:13px;color:var(--muted2);margin-bottom:10px;line-height:1.55">
       <span style="color:var(--green)">✅</span> Download the template (10 sample employees + dates + Hindi/English notes). Edit, then drop the file below. Live data: use Schedule <b>Download Excel</b>.
     </p>
@@ -1146,7 +1146,7 @@ window.addEventListener('appinstalled', function () {
     </div>
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this.files[0])">
     <div id="excelUploadStatus" style="display:none;background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--text)"></div>
-    <button class="cancel-btn" onclick="closeExcelUpload()">बंद करें</button>
+    <button class="cancel-btn" onclick="closeExcelUpload()">Close</button>
   </div>
 </div>
 
@@ -1204,7 +1204,7 @@ window.addEventListener('appinstalled', function () {
     </div>
     <div id="smsTestStatus" style="display:none;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px"></div>
     <button class="submit-btn" onclick="saveSmsSettings()">💾 Settings Save करें</button>
-    <button class="cancel-btn" onclick="closeSmsSettings()">बंद करें</button>
+    <button class="cancel-btn" onclick="closeSmsSettings()">Close</button>
   </div>
 </div>
 
@@ -1218,7 +1218,7 @@ window.addEventListener('appinstalled', function () {
 <div class="overlay" id="teamExcelOverlay" onclick="closeTeamExcelUpload()">
   <div class="modal" onclick="event.stopPropagation()" style="max-height:95vh">
     <div class="modal-handle"></div>
-    <div class="modal-title">📤 Excel से Team Data Update करें</div>
+    <div class="modal-title">📤 Update Team Data from Excel</div>
     <div style="background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.2);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--muted2);line-height:1.55">
       <div style="font-weight:900;color:#fff;margin-bottom:8px">📌 Team Excel format (snapshot guide)</div>
       <div style="font-size:11px;margin-bottom:8px">Row 1 = headers. Example — same style as your sheet:</div>
@@ -1288,7 +1288,7 @@ window.addEventListener('appinstalled', function () {
     </div>
     <input type="file" id="teamExcelFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleTeamExcelFile(this.files[0])">
     <div id="teamExcelPreview" style="display:none"></div>
-    <button class="cancel-btn" onclick="closeTeamExcelUpload()">बंद करें</button>
+    <button class="cancel-btn" onclick="closeTeamExcelUpload()">Close</button>
   </div>
 </div>
 

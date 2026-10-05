@@ -1652,11 +1652,11 @@ function openManageLearnButtons(){
       <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
         <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">➕ नया Button जोड़ें</div>
         <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input id="lb_icon" placeholder="🎬" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:8px;color:#fff;font-size:18px;width:50px;text-align:center;flex-shrink:0;font-family:inherit">
-          <input id="lb_label" placeholder="Button का नाम (जैसे: Safety Video)" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;flex:1;font-family:inherit">
+          <input id="lb_icon" placeholder="🎬" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px;color:var(--text);font-size:18px;width:50px;text-align:center;flex-shrink:0;font-family:inherit">
+          <input id="lb_label" placeholder="Button का नाम (जैसे: Safety Video)" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;flex:1;font-family:inherit">
         </div>
-        <input id="lb_url" placeholder="https://... (YouTube, Drive, WhatsApp link)" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;width:100%;margin-bottom:8px;font-family:inherit">
-        <select id="lb_color" style="background:rgba(255,255,255,.08);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;width:100%;font-family:inherit">
+        <input id="lb_url" placeholder="https://... (YouTube, Drive, WhatsApp link)" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;width:100%;margin-bottom:8px;font-family:inherit">
+        <select id="lb_color" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;color:var(--text);font-size:13px;width:100%;font-family:inherit">
           <option value="#f97316">🟠 Orange</option>
           <option value="#3b82f6">🔵 Blue</option>
           <option value="#10b981">🟢 Green</option>
