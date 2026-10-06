@@ -1,36 +1,26 @@
-# Pay until → PERMISSION_DENIED fix (v2.5.63)
+# Pay until → PERMISSION_DENIED (v2.5.64)
 
-## What you saw
-- Save → `PERMISSION_DENIED` on `mobileUsers/8168771239`
-- Modal still said “No paid-until saved yet”
-- Manager still got **Pay ₹999** popup
+## Hard-admin
+**Only** `+918929397949` is hard-admin in rules + config.  
+`8168771239` is a **manager** number (payment target), not admin.
 
-## Cause
-Firebase only allows writing **other users’** `mobileUsers/{phone}` if the signed-in **Auth** is:
+## Why error on 8168771239?
+Firebase path was `mobileUsers/8168771239` — that is **Vivek’s record being updated**, not “Vivek is admin”.
 
-1. Custom claim `admin: true`, **or**
-2. Hard-admin phone (`+918929397949` or `+918168771239`), **or**
-3. `admins/{auth.uid} === true`, **or**
-4. `mobileUsers/{yourPhone}.role === "admin"`
+Write is allowed only if the **signed-in Admin** is:
+1. Phone OTP as `+918929397949`, or
+2. `mobileUsers/{adminPhone}/role = "admin"`, or
+3. `admins/{uid} = true`, or
+4. custom claim `admin: true`
 
-UI “ADMIN” alone is not enough. Device-password / anonymous session also fails.
+If Admin logged in with device password / wrong phone / no OTP, write to **any** manager path (including 8168771239) fails with PERMISSION_DENIED.
 
-## App fix (2.5.63)
-1. Saves to **`paymentStatus/{phone}`** first (new rules path), then best-effort `mobileUsers`.
-2. Login / payment gate reads **both** paths.
-3. Modal prefill reads **both** paths.
-4. Rules: `paymentStatus` node + hard-admin phones include Vivek’s number.
+## App behaviour (2.5.63+)
+- Saves `paymentStatus/{phone}` first, then best-effort `mobileUsers/{phone}`
+- Gate reads both paths
+- Manager phones are **not** listed in rules — `$phone` is a wildcard
 
-## You must deploy rules
-In Firebase Console → Realtime Database → Rules, deploy the updated `database.rules.json` from this package (or merge the `paymentStatus` block).
-
-## Then
-1. **Logout** → login again with **OTP** on hard-admin or `role=admin` phone  
-2. Team → Pay → set date → Save  
-3. Manager **logout/login** (or wait for hydrate) → Pay popup should stop until that date  
-
-### Quick Firebase Console check
-```
-paymentStatus/8168771239/paidUntil = (ISO date)
-paymentStatus/8168771239/paymentPaidUntilDate = "2027-11-05"
-```
+## Deploy
+1. Publish `database.rules.json` from this package
+2. Admin: logout → OTP on **8929397949** (or role=admin phone)
+3. Team → Pay for manager → Save
