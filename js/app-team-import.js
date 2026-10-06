@@ -1022,17 +1022,16 @@ async function saveEmployee(empId){
           }).catch(()=>{}));
           const oldPhone = _normMobileKey(mem.phone||mem.mobile||'');
           if(oldPhone && oldPhone !== phoneKey){
-            tasks.push(fbUpdate('mobileUsers/'+oldPhone, {
-              role: 'member',
-              accessLevel: 'worker',
-              managerId: phoneKey,
-              status: 'left_team',
-              leftAt: new Date().toISOString(),
-              leftReason: 'manager_transferred',
-              updatedAt: new Date().toISOString(),
-              demotedAt: new Date().toISOString(),
-              demotedReason: 'manager_transferred'
-            }).catch(()=>{}));
+            // Wipe so next login is fresh Manager/Member registration
+            tasks.push(fbRemove('mobileUsers/'+oldPhone).catch(()=>
+              fbSet('mobileUsers/'+oldPhone, {
+                status: 'removed',
+                role: 'removed',
+                forceFreshLogin: true,
+                clearedAt: new Date().toISOString(),
+                demotedReason: 'manager_transferred'
+              })
+            ));
           }
         });
         // Also scan mobileUsers cache for any other manager roles (not only employees)
@@ -1045,14 +1044,15 @@ async function saveEmployee(empId){
             if(!uk || uk === phoneKey) return;
             // same company if possible
             if(cid && u.company && _normCompanyId(u.company) !== cid && _normCompanyId(u.companyId||'') !== cid) return;
-            tasks.push(fbUpdate('mobileUsers/'+uk, {
-              role: 'member',
-              managerId: phoneKey,
-              status: u.status==='approved'?'approved':(u.status||'approved'),
-              updatedAt: new Date().toISOString(),
-              demotedAt: new Date().toISOString(),
-              demotedReason: 'manager_transferred'
-            }).catch(()=>{}));
+            tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
+              fbSet('mobileUsers/'+uk, {
+                status: 'removed',
+                role: 'removed',
+                forceFreshLogin: true,
+                clearedAt: new Date().toISOString(),
+                demotedReason: 'manager_transferred'
+              })
+            ));
           });
         }catch(ex){}
         if(phoneKey.length >= 10){

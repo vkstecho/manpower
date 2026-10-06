@@ -788,3 +788,36 @@ body.light .sched-card{color:#0f172a !important}
 body.light .muted,
 body.light .hint,
 body.light .sub{color:#475569 !important}
+
+
+/* Fingerprint screen — always readable (dark panel even in light theme) */
+#fingerprintScreen{
+  background:linear-gradient(160deg,#070c15 0%,#0d1623 45%,#130a24 100%) !important;
+}
+#fingerprintScreen .fp-title,
+#fingerprintScreen #fpTitle{
+  color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;
+}
+#fingerprintScreen .fp-sub,
+#fingerprintScreen #fpSub{
+  color:rgba(255,255,255,.75) !important;-webkit-text-fill-color:rgba(255,255,255,.75) !important;
+}
+#fingerprintScreen .fp-brand{color:#fff !important;-webkit-text-fill-color:#fff !important}
+#fingerprintScreen .fp-brand-sub{color:rgba(255,255,255,.55) !important}
+#fingerprintScreen .fp-skip{
+  color:#fb923c !important;-webkit-text-fill-color:#fb923c !important;
+  font-weight:800 !important;font-size:14px !important;
+  opacity:1 !important;text-decoration:underline;
+}
+#fingerprintScreen .fp-user-chip,
+#fingerprintScreen #fpUserName{
+  color:#fff !important;-webkit-text-fill-color:#fff !important;
+}
+body.light #fingerprintScreen .fp-skip{
+  color:#ea580c !important;-webkit-text-fill-color:#ea580c !important;
+}
+/* Fingerprint setup modal buttons */
+.fp-modal button,
+div.fp-modal button{
+  color:#fff !important;-webkit-text-fill-color:#fff !important;
+}

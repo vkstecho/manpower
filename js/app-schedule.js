@@ -210,20 +210,49 @@ async function adminSetAsManager(phone, name){
       updatedAt: new Date().toISOString(),
       promotedBy: (SESSION && SESSION.name) || 'admin'
     }));
-    // Demote other managers (same company if set)
+    // Old managers: leave team + wipe mobileUsers so next login = fresh Manager/Member register
     Object.entries(muAll).forEach(([k,u])=>{
       if(!u || String(u.role||'').toLowerCase()!=='manager') return;
       const uk = _normMobileKey(u.mobile||u.phone||k);
       if(!uk || uk===key) return;
       if(company && u.company && String(u.company)!==String(company) && String(u.companyId||'')!==String(company)) return;
-      tasks.push(fbUpdate('mobileUsers/'+uk, {
-        role: 'member',
-        managerId: key,
-        status: u.status==='approved'?'approved':(u.status||'approved'),
-        demotedAt: new Date().toISOString(),
-        demotedReason: 'manager_transferred',
-        updatedAt: new Date().toISOString()
-      }));
+      // Soft archive on employees if linked
+      try{
+        const emps = (_cache.employees||[]);
+        emps.forEach(e=>{
+          if(!e||!e.id) return;
+          const ep = _normMobileKey(e.phone||e.mobile||'');
+          if(ep!==uk) return;
+          tasks.push(fbUpdate('employees/'+e.id, {
+            status: 'left_team',
+            role: 'member',
+            accessLevel: 'worker',
+            managerId: key,
+            leftAt: new Date().toISOString(),
+            leftReason: 'manager_transferred',
+            active: false,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>{}));
+          tasks.push(fbSet('leftEmployees/'+e.id, {
+            ...e,
+            status: 'left_team',
+            leftAt: new Date().toISOString(),
+            leftReason: 'manager_transferred',
+            archivedAt: Date.now(),
+            removedBy: (SESSION && SESSION.name) || 'admin'
+          }).catch(()=>{}));
+        });
+      }catch(ex){}
+      // Remove mobileUsers so OTP treats them as brand-new
+      tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
+        fbSet('mobileUsers/'+uk, {
+          status: 'removed',
+          role: 'removed',
+          forceFreshLogin: true,
+          clearedAt: new Date().toISOString(),
+          demotedReason: 'manager_transferred'
+        })
+      ));
     });
     // Point roster managerId to new manager
     const emps = (_cache.employees||[]);
