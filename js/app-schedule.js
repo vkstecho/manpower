@@ -337,37 +337,85 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
   const ds = (document.getElementById('adm_pay_until')||{}).value || '';
   const amt = parseInt((document.getElementById('adm_pay_amount')||{}).value||'999',10) || 999;
   if(!ds){ toast(typeof L==='function'?L('Date चुनें','Select date'):'Select date'); return; }
-  const iso = new Date(ds+'T23:59:59.000Z').toISOString();
-  const mgrKey = (typeof _normMobileKey==='function'?_normMobileKey(key):String(key||'').replace(/\D/g,'').slice(-10));
+  // Local end-of-day so timezone does not push date back a day
+  const localEnd = new Date(ds + 'T23:59:59');
+  const iso = isNaN(localEnd.getTime()) ? new Date(ds+'T23:59:59.000Z').toISOString() : localEnd.toISOString();
+  const norm = (p)=> (typeof _normMobileKey==='function'?_normMobileKey(p):String(p||'').replace(/\D/g,'').slice(-10));
+  const mgrKey = norm(key);
+  if(!mgrKey || mgrKey.length!==10){
+    toast('⚠️ Invalid manager mobile: '+String(key));
+    return;
+  }
   const payload = {
     paymentAmount: amt,
     paymentPaidUntil: iso,
     paidUntil: iso,
+    paymentPaidUntilDate: ds,
     updatedAt: new Date().toISOString(),
     paymentUpdatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
   };
+
+  async function writeMu(phone){
+    const ph = norm(phone);
+    if(!ph || ph.length!==10) return {ok:false, ph, err:'bad phone'};
+    // Try update then set-merge so missing nodes still get fields
+    try{
+      await fbUpdate('mobileUsers/'+ph, payload);
+      return {ok:true, ph};
+    }catch(e1){
+      try{
+        const prev = await fbGet('mobileUsers/'+ph).catch(()=>null) || {};
+        await fbSet('mobileUsers/'+ph, Object.assign({}, prev, payload, {
+          mobile: ph, phone: ph,
+          name: prev.name || name || ph
+        }));
+        return {ok:true, ph};
+      }catch(e2){
+        return {ok:false, ph, err: (e2&&e2.message)||(e1&&e1.message)||'write failed'};
+      }
+    }
+  }
+
   try{
-    toast('⏳ Saving…');
+    toast('⏳ Saving paid-until…');
+    let okN = 0, failN = 0, fails = [];
+    // Always write manager self first
+    const r0 = await writeMu(mgrKey);
+    if(r0.ok) okN++; else { failN++; fails.push(r0.ph+': '+(r0.err||'')); }
+
     if(bulkForManager){
       const muAll = await fbGet('mobileUsers').catch(()=>null) || {};
-      const tasks = [];
-      if(mgrKey){
-        tasks.push(fbUpdate('mobileUsers/'+mgrKey, payload));
-      }
+      const targets = new Set();
       Object.entries(muAll).forEach(([k,u])=>{
         if(!u) return;
-        const uk = _normMobileKey(u.mobile||u.phone||k);
+        const uk = norm(u.mobile||u.phone||k);
         if(!uk || uk===mgrKey) return;
-        const mid = _normMobileKey(u.managerId||u.managerMobile||'');
-        if(mid!==mgrKey && String(u.managerId||'')!==String(key)) return;
-        tasks.push(fbUpdate('mobileUsers/'+uk, Object.assign({}, payload)));
+        const mid = norm(u.managerId||u.managerMobile||'');
+        // Team under this manager OR same transferredFrom / previousManager
+        if(mid===mgrKey) targets.add(uk);
+        if(norm(u.transferredFrom||'')===mgrKey) targets.add(uk);
       });
-      await Promise.all(tasks.map(p=>Promise.resolve(p).catch(e=>console.warn(e))));
-      toast('✅ ₹'+amt+'/mo + paid-until '+ds+' set for manager + team');
+      // Also employees with managerId = this manager → their phones
+      try{
+        const emps = (_cache.employees||[]);
+        emps.forEach(e=>{
+          if(!e) return;
+          if(norm(e.managerId||'')!==mgrKey) return;
+          const ep = norm(e.phone||e.mobile||'');
+          if(ep.length===10) targets.add(ep);
+        });
+      }catch(ex){}
+
+      for(const ph of targets){
+        const r = await writeMu(ph);
+        if(r.ok) okN++; else { failN++; fails.push(r.ph+': '+(r.err||'')); }
+      }
+    }
+
+    if(okN>0){
+      toast('✅ Paid-until '+ds+' · ₹'+amt+'/mo saved for '+okN+' account(s)'+(failN?(' · '+failN+' failed'):''));
     } else {
-      if(!mgrKey || mgrKey.length!==10){ toast('⚠️ Invalid mobile'); return; }
-      await fbUpdate('mobileUsers/'+mgrKey, payload);
-      toast('✅ ₹'+amt+'/mo until '+ds+' for '+(name||mgrKey));
+      toast('❌ Save failed — check Firebase rules for mobileUsers. '+(fails[0]||''));
     }
     try{ closeModal(); }catch(e){}
     try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(e){}
@@ -376,6 +424,7 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
     toast('❌ '+(err.message||err.code||'failed'));
   }
 }
+
 
 
 

@@ -3126,9 +3126,8 @@ function goTab(t){
 
 async function _enforcePaymentGate(tab){
   try{
-    // Refresh settings + this user's paidUntil before deciding
     if(!_isPaymentExemptUser()){
-      try{ await _loadPaymentSettings(false); }catch(e){}
+      try{ await _loadPaymentSettings(true); }catch(e){}
       try{ await _hydrateUserPaymentStatus(); }catch(e){}
     }
   }catch(e){}
@@ -5186,11 +5185,23 @@ async function _hydrateUserPaymentStatus(){
     if(!SESSION || !SESSION.mobile) return;
     const phone = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
     if(!phone) return;
-    const mu = await fbGet('mobileUsers/'+phone).catch(()=>null);
+    let mu = await fbGet('mobileUsers/'+phone).catch(()=>null);
+    if(!mu){
+      // try scan by normalized phone
+      try{
+        const all = await fbGet('mobileUsers').catch(()=>null) || {};
+        for(const [k,v] of Object.entries(all)){
+          if(!v) continue;
+          const uk = (typeof _normMobileKey==='function'?_normMobileKey(v.mobile||v.phone||k):String(k).replace(/\D/g,'').slice(-10));
+          if(uk===phone){ mu = v; break; }
+        }
+      }catch(e){}
+    }
     if(mu){
-      if(mu.paymentPaidUntil || mu.paidUntil){
-        SESSION.paymentPaidUntil = mu.paymentPaidUntil || mu.paidUntil;
-        window._userPaymentPaidUntil = SESSION.paymentPaidUntil;
+      const until = mu.paymentPaidUntil || mu.paidUntil || mu.paymentPaidUntilDate || null;
+      if(until){
+        SESSION.paymentPaidUntil = until;
+        window._userPaymentPaidUntil = until;
       } else {
         SESSION.paymentPaidUntil = null;
         window._userPaymentPaidUntil = null;

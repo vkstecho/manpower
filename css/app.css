@@ -816,8 +816,43 @@ body.light .sub{color:#475569 !important}
 body.light #fingerprintScreen .fp-skip{
   color:#ea580c !important;-webkit-text-fill-color:#ea580c !important;
 }
-/* Fingerprint setup modal buttons */
-.fp-modal button,
-div.fp-modal button{
-  color:#fff !important;-webkit-text-fill-color:#fff !important;
+/* Fingerprint setup modal — readable on light + dark */
+.fp-modal{
+  background:#ffffff !important;
+  color:#0f172a !important;
+}
+.fp-modal .fp-setup-title{
+  color:#0f172a !important;
+  -webkit-text-fill-color:#0f172a !important;
+}
+.fp-modal .fp-setup-sub,
+.fp-modal .fp-setup-sub span{
+  color:#475569 !important;
+  -webkit-text-fill-color:#475569 !important;
+}
+.fp-modal button.fp-setup-yes,
+div.fp-modal button.fp-setup-yes{
+  background:linear-gradient(135deg,#ea580c,#c2410c) !important;
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  border:none !important;
+  font-weight:800 !important;
+}
+.fp-modal button.fp-setup-no,
+div.fp-modal button.fp-setup-no{
+  background:#f1f5f9 !important;
+  color:#0f172a !important;
+  -webkit-text-fill-color:#0f172a !important;
+  border:1px solid #94a3b8 !important;
+  font-weight:700 !important;
+}
+body.light .fp-modal button.fp-setup-yes{
+  color:#ffffff !important;
+  -webkit-text-fill-color:#ffffff !important;
+  background:linear-gradient(135deg,#ea580c,#c2410c) !important;
+}
+body.light .fp-modal button.fp-setup-no{
+  color:#0f172a !important;
+  -webkit-text-fill-color:#0f172a !important;
+  background:#f1f5f9 !important;
 }
