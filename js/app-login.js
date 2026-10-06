@@ -176,26 +176,32 @@ async function _sendOTP(isResend){
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
 
-  // ── v2.4.2: Returning user with device password → NO OTP ──
+  // Instant UI feedback — was delayed until after several Firebase reads
+  const sendBtn = document.getElementById('sendOtpBtn');
+  const _btnPrev = sendBtn ? sendBtn.innerHTML : '';
+  if(sendBtn){ sendBtn.disabled = true; sendBtn.style.opacity = '0.7'; sendBtn.innerHTML = '⏳ Sending…'; }
+  const _restoreBtn = ()=>{
+    if(!sendBtn) return;
+    sendBtn.disabled = false;
+    sendBtn.style.opacity = '';
+    sendBtn.innerHTML = _btnPrev || 'Send OTP 💬';
+  };
+
+  // ── One parallel fetch (was 2–4 sequential RTDB reads → slow) ──
+  let userData = null, dRec = null;
   if(!isResend && !window._forceOtpAfterMgrWait && !window._forceOtpAfterPwForgot){
     try{
-      const userData = await fbGet('mobileUsers/'+mobile);
+      const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
+      userData = await fbGet('mobileUsers/'+mobile);
       if(userData && userData.status==='approved' &&
          (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
         if(!(userData.validTill && new Date(userData.validTill)<new Date())){
           const empObjId = userData.empObjId || userData.employeeId || '';
           const savedPw = _getDevicePasswordHash(empObjId, mobile);
-          const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
-          let deviceOk = false;
           if(empObjId){
-            try{
-              const dRec = await fbGet('deviceApprovals/'+empObjId);
-              if(dRec && dRec.approvedDeviceId === deviceId && dRec.validTill && new Date(dRec.validTill)>new Date()){
-                deviceOk = true;
-              }
-            }catch(e){}
+            try{ dRec = await fbGet('deviceApprovals/'+empObjId); }catch(e){}
           }
-          // Also accept password if this browser recently verified same phone (90d)
+          let deviceOk = !!(dRec && dRec.approvedDeviceId === deviceId && dRec.validTill && new Date(dRec.validTill)>new Date());
           let recentPhone = false;
           try{
             const had = (localStorage.getItem('mp_device_phone')||'').replace(/\D/g,'').slice(-10);
@@ -203,11 +209,12 @@ async function _sendOTP(isResend){
             recentPhone = (had===mobile && vat && (Date.now()-vat) < 90*24*3600*1000);
           }catch(e){}
           if(savedPw && (deviceOk || recentPhone)){
+            _restoreBtn();
             showPasswordLoginForMobile(userData, mobile, deviceId);
             return;
           }
-          // Trusted device but no password yet → offer set password (optional skip → still need OTP once OR set pw)
           if((deviceOk || recentPhone) && !savedPw){
+            _restoreBtn();
             const fakeEmp = {
               id: empObjId || ('m_'+mobile),
               empId: userData.empId||userData.empCode||'',
@@ -219,60 +226,33 @@ async function _sendOTP(isResend){
             showSetPasswordScreen(fakeEmp, deviceId, false, userData, mobile);
             return;
           }
-        }
-      }
-    }catch(e){ console.warn('[login] password gate', e); }
-  }
-  window._forceOtpAfterPwForgot = false;
-
-  // Registered member/manager: offer Manager in-app approval first (saves OTP cost)
-  // Skip this gate on explicit resend or when force-OTP flag is set
-  if(!isResend && !window._forceOtpAfterMgrWait){
-    try{
-      const _isHard = (typeof _isHardAdminPhone==='function')
-        ? _isHardAdminPhone(mobile)
-        : ['8929397949'].includes(String(mobile||'').replace(/\D/g,'').slice(-10));
-      if(!_isHard){
-        const userData = await fbGet('mobileUsers/'+mobile);
-        if(userData && userData.status==='approved' &&
-           !(userData.validTill && new Date(userData.validTill)<new Date())){
-          const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
-          const empObjId = userData.empObjId || userData.employeeId || '';
-          let otherDeviceActive = false;
-          let dRec = null;
-          if(empObjId){
-            try{
-              dRec = await fbGet('deviceApprovals/'+empObjId);
-              if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
-                  && dRec.validTill && new Date(dRec.validTill) > new Date()){
-                otherDeviceActive = true;
-              }
-            }catch(e){}
-          }
-          // Registered MANAGER: always allow OTP (and Admin approval as alternate)
-          if(userData.role==='manager'){
-            try{ await _notifyAdminManagerLoginAttempt(mobile, userData.name); }catch(e){}
-            // Fall through to OTP — Admin can also Approve from Pending without waiting for OTP
-          } else if(userData.role==='member' || userData.role==='worker'){
-            // Team member: NO manager approval for login — OTP (or password already handled above)
-            // If other device active, still offer notify | OTP side by side
-            if(otherDeviceActive){
-              const emp = {
+          // Other device active → notify path (members only)
+          if((userData.role==='member' || userData.role==='worker') && dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
+              && dRec.validTill && new Date(dRec.validTill) > new Date()){
+            const _isHard = (typeof _isHardAdminPhone==='function')
+              ? _isHardAdminPhone(mobile)
+              : ['8929397949'].includes(String(mobile||'').replace(/\D/g,'').slice(-10));
+            if(!_isHard){
+              _restoreBtn();
+              showOtherDeviceLoginRequest({
                 id: empObjId,
                 empId: userData.empId||userData.empCode||'',
                 name: userData.name||'',
                 phone: mobile,
                 mobile: mobile
-              };
-              showOtherDeviceLoginRequest(emp, dRec, deviceId);
+              }, dRec, deviceId);
               return;
             }
-            // else fall through → send OTP → login; manager only notified after login
+          }
+          // Manager login attempt → notify admin in background (do NOT await)
+          if(userData.role==='manager'){
+            try{ Promise.resolve(_notifyAdminManagerLoginAttempt(mobile, userData.name)).catch(()=>{}); }catch(e){}
           }
         }
       }
-    }catch(e){ console.warn('[login] dual-option check', e); }
+    }catch(e){ console.warn('[login] pre-otp checks', e); }
   }
+  window._forceOtpAfterPwForgot = false;
   window._forceOtpAfterMgrWait = false;
 
   try{
@@ -289,6 +269,7 @@ async function _sendOTP(isResend){
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('OTP error:',err);
+    try{ _restoreBtn(); }catch(e){}
     const msg = '❌ '+_fbOtpErrorMessage(err);
     if(errEl) errEl.textContent=msg; toast(msg);
     // SMS quota / rate-limit / billing down → fall back to device notify or admin

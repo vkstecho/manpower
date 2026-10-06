@@ -781,17 +781,26 @@ function _fbClearRecaptcha(storeKey){
  * Always clears previous instance first.
  */
 async function _fbMakeRecaptcha(containerId, storeKey, size){
+  const wantSize = size || 'invisible';
+  // Reuse live verifier when possible (avoids 1–3s re-render every Send OTP)
+  try{
+    const existing = window[storeKey];
+    if(existing && existing._mpSize === wantSize && existing._mpCid === containerId){
+      return existing;
+    }
+  }catch(e){}
   _fbClearRecaptcha(storeKey);
-  const isVisible = (size === 'normal');
+  const isVisible = (wantSize === 'normal');
   _fbEnsureRecaptchaHost(containerId, isVisible);
   const params = {
-    size: size || 'invisible',
+    size: wantSize,
     callback: ()=>{},
     'expired-callback': ()=>{ try{ window[storeKey]=null; }catch(e){} }
   };
   const verifier = new window._fbRecaptchaVerifierClass(window._fbAuth, containerId, params);
+  try{ verifier._mpSize = wantSize; verifier._mpCid = containerId; }catch(e){}
   window[storeKey] = verifier;
-  // render() is required for reliable phone auth on web
+  // render() required for reliable phone auth on web
   try{
     if(typeof verifier.render === 'function'){
       await verifier.render();
@@ -816,6 +825,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
   }
 
   // Only sign out anonymous/stale sessions — keep existing phone auth for same number
+  // Cap wait at 1.5s so stuck signOut cannot freeze Send OTP
   try{
     const cu = window._fbAuth && window._fbAuth.currentUser;
     if(cu){
@@ -824,7 +834,12 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       if(cu.phoneNumber && curPhone && wantPhone && curPhone === wantPhone){
         console.log('[otp] already phone-authed as', curPhone, '— skip signOut');
       } else if(cu.isAnonymous || (cu.phoneNumber && curPhone !== wantPhone)){
-        if(window._fbSignOut) await window._fbSignOut();
+        if(window._fbSignOut){
+          await Promise.race([
+            window._fbSignOut(),
+            new Promise(r=>setTimeout(r, 1500))
+          ]);
+        }
       }
     }
   }catch(e){ console.warn('[otp] signOut before phone', e); }

@@ -46,12 +46,16 @@ function _renderTeamImpl(search=''){
     }
   }catch(e){}
 
+  try{ renderAdminManagerBanner(); }catch(e){}
   _renderDynamicChips('teamFilter', _buildTeamSectionChips(), _teamSec, 'setTeamSec');
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
     ? `<div style="display:flex;gap:8px;margin-bottom:14px">
         <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ ${L("नया कर्मचारी जोड़ें","Add employee")}</button>
         <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 Excel से Team Import','📊 Import Team from Excel')}</button>
-      </div>${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी Members Delete करें (OTP verify)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
+      </div>
+      ${isAdmin()?`<div id="adminMgrBanner" style="margin-bottom:12px"></div>
+      <button type="button" onclick="openAppLicenseAdmin()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid rgba(124,58,237,.45);background:rgba(124,58,237,.1);color:#7c3aed;font-weight:900;font-size:13px;cursor:pointer">🔑 ${L('App License / Expiry Date','App License / Expiry Date')}</button>`:''}
+      ${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी Members Delete करें (OTP verify)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
 
   // Active employees (not resigned/left). When searching, do NOT require ms[] so name/mobile/code matches still show.
   const q = String(search||'').trim().toLowerCase();
@@ -1273,3 +1277,99 @@ async function _confirmEmpUpload(){
   toast(msg);
 }
 
+
+
+
+// ── Admin: show current managers on Team page + App license expiry ──
+function _listActiveManagers(){
+  try{
+    const all = (typeof getEmps==='function' ? getEmps() : (_cache.employees||[])) || [];
+    return all.filter(e=>{
+      if(!e) return false;
+      const st = String(e.status||'active').toLowerCase();
+      if(st==='left'||st==='left_team'||st==='resigned'||st==='removed'||st==='revoked') return false;
+      const role = String(e.role||'').toLowerCase();
+      const al = String(e.accessLevel||'').toLowerCase();
+      return role==='manager' || al==='manager';
+    });
+  }catch(e){ return []; }
+}
+function renderAdminManagerBanner(){
+  if(typeof isAdmin!=='function' || !isAdmin()) return;
+  const el = document.getElementById('adminMgrBanner');
+  if(!el) return;
+  const mgrs = _listActiveManagers();
+  if(!mgrs.length){
+    el.innerHTML = `<div style="padding:10px 12px;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc;font-size:12px;color:#64748b">${L('कोई active manager नहीं मिला','No active manager found')} — ${L('किसी member का Access Level = Manager सेट करें','set a member Access Level = Manager')}</div>`;
+    return;
+  }
+  el.innerHTML = `<div style="padding:12px;border-radius:12px;border:1px solid rgba(14,165,233,.35);background:rgba(14,165,233,.08)">
+    <div style="font-size:11px;font-weight:900;color:#0369a1;margin-bottom:6px;letter-spacing:.4px">${L('CURRENT MANAGER(S)','CURRENT MANAGER(S)')}</div>
+    ${mgrs.map(m=>{
+      const ph = String(m.phone||m.mobile||'').replace(/\D/g,'').slice(-10);
+      return `<div style="display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid rgba(14,165,233,.15);font-size:13px">
+        <span style="font-weight:800;color:#0f172a">${(m.name||'—')}</span>
+        <span style="font-weight:700;color:#0369a1">${ph?('+91 '+ph):'—'}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+async function openAppLicenseAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  let validTill = '';
+  let extendTo = '';
+  try{
+    const lic = await fbGet('settings/license');
+    if(lic && lic.validTill) validTill = String(lic.validTill).slice(0,10);
+    if(lic && lic.extendTo) extendTo = String(lic.extendTo).slice(0,10);
+  }catch(e){}
+  if(!validTill && CFG && CFG.license && CFG.license.expiry){
+    const d = new Date(CFG.license.expiry);
+    if(!isNaN(d)) validTill = d.toISOString().slice(0,10);
+  }
+  if(!extendTo && CFG && CFG.license && CFG.license.extendTo){
+    const d = new Date(CFG.license.extendTo);
+    if(!isNaN(d)) extendTo = d.toISOString().slice(0,10);
+  }
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">🔑 ${L('App License / Expiry','App License / Expiry')}</div>
+  <p style="font-size:12px;color:var(--muted);margin:0 0 12px">${L('पूरी app की expiry date बदलें (Firebase settings/license)','Change whole-app expiry date (Firebase settings/license)')}</p>
+  <div class="field"><label>validTill (App expiry)</label>
+    <input id="lic_validTill" type="date" class="inp-field" value="${validTill||''}"></div>
+  <div class="field"><label>extendTo (After unlock key)</label>
+    <input id="lic_extendTo" type="date" class="inp-field" value="${extendTo||''}"></div>
+  <button class="big-btn" style="margin-top:12px" onclick="saveAppLicenseAdmin()">${L('💾 सेव करें','💾 Save')}</button>
+  <p style="font-size:11px;color:var(--muted);margin-top:10px">${L('सिर्फ hard-admin Firebase rules से write कर सकता है।','Only hard-admin can write via Firebase rules.')}</p>`);
+}
+async function saveAppLicenseAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const vt = (document.getElementById('lic_validTill')||{}).value || '';
+  const et = (document.getElementById('lic_extendTo')||{}).value || '';
+  if(!vt){ toast('❌ validTill required'); return; }
+  try{
+    const payload = {
+      validTill: new Date(vt+'T23:59:59.000Z').toISOString(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
+    };
+    if(et) payload.extendTo = new Date(et+'T23:59:59.000Z').toISOString();
+    await fbUpdate('settings/license', payload);
+    try{
+      if(CFG && CFG.license){
+        CFG.license.expiry = new Date(payload.validTill);
+        if(payload.extendTo) CFG.license.extendTo = new Date(payload.extendTo);
+      }
+    }catch(e){}
+    try{ closeModal(); }catch(e){}
+    toast('✅ App expiry saved: '+vt);
+  }catch(err){
+    console.error(err);
+    toast('❌ Save failed: '+(err.message||err.code||'permission'));
+  }
+}
+// Hook banner into team render
+(function(){
+  const _orig = typeof _renderTeamImpl === 'function' ? _renderTeamImpl : null;
+  if(!_orig) return;
+  // already defined above; call from end of _renderTeamImpl via patch
+})();

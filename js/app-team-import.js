@@ -952,9 +952,76 @@ async function saveEmployee(empId){
 
   try{ const pl=document.getElementById('ee_preferredLang'); if(pl) update.preferredLang=pl.value||''; }catch(e){}
 
+  // If Admin/Manager sets Access Level = Manager → promote fully (role + mobileUsers + team managerId)
+  const newAccess = String(update.accessLevel||'').toLowerCase();
+  const phoneKey = _normMobileKey(update.phone || update.mobile || (e && (e.phone||e.mobile)) || '');
+  if(newAccess === 'manager' && phoneKey){
+    update.role = 'manager';
+    update.status = update.status || 'active';
+    // New manager owns the team — members should point at this phone
+    update.managerId = phoneKey;
+  } else if(newAccess === 'worker' && e && (String(e.role||'').toLowerCase()==='manager' || String(e.accessLevel||'').toLowerCase()==='manager')){
+    // Demote only if explicitly set back to worker (admin action)
+    if(isAdmin()){
+      update.role = 'member';
+    }
+  }
+
   // Primary write — only this must complete before UI closes
   try{
     await fbUpdate('employees/'+empId, update);
+    // Manager promotion: only when newly made manager (not every edit of existing manager)
+    const wasMgr = e && (String(e.role||'').toLowerCase()==='manager' || String(e.accessLevel||'').toLowerCase()==='manager');
+    if(newAccess === 'manager' && phoneKey && !wasMgr){
+      try{
+        const cid = _normCompanyId((update.companyId || (e && e.companyId) || SESSION.companyId || ''));
+        const all = (_cache.employees || []);
+        const tasks = [];
+        all.forEach(mem => {
+          if(!mem || !mem.id || mem.id === empId) return;
+          if(String(mem.status||'') === 'left_team' || String(mem.status||'') === 'resigned' || String(mem.status||'') === 'left') return;
+          if(cid && _normCompanyId(mem.companyId||'') && _normCompanyId(mem.companyId) !== cid) return;
+          // Members of this team (same old manager OR same company without manager)
+          const memMgr = _normMobileKey(mem.managerId||'');
+          const oldMgr = e ? _normMobileKey(e.managerId || e.phone || e.mobile || '') : '';
+          const should = !memMgr || memMgr === oldMgr || memMgr === phoneKey || (cid && _normCompanyId(mem.companyId)===cid && String(mem.role||'').toLowerCase()!=='manager');
+          if(should && memMgr !== phoneKey){
+            tasks.push(fbUpdate('employees/'+mem.id, { managerId: phoneKey, updatedAt: new Date().toISOString() }));
+            try{ mem.managerId = phoneKey; }catch(ex){}
+          }
+        });
+        // Demote other managers in same company to member (keep one active manager)
+        all.forEach(mem => {
+          if(!mem || mem.id === empId) return;
+          if(cid && _normCompanyId(mem.companyId||'') !== cid) return;
+          if(String(mem.role||'').toLowerCase()==='manager' || String(mem.accessLevel||'').toLowerCase()==='manager'){
+            tasks.push(fbUpdate('employees/'+mem.id, { role:'member', accessLevel:'worker', updatedAt: new Date().toISOString() }));
+            try{ mem.role='member'; mem.accessLevel='worker'; }catch(ex){}
+          }
+        });
+        if(phoneKey.length >= 10){
+          const muPath = 'mobileUsers/'+phoneKey;
+          tasks.push(fbUpdate(muPath, {
+            role: 'manager',
+            name: update.name || (e && e.name) || '',
+            mobile: '+91'+phoneKey,
+            status: 'approved',
+            companyId: cid || null,
+            updatedAt: new Date().toISOString()
+          }).catch(()=>fbSet(muPath, {
+            role: 'manager',
+            name: update.name || (e && e.name) || '',
+            mobile: '+91'+phoneKey,
+            status: 'approved',
+            companyId: cid || null,
+            updatedAt: new Date().toISOString()
+          })));
+        }
+        await Promise.all(tasks.map(p => Promise.resolve(p).catch(err => console.warn('mgr transfer', err))));
+        // Refresh cache
+        try{ if(typeof loadEmployees === 'function') await loadEmployees(); }catch(ex){}
+      }catch(xferErr){ console.warn('manager transfer', xferErr); }
+    }
   }catch(err1){
     console.warn('saveEmployee fbUpdate failed, retry set merge', err1);
     const flat = {...update};

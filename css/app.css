@@ -713,3 +713,78 @@ body.light .status-pill,
 body.light [class*="badge"]{
   font-weight:700 !important;
 }
+
+
+/* ===== LIGHT THEME — high contrast text (Learn cards, buttons, app-wide) ===== */
+body.light .learn-screen .lc-sub{color:#334155 !important;-webkit-text-fill-color:#334155 !important}
+body.light .learn-screen .lc-arrow{color:#0f172a !important;opacity:1 !important}
+body.light #learnMainButtons button,
+body.light #learnMainButtons button *{
+  -webkit-text-fill-color: inherit;
+}
+/* Override transparent gradient titles inside learn hub on light */
+body.light #learnMainButtons [style*="-webkit-text-fill-color:transparent"],
+body.light #learnMainButtons [style*="-webkit-text-fill-color: transparent"],
+body.light .learn-screen [style*="-webkit-text-fill-color:transparent"],
+body.light .learn-screen [style*="-webkit-text-fill-color: transparent"]{
+  -webkit-text-fill-color:#0f172a !important;
+  color:#0f172a !important;
+  background-image:none !important;
+  background:none !important;
+}
+body.light .learn-screen .learn-logo{color:#c2410c !important;-webkit-text-fill-color:#c2410c !important}
+body.light .learn-screen .learn-title{color:#0f172a !important;-webkit-text-fill-color:#0f172a !important}
+body.light .learn-screen .learn-sub{color:#475569 !important}
+
+/* Buttons / chips / action rows */
+body.light .btn,
+body.light button.btn,
+body.light .act-btn,
+body.light .chip,
+body.light .nav-btn,
+body.light .tab-btn,
+body.light .ghost-btn{
+  color:#0f172a !important;
+  -webkit-text-fill-color:#0f172a !important;
+}
+body.light .btn-p,
+body.light .btn.btn-p,
+body.light button.btn-p{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  background:#7c3aed !important;
+}
+body.light .btn-g,
+body.light .btn.btn-g{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  background:#16a34a !important;
+}
+body.light .btn-r,
+body.light .btn.btn-r{
+  color:#fff !important;
+  -webkit-text-fill-color:#fff !important;
+  background:#dc2626 !important;
+}
+body.light .btn-o,
+body.light .btn.btn-o{
+  color:#9a3412 !important;
+  -webkit-text-fill-color:#9a3412 !important;
+  border-color:#fb923c !important;
+  background:#fff7ed !important;
+}
+/* Team / schedule / approve action buttons */
+body.light .act-btn{background:#f1f5f9 !important;border:1px solid #cbd5e1 !important;color:#0f172a !important}
+body.light .act-btn.approve,
+body.light .act-btn.ok,
+body.light .act-btn.green{background:#16a34a !important;color:#fff !important;border-color:#15803d !important}
+body.light .act-btn.reject,
+body.light .act-btn.danger{background:#dc2626 !important;color:#fff !important}
+/* Cards / lists */
+body.light .card,
+body.light .team-card,
+body.light .todo-card,
+body.light .sched-card{color:#0f172a !important}
+body.light .muted,
+body.light .hint,
+body.light .sub{color:#475569 !important}
