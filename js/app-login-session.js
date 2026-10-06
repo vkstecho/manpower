@@ -3089,11 +3089,22 @@ function goTab(t){
     return;
   }
   // Payment gate: block tabs except Home / My Shift when unpaid
-  if(!_paymentGateAllows(t)){
-    openPaymentRequiredModal(t);
+  _enforcePaymentGate(t);
+}
+
+async function _enforcePaymentGate(tab){
+  try{
+    // Refresh settings + this user's paidUntil before deciding
+    if(!_isPaymentExemptUser()){
+      try{ await _loadPaymentSettings(false); }catch(e){}
+      try{ await _hydrateUserPaymentStatus(); }catch(e){}
+    }
+  }catch(e){}
+  if(!_paymentGateAllows(tab)){
+    openPaymentRequiredModal(tab);
     return;
   }
-  _goTabDirect(t);
+  _goTabDirect(tab);
 }
 
 function _updateSchedAdminVisibility(){
@@ -4827,47 +4838,89 @@ function _paymentGateAllows(tab){
   // Always free tabs
   if(!t || t==='home' || t==='myshift' || t==='my-shift') return true;
   if(_isPaymentExemptUser()) return true;
-  // If payment system disabled, allow all
   const cfg = window._paymentSettingsCache;
+  // Only OFF when explicitly disabled
   if(cfg && cfg.enabled === false) return true;
-  // paidUntil in the future → no reminder
+  // paidUntil still valid (end of that calendar day local)
   const until = _getUserPaidUntilDate();
   if(until){
-    const end = new Date(until);
-    end.setHours(23,59,59,999);
+    const end = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59, 999);
     if(end.getTime() >= Date.now()) return true;
   }
-  // No paidUntil or expired → block (show pay modal)
-  // If settings not loaded yet, allow once and load in background
-  if(!window._paymentSettingsCache){
-    try{ _loadPaymentSettings(false).catch(()=>{}); }catch(e){}
-    // Fail open only if never configured
-    return true;
+  // Settings not loaded: use last known local flag (default ON after admin saved once)
+  if(!cfg){
+    try{
+      const local = localStorage.getItem('mp_payment_enabled');
+      if(local === '0') return true;
+      // treat as ON → block until paidUntil set
+      try{ _loadPaymentSettings(false).catch(()=>{}); }catch(e){}
+      return false;
+    }catch(e){ return false; }
   }
-  if(!cfg || !cfg.enabled) return true;
+  if(cfg.enabled === false) return true;
+  // enabled (or missing enabled → ON) and no valid paidUntil → block
   return false;
 }
 
+function _paymentLinkForAmount(baseLink, amount){
+  const am = String(parseInt(amount,10)||999);
+  let link = String(baseLink||'').trim();
+  if(!link) return '';
+  // UPI deep link: set / replace am=
+  if(/^upi:\/\//i.test(link) || /^phonepe:\/\//i.test(link) || /^ppe:\/\//i.test(link)){
+    if(/[?&]am=/i.test(link)){
+      link = link.replace(/([?&])am=[^&]*/i, '$1am='+am);
+    } else {
+      link += (link.indexOf('?')>=0 ? '&' : '?') + 'am=' + am;
+    }
+    if(!/[?&]cu=/i.test(link)) link += '&cu=INR';
+    return link;
+  }
+  // https payment pages: append amount query if possible
+  try{
+    if(/^https?:\/\//i.test(link)){
+      const u = new URL(link);
+      u.searchParams.set('amount', am);
+      u.searchParams.set('am', am);
+      return u.toString();
+    }
+  }catch(e){}
+  return link;
+}
+
 function openPaymentRequiredModal(attemptedTab){
-  _loadPaymentSettings(false).then(cfg=>{
+  _loadPaymentSettings(false).then(async cfg=>{
     if(cfg && cfg.enabled === false){
       _goTabDirect(attemptedTab);
       return;
     }
-    const amount = (cfg && cfg.amount) || 999;
-    const link = (cfg && cfg.link) || '';
-    const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
-    const msg = (cfg && cfg.message) || 'Pay to use Schedule, Team, Leave, Reports and other tabs. Home and My Shift stay free.';
+    // Prefer per-user amount; fallback to global
+    let amount = null;
+    try{
+      amount = parseInt(SESSION && SESSION.paymentAmount || window._userPaymentAmount || 0, 10) || null;
+    }catch(e){}
+    if(!amount){
+      try{
+        await _hydrateUserPaymentStatus();
+        amount = parseInt(SESSION && SESSION.paymentAmount || window._userPaymentAmount || 0, 10) || null;
+      }catch(e){}
+    }
+    if(!amount) amount = (cfg && cfg.amount) || 999;
+
+    const baseLink = (cfg && cfg.link) || '';
+    const link = _paymentLinkForAmount(baseLink, amount);
+    const title = 'Pay ₹'+amount+' / month';
+    const msg = (cfg && cfg.message) || ('Subscribe at ₹'+amount+'/month to continue using Schedule, Team, Leave and other tabs.');
     const until = _getUserPaidUntilDate();
     const untilStr = until ? until.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
     const linkBtn = link
-      ? `<a href="${link.replace(/"/g,'')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
+      ? `<a href="${link.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
       : `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px">Payment link not set — contact Admin</div>`;
     openModal(`<div class="modal-handle"></div>
       <div style="text-align:center;padding:8px 0 4px">
         <div style="font-size:42px;margin-bottom:8px">💳</div>
-        <div class="modal-title" style="margin-bottom:6px">${title.replace(/</g,'')}</div>
-        <div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">${msg.replace(/</g,'')}</div>
+        <div class="modal-title" style="margin-bottom:6px">${title}</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">${String(msg).replace(/</g,'')}</div>
         ${untilStr?`<div style="font-size:12px;color:#b45309;margin-bottom:8px">Previous access till: <b>${untilStr}</b></div>`:''}
         ${linkBtn}
         <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal();goTab('home')">← Back to Home</button>
@@ -4877,6 +4930,7 @@ function openPaymentRequiredModal(attemptedTab){
   });
 }
 
+
 async function openPaymentSettingsAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const cfg = await _loadPaymentSettings(true);
@@ -4885,8 +4939,9 @@ async function openPaymentSettingsAdmin(){
   const enabled = !cfg || cfg.enabled !== false;
   const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
   const message = (cfg && cfg.message) || '';
+  const opts = _getPaymentAmountOptions(cfg);
+  window._payAmountOptionsEdit = opts.slice();
 
-  // Build user list from mobileUsers managers + members
   let userOpts = '<option value="">— Select manager / member —</option>';
   try{
     let mu = _cache.mobileUsers;
@@ -4899,14 +4954,16 @@ async function openPaymentSettingsAdmin(){
           const role = v.role || 'user';
           const paid = v.paymentPaidUntil || v.paidUntil || '';
           const paidShort = paid ? String(paid).slice(0,10) : 'not set';
-          return { phone, name: v.name||phone, role, paidShort, paid };
+          const ua = v.paymentAmount || '';
+          return { phone, name: v.name||phone, role, paidShort, ua };
         })
         .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-      userOpts += rows.map(r=>`<option value="${r.phone}">${(r.name||'').replace(/</g,'')} (${r.role}) · paid until: ${r.paidShort}</option>`).join('');
+      userOpts += rows.map(r=>`<option value="${r.phone}">${(r.name||'').replace(/</g,'')} (${r.role}) · ₹${r.ua||'—'} · until ${r.paidShort}</option>`).join('');
     }
   }catch(e){}
 
   const defaultPaid = new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+  const userAmtOpts = opts.map(a=>`<option value="${a}" ${a===amount?'selected':''}>₹${a}</option>`).join('');
 
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">💳 Payment Link & Reminders</div>
@@ -4918,11 +4975,11 @@ async function openPaymentSettingsAdmin(){
       <option value="0" ${!enabled?'selected':''}>OFF — no payment reminders</option>
     </select>
   </div>
-  <div class="field"><label>Amount (₹ / month)</label>
+  <div class="field"><label>Default amount (₹ / month)</label>
     <input id="pay_amount" type="number" min="1" class="inp-field" value="${amount}">
   </div>
   <div class="field"><label>Payment link (UPI / Razorpay / etc.)</label>
-    <input id="pay_link" type="url" class="inp-field" placeholder="https://…" value="${String(link).replace(/"/g,'&quot;')}">
+    <input id="pay_link" type="url" class="inp-field" placeholder="upi://pay?pa=...@ybl&pn=Name" value="${String(link).replace(/"/g,'&quot;')}">
   </div>
   <div class="field"><label>Popup title</label>
     <input id="pay_title" class="inp-field" value="${String(title).replace(/"/g,'&quot;')}">
@@ -4930,18 +4987,104 @@ async function openPaymentSettingsAdmin(){
   <div class="field"><label>Popup message</label>
     <textarea id="pay_message" class="inp-field" rows="2">${String(message).replace(/</g,'&lt;')}</textarea>
   </div>
+
+  <div style="margin:14px 0;padding:12px;border-radius:12px;border:1px solid rgba(16,185,129,.35);background:rgba(16,185,129,.08)">
+    <div style="font-size:13px;font-weight:900;margin-bottom:8px">📋 Subscription amount list (dropdown)</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">These values appear when setting Pay amount for each user in Team.</div>
+    <div id="pay_amount_list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="e.g. 799">
+      <button type="button" class="submit-btn" style="width:auto;padding:10px 14px;margin:0" onclick="payAmountListAdd()">+ Add</button>
+    </div>
+  </div>
+
   <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
 
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
-  <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set paid-until (no reminder before this date)</div>
+  <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set amount + paid-until for one user</div>
   <div class="field"><label>Manager / Member</label>
     <select id="pay_user" class="inp-field">${userOpts}</select>
+  </div>
+  <div class="field"><label>Subscription amount</label>
+    <select id="pay_user_amount" class="inp-field">${userAmtOpts}</select>
   </div>
   <div class="field"><label>Paid until date</label>
     <input id="pay_until" type="date" class="inp-field" value="${defaultPaid}">
   </div>
-  <button class="big-btn" style="margin-top:8px;background:linear-gradient(135deg,#0d9488,#0f766e)" onclick="saveUserPaidUntilAdmin()">✅ Save paid-until for user</button>
+  <button class="big-btn" style="margin-top:8px;background:linear-gradient(135deg,#0d9488,#0f766e)" onclick="saveUserPaidUntilAdmin()">✅ Save for user</button>
   <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">Close</button>`);
+
+  try{ payAmountListRender(); }catch(e){}
+}
+
+function _getPaymentAmountOptions(cfg){
+  const defaults = [199,499,999,1499,2499];
+  try{
+    const raw = (cfg && (cfg.amountOptions || cfg.amounts)) || window._payAmountOptionsEdit || defaults;
+    const arr = (Array.isArray(raw) ? raw : String(raw).split(','))
+      .map(x=>parseInt(x,10)).filter(n=>n>0);
+    const uniq = [...new Set(arr)].sort((a,b)=>a-b);
+    return uniq.length ? uniq : defaults;
+  }catch(e){ return defaults; }
+}
+
+function payAmountListRender(){
+  const el = document.getElementById('pay_amount_list');
+  if(!el) return;
+  const opts = window._payAmountOptionsEdit || _getPaymentAmountOptions(window._paymentSettingsCache);
+  window._payAmountOptionsEdit = opts.slice();
+  if(!opts.length){
+    el.innerHTML = '<span style="font-size:12px;color:var(--muted)">No amounts — add one</span>';
+    return;
+  }
+  el.innerHTML = opts.map((a,i)=>`
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #cbd5e1;font-weight:800;font-size:13px;color:#0f172a">
+      ₹${a}
+      <button type="button" onclick="payAmountListEdit(${i})" title="Edit" style="border:none;background:rgba(59,130,246,.12);color:#2563eb;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✎</button>
+      <button type="button" onclick="payAmountListRemove(${i})" title="Remove" style="border:none;background:rgba(239,68,68,.12);color:#dc2626;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✕</button>
+    </span>`).join('');
+  // refresh user amount dropdown if open
+  try{
+    const sel = document.getElementById('pay_user_amount');
+    if(sel){
+      const cur = sel.value;
+      sel.innerHTML = opts.map(a=>`<option value="${a}">₹${a}</option>`).join('');
+      if(opts.map(String).includes(String(cur))) sel.value = cur;
+    }
+  }catch(e){}
+}
+
+function payAmountListAdd(){
+  const inp = document.getElementById('pay_new_amount');
+  const n = parseInt((inp && inp.value) || '0', 10);
+  if(!n || n < 1){ toast('⚠️ Enter a valid amount'); return; }
+  const opts = window._payAmountOptionsEdit || [];
+  if(opts.includes(n)){ toast('Already in list'); return; }
+  opts.push(n);
+  opts.sort((a,b)=>a-b);
+  window._payAmountOptionsEdit = opts;
+  if(inp) inp.value = '';
+  payAmountListRender();
+}
+
+function payAmountListEdit(i){
+  const opts = window._payAmountOptionsEdit || [];
+  const cur = opts[i];
+  const v = prompt('Edit amount (₹)', String(cur||''));
+  if(v===null) return;
+  const n = parseInt(v, 10);
+  if(!n || n < 1){ toast('⚠️ Invalid'); return; }
+  opts[i] = n;
+  window._payAmountOptionsEdit = [...new Set(opts.map(x=>parseInt(x,10)).filter(x=>x>0))].sort((a,b)=>a-b);
+  payAmountListRender();
+}
+
+function payAmountListRemove(i){
+  const opts = window._payAmountOptionsEdit || [];
+  if(opts.length <= 1){ toast('⚠️ Keep at least one amount'); return; }
+  opts.splice(i, 1);
+  window._payAmountOptionsEdit = opts;
+  payAmountListRender();
 }
 
 async function savePaymentSettingsAdmin(){
@@ -4951,9 +5094,13 @@ async function savePaymentSettingsAdmin(){
   const link = String((document.getElementById('pay_link')||{}).value||'').trim();
   const title = String((document.getElementById('pay_title')||{}).value||'').trim() || ('Pay ₹'+amount+' / month');
   const message = String((document.getElementById('pay_message')||{}).value||'').trim();
+  const amountOptions = (window._payAmountOptionsEdit && window._payAmountOptionsEdit.length)
+    ? window._payAmountOptionsEdit.slice()
+    : _getPaymentAmountOptions(window._paymentSettingsCache);
   try{
     const payload = {
       enabled, amount, link, title, message,
+      amountOptions,
       currency: 'INR',
       updatedAt: new Date().toISOString(),
       updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
@@ -4961,6 +5108,7 @@ async function savePaymentSettingsAdmin(){
     await fbUpdate('settings/payment', payload);
     window._paymentSettingsCache = payload;
     window._paymentSettingsAt = Date.now();
+    try{ localStorage.setItem('mp_payment_enabled', payload.enabled ? '1' : '0'); }catch(e){}
     toast('✅ Payment settings saved');
   }catch(err){
     console.error(err);
@@ -4972,16 +5120,19 @@ async function saveUserPaidUntilAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const phone = String((document.getElementById('pay_user')||{}).value||'').replace(/\D/g,'').slice(-10);
   const until = String((document.getElementById('pay_until')||{}).value||'').trim();
+  const amt = parseInt((document.getElementById('pay_user_amount')||{}).value||'0',10) || null;
   if(!phone || phone.length!==10){ toast('⚠️ Select user'); return; }
   if(!until){ toast('⚠️ Select date'); return; }
   try{
     const iso = new Date(until+'T23:59:59.000Z').toISOString();
-    await fbUpdate('mobileUsers/'+phone, {
+    const payload = {
       paymentPaidUntil: iso,
       paidUntil: iso,
       updatedAt: new Date().toISOString(),
       paymentUpdatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
-    });
+    };
+    if(amt) payload.paymentAmount = amt;
+    await fbUpdate('mobileUsers/'+phone, payload);
     // If this is current session user, refresh local
     try{
       const my = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
@@ -5004,9 +5155,22 @@ async function _hydrateUserPaymentStatus(){
     const phone = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
     if(!phone) return;
     const mu = await fbGet('mobileUsers/'+phone).catch(()=>null);
-    if(mu && (mu.paymentPaidUntil || mu.paidUntil)){
-      SESSION.paymentPaidUntil = mu.paymentPaidUntil || mu.paidUntil;
-      window._userPaymentPaidUntil = SESSION.paymentPaidUntil;
+    if(mu){
+      if(mu.paymentPaidUntil || mu.paidUntil){
+        SESSION.paymentPaidUntil = mu.paymentPaidUntil || mu.paidUntil;
+        window._userPaymentPaidUntil = SESSION.paymentPaidUntil;
+      } else {
+        SESSION.paymentPaidUntil = null;
+        window._userPaymentPaidUntil = null;
+      }
+      const amt = parseInt(mu.paymentAmount || mu.subscriptionAmount || 0, 10);
+      SESSION.paymentAmount = (amt > 0) ? amt : null;
+      window._userPaymentAmount = SESSION.paymentAmount;
+    } else {
+      SESSION.paymentPaidUntil = null;
+      window._userPaymentPaidUntil = null;
+      SESSION.paymentAmount = null;
+      window._userPaymentAmount = null;
     }
     await _loadPaymentSettings(false);
   }catch(e){}
