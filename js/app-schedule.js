@@ -324,6 +324,22 @@ async function openAdminSetPaymentModal(key, name, bulkForManager){
     if(!rec && ph && typeof fbGet==='function'){
       rec = await fbGet('mobileUsers/'+ph).catch(()=>null);
     }
+    // paymentStatus path (works even when mobileUsers write is denied)
+    if(ph && typeof fbGet==='function'){
+      try{
+        const ps = await fbGet('paymentStatus/'+ph).catch(()=>null);
+        if(ps && typeof ps==='object'){
+          if(!rec) rec = {};
+          // prefer explicit paymentStatus dates if mobileUsers empty
+          if(!rec.paymentPaidUntilDate && !rec.paymentPaidUntil && !rec.paidUntil){
+            rec = Object.assign({}, rec, ps);
+          } else {
+            // merge amount if missing
+            if(!rec.paymentAmount && ps.paymentAmount) rec.paymentAmount = ps.paymentAmount;
+          }
+        }
+      }catch(_ps){}
+    }
     if(rec && typeof rec==='object'){
       const raw = rec.paymentPaidUntilDate || rec.paymentPaidUntil || rec.paidUntil || '';
       if(raw){
@@ -407,17 +423,24 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
   async function writeMu(phone){
     const ph = norm(phone);
     if(!ph || ph.length!==10) return {ok:false, ph, err:'bad phone'};
-    // Try update then set-merge so missing nodes still get fields
+    let payOk = false, muOk = false, lastErr = '';
+    // 1) paymentStatus/{phone} — dedicated path (rules allow admin / hard-admin)
+    try{
+      await fbSet('paymentStatus/'+ph, Object.assign({}, payload, {
+        mobile: ph, phone: ph, name: name || ph
+      }));
+      payOk = true;
+      try{
+        window._paymentStatusCache = window._paymentStatusCache || {};
+        window._paymentStatusCache[ph] = Object.assign({}, payload, { mobile: ph });
+      }catch(_c){}
+    }catch(ePay){
+      lastErr = (ePay && (ePay.message||ePay.code)) || 'paymentStatus write failed';
+    }
+    // 2) mobileUsers/{phone} — best-effort (same fields; may PERMISSION_DENIED)
     try{
       await fbUpdate('mobileUsers/'+ph, payload);
-      try{
-        if(typeof _cache!=='undefined'){
-          _cache.mobileUsers = _cache.mobileUsers || {};
-          const prev = _cache.mobileUsers[ph] || {};
-          _cache.mobileUsers[ph] = Object.assign({}, prev, payload, { mobile: ph, phone: ph });
-        }
-      }catch(_c){}
-      return {ok:true, ph};
+      muOk = true;
     }catch(e1){
       try{
         const prev = await fbGet('mobileUsers/'+ph).catch(()=>null) || {};
@@ -425,19 +448,22 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
           mobile: ph, phone: ph,
           name: prev.name || name || ph
         }));
-        try{
-          if(typeof _cache!=='undefined'){
-            _cache.mobileUsers = _cache.mobileUsers || {};
-            _cache.mobileUsers[ph] = Object.assign({}, prev, payload, {
-              mobile: ph, phone: ph, name: prev.name || name || ph
-            });
-          }
-        }catch(_c){}
-        return {ok:true, ph};
+        muOk = true;
       }catch(e2){
-        return {ok:false, ph, err: (e2&&e2.message)||(e1&&e1.message)||'write failed'};
+        lastErr = (e2&&(e2.message||e2.code))||(e1&&(e1.message||e1.code))||lastErr||'write failed';
       }
     }
+    if(muOk || payOk){
+      try{
+        if(typeof _cache!=='undefined'){
+          _cache.mobileUsers = _cache.mobileUsers || {};
+          const prev = _cache.mobileUsers[ph] || {};
+          _cache.mobileUsers[ph] = Object.assign({}, prev, payload, { mobile: ph, phone: ph });
+        }
+      }catch(_c){}
+      return {ok:true, ph, payOk, muOk};
+    }
+    return {ok:false, ph, err: lastErr || 'PERMISSION_DENIED'};
   }
 
   try{
@@ -487,7 +513,10 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
     if(okN>0){
       toast('✅ Paid-until '+ds+' · ₹'+amt+'/mo saved for '+okN+' account(s)'+(failN?(' · '+failN+' failed'):''));
     } else {
-      toast('❌ Save failed — check Firebase rules for mobileUsers. '+(fails[0]||''));
+      const hint = (typeof L==='function'
+        ? L('❌ Save failed (PERMISSION_DENIED).\n1) Firebase में rules deploy करें (paymentStatus)\n2) Admin OTP login: hard-admin phone या mobileUsers/{phone}/role=admin\n3) Logout → OTP फिर Save','❌ Save failed (PERMISSION_DENIED).\n1) Deploy RTDB rules (paymentStatus)\n2) Admin OTP login: hard-admin phone or role=admin\n3) Logout → OTP → Save again')
+        : '❌ PERMISSION_DENIED — deploy paymentStatus rules + Admin OTP login');
+      toast(hint+' '+(fails[0]||''));
     }
     try{ closeModal(); }catch(e){}
     try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(e){}

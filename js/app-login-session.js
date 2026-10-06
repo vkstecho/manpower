@@ -5163,7 +5163,18 @@ async function saveUserPaidUntilAdmin(){
       paymentUpdatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
     };
     if(amt) payload.paymentAmount = amt;
-    await fbUpdate('mobileUsers/'+phone, payload);
+    let ok = false, errMsg = '';
+    try{
+      await fbSet('paymentStatus/'+phone, Object.assign({}, payload, { mobile: phone, phone: phone }));
+      ok = true;
+    }catch(e1){ errMsg = (e1&&e1.message)||''; }
+    try{
+      await fbUpdate('mobileUsers/'+phone, payload);
+      ok = true;
+    }catch(e2){
+      if(!ok) errMsg = (e2&&e2.message)||errMsg;
+    }
+    if(!ok) throw new Error(errMsg || 'PERMISSION_DENIED');
     // If this is current session user, refresh local
     try{
       const my = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
@@ -5197,8 +5208,12 @@ async function _hydrateUserPaymentStatus(){
         }
       }catch(e){}
     }
-    if(mu){
-      const until = mu.paymentPaidUntil || mu.paidUntil || mu.paymentPaidUntilDate || null;
+    // Also load paymentStatus/{phone} (admin may save here when mobileUsers write is denied)
+    let ps = null;
+    try{ ps = await fbGet('paymentStatus/'+phone).catch(()=>null); }catch(e){}
+    const src = Object.assign({}, mu || {}, ps || {});
+    if(mu || ps){
+      const until = src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate || null;
       if(until){
         SESSION.paymentPaidUntil = until;
         window._userPaymentPaidUntil = until;
@@ -5206,7 +5221,7 @@ async function _hydrateUserPaymentStatus(){
         SESSION.paymentPaidUntil = null;
         window._userPaymentPaidUntil = null;
       }
-      const amt = parseInt(mu.paymentAmount || mu.subscriptionAmount || 0, 10);
+      const amt = parseInt(src.paymentAmount || src.subscriptionAmount || 0, 10);
       SESSION.paymentAmount = (amt > 0) ? amt : null;
       window._userPaymentAmount = SESSION.paymentAmount;
     } else {
