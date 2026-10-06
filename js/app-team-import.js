@@ -998,13 +998,29 @@ async function saveEmployee(empId){
             try{ mem.managerId = phoneKey; }catch(ex){}
           }
         });
-        // Demote other managers in same company (employees + mobileUsers)
-        // Admin Managers list is driven by mobileUsers.role === 'manager'
+        // Demote ONLY the outgoing manager(s) — never every manager in the company
+        // (multi-manager companies must keep other managers intact)
+        const outgoingMgrKeys = new Set();
+        try{
+          if(SESSION && SESSION.role==='manager'){
+            const sk = _normMobileKey(SESSION.mobile||'');
+            if(sk) outgoingMgrKeys.add(sk);
+          }
+        }catch(ex){}
+        if(e){
+          const op = _normMobileKey(e.managerId||'');
+          if(op) outgoingMgrKeys.add(op);
+          // If the person being promoted was under a manager, that manager is outgoing for team handoff
+        }
+        // When a manager edits and promotes a team member, SESSION.mobile is the outgoing manager
         all.forEach(mem => {
           if(!mem || mem.id === empId) return;
-          if(cid && _normCompanyId(mem.companyId||mem.company||'') && _normCompanyId(mem.companyId||mem.company||'') !== cid) return;
           const isOtherMgr = String(mem.role||'').toLowerCase()==='manager' || String(mem.accessLevel||'').toLowerCase()==='manager';
           if(!isOtherMgr) return;
+          const memPhone = _normMobileKey(mem.phone||mem.mobile||'');
+          // Only demote if this manager is explicitly the outgoing one
+          if(!memPhone || !outgoingMgrKeys.has(memPhone)) return;
+          if(memPhone === phoneKey) return;
           const leftPayload = {
             role:'member', accessLevel:'worker',
             managerId: phoneKey,
@@ -1015,10 +1031,7 @@ async function saveEmployee(empId){
             active: false
           };
           tasks.push(fbUpdate('employees/'+mem.id, leftPayload));
-          try{
-            Object.assign(mem, leftPayload);
-          }catch(ex){}
-          // So they appear under Team → Left Members
+          try{ Object.assign(mem, leftPayload); }catch(ex){}
           tasks.push(fbSet('leftEmployees/'+mem.id, {
             ...mem,
             ...leftPayload,
@@ -1028,21 +1041,17 @@ async function saveEmployee(empId){
             archivedAt: Date.now(),
             removedBy: SESSION.name || SESSION.mobile || 'system'
           }).catch(()=>{}));
-          const oldPhone = _normMobileKey(mem.phone||mem.mobile||'');
-          if(oldPhone && oldPhone !== phoneKey){
-            // Wipe so next login is fresh Manager/Member registration
-            tasks.push(fbRemove('mobileUsers/'+oldPhone).catch(()=>
-              fbSet('mobileUsers/'+oldPhone, {
-                status: 'removed',
-                role: 'removed',
-                forceFreshLogin: true,
-                clearedAt: new Date().toISOString(),
-                demotedReason: 'manager_transferred'
-              })
-            ));
-          }
+          tasks.push(fbRemove('mobileUsers/'+memPhone).catch(()=>
+            fbSet('mobileUsers/'+memPhone, {
+              status: 'removed',
+              role: 'removed',
+              forceFreshLogin: true,
+              clearedAt: new Date().toISOString(),
+              demotedReason: 'manager_transferred'
+            })
+          ));
         });
-        // Also scan mobileUsers cache for any other manager roles (not only employees)
+        // mobileUsers: demote only outgoing manager keys (not all managers in company)
         try{
           const muAll = _cache.mobileUsers || {};
           Object.keys(muAll).forEach(mk => {
@@ -1050,8 +1059,7 @@ async function saveEmployee(empId){
             if(!u || String(u.role||'').toLowerCase()!=='manager') return;
             const uk = _normMobileKey(u.mobile||u.phone||mk);
             if(!uk || uk === phoneKey) return;
-            // same company if possible
-            if(cid && u.company && _normCompanyId(u.company) !== cid && _normCompanyId(u.companyId||'') !== cid) return;
+            if(!outgoingMgrKeys.has(uk)) return;
             tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
               fbSet('mobileUsers/'+uk, {
                 status: 'removed',

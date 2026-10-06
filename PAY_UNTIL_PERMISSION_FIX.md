@@ -39,3 +39,6 @@ Set `admin: true` on the auth token.
 1. Admin logout → OTP login again  
 2. Team → Pay until → Save  
 3. Should show: `Paid-until … saved for N account(s)`
+
+## Related (2.5.59)
+Pay until modal now pre-fills the last saved paid-until date and amount when reopened.

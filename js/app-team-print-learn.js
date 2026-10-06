@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────
 function printSched(){
   // Print modal = ONLY current on-screen view groups (Section / Machine / Resp / Designation)
-  const roster = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length>0);
+  const roster = getSchedFilteredEmps().filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team');
   const viewGroups = _buildSchedDisplayGroups(roster);
   const mode = _schedGroupMode();
   const modeHint = {section:'Sections', machine:'Machines', responsibility:'Responsibility', designation:'Designation'}[mode]||mode;
@@ -74,6 +74,20 @@ async function _execPrint(){
   if(!selectedIds.length){
     selectedIds = ['current'];
   }
+  // Lazy-load html2canvas (not bundled in index.html)
+  try{
+    if(typeof ensureHtml2Canvas === 'function'){
+      toast(L('⏳ Print library load हो रही है…','⏳ Loading print library…'));
+      await ensureHtml2Canvas();
+    } else if(typeof MP_UTILS !== 'undefined' && typeof MP_UTILS.ensureHtml2Canvas === 'function'){
+      toast(L('⏳ Print library load हो रही है…','⏳ Loading print library…'));
+      await MP_UTILS.ensureHtml2Canvas();
+    }
+  }catch(loadErr){
+    console.error(loadErr);
+    toast(L('❌ Print library load नहीं हुई — internet check करें या page refresh करें','❌ Print library failed — check internet or refresh'));
+    return;
+  }
   if(typeof html2canvas !== 'function'){
     toast(L('❌ Print library load नहीं हुई — page refresh करके फिर try करें','❌ Print library failed to load — refresh and try again'));
     return;
@@ -81,7 +95,7 @@ async function _execPrint(){
   closeModal();
 
   // Build print groups from current on-screen subsections (view_0, view_1, …)
-  const roster = getSchedFilteredEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length>0);
+  const roster = getSchedFilteredEmps().filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team');
   const viewGroups = (window._printViewGroups && window._printViewGroups.length)
     ? window._printViewGroups
     : _buildSchedDisplayGroups(roster);
