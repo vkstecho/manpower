@@ -378,6 +378,14 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
 
   try{
     toast('⏳ Saving paid-until…');
+    // Phone Auth must be active — rules only allow admin / hard-admin / managers(member-only)
+    if(typeof _ensureWriteAuth==='function'){
+      const authOk = await _ensureWriteAuth();
+      if(!authOk){
+        toast('❌ Phone verify required — Admin must complete OTP on this device, then retry Pay until');
+        return;
+      }
+    }
     let okN = 0, failN = 0, fails = [];
     // Always write manager self first
     const r0 = await writeMu(mgrKey);
