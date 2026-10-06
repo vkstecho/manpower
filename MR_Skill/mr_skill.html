@@ -4,7 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
 <meta name="theme-color" content="#0f172a"/>
-<title>MR Skill · MetCost Pro & MRM · v3.5.1</title>
+<title>MR Skill · MetCost Pro & MRM · v3.5.2</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <style>
@@ -461,7 +461,7 @@ body.theme-light .toast, body.theme-light #toast{
           <thead><tr><th>Parameter</th><th>Actual</th><th style="cursor:pointer;text-decoration:underline" onclick="explainEquivalent()" title="Click for formulas">Equivalent ℹ</th><th>Target</th><th>Unit</th></tr></thead>
           <tbody></tbody>
         </table>
-        <div id="equivFormulaPanel" class="hidden" style="margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);font-size:12px;line-height:1.55;white-space:pre-wrap;color:var(--text)"></div>
+        <div id="equivFormulaPanel" class="hidden" data-open="0" style="margin-top:10px;padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:var(--card);font-size:12px;line-height:1.55;white-space:pre-wrap;color:var(--text)"></div>
       </div>
       <h3 style="margin:18px 0 8px;font-size:15px">Product matrix (Slit FG · MT) — Micron × OD</h3>
       <p class="hint">Segregation same as plant workbook. Equv. = Mic×OD×Special. Width Eqv. applies period width/length factor.</p>
@@ -575,6 +575,7 @@ function saveMonthHistory(){
     totals: JSON.parse(JSON.stringify(state.totals||{})),
     extras: JSON.parse(JSON.stringify(state.extras||{})),
     report: JSON.parse(JSON.stringify(state.report)),
+    prod: JSON.parse(JSON.stringify(state.prod||{})),
     stoppages: (state.stoppages||[]).filter(s=>String(s.date||'').startsWith(ym))
   };
   saveHistoryMap(map);
@@ -615,6 +616,7 @@ function loadMonthHistory(ym){
   if(h.extras) Object.assign(state.extras, h.extras);
   loadExtrasToForm();
   state.report = h.report;
+  if(h.prod) state.prod = h.prod;
   // show totals chips
   const t = state.totals||{};
   document.getElementById('s-slit').textContent = t.slitKg?Number(t.slitKg).toFixed(0):'—';
@@ -639,9 +641,12 @@ function loadMonthHistory(ym){
       const t=Math.round(v*100)/100;
       return Number.isInteger(t)?String(t):String(t);
     };
-    document.querySelector('#reportTable tbody').innerHTML = state.report.rows.map(r=>
-      '<tr><td><b>'+r[0]+'</b></td><td>'+fmt(r[1])+'</td><td>'+fmt(r[2])+'</td><td>'+fmt(r[3])+'</td><td>'+r[4]+'</td></tr>'
-    ).join('');
+    document.querySelector('#reportTable tbody').innerHTML = state.report.rows.map(r=>{
+      const nm=String(r[0]||'');
+      const eqc = (r[2]===''||r[2]==null) ? '—' :
+        '<span class="eq-val" style="cursor:pointer;text-decoration:underline;color:var(--accent,#7c3aed)" onclick=\'explainRowEquivalent('+JSON.stringify(nm)+','+JSON.stringify(r[1])+','+JSON.stringify(r[2])+','+JSON.stringify(r[4]||'')+')\' title="Click for formula">'+fmt(r[2])+'</span>';
+      return '<tr><td><b>'+r[0]+'</b></td><td>'+fmt(r[1])+'</td><td>'+eqc+'</td><td>'+fmt(r[3])+'</td><td>'+r[4]+'</td></tr>';
+    }).join('');
   }
   try{ if(typeof renderProdAnalytics==='function') renderProdAnalytics(); }catch(e){}
   try{
@@ -1226,9 +1231,8 @@ function _sapMachMet(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')
 function _sapMachSlit(m){ const s=String(m||'').toUpperCase(); if(s.indexOf('M1')>=0||s.indexOf('M-1')>=0) return 'S-1'; if(s.indexOf('M2')>=0||s.indexOf('M-2')>=0) return 'S-2'; return 'Other'; }
 function _sapOdFromMat(mat){
   const m=String(mat||'');
-  // Optical density ONLY from material code (NOT from Z_Slit "OD" column — that is often diameter/width)
-  // Examples: ABM25→2.5, ABM22→2.2, SM28→2.8, …M22→2.2, …M25→2.5
-  let x=m.match(/ABM(\d{2})/i)||m.match(/SM(\d{2})/i)||m.match(/[A-Z]M(\d{2})(?:R)?$/i)||m.match(/M(\d{2})(?:R)?$/i);
+  // Optical density from material code: G08M22→2.2, G10M25→2.5, ABM28→2.8, SM22→2.2
+  let x=m.match(/ABM(\d{2})/i)||m.match(/SM(\d{2})/i)||m.match(/M(\d{2})(?:R)?$/i)||m.match(/M(\d{2})/i);
   if(x){
     const v=parseInt(x[1],10);
     if(v>=20 && v<=40) return Math.round(v)/10; // 22→2.2, 25→2.5, 28→2.8
@@ -1239,11 +1243,12 @@ function _sapOdFromMat(mat){
   return 2.2; // baseline
 }
 function _sapOdSafe(r, mat){
-  // Prefer material code; only use OD column if value is a real OD (2–3.5)
+  // Material code wins (G08M22→2.2). Z_Slit OD column is often not optical density.
   const fromMat=_sapOdFromMat(mat);
+  if(fromMat>=2 && fromMat<=3.5) return fromMat;
   const fromCol=_sapNum(col(r,['OD','od','optical density']));
   if(fromCol>=2 && fromCol<=3.5) return fromCol;
-  return fromMat||2.2;
+  return 2.2;
 }
 function _sapMicron(r){ return _sapNum(col(r,['thickness','micron','mic'])); }
 
@@ -1375,8 +1380,13 @@ window.processAllUploads=function(){
     if(!nw) return;
     const grade=String(col(r,['Grade','grade','Down Grade','down grade'])||'').replace(/\.0$/,'').trim();
     const thick=_sapNum(col(r,['Thickness','thickness','micron','mic']))||12;
-    let od=_sapNum(col(r,['OD','od']));
-    if(!od) od=_sapOdFromMat(mat);
+    // OD from material code first: G08M22→2.2 (Z_Slit OD column is often diameter/wrong)
+    let od=_sapOdFromMat(mat);
+    if(!od){
+      const colOd=_sapNum(col(r,['OD','od']));
+      if(colOd>=2 && colOd<=3.5) od=colOd;
+    }
+    if(!od) od=2.2;
     let mc=_sapMachSlit(col(r,['Machine','machine']));
     if(mc==='Other') mc='S-1';
 
@@ -1956,7 +1966,10 @@ window.recalculate=function(){
     else if(/^Conversion Cost/i.test(name)) cls='row-conv';
     else if(/Total with Packing/i.test(name)) cls='row-pack';
     else if(/^Total Cost/i.test(name) || /after scrap/i.test(name)) cls='row-total';
-    return `<tr class="${cls}"><td><b>${r[0]}</b></td><td>${fmt(r[1])}</td><td>${fmt(r[2])}</td><td>${fmt(r[3])}</td><td>${r[4]}</td></tr>`;
+    const eqCell = (r[2]===''||r[2]==null)
+      ? '—'
+      : `<span class="eq-val" style="cursor:pointer;text-decoration:underline;color:var(--accent,#7c3aed)" data-name="${String(name).replace(/"/g,'&quot;')}" data-actual="${r[1]}" data-eq="${r[2]}" data-unit="${String(r[4]||'').replace(/"/g,'&quot;')}" onclick="explainRowEquivalent(this.dataset.name, this.dataset.actual===''?null:Number(this.dataset.actual), this.dataset.eq===''?null:Number(this.dataset.eq), this.dataset.unit)" title="Click for formula">${fmt(r[2])}</span>`;
+    return `<tr class="${cls}"><td><b>${r[0]}</b></td><td>${fmt(r[1])}</td><td>${eqCell}</td><td>${fmt(r[3])}</td><td>${r[4]}</td></tr>`;
   }).join('');
   
   try{ if(typeof renderProdAnalytics==='function') renderProdAnalytics(); }catch(e){}
@@ -2016,6 +2029,7 @@ window.exportConversionExcel=function(){
 function esc(s){ return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 window.num=num; window.state=state; window.renderEquiv=renderEquiv; window.renderStop=renderStop;
 
+window.autoCalcTargets=window.autoCalcTargets||function(){};
 const DEFAULT_TARGETS = [
   {param:'Slit Production (kg)', target:'', unit:'kg'},
   {param:'Wastage %', target:1.3, unit:'%'},
@@ -2196,11 +2210,80 @@ window.resetTargets=function(){
 };
 
 /** Explain Equivalent formulas (click Equivalent header / values) */
+
+window._eqScale = function(){
+  const t = state.totals || {};
+  const out = num(t.slitKg), eq = num(t.eqvKg);
+  return (out > 0 && eq > 0) ? (out / eq) : 1;
+};
+window.explainRowEquivalent = function(name, actual, equivalent, unit){
+  const panel = document.getElementById('equivFormulaPanel');
+  if(!panel){ toast('Formula panel missing'); return; }
+  const t = state.totals || {};
+  const out = num(t.slitKg), eq = num(t.eqvKg);
+  const scale = (out > 0 && eq > 0) ? (out / eq) : 1;
+  const wl = num(t.wlFac) || 1;
+  const avgW = num(t.avgJumboWidth), avgL = num(t.avgJumboLength);
+  const a = (actual === '' || actual == null) ? null : Number(actual);
+  const e = (equivalent === '' || equivalent == null) ? null : Number(equivalent);
+  const unitS = unit || '';
+  let msg = '';
+  name = String(name || '');
+
+  if(/Slit Production/i.test(name)){
+    msg =
+      'EQUIVALENT — ' + name + '\n' +
+      '─────────────────────────────────────\n\n' +
+      'Actual (Good kg) = Σ Net Weight of Z_Slit Move 101\n' +
+      '                  excluding Grade 5 & Grade 6\n\n' +
+      'Equivalent kg = Σ (roll kg × Micron factor × OD factor × Special factor)\n' +
+      '                × Width×Length period factor\n\n' +
+      'Micron factors: 8µ→1.88  10µ→1.20  12µ→1.00  >12→1.00\n' +
+      'OD factors:     2.2→1.00  2.5→1.24  2.8→1.44\n' +
+      'Special:        Normal→1  RCM→2.17  ALM/AlOx→3.60\n' +
+      'WL factor:      (3000 / avgW) × (72000 / avgL)\n' +
+      '  this month avgW=' + (avgW ? avgW.toFixed(0) : '—') + ' mm, avgL=' + (avgL ? avgL.toFixed(0) : '—') +
+      ', WL=' + wl.toFixed(4) + '\n\n' +
+      'Actual      = ' + (out ? Math.round(out) : 0) + ' kg\n' +
+      'Equivalent  = ' + (eq ? Math.round(eq) : 0) + ' kg\n' +
+      'Avg factor  = ' + (out > 0 ? (eq / out).toFixed(4) : '—');
+  } else if(/%/.test(unitS) || /waste %|B Grade %/i.test(name)){
+    msg =
+      'EQUIVALENT — ' + name + '\n' +
+      '─────────────────────────────────────\n\n' +
+      'Equivalent % = Actual % × (Good kg / Equivalent kg)\n\n' +
+      'Scale = Good / Eqv = ' + Math.round(out) + ' / ' + Math.round(eq) + ' = ' + scale.toFixed(4) + '\n\n' +
+      'Actual      = ' + (a != null ? a : '—') + ' %\n' +
+      'Equivalent  = ' + (a != null ? a : 0) + ' × ' + scale.toFixed(4) + ' = ' + (e != null ? e : '—') + ' %\n\n' +
+      'Lower equivalent % means the same waste is spread over higher equivalent output.';
+  } else if(/kg\/MT|pcs\/MT/i.test(unitS)){
+    msg =
+      'EQUIVALENT — ' + name + '\n' +
+      '─────────────────────────────────────\n\n' +
+      'Equivalent = Actual × (Good kg / Equivalent kg)\n\n' +
+      'Scale = ' + Math.round(out) + ' / ' + Math.round(eq) + ' = ' + scale.toFixed(4) + '\n\n' +
+      'Actual      = ' + (a != null ? a : '—') + ' ' + unitS + '\n' +
+      'Equivalent  = ' + (a != null ? a : 0) + ' × ' + scale.toFixed(4) + ' = ' + (e != null ? e : '—') + ' ' + unitS;
+  } else {
+    msg =
+      'EQUIVALENT — ' + name + '\n' +
+      '─────────────────────────────────────\n\n' +
+      'Equivalent ₹/kg = Actual ₹/kg × (Good kg / Equivalent kg)\n\n' +
+      'Scale = Good / Eqv = ' + Math.round(out) + ' / ' + Math.round(eq) + ' = ' + scale.toFixed(4) + '\n\n' +
+      'Actual      = ' + (a != null ? a : '—') + ' ' + unitS + '\n' +
+      'Equivalent  = ' + (a != null ? a : 0) + ' × ' + scale.toFixed(4) + ' = ' + (e != null ? e : '—') + ' ' + unitS + '\n\n' +
+      'Same cost spread over higher equivalent output → lower ₹/kg.';
+  }
+  panel.textContent = msg;
+  panel.classList.remove('hidden');
+  panel.dataset.open = '1';
+  try{ panel.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){}
+};
+
 window.explainEquivalent=function(){
   const panel=document.getElementById('equivFormulaPanel');
   if(!panel){ toast('Formula panel missing'); return; }
-  // Toggle expand/collapse
-  if(!panel.classList.contains('hidden') && panel.dataset.open==='1'){
+  if(!panel.classList.contains('hidden') && panel.dataset.open==='1' && panel.dataset.mode==='general'){
     panel.classList.add('hidden');
     panel.dataset.open='0';
     return;
@@ -2208,43 +2291,40 @@ window.explainEquivalent=function(){
   const t=state.totals||{};
   const out=num(t.slitKg), eq=num(t.eqvKg);
   const avg = out>0 ? (eq/out) : 1;
-  const R=_eqRules();
+  const scale = out>0 && eq>0 ? (out/eq) : 1;
+  const R=(typeof _eqRules==='function')?_eqRules():{};
   const avgW = num(t.avgJumboWidth), avgL = num(t.avgJumboLength), wl = num(t.wlFac)||1;
   const total101 = num(t.total101Kg)||out;
   const msg =
-    'EQUIVALENT — how each value is calculated\n'+
-    '─────────────────────────────────────\n\n'+
-    '1) Per FG roll (Z_Slit Move 101, exclude Grade 5 & 6)\n'+
-    '   Factor = Micron × OD × Special\n\n'+
-    '   Micron factors:  8µ → '+((R.micron||{})['8']||1.88)+
-      '   |  10µ → '+((R.micron||{})['10']||1.2)+
-      '   |  12µ → '+((R.micron||{})['12']||1)+
-      '   |  >12 → '+((R.micron||{}).gt12||1)+'\n'+
-    '   OD factors:     2.2 → '+((R.od||{})['2.2']||1)+
-      '   |  2.5 → '+((R.od||{})['2.5']||1.24)+
-      '   |  2.8 → '+((R.od||{})['2.8']||1.44)+'\n'+
-    '   Special:        Normal → 1'+
-      '   |  RCM → '+((R.special||{}).rcm||2.17)+
-      '   |  ALM/AlOx → '+((R.special||{}).alm||3.6)+'\n\n'+
-    '2) Period Width × Length (Z_Jumbo, non-RCM/Alox only, bulk once)\n'+
-    '   WL factor = (3000 / avgW) × (72000 / avgL)\n'+
-    '   This month avgW = '+(avgW?avgW.toFixed(0):'—')+' mm,  avgL = '+(avgL?avgL.toFixed(0):'—')+
-      ',  WL = '+wl.toFixed(4)+'\n\n'+
-    '3) Equivalent Output kg\n'+
-    '   = Σ (roll kg × Mic × OD × Special) × WL factor\n\n'+
-    'This month numbers:\n'+
-    '   Slit Production (good, excl 5&6) = '+(out?Math.round(out):0)+' kg\n'+
-    '   Complete 101 output (all grades) = '+(total101?Math.round(total101):0)+' kg\n'+
-    '   Equivalent Output               = '+(eq?Math.round(eq):0)+' kg\n'+
-    '   Avg factor (Eqv/Good)           = '+avg.toFixed(4)+'\n\n'+
-    'Equivalent column on cost rows:\n'+
-    '   Equivalent ₹/kg = Actual ₹/kg × (Good kg / Eqv kg)\n'+
-    '   Equivalent %    = Actual %    × (Good kg / Eqv kg)';
+    'EQUIVALENT OUTPUT — how every Equivalent column value is calculated\n' +
+    '─────────────────────────────────────\n\n' +
+    '1) Equivalent Output kg (Slit Production row)\n' +
+    '   Per roll: kg × Micron × OD × Special\n' +
+    '   Then × period WL factor from Z_Jumbo (non-RCM/AlOx averages)\n\n' +
+    '   Micron: 8µ→' + ((R.micron||{})['8']||1.88) + '  10µ→' + ((R.micron||{})['10']||1.2) +
+      '  12µ→' + ((R.micron||{})['12']||1) + '  >12→' + ((R.micron||{}).gt12||1) + '\n' +
+    '   OD: 2.2→' + ((R.od||{})['2.2']||1) + '  2.5→' + ((R.od||{})['2.5']||1.24) +
+      '  2.8→' + ((R.od||{})['2.8']||1.44) + '\n' +
+    '   Special: Normal→1  RCM→' + ((R.special||{}).rcm||2.17) + '  ALM/AlOx→' + ((R.special||{}).alm||3.6) + '\n' +
+    '   WL = (3000/avgW)×(72000/avgL) = ' + wl.toFixed(4) +
+      '  (avgW=' + (avgW?avgW.toFixed(0):'—') + ' mm, avgL=' + (avgL?avgL.toFixed(0):'—') + ')\n\n' +
+    '2) All other Equivalent column cells\n' +
+    '   Equivalent = Actual × (Good kg / Equivalent kg)\n' +
+    '   Scale = ' + Math.round(out) + ' / ' + Math.round(eq) + ' = ' + scale.toFixed(4) + '\n\n' +
+    'This month:\n' +
+    '   Good output (excl 5&6) = ' + Math.round(out||0) + ' kg\n' +
+    '   Complete 101           = ' + Math.round(total101||0) + ' kg\n' +
+    '   Equivalent output      = ' + Math.round(eq||0) + ' kg\n' +
+    '   Avg factor             = ' + avg.toFixed(4) + '\n\n' +
+    'Tip: click any blue underlined Equivalent cell for that row’s formula.';
   panel.textContent = msg;
   panel.classList.remove('hidden');
   panel.dataset.open = '1';
+  panel.dataset.mode = 'general';
   try{ panel.scrollIntoView({behavior:'smooth', block:'nearest'}); }catch(e){}
 };
+
+;
 
 
 window.downloadConversionExcel=function(){
@@ -2749,6 +2829,13 @@ window.downloadMrmPptx = async function(){
 
 // boot matrix placeholder
 document.addEventListener('DOMContentLoaded', function(){
+  try{
+    // Restore last saved month so Conversion Cost opens with values (no re-upload)
+    const ym = (typeof monthKey==='function') ? monthKey() : (document.getElementById('reportMonth')||{}).value;
+    if(ym && typeof loadMonthHistory==='function'){
+      loadMonthHistory(ym);
+    }
+  }catch(e){ console.warn('boot history', e); }
   try{
     if(typeof window._fillMatrixTable==='function'){
       window._fillMatrixTable(document.querySelector('#tblProdMatrix thead'), document.querySelector('#tblProdMatrix tbody'), state.prod||{});
