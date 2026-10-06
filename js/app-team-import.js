@@ -957,7 +957,9 @@ async function saveEmployee(empId){
   const phoneKey = _normMobileKey(update.phone || update.mobile || (e && (e.phone||e.mobile)) || '');
   if(newAccess === 'manager' && phoneKey){
     update.role = 'manager';
-    update.status = update.status || 'active';
+    update.accessLevel = 'manager';
+    update.isTeamManager = true;
+    update.status = (update.status && update.status!=='left_team') ? update.status : 'active';
     // New manager owns the team — members should point at this phone
     update.managerId = phoneKey;
   } else if(newAccess === 'worker' && e && (String(e.role||'').toLowerCase()==='manager' || String(e.accessLevel||'').toLowerCase()==='manager')){
@@ -1055,6 +1057,38 @@ async function saveEmployee(empId){
             ));
           });
         }catch(ex){}
+        // Re-point every logged-in member's mobileUsers.managerId → new manager (Admin hierarchy uses this)
+        try{
+          let muAll = _cache.mobileUsers;
+          if(!muAll){ try{ muAll = await fbGet('mobileUsers'); }catch(e){ muAll = {}; } }
+          const oldMgrKeys = new Set();
+          if(e){
+            const op = _normMobileKey(e.managerId||e.phone||e.mobile||'');
+            if(op) oldMgrKeys.add(op);
+          }
+          try{
+            const sk = (typeof SESSION!=='undefined' && SESSION.role==='manager') ? _normMobileKey(SESSION.mobile||'') : '';
+            if(sk) oldMgrKeys.add(sk);
+          }catch(ex){}
+          Object.entries(muAll||{}).forEach(([mk,u])=>{
+            if(!u) return;
+            const uk = _normMobileKey(u.mobile||u.phone||mk);
+            if(!uk || uk===phoneKey) return;
+            const mid = _normMobileKey(u.managerId||u.managerMobile||'');
+            if(oldMgrKeys.has(mid) || mid===phoneKey || !mid){
+              // members under old manager OR unassigned in same company
+              if(!mid || oldMgrKeys.has(mid)){
+                tasks.push(fbUpdate('mobileUsers/'+uk, {
+                  managerId: phoneKey,
+                  managerName: update.name || (e && e.name) || '',
+                  previousManagerId: mid || null,
+                  updatedAt: new Date().toISOString()
+                }).catch(()=>{}));
+              }
+            }
+          });
+        }catch(ex){ console.warn('mu reassign', ex); }
+
         if(phoneKey.length >= 10){
           const muPath = 'mobileUsers/'+phoneKey;
           const muPayload = {

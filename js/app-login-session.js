@@ -2727,6 +2727,7 @@ async function confirmLeaveTeamTransfer(useRecommended){
     }
     updates['employees/'+succ.id+'/managerId'] = newKey;
     updates['employees/'+succ.id+'/accessLevel'] = 'manager';
+    updates['employees/'+succ.id+'/role'] = 'manager';
     updates['employees/'+succ.id+'/isTeamManager'] = true;
     updates['employees/'+succ.id+'/perms'] = { schedule:true, leave:true, reports:true };
     // RTDB multi-path update via root
@@ -2746,6 +2747,7 @@ async function confirmLeaveTeamTransfer(useRecommended){
       await fbUpdate('employees/'+succ.id, {
         managerId: newKey,
         accessLevel: 'manager',
+        role: 'manager',
         perms: { schedule:true, leave:true, reports:true },
         isTeamManager: true
       });
@@ -2825,19 +2827,49 @@ async function confirmLeaveTeamTransfer(useRecommended){
     }catch(ex){ console.warn('leaveQuotas transfer', ex); }
 
     setProg('5/6 · Closing your Manager access…');
-    let oldUser = null;
-    try{ oldUser = await fbGet('mobileUsers/'+oldKey); }catch(e){}
-    await fbSet('mobileUsers/'+oldKey, {
-      ...(oldUser||{}),
-      status: 'left_team',
-      role: 'none',
-      leftAt: new Date().toISOString(),
-      leftReason: 'auto_manager_handoff',
-      transferredTo: newKey,
-      transferredToName: succ.name,
-      name: oldUser?.name || SESSION.name,
-      mobile: oldKey
-    });
+    // Mark old manager employee as left_team + archive
+    try{
+      const selfEmp = (_cache.employees||[]).find(e=>_normMobileKey(e.phone||e.mobile||'')===oldKey)
+        || (typeof myEmp==='function' && myEmp()) || null;
+      if(selfEmp && selfEmp.id){
+        await fbUpdate('employees/'+selfEmp.id, {
+          status: 'left_team',
+          role: 'member',
+          accessLevel: 'worker',
+          managerId: newKey,
+          leftAt: new Date().toISOString(),
+          leftReason: 'auto_manager_handoff',
+          active: false,
+          updatedAt: new Date().toISOString()
+        });
+        await fbSet('leftEmployees/'+selfEmp.id, {
+          ...selfEmp,
+          status: 'left_team',
+          leftAt: new Date().toISOString(),
+          leftReason: 'auto_manager_handoff',
+          transferredTo: newKey,
+          transferredToName: succ.name,
+          archivedAt: Date.now()
+        }).catch(()=>{});
+      }
+    }catch(ex){ console.warn('old emp leave', ex); }
+    // Wipe mobileUsers so next OTP = fresh Manager/Member registration
+    try{
+      await fbRemove('mobileUsers/'+oldKey);
+    }catch(e){
+      try{
+        await fbSet('mobileUsers/'+oldKey, {
+          status: 'removed',
+          role: 'removed',
+          forceFreshLogin: true,
+          leftAt: new Date().toISOString(),
+          leftReason: 'auto_manager_handoff',
+          transferredTo: newKey,
+          transferredToName: succ.name,
+          clearedAt: new Date().toISOString()
+        });
+      }catch(e2){}
+    }
 
     setProg('6/6 · Notifying new Manager…');
     try{
