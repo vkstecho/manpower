@@ -2368,6 +2368,16 @@ async function showProfile(){
         <div><div class="pa-label">User Access Extend</div><div class="pa-sub">${typeof L==='function'?L('Validity बढ़ाएं','Extend validity'):'Extend validity'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
+      <button class="profile-action" onclick="closeModal();if(typeof openAppLicenseAdmin==='function')openAppLicenseAdmin();else toast('Update app to latest version');">
+        <div class="pa-icon" style="background:rgba(124,58,237,.12)">🔑</div>
+        <div><div class="pa-label">${typeof L==='function'?L('App License / Expiry','App License / Expiry'):'App License / Expiry'}</div><div class="pa-sub">${typeof L==='function'?L('पूरी App की expiry date','Whole app expiry date'):'Whole app expiry date'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
+      <button class="profile-action" onclick="closeModal();openPaymentSettingsAdmin()">
+        <div class="pa-icon" style="background:rgba(234,88,12,.12)">💳</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Payment Link & Reminders','Payment Link & Reminders'):'Payment Link & Reminders'}</div><div class="pa-sub">${typeof L==='function'?L('₹999/month · link · paid-until dates','₹999/month · link · paid-until dates'):'₹999/month · link · paid-until dates'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
         <div class="pa-icon" style="background:rgba(14,116,144,.12)">🔭</div>
         <div><div class="pa-label">Tab Visibility</div><div class="pa-sub">Guest tab access control</div></div>
@@ -3076,6 +3086,11 @@ function goTab(t){
         _goTabDirect(t);
       }
     });
+    return;
+  }
+  // Payment gate: block tabs except Home / My Shift when unpaid
+  if(!_paymentGateAllows(t)){
+    openPaymentRequiredModal(t);
     return;
   }
   _goTabDirect(t);
@@ -4750,3 +4765,255 @@ async function _renderMyShiftPendingReqs(empObjId){
 let _myShiftMonth = null;
 
 
+
+
+
+// ═══════════════════════════════════════════════════════════
+// PAYMENT GATE — ₹999/month (Admin sets link + per-user paidUntil)
+// Tabs Home + My Shift always free; other tabs require payment or paidUntil in future
+// ═══════════════════════════════════════════════════════════
+window._paymentSettingsCache = window._paymentSettingsCache || null;
+window._paymentSettingsAt = 0;
+
+async function _loadPaymentSettings(force){
+  const now = Date.now();
+  if(!force && window._paymentSettingsCache && (now - window._paymentSettingsAt) < 60000){
+    return window._paymentSettingsCache;
+  }
+  try{
+    const s = await fbGet('settings/payment');
+    window._paymentSettingsCache = s || {
+      enabled: true,
+      amount: 999,
+      currency: 'INR',
+      link: '',
+      title: 'Pay ₹999 / month',
+      message: 'Subscribe to continue using Schedule, Team, Leave and other tabs.'
+    };
+    window._paymentSettingsAt = now;
+    return window._paymentSettingsCache;
+  }catch(e){
+    return window._paymentSettingsCache || { enabled:false, amount:999, link:'' };
+  }
+}
+
+function _isPaymentExemptUser(){
+  try{
+    if(typeof isAdmin==='function' && isAdmin()) return true;
+    if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(SESSION && SESSION.mobile)) return true;
+  }catch(e){}
+  return false;
+}
+
+function _getUserPaidUntilDate(){
+  // Prefer session cache hydrated at login; fallback fields
+  try{
+    const candidates = [
+      SESSION && SESSION.paymentPaidUntil,
+      SESSION && SESSION.paidUntil,
+      window._userPaymentPaidUntil
+    ];
+    for(const c of candidates){
+      if(!c) continue;
+      const d = new Date(c);
+      if(!isNaN(d.getTime())) return d;
+    }
+  }catch(e){}
+  return null;
+}
+
+function _paymentGateAllows(tab){
+  const t = String(tab||'').toLowerCase();
+  // Always free tabs
+  if(!t || t==='home' || t==='myshift' || t==='my-shift') return true;
+  if(_isPaymentExemptUser()) return true;
+  // If payment system disabled, allow all
+  const cfg = window._paymentSettingsCache;
+  if(cfg && cfg.enabled === false) return true;
+  // paidUntil in the future → no reminder
+  const until = _getUserPaidUntilDate();
+  if(until){
+    const end = new Date(until);
+    end.setHours(23,59,59,999);
+    if(end.getTime() >= Date.now()) return true;
+  }
+  // No paidUntil or expired → block (show pay modal)
+  // If settings not loaded yet, allow once and load in background
+  if(!window._paymentSettingsCache){
+    try{ _loadPaymentSettings(false).catch(()=>{}); }catch(e){}
+    // Fail open only if never configured
+    return true;
+  }
+  if(!cfg || !cfg.enabled) return true;
+  return false;
+}
+
+function openPaymentRequiredModal(attemptedTab){
+  _loadPaymentSettings(false).then(cfg=>{
+    if(cfg && cfg.enabled === false){
+      _goTabDirect(attemptedTab);
+      return;
+    }
+    const amount = (cfg && cfg.amount) || 999;
+    const link = (cfg && cfg.link) || '';
+    const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
+    const msg = (cfg && cfg.message) || 'Pay to use Schedule, Team, Leave, Reports and other tabs. Home and My Shift stay free.';
+    const until = _getUserPaidUntilDate();
+    const untilStr = until ? until.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const linkBtn = link
+      ? `<a href="${link.replace(/"/g,'')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
+      : `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px">Payment link not set — contact Admin</div>`;
+    openModal(`<div class="modal-handle"></div>
+      <div style="text-align:center;padding:8px 0 4px">
+        <div style="font-size:42px;margin-bottom:8px">💳</div>
+        <div class="modal-title" style="margin-bottom:6px">${title.replace(/</g,'')}</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">${msg.replace(/</g,'')}</div>
+        ${untilStr?`<div style="font-size:12px;color:#b45309;margin-bottom:8px">Previous access till: <b>${untilStr}</b></div>`:''}
+        ${linkBtn}
+        <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal();goTab('home')">← Back to Home</button>
+      </div>`);
+  }).catch(()=>{
+    toast('Payment check failed');
+  });
+}
+
+async function openPaymentSettingsAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const cfg = await _loadPaymentSettings(true);
+  const amount = (cfg && cfg.amount) || 999;
+  const link = (cfg && cfg.link) || '';
+  const enabled = !cfg || cfg.enabled !== false;
+  const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
+  const message = (cfg && cfg.message) || '';
+
+  // Build user list from mobileUsers managers + members
+  let userOpts = '<option value="">— Select manager / member —</option>';
+  try{
+    let mu = _cache.mobileUsers;
+    if(!mu) mu = await fbGet('mobileUsers').catch(()=>null);
+    if(mu){
+      const rows = Object.entries(mu)
+        .filter(([k,v])=>v && v.status!=='rejected' && v.status!=='removed')
+        .map(([k,v])=>{
+          const phone = (typeof _normMobileKey==='function'?_normMobileKey(v.mobile||v.phone||k):String(k).replace(/\D/g,'').slice(-10));
+          const role = v.role || 'user';
+          const paid = v.paymentPaidUntil || v.paidUntil || '';
+          const paidShort = paid ? String(paid).slice(0,10) : 'not set';
+          return { phone, name: v.name||phone, role, paidShort, paid };
+        })
+        .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
+      userOpts += rows.map(r=>`<option value="${r.phone}">${(r.name||'').replace(/</g,'')} (${r.role}) · paid until: ${r.paidShort}</option>`).join('');
+    }
+  }catch(e){}
+
+  const defaultPaid = new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">💳 Payment Link & Reminders</div>
+  <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Users can open <b>Home</b> and <b>My Shift</b> free. Other tabs show Pay popup after their paid-until date.</p>
+
+  <div class="field"><label>Enable payment gate</label>
+    <select id="pay_enabled" class="inp-field">
+      <option value="1" ${enabled?'selected':''}>ON — show pay popup</option>
+      <option value="0" ${!enabled?'selected':''}>OFF — no payment reminders</option>
+    </select>
+  </div>
+  <div class="field"><label>Amount (₹ / month)</label>
+    <input id="pay_amount" type="number" min="1" class="inp-field" value="${amount}">
+  </div>
+  <div class="field"><label>Payment link (UPI / Razorpay / etc.)</label>
+    <input id="pay_link" type="url" class="inp-field" placeholder="https://…" value="${String(link).replace(/"/g,'&quot;')}">
+  </div>
+  <div class="field"><label>Popup title</label>
+    <input id="pay_title" class="inp-field" value="${String(title).replace(/"/g,'&quot;')}">
+  </div>
+  <div class="field"><label>Popup message</label>
+    <textarea id="pay_message" class="inp-field" rows="2">${String(message).replace(/</g,'&lt;')}</textarea>
+  </div>
+  <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
+
+  <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
+  <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set paid-until (no reminder before this date)</div>
+  <div class="field"><label>Manager / Member</label>
+    <select id="pay_user" class="inp-field">${userOpts}</select>
+  </div>
+  <div class="field"><label>Paid until date</label>
+    <input id="pay_until" type="date" class="inp-field" value="${defaultPaid}">
+  </div>
+  <button class="big-btn" style="margin-top:8px;background:linear-gradient(135deg,#0d9488,#0f766e)" onclick="saveUserPaidUntilAdmin()">✅ Save paid-until for user</button>
+  <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">Close</button>`);
+}
+
+async function savePaymentSettingsAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const enabled = (document.getElementById('pay_enabled')||{}).value === '1';
+  const amount = parseInt((document.getElementById('pay_amount')||{}).value||'999',10) || 999;
+  const link = String((document.getElementById('pay_link')||{}).value||'').trim();
+  const title = String((document.getElementById('pay_title')||{}).value||'').trim() || ('Pay ₹'+amount+' / month');
+  const message = String((document.getElementById('pay_message')||{}).value||'').trim();
+  try{
+    const payload = {
+      enabled, amount, link, title, message,
+      currency: 'INR',
+      updatedAt: new Date().toISOString(),
+      updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
+    };
+    await fbUpdate('settings/payment', payload);
+    window._paymentSettingsCache = payload;
+    window._paymentSettingsAt = Date.now();
+    toast('✅ Payment settings saved');
+  }catch(err){
+    console.error(err);
+    toast('❌ Save failed: '+(err.message||err.code||'permission'));
+  }
+}
+
+async function saveUserPaidUntilAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const phone = String((document.getElementById('pay_user')||{}).value||'').replace(/\D/g,'').slice(-10);
+  const until = String((document.getElementById('pay_until')||{}).value||'').trim();
+  if(!phone || phone.length!==10){ toast('⚠️ Select user'); return; }
+  if(!until){ toast('⚠️ Select date'); return; }
+  try{
+    const iso = new Date(until+'T23:59:59.000Z').toISOString();
+    await fbUpdate('mobileUsers/'+phone, {
+      paymentPaidUntil: iso,
+      paidUntil: iso,
+      updatedAt: new Date().toISOString(),
+      paymentUpdatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
+    });
+    // If this is current session user, refresh local
+    try{
+      const my = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
+      if(my === phone){
+        SESSION.paymentPaidUntil = iso;
+        window._userPaymentPaidUntil = iso;
+      }
+    }catch(e){}
+    toast('✅ Paid until '+until+' saved for '+phone);
+  }catch(err){
+    console.error(err);
+    toast('❌ Save failed: '+(err.message||err.code||'permission'));
+  }
+}
+
+// Hydrate paidUntil into SESSION after login
+async function _hydrateUserPaymentStatus(){
+  try{
+    if(!SESSION || !SESSION.mobile) return;
+    const phone = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
+    if(!phone) return;
+    const mu = await fbGet('mobileUsers/'+phone).catch(()=>null);
+    if(mu && (mu.paymentPaidUntil || mu.paidUntil)){
+      SESSION.paymentPaidUntil = mu.paymentPaidUntil || mu.paidUntil;
+      window._userPaymentPaidUntil = SESSION.paymentPaidUntil;
+    }
+    await _loadPaymentSettings(false);
+  }catch(e){}
+}
+try{
+  // Best-effort: run after app start
+  if(typeof window !== 'undefined'){
+    setTimeout(()=>{ try{ _hydrateUserPaymentStatus(); }catch(e){} }, 2500);
+  }
+}catch(e){}

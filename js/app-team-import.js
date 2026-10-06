@@ -990,32 +990,87 @@ async function saveEmployee(empId){
             try{ mem.managerId = phoneKey; }catch(ex){}
           }
         });
-        // Demote other managers in same company to member (keep one active manager)
+        // Demote other managers in same company (employees + mobileUsers)
+        // Admin Managers list is driven by mobileUsers.role === 'manager'
         all.forEach(mem => {
           if(!mem || mem.id === empId) return;
-          if(cid && _normCompanyId(mem.companyId||'') !== cid) return;
-          if(String(mem.role||'').toLowerCase()==='manager' || String(mem.accessLevel||'').toLowerCase()==='manager'){
-            tasks.push(fbUpdate('employees/'+mem.id, { role:'member', accessLevel:'worker', updatedAt: new Date().toISOString() }));
-            try{ mem.role='member'; mem.accessLevel='worker'; }catch(ex){}
+          if(cid && _normCompanyId(mem.companyId||mem.company||'') && _normCompanyId(mem.companyId||mem.company||'') !== cid) return;
+          const isOtherMgr = String(mem.role||'').toLowerCase()==='manager' || String(mem.accessLevel||'').toLowerCase()==='manager';
+          if(!isOtherMgr) return;
+          const leftPayload = {
+            role:'member', accessLevel:'worker',
+            managerId: phoneKey,
+            status: 'left_team',
+            leftAt: new Date().toISOString(),
+            leftReason: 'manager_transferred',
+            updatedAt: new Date().toISOString(),
+            active: false
+          };
+          tasks.push(fbUpdate('employees/'+mem.id, leftPayload));
+          try{
+            Object.assign(mem, leftPayload);
+          }catch(ex){}
+          // So they appear under Team → Left Members
+          tasks.push(fbSet('leftEmployees/'+mem.id, {
+            ...mem,
+            ...leftPayload,
+            id: mem.id,
+            name: mem.name || '',
+            phone: mem.phone || mem.mobile || '',
+            archivedAt: Date.now(),
+            removedBy: SESSION.name || SESSION.mobile || 'system'
+          }).catch(()=>{}));
+          const oldPhone = _normMobileKey(mem.phone||mem.mobile||'');
+          if(oldPhone && oldPhone !== phoneKey){
+            tasks.push(fbUpdate('mobileUsers/'+oldPhone, {
+              role: 'member',
+              accessLevel: 'worker',
+              managerId: phoneKey,
+              status: 'left_team',
+              leftAt: new Date().toISOString(),
+              leftReason: 'manager_transferred',
+              updatedAt: new Date().toISOString(),
+              demotedAt: new Date().toISOString(),
+              demotedReason: 'manager_transferred'
+            }).catch(()=>{}));
           }
         });
+        // Also scan mobileUsers cache for any other manager roles (not only employees)
+        try{
+          const muAll = _cache.mobileUsers || {};
+          Object.keys(muAll).forEach(mk => {
+            const u = muAll[mk];
+            if(!u || String(u.role||'').toLowerCase()!=='manager') return;
+            const uk = _normMobileKey(u.mobile||u.phone||mk);
+            if(!uk || uk === phoneKey) return;
+            // same company if possible
+            if(cid && u.company && _normCompanyId(u.company) !== cid && _normCompanyId(u.companyId||'') !== cid) return;
+            tasks.push(fbUpdate('mobileUsers/'+uk, {
+              role: 'member',
+              managerId: phoneKey,
+              status: u.status==='approved'?'approved':(u.status||'approved'),
+              updatedAt: new Date().toISOString(),
+              demotedAt: new Date().toISOString(),
+              demotedReason: 'manager_transferred'
+            }).catch(()=>{}));
+          });
+        }catch(ex){}
         if(phoneKey.length >= 10){
           const muPath = 'mobileUsers/'+phoneKey;
-          tasks.push(fbUpdate(muPath, {
+          const muPayload = {
             role: 'manager',
             name: update.name || (e && e.name) || '',
-            mobile: '+91'+phoneKey,
+            mobile: phoneKey,
+            phone: phoneKey,
             status: 'approved',
+            company: (e && (e.company||e.companyName)) || SESSION.company || '',
             companyId: cid || null,
+            empObjId: empId,
+            employeeId: empId,
+            empId: update.empId || (e && e.empId) || '',
             updatedAt: new Date().toISOString()
-          }).catch(()=>fbSet(muPath, {
-            role: 'manager',
-            name: update.name || (e && e.name) || '',
-            mobile: '+91'+phoneKey,
-            status: 'approved',
-            companyId: cid || null,
-            updatedAt: new Date().toISOString()
-          })));
+          };
+          tasks.push(fbUpdate(muPath, muPayload).catch(()=>fbSet(muPath, muPayload)));
         }
         await Promise.all(tasks.map(p => Promise.resolve(p).catch(err => console.warn('mgr transfer', err))));
         // Refresh cache
@@ -1289,15 +1344,56 @@ async function renderLeftMembers(){
   const raw = await fbGet('leftEmployees').catch(() => null);
   let leftList = raw ? Object.entries(raw).map(([k,v]) => ({...v, _fbKey:k, id:k})) : [];
 
-  // Source 2: employees with status='resigned' or 'left' in main cache (resigned but not yet archived)
-  const resignedFromCache = getEmps().filter(e => e.status === 'resigned' || e.status === 'left');
-  resignedFromCache.forEach(e => {
-    // Only add if not already in leftList (avoid duplicates by empId)
-    const alreadyIn = leftList.some(l => l.empId === e.empId || l.empCode === e.empId || l.id === e.id);
-    if(!alreadyIn){
-      leftList.push({ ...e, _fromCache: true, leftReason: e.leftReason || 'resigned', leftAt: e.leftAt || e.updatedAt || null });
-    }
+  // Source 2: full employee cache (NOT getEmps — that hides left/resigned for managers)
+  const LEFT_STATUSES = new Set(['resigned','left','left_team','removed','revoked']);
+  const allEmps = (_cache.employees || []).concat(
+    // getEmps may still hold some in edge cases
+    (typeof getEmps==='function' ? getEmps() : [])
+  );
+  const seenIds = new Set(leftList.map(l => l.id || l._fbKey).filter(Boolean));
+  allEmps.forEach(e => {
+    if(!e || !e.id) return;
+    if(seenIds.has(e.id)) return;
+    const st = String(e.status||'').toLowerCase();
+    if(!LEFT_STATUSES.has(st) && e.active !== false) return;
+    if(!LEFT_STATUSES.has(st) && e.active !== false) return;
+    seenIds.add(e.id);
+    leftList.push({
+      ...e,
+      _fromCache: true,
+      leftReason: e.leftReason || st || 'left',
+      leftAt: e.leftAt || e.updatedAt || e.demotedAt || null
+    });
   });
+
+  // Source 3: mobileUsers marked left / demoted-after-transfer (ex-managers who left)
+  try{
+    let mu = _cache.mobileUsers;
+    if(!mu) mu = await fbGet('mobileUsers').catch(()=>null);
+    if(mu){
+      Object.entries(mu).forEach(([k,v])=>{
+        if(!v) return;
+        const st = String(v.status||'').toLowerCase();
+        const leftish = LEFT_STATUSES.has(st) || v.demotedReason==='manager_transferred' && (st==='left'||st==='left_team'||v.leftAt);
+        // Only if explicitly left — not mere demote to member still active
+        if(!LEFT_STATUSES.has(st) && !v.leftAt) return;
+        const id = v.empObjId || v.employeeId || ('mu_'+k);
+        if(seenIds.has(id) || seenIds.has(k)) return;
+        seenIds.add(id);
+        leftList.push({
+          id,
+          name: v.name || k,
+          phone: v.mobile || v.phone || k,
+          mobile: v.mobile || v.phone || k,
+          empId: v.empId || v.empCode || '',
+          company: v.company || '',
+          leftReason: v.leftReason || st || 'left',
+          leftAt: v.leftAt || v.demotedAt || v.updatedAt || null,
+          _fromMobileUsers: true
+        });
+      });
+    }
+  }catch(e){}
 
   // If still empty, seed with DEFAULT_LEFT_EMP
   if(leftList.length === 0 && typeof DEFAULT_LEFT_EMP !== 'undefined'){
