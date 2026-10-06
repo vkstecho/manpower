@@ -985,8 +985,14 @@ async function saveEmployee(empId){
           if(cid && _normCompanyId(mem.companyId||'') && _normCompanyId(mem.companyId) !== cid) return;
           // Members of this team (same old manager OR same company without manager)
           const memMgr = _normMobileKey(mem.managerId||'');
-          const oldMgr = e ? _normMobileKey(e.managerId || e.phone || e.mobile || '') : '';
-          const should = !memMgr || memMgr === oldMgr || memMgr === phoneKey || (cid && _normCompanyId(mem.companyId)===cid && String(mem.role||'').toLowerCase()!=='manager');
+          // Only move people who were under the editor's team (current manager session) or under this member's previous managerId
+          let oldMgr = '';
+          try{
+            if(SESSION && SESSION.role==='manager') oldMgr = _normMobileKey(SESSION.mobile||'');
+          }catch(ex){}
+          if(!oldMgr && e) oldMgr = _normMobileKey(e.managerId||'');
+          // STRICT: only same old manager — never whole company
+          const should = memMgr && oldMgr && memMgr === oldMgr;
           if(should && memMgr !== phoneKey){
             tasks.push(fbUpdate('employees/'+mem.id, { managerId: phoneKey, updatedAt: new Date().toISOString() }));
             try{ mem.managerId = phoneKey; }catch(ex){}
@@ -1075,16 +1081,14 @@ async function saveEmployee(empId){
             const uk = _normMobileKey(u.mobile||u.phone||mk);
             if(!uk || uk===phoneKey) return;
             const mid = _normMobileKey(u.managerId||u.managerMobile||'');
-            if(oldMgrKeys.has(mid) || mid===phoneKey || !mid){
-              // members under old manager OR unassigned in same company
-              if(!mid || oldMgrKeys.has(mid)){
-                tasks.push(fbUpdate('mobileUsers/'+uk, {
-                  managerId: phoneKey,
-                  managerName: update.name || (e && e.name) || '',
-                  previousManagerId: mid || null,
-                  updatedAt: new Date().toISOString()
-                }).catch(()=>{}));
-              }
+            // STRICT: only users whose managerId is the outgoing manager
+            if(mid && oldMgrKeys.has(mid)){
+              tasks.push(fbUpdate('mobileUsers/'+uk, {
+                managerId: phoneKey,
+                managerName: update.name || (e && e.name) || '',
+                previousManagerId: mid,
+                updatedAt: new Date().toISOString()
+              }).catch(()=>{}));
             }
           });
         }catch(ex){ console.warn('mu reassign', ex); }

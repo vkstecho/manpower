@@ -195,82 +195,51 @@ async function adminSetAsManager(phone, name){
   const key = (typeof _normMobileKey==='function'?_normMobileKey(phone):String(phone||'').replace(/\D/g,'').slice(-10));
   if(!key || key.length!==10){ toast('⚠️ Invalid mobile'); return; }
   try{
-    toast('⏳ Setting manager…');
+    toast('⏳ Promoting to Manager…');
     const muAll = await fbGet('mobileUsers').catch(()=>null) || {};
     const me = muAll[key] || Object.values(muAll).find(u=>_normMobileKey(u.mobile||u.phone||'')===key) || {};
-    const company = me.company || me.companyId || '';
-    const tasks = [];
-    // Promote target
-    tasks.push(fbUpdate('mobileUsers/'+key, {
+    // ONLY promote this person — do NOT demote other managers or steal other teams
+    await fbUpdate('mobileUsers/'+key, {
       role: 'manager',
       status: 'approved',
       name: name || me.name || key,
       mobile: key,
       phone: key,
+      company: me.company || '',
+      companyId: me.companyId || '',
       updatedAt: new Date().toISOString(),
       promotedBy: (SESSION && SESSION.name) || 'admin'
+    }).catch(()=>fbSet('mobileUsers/'+key, {
+      role: 'manager',
+      status: 'approved',
+      name: name || me.name || key,
+      mobile: key,
+      phone: key,
+      updatedAt: new Date().toISOString()
     }));
-    // Old managers: leave team + wipe mobileUsers so next login = fresh Manager/Member register
-    Object.entries(muAll).forEach(([k,u])=>{
-      if(!u || String(u.role||'').toLowerCase()!=='manager') return;
-      const uk = _normMobileKey(u.mobile||u.phone||k);
-      if(!uk || uk===key) return;
-      if(company && u.company && String(u.company)!==String(company) && String(u.companyId||'')!==String(company)) return;
-      // Soft archive on employees if linked
-      try{
-        const emps = (_cache.employees||[]);
-        emps.forEach(e=>{
-          if(!e||!e.id) return;
-          const ep = _normMobileKey(e.phone||e.mobile||'');
-          if(ep!==uk) return;
-          tasks.push(fbUpdate('employees/'+e.id, {
-            status: 'left_team',
-            role: 'member',
-            accessLevel: 'worker',
-            managerId: key,
-            leftAt: new Date().toISOString(),
-            leftReason: 'manager_transferred',
-            active: false,
-            updatedAt: new Date().toISOString()
-          }).catch(()=>{}));
-          tasks.push(fbSet('leftEmployees/'+e.id, {
-            ...e,
-            status: 'left_team',
-            leftAt: new Date().toISOString(),
-            leftReason: 'manager_transferred',
-            archivedAt: Date.now(),
-            removedBy: (SESSION && SESSION.name) || 'admin'
-          }).catch(()=>{}));
+    // Align employee row if exists
+    try{
+      const emps = _cache.employees || [];
+      const emp = emps.find(e=>_normMobileKey(e.phone||e.mobile||'')===key);
+      if(emp && emp.id){
+        await fbUpdate('employees/'+emp.id, {
+          role: 'manager',
+          accessLevel: 'manager',
+          isTeamManager: true,
+          status: 'active',
+          managerId: key,
+          updatedAt: new Date().toISOString()
         });
-      }catch(ex){}
-      // Remove mobileUsers so OTP treats them as brand-new
-      tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
-        fbSet('mobileUsers/'+uk, {
-          status: 'removed',
-          role: 'removed',
-          forceFreshLogin: true,
-          clearedAt: new Date().toISOString(),
-          demotedReason: 'manager_transferred'
-        })
-      ));
-    });
-    // Point roster managerId to new manager
-    const emps = (_cache.employees||[]);
-    emps.forEach(e=>{
-      if(!e||!e.id) return;
-      const st = String(e.status||'').toLowerCase();
-      if(st==='left'||st==='left_team'||st==='resigned'||st==='removed') return;
-      tasks.push(fbUpdate('employees/'+e.id, { managerId: key, updatedAt: new Date().toISOString() }).catch(()=>{}));
-    });
-    await Promise.all(tasks.map(p=>Promise.resolve(p).catch(err=>console.warn(err))));
-    toast('✅ '+(name||key)+' is now Manager');
+      }
+    }catch(ex){}
+    toast('✅ '+(name||key)+' is Manager (other teams unchanged)');
     try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(e){}
-    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
   }catch(err){
     console.error(err);
     toast('❌ '+(err.message||err.code||'failed'));
   }
 }
+
 
 
 /** Admin: set payment paid-until date for one user (or all members under a manager) */
@@ -364,25 +333,44 @@ async function adminApplyPaymentDate(key, name, bulkForManager){
 async function adminRepairManagerHierarchy(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   try{
-    toast('⏳ Repairing managers list…');
+    toast('⏳ Repairing managers list (no team stealing)…');
+    const norm = (p)=> (typeof _normMobileKey==='function' ? _normMobileKey(p) : String(p||'').replace(/\D/g,'').slice(-10));
+    const LEFT = new Set(['left','left_team','resigned','removed','revoked']);
     const muAll = await fbGet('mobileUsers').catch(()=>null) || {};
     let emps = _cache.employees || [];
     if(!emps.length){
       try{
         const raw = await fbGet('employees');
         if(raw && typeof raw==='object'){
-          emps = Object.entries(raw).map(([id,v])=>({...(v||{}), id: (v&&v.id)||id}));
-          try{ _cache.employees = emps; }catch(e){}
+          emps = Object.entries(raw).map(([id,v])=>({...(v||{}), id:(v&&v.id)||id}));
+          _cache.employees = emps;
         }
       }catch(e){}
     }
-
-    const norm = (p)=> (typeof _normMobileKey==='function' ? _normMobileKey(p) : String(p||'').replace(/\D/g,'').slice(-10));
-    const LEFT = new Set(['left','left_team','resigned','removed','revoked']);
     const tasks = [];
 
-    // Live managers from EMPLOYEES (source of truth after handoff)
-    const liveMgrPhones = new Map(); // phone -> {name, empId, company}
+    // 1) Active managers = mobileUsers role manager + approved (not left/removed)
+    //    PLUS employees marked manager who are still active
+    const liveNames = [];
+    const livePhones = new Set();
+
+    Object.entries(muAll).forEach(([k,u])=>{
+      if(!u) return;
+      const uk = norm(u.mobile||u.phone||k);
+      const role = String(u.role||'').toLowerCase();
+      const st = String(u.status||'').toLowerCase();
+      if(role!=='manager') return;
+      if(LEFT.has(st) || st==='none' || role==='none' || role==='removed'){
+        // stale manager entry → clear for fresh login
+        tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
+          fbSet('mobileUsers/'+uk, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() })
+        ));
+        return;
+      }
+      livePhones.add(uk);
+      liveNames.push(u.name||uk);
+    });
+
     emps.forEach(e=>{
       if(!e) return;
       const st = String(e.status||'active').toLowerCase();
@@ -393,162 +381,63 @@ async function adminRepairManagerHierarchy(){
       if(!isMgr) return;
       const ph = norm(e.phone||e.mobile||'');
       if(ph.length!==10) return;
-      liveMgrPhones.set(ph, {
+      livePhones.add(ph);
+      if(!liveNames.includes(e.name)) liveNames.push(e.name||ph);
+      tasks.push(fbUpdate('mobileUsers/'+ph, {
+        role: 'manager',
+        status: 'approved',
         name: e.name || ph,
+        mobile: ph,
+        phone: ph,
         empId: e.empId || '',
         empObjId: e.id,
         company: e.company || e.companyName || '',
-        companyId: e.companyId || ''
-      });
-    });
-
-    // Also: if no employee flagged manager, infer from most common managerId on active employees
-    if(liveMgrPhones.size===0){
-      const counts = {};
-      emps.forEach(e=>{
-        if(!e) return;
-        const st = String(e.status||'active').toLowerCase();
-        if(LEFT.has(st)) return;
-        const mid = norm(e.managerId||'');
-        if(mid.length===10) counts[mid] = (counts[mid]||0)+1;
-      });
-      const best = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
-      if(best && best[1] > 0){
-        const ph = best[0];
-        const emp = emps.find(e=>norm(e.phone||e.mobile||'')===ph);
-        liveMgrPhones.set(ph, {
-          name: (emp && emp.name) || ph,
-          empId: (emp && emp.empId) || '',
-          empObjId: (emp && emp.id) || '',
-          company: (emp && (emp.company||emp.companyName)) || '',
-          companyId: (emp && emp.companyId) || ''
-        });
-      }
-    }
-
-    // Promote live managers in mobileUsers
-    liveMgrPhones.forEach((info, ph)=>{
-      const existing = muAll[ph] || {};
-      tasks.push(fbUpdate('mobileUsers/'+ph, {
-        ...existing,
-        role: 'manager',
-        status: 'approved',
-        name: info.name || existing.name || ph,
-        mobile: ph,
-        phone: ph,
-        empId: info.empId || existing.empId || '',
-        empObjId: info.empObjId || existing.empObjId || '',
-        company: info.company || existing.company || '',
-        companyId: info.companyId || existing.companyId || '',
-        repairedAt: new Date().toISOString(),
-        repairedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
-      }).catch(()=>fbSet('mobileUsers/'+ph, {
-        role: 'manager',
-        status: 'approved',
-        name: info.name || ph,
-        mobile: ph,
-        phone: ph,
-        empId: info.empId || '',
-        empObjId: info.empObjId || '',
-        company: info.company || '',
-        companyId: info.companyId || '',
+        companyId: e.companyId || '',
         repairedAt: new Date().toISOString()
+      }).catch(()=>fbSet('mobileUsers/'+ph, {
+        role: 'manager', status: 'approved', name: e.name||ph, mobile: ph, phone: ph
       })));
     });
 
-    // Demote / remove stale managers in mobileUsers
-    Object.entries(muAll).forEach(([k,u])=>{
-      if(!u) return;
-      const uk = norm(u.mobile||u.phone||k);
-      if(!uk) return;
-      const role = String(u.role||'').toLowerCase();
-      const st = String(u.status||'').toLowerCase();
-      if(role!=='manager') return;
-      if(liveMgrPhones.has(uk)) return; // still live
-      // Stale manager → clear for fresh re-login
-      tasks.push(fbRemove('mobileUsers/'+uk).catch(()=>
-        fbSet('mobileUsers/'+uk, {
-          status: 'removed',
-          role: 'removed',
-          forceFreshLogin: true,
-          clearedAt: new Date().toISOString(),
-          demotedReason: 'repair_stale_manager',
-          previousRole: 'manager'
-        })
-      ));
-    });
-
-    // Re-point member mobileUsers.managerId to a live manager when pointing at stale one
-    const liveSet = new Set(liveMgrPhones.keys());
-    // pick default live manager (first)
-    const defaultLive = liveMgrPhones.keys().next().value || null;
-    Object.entries(muAll).forEach(([k,u])=>{
-      if(!u) return;
-      const uk = norm(u.mobile||u.phone||k);
-      if(!uk || liveSet.has(uk)) return;
-      const mid = norm(u.managerId||u.managerMobile||'');
-      if(!mid) return;
-      if(liveSet.has(mid)) return; // already ok
-      // managerId points to someone not a live manager → fix
-      let target = defaultLive;
-      // prefer same company live manager
-      const company = u.company || u.companyId || '';
-      if(company){
-        for(const [ph, info] of liveMgrPhones){
-          if(info.company===company || info.companyId===company || String(info.company)===String(company)){
-            target = ph; break;
-          }
-        }
-      }
-      // or use employee.managerId if member linked
-      try{
-        const emp = emps.find(e=>norm(e.phone||e.mobile||'')===uk);
-        if(emp){
-          const emid = norm(emp.managerId||'');
-          if(liveSet.has(emid)) target = emid;
-        }
-      }catch(ex){}
-      if(target){
-        const info = liveMgrPhones.get(target);
-        tasks.push(fbUpdate('mobileUsers/'+uk, {
-          managerId: target,
-          managerName: (info && info.name) || '',
-          previousManagerId: mid,
-          repairedAt: new Date().toISOString()
-        }).catch(()=>{}));
-      }
-    });
-
-    // Align employees.managerId if still on stale manager phone
+    // 2) Restore wrong reassignments using previousManagerId when that manager is still live
     emps.forEach(e=>{
       if(!e||!e.id) return;
       const st = String(e.status||'active').toLowerCase();
       if(LEFT.has(st)) return;
       const mid = norm(e.managerId||'');
-      if(!mid || liveSet.has(mid)) return;
-      let target = defaultLive;
-      if(e.companyId||e.company){
-        const c = e.companyId||e.company;
-        for(const [ph, info] of liveMgrPhones){
-          if(info.companyId===c || info.company===c){ target = ph; break; }
-        }
-      }
-      if(target){
+      const prev = norm(e.previousManagerId||'');
+      if(prev.length===10 && livePhones.has(prev) && mid && mid!==prev && !livePhones.has(mid)){
+        // managerId points to non-manager but previous is live → restore
         tasks.push(fbUpdate('employees/'+e.id, {
-          managerId: target,
-          previousManagerId: mid,
+          managerId: prev,
+          repairedAt: new Date().toISOString(),
+          repairNote: 'restored_previousManagerId'
+        }).catch(()=>{}));
+      }
+    });
+    Object.entries(muAll).forEach(([k,u])=>{
+      if(!u) return;
+      const uk = norm(u.mobile||u.phone||k);
+      if(!uk || livePhones.has(uk)) return;
+      const mid = norm(u.managerId||'');
+      const prev = norm(u.previousManagerId||'');
+      if(prev.length===10 && livePhones.has(prev) && mid && mid!==prev){
+        tasks.push(fbUpdate('mobileUsers/'+uk, {
+          managerId: prev,
+          managerName: '',
           repairedAt: new Date().toISOString()
         }).catch(()=>{}));
       }
     });
 
+    // 3) NEVER move whole company under one manager here
     await Promise.all(tasks.map(p=>Promise.resolve(p).catch(err=>console.warn('repair', err))));
     try{ _cache.mobileUsers = await fbGet('mobileUsers'); }catch(e){}
     try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(e){}
-    const names = [...liveMgrPhones.values()].map(x=>x.name).join(', ') || '—';
-    toast('✅ Repair done. Live managers: '+names);
+    toast('✅ Repair done. Managers: '+(liveNames.filter(Boolean).join(', ')||'—')+'. Other teams not moved.');
   }catch(err){
     console.error(err);
     toast('❌ Repair failed: '+(err.message||err.code||'error'));
   }
 }
+
