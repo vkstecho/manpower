@@ -2977,7 +2977,7 @@ const _i18n_HI_EN = {
   'कोई छुट्टी पेंडिंग नहीं':                'No leaves pending',
   'कोई नया रजिस्ट्रेशन नहीं':                'No new registrations',
   'कोई रिपोर्ट नहीं':                        'No reports',
-  '${L('कोई रिपोर्ट पेंडिंग नहीं','No reports pending')}':                'No reports pending',
+  'कोई रिपोर्ट पेंडिंग नहीं':                'No reports pending',
   'छुट्टी का प्रकार':                        'Leave Type',
   'जल्द आ रहा है!':                          'Coming soon!',
   'ज़िम्मेदारी':                              'Responsibility',

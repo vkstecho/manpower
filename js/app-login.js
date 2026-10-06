@@ -182,8 +182,12 @@ async function _sendOTP(isResend){
   if(sendBtn){ sendBtn.disabled = true; sendBtn.style.opacity = '0.7'; sendBtn.innerHTML = '⏳ Sending…'; }
   const _restoreBtn = ()=>{
     if(!sendBtn) return;
-    sendBtn.disabled = false;
-    sendBtn.style.opacity = '';
+    const mob = (document.getElementById('loginMobile')?.value||'').replace(/\D/g,'');
+    const ok = mob.length === 10;
+    sendBtn.disabled = !ok;
+    sendBtn.style.opacity = ok ? '1' : '.5';
+    sendBtn.style.pointerEvents = ok ? 'auto' : 'none';
+    sendBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
     sendBtn.innerHTML = _btnPrev || 'Send OTP 💬';
   };
 

@@ -781,15 +781,9 @@ function _fbClearRecaptcha(storeKey){
  * Always clears previous instance first.
  */
 async function _fbMakeRecaptcha(containerId, storeKey, size){
-  const wantSize = size || 'invisible';
-  // Reuse live verifier when possible (avoids 1–3s re-render every Send OTP)
-  try{
-    const existing = window[storeKey];
-    if(existing && existing._mpSize === wantSize && existing._mpCid === containerId){
-      return existing;
-    }
-  }catch(e){}
+  // Always create a fresh verifier — Firebase Phone Auth invalidates after each send
   _fbClearRecaptcha(storeKey);
+  const wantSize = size || 'invisible';
   const isVisible = (wantSize === 'normal');
   _fbEnsureRecaptchaHost(containerId, isVisible);
   const params = {
@@ -798,9 +792,7 @@ async function _fbMakeRecaptcha(containerId, storeKey, size){
     'expired-callback': ()=>{ try{ window[storeKey]=null; }catch(e){} }
   };
   const verifier = new window._fbRecaptchaVerifierClass(window._fbAuth, containerId, params);
-  try{ verifier._mpSize = wantSize; verifier._mpCid = containerId; }catch(e){}
   window[storeKey] = verifier;
-  // render() required for reliable phone auth on web
   try{
     if(typeof verifier.render === 'function'){
       await verifier.render();
