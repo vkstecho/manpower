@@ -37,3 +37,8 @@ Firebase Console → Realtime Database → Rules → paste database.rules.json �
 ## Fix (v2.5.76 publish)
 - Removed **duplicate** `"companies"` key (was listed twice → Firebase: "companies occurs multiple times").
 - Kept single `companies` rule: `.read` auth, `.write` Admin or approved Manager.
+
+## v2.5.76.1 package
+- **app.js syntax fixed** (same bugs as 2.5.72: missing `async` on `renderTodo`, illegal `const` in `saveTodo`, stray `async` token).
+- **STRICT rules** with single `companies` key (publish-safe).
+- Includes 2.5.76 features: team scope helpers, schedule multi-select, tighter writes.
