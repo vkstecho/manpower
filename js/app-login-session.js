@@ -2584,28 +2584,9 @@ function _rankManagerSuccessors(){
 
 
 async function openChangeCompanyModal(){ /* profile */
-  // Promoted managers may have isMgr() true while SESSION.role still "member" until re-login
-  if(!(SESSION.role==='manager' || (typeof isMgr==='function' && isMgr()) || (typeof isAdmin==='function' && isAdmin()))){
-    toast(L('❌ Manager only','❌ Manager only')); return;
-  }
+  if(SESSION.role!=='manager' && !isAdmin()){ toast(L('❌ Manager only','❌ Manager only')); return; }
   const isEn = (_lang !== 'hi');
-  // Prefer live Firebase company if session blank (handoff / new Manager)
-  let cur = SESSION.company || '';
-  if(!cur || cur === '—'){
-    try{
-      const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-      if(mob){
-        const mu = await fbGet('mobileUsers/'+mob).catch(()=>null);
-        if(mu && mu.company) cur = String(mu.company);
-        else if(mu && mu.companyId) cur = String(mu.companyId);
-      }
-    }catch(e){}
-    try{
-      const emp = (typeof myEmp==='function') ? myEmp() : null;
-      if((!cur || cur==='—') && emp && (emp.company||emp.companyLabel||emp.companyId))
-        cur = String(emp.company||emp.companyLabel||emp.companyId||'');
-    }catch(e){}
-  }
+  const cur = SESSION.company || '';
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">🏢 ${L('Company Name बदलें','Change Company Name')}</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
@@ -2620,9 +2601,6 @@ async function openChangeCompanyModal(){ /* profile */
 
 async function saveChangeCompanyName(){
   const isEn = (_lang !== 'hi');
-  if(!(SESSION.role==='manager' || (typeof isMgr==='function' && isMgr()) || (typeof isAdmin==='function' && isAdmin()))){
-    toast(L('❌ Manager only','❌ Manager only')); return;
-  }
   const name = (document.getElementById('chgCompanyName')?.value||'').trim();
   if(!name || name.length < 2){ toast(L('⚠️ सही Company नाम डालें','⚠️ Enter a valid company name')); return; }
   try{
@@ -2632,49 +2610,21 @@ async function saveChangeCompanyName(){
     }
     const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     if(!mob){ toast('❌ Mobile not found in session'); return; }
-    const cid = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name;
-    // Own mobileUsers — keep role manager so hierarchy stays correct
-    await fbUpdate('mobileUsers/'+mob, {
-      company: name,
-      companyId: cid,
-      companyUpdatedAt: new Date().toISOString(),
-      role: (SESSION.role==='manager' || (typeof isMgr==='function'&&isMgr())) ? 'manager' : (SESSION.role||'manager'),
-      status: 'approved'
-    });
-    try{ await fbUpdate('managers/'+mob, { company: name, companyId: cid, name: SESSION.name||'' }); }catch(e){}
-    // Ensure SESSION role is manager after successful company write (promoted mgr fix)
-    if(typeof isMgr==='function' && isMgr()) SESSION.role = 'manager';
+    await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
+    try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
     SESSION.company = name;
-    SESSION.companyId = cid;
+    try{ SESSION.companyId = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name; }catch(e){ SESSION.companyId = name; }
     try{ saveSession(); }catch(e){}
+    // Propagate new name to all team employee records so Admin company list is not stale
     let synced = 0;
     try{ if(typeof _syncCompanyLabelToTeam==='function') synced = await _syncCompanyLabelToTeam(name); }catch(e){}
-    // Fallback sync by managerId if helper used role-only filter
-    try{
-      const emps = (typeof getEmps==='function'?getEmps():[])||[];
-      for(const emp of emps){
-        if(!emp||!emp.id) continue;
-        const mid = _normMobileKey(emp.managerId||'');
-        if(mid && mid === mob){
-          try{
-            await fbUpdate('employees/'+emp.id, { company: name, companyLabel: name, companyId: cid });
-            emp.company = name; emp.companyLabel = name; emp.companyId = cid;
-            synced++;
-          }catch(e2){}
-        }
-      }
-    }catch(e3){}
-    toast(isEn?('✅ Company name updated'+(synced?' · team synced':'')):('✅ Company नाम update'+(synced?' · team':'')));
+    toast(isEn?('✅ Company name updated'+(synced?' · '+synced+' team records':'')):('✅ Company नाम update'+(synced?' · '+synced+' team':'')));
     closeModal();
     try{ if(typeof renderCompanySwitcher==='function') renderCompanySwitcher(); }catch(e){}
     try{ showProfile(); }catch(e){}
   }catch(e){
     console.error('[saveChangeCompanyName]', e);
-    const msg = String(e.message||e);
-    if(/PERMISSION|permission/i.test(msg))
-      toast(L('❌ Save blocked — Phone OTP से login करके फिर try करें','❌ Permission denied — login with Phone OTP, then retry'));
-    else
-      toast('❌ '+msg+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
+    toast('❌ '+(e.message||e)+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
   }
 }
 
@@ -3497,7 +3447,7 @@ function getShift(emp, dateStr){
 
 /** Single source of truth — schedule, My Shift, picker */
 window.MP_SHIFT_COLORS = {
-  D:{bg:'#f59e0b',fg:'#000'}, N:{bg:'#4f46e5',fg:'#fff'},
+  D:{bg:'#a16207',fg:'#fff'}, N:{bg:'#4f46e5',fg:'#fff'},
   A:{bg:'#16a34a',fg:'#fff'}, B:{bg:'#db2777',fg:'#fff'}, C:{bg:'#0891b2',fg:'#fff'},
   O:{bg:'#475569',fg:'#fff'}, L:{bg:'#be123c',fg:'#fff'}, G:{bg:'#0284c7',fg:'#fff'},
   'C/O':{bg:'#92400e',fg:'#fde68a'}, CO:{bg:'#92400e',fg:'#fde68a'},
@@ -3516,9 +3466,9 @@ function _forceShiftBadgeColors(){
     /* FONT colours locked to match Schedule exactly */
     .shc.D, .shc.shc-sm.D, .hm-chip .shc.D, .hm-chip-meta .shc.D, .hm-chips .shc.D,
     .sched-tbl .shc.D, .ms-day-sh.shc.D, span.shc.D {
-      background: #f59e0b !important;
-      color: #000000 !important;
-      -webkit-text-fill-color: #000000 !important;
+      background: #a16207 !important;
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important;
     }
     .shc.N, .shc.shc-sm.N, .hm-chip .shc.N, .hm-chip-meta .shc.N, .hm-chips .shc.N,
     .sched-tbl .shc.N, .ms-day-sh.shc.N, span.shc.N {
@@ -4779,15 +4729,21 @@ function _showMyShiftBulkBar(empId, empName){
   const n = (window._myShiftMultiSel && window._myShiftMultiSel.size) || 0;
   if(!n) return;
   const cfg = (typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {}) || {};
+  // Work shifts only (D/N/A/B/C) that are ticked active in M/c & Shift Setting
+  const WORK = new Set(['D','N','A','B','C']);
   const codes = [];
   (cfg.shifts || []).forEach(s=>{
-    if(s && s.code && s.active !== false) codes.push(String(s.code).toUpperCase());
+    if(!s || !s.code || s.active === false) return;
+    const c = String(s.code).toUpperCase();
+    if(WORK.has(c) && !codes.includes(c)) codes.push(c);
   });
   // defaults if empty
-  if(!codes.length) codes.push('D','N','A','B','C');
+  if(!codes.length) codes.push('D','N');
+  // Status options always available in bulk bar (incl. G)
   const extra = [
     {v:'O', label:'Off'},
     {v:'L', label:'Leave'},
+    {v:'G', label:'G'},
     {v:'D+N', label:'D+N'}
   ];
   const shiftBtns = codes.slice(0,8).map(code=>

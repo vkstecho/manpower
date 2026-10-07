@@ -43,7 +43,7 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
     label:labels[cid]||cid,
     empCount:empCounts[cid]||0
   })).sort((a,b)=>a.label.localeCompare(b.label,void 0,{sensitivity:"base"}));
-}async function _syncCompanyLabelToTeam(newName){const name=String(newName||"").trim();if(!name)return 0;const cid=("function"==typeof myCompanyId?myCompanyId():null)||SESSION.companyId||"",mgrKey=("manager"===SESSION.role||("function"==typeof isMgr&&isMgr()))?_normMobileKey(SESSION.mobile||""):"";let n=0;const emps=getEmps()||[];for(const e of emps)try{if(mgrKey&&e.managerId&&e.managerId!==mgrKey)continue;if(cid&&e.companyId&&_normCompanyId(e.companyId)!==_normCompanyId(cid))continue;await fbUpdate("employees/"+e.id,{companyLabel:name,company:name}),e.companyLabel=name,e.company=name,n++}catch(err){}return n}function renderCompanySwitcher(){
+}async function _syncCompanyLabelToTeam(newName){const name=String(newName||"").trim();if(!name)return 0;const cid=("function"==typeof myCompanyId?myCompanyId():null)||SESSION.companyId||"",mgrKey="manager"===SESSION.role?_normMobileKey(SESSION.mobile):"";let n=0;const emps=getEmps()||[];for(const e of emps)try{if(mgrKey&&e.managerId&&e.managerId!==mgrKey)continue;if(cid&&e.companyId&&_normCompanyId(e.companyId)!==_normCompanyId(cid))continue;await fbUpdate("employees/"+e.id,{companyLabel:name,company:name}),e.companyLabel=name,e.company=name,n++}catch(err){}return n}function renderCompanySwitcher(){
   const row=document.getElementById("companySwitchRow"),sel=document.getElementById("companySwitchSel");
   if(!row||!sel)return;
   row.style.display="flex";
