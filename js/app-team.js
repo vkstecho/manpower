@@ -803,7 +803,7 @@ function showEmpNcrs(empId){
     <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
       ${rows}
     </div>
-    <button class="cancel-btn" onclick="closeModal()" style="margin-top:10px">${L('बंद करें','Close')}</button>`);
+    <button class="cancel-btn" onclick="closeModal()" style="margin-top:10px">बंद करें</button>`);
 }
 
 
@@ -894,7 +894,7 @@ function openEmpUploadWizard(){
 
     <div id="empUploadStatus" style="display:none;padding:10px;border-radius:10px;font-size:12px;margin-bottom:8px"></div>
 
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
   `);
 }
 

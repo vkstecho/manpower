@@ -1178,7 +1178,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   </div>
   <div class="modal-sticky-actions">
     <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ Save करें</button>
-    <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">${L('रद्द करें','Cancel')}</button>
+    <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">रद्द करें</button>
   </div>`);
 }
 
@@ -2958,14 +2958,14 @@ function openExtendAccessModal(){
   </div>
   <div class="field"><label>या कितने दिन?</label>
     <select class="inp-field" id="ext_days" onchange="(function(s){var d=new Date();d.setDate(d.getDate()+parseInt(s.value||365,10));var el=document.getElementById('ext_date');if(el)el.value=d.toISOString().slice(0,10);})(this)">
-      <option value="365" selected>${L('365 दिन (1 साल) — Standard','365 days (1 year) — Standard')}</option>
-      <option value="180">${L('180 दिन (6 महीने)','180 days (6 months)')}</option>
-      <option value="90">${L('90 दिन','90 days')}</option>
-      <option value="45">${L('45 दिन','45 days')}</option>
-      <option value="730">${L('730 दिन (2 साल)','730 days (2 years)')}</option>
+      <option value="365" selected>365 दिन (1 साल) — Standard</option>
+      <option value="180">180 दिन (6 महीने)</option>
+      <option value="90">90 दिन</option>
+      <option value="45">45 दिन</option>
+      <option value="730">730 दिन (2 साल)</option>
     </select></div>
-  <button class="submit-btn" onclick="doExtendAccess()">✅ ${L('Save Expiry','Save Expiry')}</button>
-  <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+  <button class="submit-btn" onclick="doExtendAccess()">✅ Save Expiry</button>
+  <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
 async function doExtendAccess(){

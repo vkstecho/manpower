@@ -440,12 +440,12 @@ function editPlanPrice(plan){
   const cur = getPrice(plan);
   openModal(`<div class="modal-handle"></div>
   <div style="font-size:20px;margin-bottom:4px">${pi.icon} ${escHtml(pi.name)}</div>
-  <div style="font-size:13px;color:var(--muted2);margin-bottom:18px">${L('Price Edit करें','Edit Price')}</div>
-  <div style="font-size:12px;color:var(--muted2);margin-bottom:6px">${L('नई कीमत (₹)','New price (₹)')}</div>
+  <div style="font-size:13px;color:var(--muted2);margin-bottom:18px">Price Edit करें</div>
+  <div style="font-size:12px;color:var(--muted2);margin-bottom:6px">नई कीमत (₹)</div>
   <input id="editPriceVal" type="number" min="0" value="${cur}"
     style="width:100%;padding:12px;border-radius:10px;background:#0f172a;border:1px solid #334155;color:#fff;font-size:18px;font-weight:900;text-align:center;margin-bottom:16px">
-  <button class="submit-btn" onclick="savePlanPrice('${plan}')">💾 ${L('Save करें','Save')}</button>
-  <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+  <button class="submit-btn" onclick="savePlanPrice('${plan}')">💾 Save करें</button>
+  <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
 async function savePlanPrice(plan){
@@ -1110,7 +1110,7 @@ window.addEventListener('message', function(e){
       const msg = '📋 Shift Report: '
         + (r.machine || '') + ' · '
         + (r.shift   || '') + ' · '
-        + (r.efficiency || 0) + '% ${L('दक्षता','efficiency')} · '
+        + (r.efficiency || 0) + '% दक्षता · '
         + (r.totalOutputKg || 0).toLocaleString('en-IN') + ' Kgs';
       if(typeof toast === 'function') toast(msg);
     }catch(e2){}
@@ -1298,7 +1298,7 @@ function proceedToPayment(){
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div>
         <div style="font-size:14px;font-weight:800;color:#fff">${pi.icon} ${escHtml(pi.name)}</div>
-        <div style="font-size:11px;color:var(--muted2)">${L('1 महीने की access · Audio + Video','1 month access · Audio + Video')}</div>
+        <div style="font-size:11px;color:var(--muted2)">1 महीने की access · Audio + Video</div>
       </div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:${pi.color}">₹${getPrice(_selectedPlan)}</div>
     </div>`;
@@ -1332,13 +1332,13 @@ function showUPIFallback(name, phone, amount){
   const upiLink = `upi://pay?pa=8168771239-2@ibl&pn=MP+Learn&am=${amtRs}&cu=INR&tn=${escHtml(encodeURIComponent(pi_upi.name))}`;
   openModal(`<div class="modal-handle"></div>
   <div style="text-align:center;padding:6px 0">
-    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:2px">💳 ${L('UPI से Pay करें','Pay via UPI')}</div>
+    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:2px">💳 UPI से Pay करें</div>
     <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${pi_upi.icon} ${escHtml(pi_upi.name)}</div>
 
     <!-- Amount Badge -->
     <div style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(56,189,248,.15));border:1px solid rgba(168,85,247,.4);
       border-radius:14px;padding:14px;margin-bottom:14px">
-      <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">${L('भुगतान राशि','Payment amount')}</div>
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">भुगतान राशि</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;
         background:linear-gradient(135deg,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
         ₹${amtRs}
@@ -1384,14 +1384,14 @@ function showUPIFallback(name, phone, amount){
 
     <!-- WhatsApp reminder -->
     <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--green);line-height:1.6">
-      📸 ${L('Payment होने के बाद Screenshot','After payment, send screenshot')}<br>
-      ${L('WhatsApp करें:','WhatsApp:')} <a href="https://wa.me/918168771239" style="color:#fff;font-weight:800">+91 8168771239</a>
+      📸 Payment होने के बाद Screenshot<br>
+      WhatsApp करें: <a href="https://wa.me/918168771239" style="color:#fff;font-weight:800">+91 8168771239</a>
     </div>
 
     <button class="submit-btn" onclick="manualPaymentDone('${name}','${phone}')">
-      ✅ ${L('मैंने Pay कर दिया','I have paid')}
+      ✅ मैंने Pay कर दिया
     </button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
   </div>`);
 }
 
@@ -1498,10 +1498,10 @@ function renderContentLibrary(){
     <div style="margin-top:16px">
       <div class="stitle">Admin — Content Upload</div>
       <button class="big-btn blue" onclick="openContentUpload()" style="margin-bottom:8px">
-        ➕ ${L('नया Content Add करें','Add new content')}
+        ➕ नया Content Add करें
       </button>
       <button class="big-btn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);margin-bottom:8px" onclick="openManageLearnButtons()">
-        🔗 ${L('Quick Links Manage करें','Manage Quick Links')}
+        🔗 Quick Links Manage करें
       </button>
     </div>` : '';
   renderLearnButtons();
@@ -1518,7 +1518,7 @@ function renderContentLibrary(){
   if(!cl) return;
 
   if(!list.length){
-    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">${L('अभी कोई content नहीं है','No content yet')}<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
+    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">अभी कोई content नहीं है<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
     return;
   }
 
@@ -1560,9 +1560,9 @@ function playContent(id){
       <div style="font-size:48px;margin-bottom:8px">🎵</div>
       <div style="font-size:14px;font-weight:700;color:#fff;margin-bottom:4px">${escHtml(item.title)}</div>
       <div style="font-size:11px;color:var(--muted2);margin-bottom:12px">${item.topic||''} · ${item.duration||''}</div>
-      ${item.url ? `<audio controls style="width:100%;border-radius:8px"><source src="${item.url}" type="audio/mpeg">${L('Audio support नहीं','Audio not supported')}</audio>` :
+      ${item.url ? `<audio controls style="width:100%;border-radius:8px"><source src="${item.url}" type="audio/mpeg">Audio support नहीं</audio>` :
         `<div style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:16px;font-size:12px;color:var(--muted2)">
-          🔗 Audio URL: ${item.url||'${L('Set नहीं','Not set')}'}</div>`}
+          🔗 Audio URL: ${item.url||'Set नहीं'}</div>`}
     </div>`;
   } else {
     playerHTML += `<div class="video-player">
@@ -1575,7 +1575,7 @@ function playContent(id){
   if(item.description){
     playerHTML += `<div style="margin-top:14px;font-size:13px;color:var(--text);line-height:1.6">${item.description}</div>`;
   }
-  playerHTML += `<button class="cancel-btn" onclick="closePlayer()" style="margin-top:14px">${L('बंद करें','Close')}</button>`;
+  playerHTML += `<button class="cancel-btn" onclick="closePlayer()" style="margin-top:14px">बंद करें</button>`;
 
   document.getElementById('playerBody').innerHTML = playerHTML;
   document.getElementById('playerOverlay').classList.add('open');
@@ -1653,7 +1653,7 @@ function openContentUpload(){
   <div class="field"><label>Description (Optional)</label>
     <textarea class="inp-field" id="ct_desc" placeholder="इस content के बारे में..." style="height:70px"></textarea></div>
   <button class="submit-btn" onclick="submitContent()">✅ Add करें</button>
-  <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+  <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
 // ── LEARN QUICK BUTTONS (Admin creates named buttons with links) ──
@@ -1671,7 +1671,7 @@ function openManageLearnButtons(){
       </div>`).join('') || '<div style="color:var(--muted2);font-size:13px;text-align:center;padding:12px">अभी कोई button नहीं है</div>';
 
     openModal(`<div class="modal-handle"></div>
-      <div class="modal-title">🔗 ${L('Quick Links Manage करें','Manage Quick Links')}</div>
+      <div class="modal-title">🔗 Quick Links Manage करें</div>
       <div style="max-height:40vh;overflow-y:auto;margin-bottom:12px">${listHTML}</div>
       <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
         <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">➕ नया Button जोड़ें</div>
@@ -1690,7 +1690,7 @@ function openManageLearnButtons(){
         </select>
       </div>
       <button class="submit-btn" onclick="addLearnButton()">✅ Button जोड़ें</button>
-      <button class="cancel-btn" onclick="closeModal()">${L('बंद करें','Close')}</button>`);
+      <button class="cancel-btn" onclick="closeModal()">बंद करें</button>`);
   });
 }
 

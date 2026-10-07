@@ -19,7 +19,7 @@ function openBulkImportTeam(){
   <input type="file" id="bulkImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBulkImportFile(this.files[0])">
   <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 Choose Excel/CSV File</button>
   <div id="bulkImportPreview" style="margin-top:14px"></div>
-  <button class="cancel-btn" style="margin-top:10px" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+  <button class="cancel-btn" style="margin-top:10px" onclick="closeModal()">रद्द करें</button>`);
 }
 
 function downloadBulkImportTemplate(){
@@ -1525,7 +1525,7 @@ async function permanentDeleteEmp(id, name){
     <div class="modal-title">${name} का डेटा हमेशा के लिए हटाएं?</div>
     <div style="font-size:12px;color:#f43f5e;margin-bottom:20px;font-weight:700">यह वापस नहीं होगा!</div>
     <button class="big-btn red" onclick="doPermDelete('${id}','${name}')">हाँ, हमेशा के लिए हटाएं</button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>
   </div>`);
 }
 
@@ -2378,7 +2378,7 @@ function openEditInstructions(){
       <button onclick="addInstSection()" style="background:rgba(56,189,248,.1);border:1.5px dashed rgba(56,189,248,.3);border-radius:10px;padding:10px;width:100%;color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;font-family:inherit">➕ नया Section जोड़ें</button>
     </div>
     <button class="submit-btn" onclick="saveInstructions()">💾 सहेजें (Save)</button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
 function addInstItem(sectionKey){
@@ -2956,12 +2956,7 @@ const _i18n_HI_EN = {
   '🔗 Quick Links Manage करें':              '🔗 Manage Quick Links',
   '🗓️ कस्टम तारीख सीमा':                     '🗓️ Custom Date Range',
 
-    '30 दिन': '30 days',
-  '3 महीने': '3 months',
-  '6 महीने': '6 months',
-  '1 साल': '1 year',
-  'लागू करें': 'Apply',
-// ── PHASE 3: Buttons (action labels) ──
+  // ── PHASE 3: Buttons (action labels) ──
   '&larr; वापस जाएं':                        '&larr; Back',
   '+ नई रिपोर्ट दर्ज करें':                  '+ File New Report',
   '+ नया अवकाश आवेदन':                       '+ New Leave Application',
@@ -5458,7 +5453,7 @@ function editShiftCell(empId, empName, date, currentShift){
       border-radius:10px;color:var(--muted);font-size:12px;cursor:pointer;margin:12px 0 4px">
       🔄 Original पर Reset करें
     </button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
 }
 
 // ── India Public Holidays (Man Power relevant) ──
@@ -5736,7 +5731,7 @@ function openODDetails(empId, empName, odDate, currentShift){
       <input class="inp-field" id="odReason" placeholder="e.g. Manpower shortage, Training">
     </div>
     <button class="submit-btn" onclick="submitOD('${empId}','${empName}','${odDate}','${currentShift}')">✅ OD Mark करें</button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
+    <button class="cancel-btn" onclick="closeModal()">रद्द करें</button>`);
   setTimeout(()=>{
     const sel=document.getElementById('odDept');
     if(sel) sel.addEventListener('change',function(){
