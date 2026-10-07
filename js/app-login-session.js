@@ -1696,6 +1696,7 @@ async function openLeaveQuotaSettings(){
   const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
   let q = _defaultLeaveQuotas();
   try{ const r = await fbGet(key); if(r) q = {...q, ...r}; }catch(e){}
+  try{ window._leaveQuotaLast = q; window._leaveQuotaCache = window._leaveQuotaCache||{}; window._leaveQuotaCache[key.replace(/^leaveQuotas\//,'')] = q; }catch(e){}
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">📋 Team Leave Quota (Year)</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Members see remaining balance in Profile. Set leave year range below.</div>
@@ -1752,6 +1753,12 @@ async function saveLeaveQuotas(){
   q.updatedAt = new Date().toISOString();
   try{
     await fbSet(key, q);
+    try{
+      window._leaveQuotaLast = q;
+      window._leaveQuotaCache = window._leaveQuotaCache || {};
+      const ck = (typeof myShiftConfigKey==='function' && myShiftConfigKey()) || '';
+      if(ck) window._leaveQuotaCache[ck] = q;
+    }catch(e){}
     toast('✅ Leave quotas saved');
     closeModal();
   }catch(e){ toast('❌ '+e.message); }
@@ -5023,8 +5030,8 @@ function _getUserPaidUntilDate(){
 
 function _paymentGateAllows(tab){
   const t = String(tab||'').toLowerCase();
-  // Always free tabs
-  if(!t || t==='home' || t==='myshift' || t==='my-shift') return true;
+  // Always free tabs (+ Learn & Grow overlay is never paywalled)
+  if(!t || t==='home' || t==='myshift' || t==='my-shift' || t==='learn' || t==='learngrow' || t==='train') return true;
   if(_isPaymentExemptUser()) return true;
   const cfg = window._paymentSettingsCache;
   // Only OFF when explicitly disabled

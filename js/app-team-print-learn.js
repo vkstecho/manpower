@@ -44,24 +44,24 @@ function printSched(){
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <div style="font-size:28px">🖨️</div>
       <div>
-        <div style="font-size:17px;font-weight:900;color:var(--text)">${L('Print — वर्तमान दृश्य','Print — Current View')}</div>
+        <div style="font-size:17px;font-weight:900;color:var(--text)">' + L('Print — वर्तमान दृश्य','Print — Current View') + '</div>
         <div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('ग्रुप','Grouped by')}: <b style="color:var(--m1)">${modeHint}</b> — ${L('स्क्रीन जैसा','same as screen')}</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=true)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ ${L('सभी','All')}</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">✅ ' + L('सभी','All') + '</button>
       <button type="button" onclick="document.querySelectorAll('.prtchk').forEach(c=>c.checked=false)"
-        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">⬜ ${L('कोई नहीं','None')}</button>
+        style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:12px;font-weight:700;cursor:pointer">⬜ ' + L('कोई नहीं','None') + '</button>
     </div>
     <div style="max-height:50vh;overflow-y:auto;margin-bottom:14px">${rowsHtml}</div>
     <div style="display:flex;gap:10px">
       <button type="button" onclick="_execPrint()" style="flex:1;padding:14px;border-radius:12px;border:none;
         background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ${L('प्रिंट करें','Print')}</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:15px;font-weight:800;cursor:pointer">🖨️ ' + L('प्रिंट करें','Print') + '</button>
       <button type="button" onclick="closeModal()" style="padding:12px 16px;border-radius:12px;
         border:1px solid var(--border2);background:var(--card);color:var(--muted2);
-        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">${L('रद्द','Cancel')}</button>
+        font-family:'Noto Sans Devanagari',sans-serif;font-size:13px;font-weight:700;cursor:pointer">' + L('रद्द','Cancel') + '</button>
     </div>`);
 }
 
@@ -444,7 +444,7 @@ function editPlanPrice(plan){
   <div style="font-size:12px;color:var(--muted2);margin-bottom:6px">${L('नई कीमत (₹)','New price (₹)')}</div>
   <input id="editPriceVal" type="number" min="0" value="${cur}"
     style="width:100%;padding:12px;border-radius:10px;background:#0f172a;border:1px solid #334155;color:#fff;font-size:18px;font-weight:900;text-align:center;margin-bottom:16px">
-  <button class="submit-btn" onclick="savePlanPrice('${plan}')">💾 ${L('Save करें','Save')}</button>
+  <button class="submit-btn" onclick="savePlanPrice('${plan}')">💾 ' + L('Save करें','Save') + '</button>
   <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
@@ -470,13 +470,32 @@ function refreshPriceDisplays(){
 }
 
 function openLearnScreen(){
-  document.getElementById('learnScreen').classList.add('show');
-  renderLearnScreen();
+  try{
+    const el = document.getElementById('learnScreen');
+    if(!el){
+      try{ toast(L("Learn screen missing — please refresh","Learn screen missing — please refresh")); }catch(e){}
+      return;
+    }
+    el.classList.add('show');
+    el.style.display = 'block';
+    el.style.zIndex = '900';
+    try{ document.body.classList.add('learn-open'); }catch(e){}
+    try{ renderLearnScreen(); }catch(e){ console.error('[learn] renderLearnScreen', e); }
+  }catch(e){
+    console.error('[learn] openLearnScreen', e);
+    try{ toast(L("Could not open Learn & Grow","Could not open Learn & Grow")); }catch(x){}
+  }
 }
 function closeLearnScreen(){
-  document.getElementById('learnScreen').classList.remove('show');
-  // Also close any open section
-  closeLearnSection();
+  try{
+    const el = document.getElementById('learnScreen');
+    if(el){
+      el.classList.remove('show');
+      el.style.display = '';
+    }
+    try{ document.body.classList.remove('learn-open'); }catch(e){}
+    try{ closeLearnSection(); }catch(e){}
+  }catch(e){}
 }
 
 // ── LEARN SECTION ROUTER ──
@@ -1110,7 +1129,7 @@ window.addEventListener('message', function(e){
       const msg = '📋 Shift Report: '
         + (r.machine || '') + ' · '
         + (r.shift   || '') + ' · '
-        + (r.efficiency || 0) + '% ${L('दक्षता','efficiency')} · '
+        + (r.efficiency || 0) + '% ' + L('दक्षता','efficiency') + ' · '
         + (r.totalOutputKg || 0).toLocaleString('en-IN') + ' Kgs';
       if(typeof toast === 'function') toast(msg);
     }catch(e2){}
@@ -1210,7 +1229,7 @@ window.saveSupSkillVideoLink = function(key, url, btn){
 // Get all active subscriptions for current user
 function getMySubscriptions(){
   try{
-    const s = localStorage.getItem('mp_learn_subs_' + (SESSION.empId||SESSION.name||'guest'));
+    const s = localStorage.getItem('mp_learn_subs_' + ((typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||SESSION.uid||''):'')||SESSION.empId||SESSION.name||'guest'));
     if(!s) return [];
     const subs = JSON.parse(s);
     const now = new Date();
@@ -1224,7 +1243,7 @@ function hasAccessTo(category){
 }
 
 function saveSubscription(plan){
-  const key = 'mp_learn_subs_' + (SESSION.empId||SESSION.name||'guest');
+  const key = 'mp_learn_subs_' + ((typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||SESSION.uid||''):'')||SESSION.empId||SESSION.name||'guest');
   let subs = [];
   try{ subs = JSON.parse(localStorage.getItem(key)||'[]'); }catch(e){}
   const validTill = new Date();
@@ -1389,7 +1408,7 @@ function showUPIFallback(name, phone, amount){
     </div>
 
     <button class="submit-btn" onclick="manualPaymentDone('${name}','${phone}')">
-      ✅ ${L('मैंने Pay कर दिया','I have paid')}
+      ✅ ' + L('मैंने Pay कर दिया','I have paid') + '
     </button>
     <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
   </div>`);
@@ -1397,11 +1416,16 @@ function showUPIFallback(name, phone, amount){
 
 function manualPaymentDone(name, phone){
   // Save pending subscription - admin will verify
+  const _lrMgr=(typeof _normMobileKey==='function'?_normMobileKey(SESSION&&(SESSION.mobile||SESSION.uid)||''):String(SESSION&&SESSION.mobile||'').replace(/\D/g,'').slice(-10));
   const pending = {
     name, phone, plan:_selectedPlan,
     amount: _selectedPlan==='basic'?99:399,
     status:'pending_verification',
-    requestedAt: new Date().toISOString()
+    requestedAt: new Date().toISOString(),
+    managerId: _lrMgr || (SESSION && SESSION.managerId) || '',
+    companyId: (SESSION && SESSION.companyId) || '',
+    company: (SESSION && SESSION.company) || '',
+    requestedByEmpId: (SESSION && SESSION.empObjId) || ''
   };
   localStorage.setItem('mp_learn_pending_' + _selectedPlan, JSON.stringify(pending));
 
@@ -1498,7 +1522,7 @@ function renderContentLibrary(){
     <div style="margin-top:16px">
       <div class="stitle">Admin — Content Upload</div>
       <button class="big-btn blue" onclick="openContentUpload()" style="margin-bottom:8px">
-        ➕ ${L('नया Content Add करें','Add new content')}
+        ➕ ' + L('नया Content Add करें','Add new content') + '
       </button>
       <button class="big-btn" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);margin-bottom:8px" onclick="openManageLearnButtons()">
         🔗 ${L('Quick Links Manage करें','Manage Quick Links')}
@@ -1518,7 +1542,7 @@ function renderContentLibrary(){
   if(!cl) return;
 
   if(!list.length){
-    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">${L('अभी कोई content नहीं है','No content yet')}<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
+    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">' + L('अभी कोई content नहीं है','No content yet') + '<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
     return;
   }
 
@@ -1562,7 +1586,7 @@ function playContent(id){
       <div style="font-size:11px;color:var(--muted2);margin-bottom:12px">${item.topic||''} · ${item.duration||''}</div>
       ${item.url ? `<audio controls style="width:100%;border-radius:8px"><source src="${item.url}" type="audio/mpeg">${L('Audio support नहीं','Audio not supported')}</audio>` :
         `<div style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.2);border-radius:10px;padding:16px;font-size:12px;color:var(--muted2)">
-          🔗 Audio URL: ${item.url||'${L('Set नहीं','Not set')}'}</div>`}
+          🔗 Audio URL: ${item.url||'' + L('Set नहीं','Not set') + ''}</div>`}
     </div>`;
   } else {
     playerHTML += `<div class="video-player">
@@ -1671,7 +1695,7 @@ function openManageLearnButtons(){
       </div>`).join('') || '<div style="color:var(--muted2);font-size:13px;text-align:center;padding:12px">अभी कोई button नहीं है</div>';
 
     openModal(`<div class="modal-handle"></div>
-      <div class="modal-title">🔗 ${L('Quick Links Manage करें','Manage Quick Links')}</div>
+      <div class="modal-title">🔗 ' + L('Quick Links Manage करें','Manage Quick Links') + '</div>
       <div style="max-height:40vh;overflow-y:auto;margin-bottom:12px">${listHTML}</div>
       <div style="background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">
         <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">➕ नया Button जोड़ें</div>

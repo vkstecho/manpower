@@ -4659,22 +4659,14 @@ async function _grantApprovedCompOff(emp, dateStr, reason, opts){
 
 
 function getManagerLeaveTypeLabels(){
-  // Same source as single-cell Leave Reason (manager leaveQuotas)
-  const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other'};
-  let labels = ['Casual Leave (CL)','Sick Leave (SL)','Earned Leave (EL)','Other'];
   try{
-    const cacheKey = (typeof myShiftConfigKey==='function' && myShiftConfigKey()) || (SESSION&&SESSION.mobile) || '';
-    const q = (window._leaveQuotaCache && cacheKey && window._leaveQuotaCache[cacheKey]) || window._leaveQuotaLast || null;
-    if(q && typeof q==='object'){
-      const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd']);
-      const fromQ = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
-      const positive = fromQ.filter(c=>Number(q[c])>0);
-      const use = positive.length ? positive : fromQ;
-      if(use.length) labels = use.map(c=>map[c]||String(c).replace(/_/g,' '));
-    }
-  }catch(e){}
-  return labels;
+    const q = window._leaveQuotaLast || null;
+    return _typesFromLeaveQuota(q).map(t=>t.label);
+  }catch(e){
+    return ['Casual Leave (CL)','Sick Leave (SL)','Earned Leave (EL)','Other'];
+  }
 }
+
 async function prefetchLeaveQuotaForChips(){
   try{
     const keys = [];
@@ -5138,39 +5130,82 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   }
 }
 
+function _leaveTypeLabel(code){
+  const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other',OTHER:'Other'};
+  const c=String(code||'');
+  return map[c] || map[c.toUpperCase()] || c.replace(/_/g,' ');
+}
+/** Leave chips = manager quota types with days > 0 (custom types included). */
+function _typesFromLeaveQuota(q){
+  const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd','custom']);
+  if(!q || typeof q!=='object'){
+    // Match _defaultLeaveQuotas: CL12 SL6 EL15 CO0 other5 → hide CO
+    return [
+      {code:'CL', label:_leaveTypeLabel('CL')},
+      {code:'SL', label:_leaveTypeLabel('SL')},
+      {code:'EL', label:_leaveTypeLabel('EL')},
+      {code:'other', label:_leaveTypeLabel('other')}
+    ];
+  }
+  let codes = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
+  // custom array: [{name,days,key}]
+  try{
+    if(Array.isArray(q.custom)){
+      q.custom.forEach(ct=>{
+        const k = (ct && (ct.key||ct.code||ct.name)) ? String(ct.key||ct.code||ct.name).replace(/\s+/g,'_') : '';
+        if(k && !codes.includes(k)) codes.push(k);
+      });
+    }
+  }catch(e){}
+  const positive = codes.filter(c=>Number(q[c])>0);
+  const use = positive.length ? positive : codes.filter(c=>['CL','SL','EL','other'].includes(c));
+  return use.map(c=>({code:c, label:_leaveTypeLabel(c)}));
+}
+async function _loadManagerLeaveQuota(){
+  const keys = [];
+  try{ if(typeof myShiftConfigKey==='function' && myShiftConfigKey()) keys.push('leaveQuotas/'+myShiftConfigKey()); }catch(e){}
+  try{
+    const mob = (typeof _normMobileKey==='function'?_normMobileKey(SESSION&&SESSION.mobile||''):'');
+    if(mob){
+      keys.push('leaveQuotas/mgr:'+mob);
+      keys.push('leaveQuotas/'+mob);
+    }
+  }catch(e){}
+  try{
+    const mid = SESSION&&SESSION.managerId;
+    if(mid){
+      const m = (typeof _normMobileKey==='function'?_normMobileKey(mid):String(mid));
+      keys.push('leaveQuotas/mgr:'+m);
+      keys.push('leaveQuotas/'+m);
+    }
+  }catch(e){}
+  keys.push('leaveQuotas/default');
+  // Prefer memory cache
+  try{
+    if(window._leaveQuotaLast && typeof window._leaveQuotaLast==='object') return window._leaveQuotaLast;
+  }catch(e){}
+  for(const k of keys){
+    try{
+      const r = await fbGet(k);
+      if(r && typeof r==='object' && Object.keys(r).length){
+        try{
+          window._leaveQuotaLast = r;
+          window._leaveQuotaCache = window._leaveQuotaCache || {};
+          window._leaveQuotaCache[k.replace(/^leaveQuotas\//,'')] = r;
+        }catch(e){}
+        return r;
+      }
+    }catch(e){}
+  }
+  return null;
+}
+
 async function openLeaveReasonModal(empId, empName, date, currentShift){
   const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-  // Leave types from Manager quota settings
-  const _labelForLq = (c)=>{
-    const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other'};
-    return map[c] || String(c).replace(/_/g,' ');
-  };
-  let typeOpts = [
-    {code:'CL', label:'Casual Leave (CL)'},
-    {code:'SL', label:'Sick Leave (SL)'},
-    {code:'EL', label:'Earned Leave (EL)'},
-    {code:'ML', label:'Maternity (ML)'},
-    {code:'CO', label:'Comp Off (CO)'},
-  ];
+  let typeOpts = _typesFromLeaveQuota(null);
   try{
-    // Prefer current manager's quota key; also try SESSION.managerId for members
-    const keys = [];
-    try{ if(typeof myShiftConfigKey==='function' && myShiftConfigKey()) keys.push('leaveQuotas/'+myShiftConfigKey()); }catch(e){}
-    if(SESSION.mobile) keys.push('leaveQuotas/'+_normMobileKey(SESSION.mobile));
-    if(SESSION.managerId) keys.push('leaveQuotas/'+_normMobileKey(SESSION.managerId));
-    keys.push('leaveQuotas/default');
-    let q=null;
-    for(const k of keys){
-      try{ const r=await fbGet(k); if(r && typeof r==='object' && Object.keys(r).length){ q=r; break; } }catch(e){}
-    }
-    if(q){
-      const skip = new Set(['updatedAt','updatedBy','yearStart','yearEnd']);
-      const fromQ = Object.keys(q).filter(x=>!skip.has(x) && (typeof q[x]==='number' || !isNaN(Number(q[x]))));
-      // Only show types with quota > 0, or all if manager set custom list
-      const positive = fromQ.filter(c=>Number(q[c])>0);
-      const use = positive.length ? positive : fromQ;
-      if(use.length) typeOpts = use.map(c=>({code:c, label:_labelForLq(c)}));
-    }
+    const q = await _loadManagerLeaveQuota();
+    typeOpts = _typesFromLeaveQuota(q);
   }catch(e){}
   const QUICK_REASONS = typeOpts; // used below as objects
 
