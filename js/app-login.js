@@ -81,6 +81,19 @@ function showStep(n){
   } else {
     console.warn('[showStep] missing step element for', n, map[n]);
   }
+  // Laptop: show reCAPTCHA immediately on login step (don't wait for Send OTP click)
+  if(n===1){
+    try{
+      if(typeof _isDesktopLoginUA==='function' ? _isDesktopLoginUA() : !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''))){
+        if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container');
+        setTimeout(function(){
+          try{
+            if(typeof _fbWarmDesktopRecaptcha==='function') _fbWarmDesktopRecaptcha('recaptcha-container', '_fbRecaptchaWarm');
+          }catch(e){}
+        }, 100);
+      }
+    }catch(e){}
+  }
 }
 
 /** Full-screen pending overlay (outside loginScreen) — never black */
@@ -196,7 +209,10 @@ async function _sendOTP(isResend){
   if(!isResend && !window._forceOtpAfterMgrWait && !window._forceOtpAfterPwForgot){
     try{
       const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
-      userData = await fbGet('mobileUsers/'+mobile);
+      userData = await Promise.race([
+        fbGet('mobileUsers/'+mobile),
+        new Promise(r=>setTimeout(()=>r(null), 2000))
+      ]);
       if(userData && userData.status==='approved' &&
          (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
         if(!(userData.validTill && new Date(userData.validTill)<new Date())){
@@ -260,7 +276,13 @@ async function _sendOTP(isResend){
   window._forceOtpAfterMgrWait = false;
 
   try{
-    toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
+    const _desk = (typeof _isDesktopLoginUA==='function') ? _isDesktopLoginUA() : !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''));
+    if(_desk){
+      toast(L('🔐 नीचे Security checkbox ✓ करें — OTP तुरंत भेजा जाएगा','🔐 Tick the security checkbox below — OTP sends right away'));
+      try{ if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container'); }catch(e){}
+    } else {
+      toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
+    }
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
@@ -271,6 +293,7 @@ async function _sendOTP(isResend){
       if(code && code.length===6) setTimeout(()=>{ try{ _verifyOTP(); }catch(e){} }, 250);
     });
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
+    try{ _restoreBtn(); }catch(e){}
   }catch(err){
     console.error('OTP error:',err);
     try{ _restoreBtn(); }catch(e){}
@@ -282,6 +305,9 @@ async function _sendOTP(isResend){
     }catch(fbErr){
       console.warn('[otp] fallback notify failed', fbErr);
     }
+  }finally{
+    // Never leave button stuck on "Sending…"
+    try{ _restoreBtn(); }catch(e){}
   }
 }
 

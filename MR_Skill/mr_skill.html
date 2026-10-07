@@ -2100,10 +2100,15 @@ function _tSet(re, val){
 /** Auto-calc dependent Target rows from plant rules */
 window.autoCalcTargets=function(fromIdx){
   if(!state.targets || !state.targets.length) return;
-  // Read editable inputs from DOM if present
+  // Read only EDITABLE (non-auto) inputs from DOM — never wipe auto rows with empty fields
+  const AUTO_RE = /Raw Material|Wire ₹\/kg|Boat ₹\/kg|Wastage Loss|B Grade Loss|^Conversion Cost|^Total Cost|Total with Packing/i;
   try{
-    document.querySelectorAll('#targetTable tbody input').forEach((inp,i)=>{
-      if(state.targets[i]) state.targets[i].target = inp.value===''?'':num(inp.value);
+    document.querySelectorAll('#targetTable tbody tr').forEach((tr,i)=>{
+      if(!state.targets[i]) return;
+      const inp = tr.querySelector('input');
+      if(!inp || inp.readOnly) return;
+      if(AUTO_RE.test(state.targets[i].param||'')) return;
+      state.targets[i].target = inp.value===''?'':num(inp.value);
     });
   }catch(e){}
 
@@ -2115,39 +2120,41 @@ window.autoCalcTargets=function(fromIdx){
   let wKgMT=_tGet(/Wire \(kg\/MT\)/i); if(!(wKgMT>0)) wKgMT=9.2;
   let bPcsMT=_tGet(/Boat \(pcs\/MT\)/i); if(!(bPcsMT>0)) bPcsMT=1.8;
 
-  // Wire ₹/kg = rate × kg/MT / 1000
-  const wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : _tGet(/^Wire ₹\/kg/i);
-  // Boat ₹/kg = rate × pcs/MT / 1000
-  const boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : _tGet(/^Boat ₹\/kg/i);
-  _tSet(/^Wire ₹\/kg/i, wirePerKg);
-  _tSet(/^Boat ₹\/kg/i, boatPerKg);
+  // Wire ₹/kg = rate × kg/MT / 1000 (keep prior target if no rate)
+  let wirePerKg = wireRate ? +(wireRate * wKgMT / 1000).toFixed(2) : _tGet(/^Wire ₹\/kg/i);
+  let boatPerKg = boatRate ? +(boatRate * bPcsMT / 1000).toFixed(2) : _tGet(/^Boat ₹\/kg/i);
+  if(wireRate) _tSet(/^Wire ₹\/kg/i, wirePerKg);
+  if(boatRate) _tSet(/^Boat ₹\/kg/i, boatPerKg);
+  wirePerKg = _tGet(/^Wire ₹\/kg/i) || 0;
+  boatPerKg = _tGet(/^Boat ₹\/kg/i) || 0;
 
-  // Raw Material = Wire + Boat
+  // Raw Material = Wire + Boat (show 0.00 if both missing so field is not blank)
   const rmPerKg = +(wirePerKg + boatPerKg).toFixed(2);
   _tSet(/Raw Material/i, rmPerKg);
 
-  // Power ₹/kg from 0.44 units/kg × rate (if power rate set)
+  // Power ₹/kg from 0.44 units/kg × rate (if power rate set and power empty)
   if(powerRate){
     const p=_tGet(/^Power ₹\/kg/i);
     if(!p) _tSet(/^Power ₹\/kg/i, +(0.44*powerRate).toFixed(2));
   }
 
-  // Wastage Loss target = 126 × (Wastage%/100)  [plant factor]
-  const wPct=_tGet(/Wastage %/i);
-  if(wPct) _tSet(/Wastage Loss/i, +(126 * wPct / 100).toFixed(2));
+  // Wastage Loss = 126 × (Wastage%/100); default wastage % if empty
+  let wPct=_tGet(/Wastage %/i);
+  if(!(wPct>0)) { wPct = 1.3; _tSet(/Wastage %/i, wPct); }
+  _tSet(/Wastage Loss/i, +(126 * wPct / 100).toFixed(2));
 
   // B Grade Loss = 20 × (B%/100)
-  const bPct=_tGet(/B Grade %/i);
+  const bPct=_tGet(/B Grade %/i) || 0;
   _tSet(/B Grade Loss/i, +(20 * bPct / 100).toFixed(2));
 
   // Conversion = Wastage Loss + B Grade Loss + Manpower + Power + Cons & Spares + Indirect
   const conv = +(
-    _tGet(/Wastage Loss/i) +
-    _tGet(/B Grade Loss/i) +
-    _tGet(/Manpower/i) +
-    _tGet(/^Power ₹\/kg/i) +
-    _tGet(/Cons & Spares/i) +
-    _tGet(/Indirect/i)
+    (_tGet(/Wastage Loss/i)||0) +
+    (_tGet(/B Grade Loss/i)||0) +
+    (_tGet(/Manpower/i)||0) +
+    (_tGet(/^Power ₹\/kg/i)||0) +
+    (_tGet(/Cons & Spares/i)||0) +
+    (_tGet(/Indirect/i)||0)
   ).toFixed(2);
   _tSet(/^Conversion Cost/i, conv);
 

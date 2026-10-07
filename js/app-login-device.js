@@ -807,66 +807,125 @@ async function _fbMakeRecaptcha(containerId, storeKey, size){
  * Send OTP to E.164 phone. Tries invisible reCAPTCHA, then visible fallback.
  * Clears any existing Firebase Auth session first (avoids auth/internal-error).
  */
-async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
+
+function _isDesktopLoginUA(){
+  try{
+    if(typeof navigator==='undefined') return true;
+    return !(/Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(navigator.userAgent||''));
+  }catch(e){ return true; }
+}
+
+/** Show visible reCAPTCHA host immediately (laptop) — call early so user can tick while typing */
+function _fbShowRecaptchaSlotNow(containerId){
+  try{
+    const cid = containerId || 'recaptcha-container';
+    const inline = document.getElementById('recaptcha-inline');
+    if(inline){
+      inline.style.display = 'flex';
+      inline.style.minHeight = '78px';
+      if(!inline.querySelector('.rc-hint')){
+        const hint = document.createElement('div');
+        hint.className = 'rc-hint';
+        hint.style.cssText = 'width:100%;text-align:center;font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px';
+        hint.textContent = '🔐 Security check (required on laptop) — tick below, then Send OTP';
+        inline.insertBefore(hint, inline.firstChild);
+      }
+    }
+    _fbEnsureRecaptchaHost(cid, true);
+  }catch(e){}
+}
+
+/**
+ * Pre-render visible reCAPTCHA as soon as login is shown on desktop.
+ * Speeds up Send OTP: widget already loaded when user clicks.
+ */
+async function _fbWarmDesktopRecaptcha(containerId, storeKey){
+  if(!_isDesktopLoginUA()) return null;
   if(!_fbPhoneAuthReady()){
-    throw new Error('Firebase Auth not ready — wait 2 seconds and try again');
+    for(let i=0;i<15 && !_fbPhoneAuthReady();i++) await new Promise(r=>setTimeout(r,150));
+  }
+  if(!_fbPhoneAuthReady()) return null;
+  const cid = containerId || 'recaptcha-container';
+  const key = storeKey || '_fbRecaptchaWarm';
+  try{
+    _fbShowRecaptchaSlotNow(cid);
+    // Reuse warm verifier if still valid
+    if(window[key] && window._fbRecaptchaWarmReady) return window[key];
+    _fbClearRecaptcha(key);
+    _fbEnsureRecaptchaHost(cid, true);
+    const verifier = new window._fbRecaptchaVerifierClass(window._fbAuth, cid, {
+      size: 'normal',
+      callback: ()=>{ try{ window._fbRecaptchaWarmSolved = true; }catch(e){} },
+      'expired-callback': ()=>{ try{ window._fbRecaptchaWarmSolved = false; window[key]=null; window._fbRecaptchaWarmReady=false; }catch(e){} }
+    });
+    window[key] = verifier;
+    if(typeof verifier.render === 'function') await verifier.render();
+    window._fbRecaptchaWarmReady = true;
+    return verifier;
+  }catch(e){
+    console.warn('[otp] warm recaptcha', e);
+    return null;
+  }
+}
+try{ window._fbWarmDesktopRecaptcha = _fbWarmDesktopRecaptcha; window._fbShowRecaptchaSlotNow = _fbShowRecaptchaSlotNow; }catch(e){}
+
+async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
+  // Wait briefly if Firebase module still loading
+  if(!_fbPhoneAuthReady()){
+    for(let i=0;i<15 && !_fbPhoneAuthReady();i++) await new Promise(r=>setTimeout(r,150));
+  }
+  if(!_fbPhoneAuthReady()){
+    throw new Error('Firebase Auth not ready — reload page and try again');
   }
   const phone = String(e164Phone||'').trim();
   if(!/^\+\d{10,15}$/.test(phone)){
     throw new Error('Invalid phone number');
   }
 
-  // Only sign out anonymous/stale sessions — keep existing phone auth for same number
-  // Cap wait at 1.5s so stuck signOut cannot freeze Send OTP
+  // Fast signOut of anonymous only (cap 800ms) — don't block OTP
   try{
     const cu = window._fbAuth && window._fbAuth.currentUser;
-    if(cu){
-      const curPhone = (cu.phoneNumber||'').replace(/\D/g,'').slice(-10);
-      const wantPhone = phone.replace(/\D/g,'').slice(-10);
-      if(cu.phoneNumber && curPhone && wantPhone && curPhone === wantPhone){
-        console.log('[otp] already phone-authed as', curPhone, '— skip signOut');
-      } else if(cu.isAnonymous || (cu.phoneNumber && curPhone !== wantPhone)){
-        if(window._fbSignOut){
-          await Promise.race([
-            window._fbSignOut(),
-            new Promise(r=>setTimeout(r, 1500))
-          ]);
-        }
+    if(cu && (cu.isAnonymous || (cu.phoneNumber && (cu.phoneNumber||'').replace(/\D/g,'').slice(-10) !== phone.replace(/\D/g,'').slice(-10)))){
+      if(window._fbSignOut){
+        await Promise.race([window._fbSignOut(), new Promise(r=>setTimeout(r, 800))]);
       }
     }
   }catch(e){ console.warn('[otp] signOut before phone', e); }
 
   const cid = containerId || 'recaptcha-container';
   const key = storeKey || '_fbRecaptchaNew';
+  const isDesktop = _isDesktopLoginUA();
 
-  // Attempt 1: invisible
-  try{
-    const verifier = await _fbMakeRecaptcha(cid, key, 'invisible');
-    const confirmation = await window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier);
-    return confirmation;
-  }catch(err1){
-    console.warn('[otp] invisible failed', err1 && (err1.code||err1.message));
-    _fbClearRecaptcha(key);
+  const withTimeout = (p, ms, label) => Promise.race([
+    p,
+    new Promise((_, rej) => setTimeout(() => rej(Object.assign(
+      new Error(label||'OTP timed out'), { code: 'auth/timeout' })), ms))
+  ]);
 
-    // Attempt 2: visible checkbox — MUST be on-screen (login card #recaptcha-inline)
+  // ── LAPTOP/DESKTOP: visible reCAPTCHA ONLY (immediate, no invisible wait) ──
+  if(isDesktop){
+    _fbShowRecaptchaSlotNow(cid);
+    toast('🔐 Tick the security checkbox, then OTP sends instantly');
     try{
-      toast('🔐 Complete the security check below, then wait…');
-      const inline = document.getElementById('recaptcha-inline');
-      if(inline){
-        inline.style.display = 'flex';
-        // Hint label so user knows what to do
-        if(!inline.querySelector('.rc-hint')){
-          const hint = document.createElement('div');
-          hint.className = 'rc-hint';
-          hint.style.cssText = 'width:100%;text-align:center;font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:8px';
-          hint.textContent = '🔐 Tap the checkbox below to continue';
-          inline.insertBefore(hint, inline.firstChild);
-        }
+      // Prefer already-warmed widget
+      let verifier = null;
+      if(window._fbRecaptchaWarm && window._fbRecaptchaWarmReady){
+        verifier = window._fbRecaptchaWarm;
+        window[key] = verifier;
+        // clear warm pointers so next send creates fresh (Firebase one-shot)
+        window._fbRecaptchaWarm = null;
+        window._fbRecaptchaWarmReady = false;
+      } else {
+        _fbClearRecaptcha(key);
+        verifier = await _fbMakeRecaptcha(cid, key, 'normal');
       }
-      const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
-      const confirmation2 = await window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2);
-      // Hide inline host after success
+      const confirmation = await withTimeout(
+        window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
+        60000,
+        'Complete the checkbox if shown — OTP timed out'
+      );
       try{
+        const inline = document.getElementById('recaptcha-inline');
         if(inline){
           inline.querySelectorAll('.rc-hint').forEach(h=>h.remove());
           const host = document.getElementById(cid);
@@ -874,14 +933,55 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
           inline.style.minHeight = '0';
         }
       }catch(e){}
-      return confirmation2;
+      return confirmation;
+    }catch(err){
+      console.warn('[otp] desktop visible failed', err);
+      _fbClearRecaptcha(key);
+      _fbClearRecaptcha('_fbRecaptchaWarm');
+      // One retry with brand-new visible widget
+      try{
+        _fbShowRecaptchaSlotNow(cid);
+        const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
+        return await withTimeout(
+          window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2),
+          60000,
+          'Tick the security checkbox below, then wait for SMS'
+        );
+      }catch(err2){
+        _fbClearRecaptcha(key);
+        throw err2;
+      }
+    }
+  }
+
+  // ── MOBILE: invisible first (fast), then visible fallback ──
+  try{
+    const verifier = await _fbMakeRecaptcha(cid, key, 'invisible');
+    return await withTimeout(
+      window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
+      15000,
+      'Invisible check timed out'
+    );
+  }catch(err1){
+    console.warn('[otp] invisible failed', err1 && (err1.code||err1.message));
+    _fbClearRecaptcha(key);
+    try{
+      toast('🔐 Complete the security check below…');
+      _fbShowRecaptchaSlotNow(cid);
+      const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
+      return await withTimeout(
+        window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2),
+        60000,
+        'OTP timed out — tick checkbox if shown'
+      );
     }catch(err2){
-      console.error('[otp] visible also failed', err2);
       _fbClearRecaptcha(key);
       throw err2;
     }
   }
 }
+
+
 
 async function _fbVerifyPhoneOtp(confirmationResult, code){
   const otp = String(code||'').replace(/\D/g,'').slice(0,6);
@@ -899,6 +999,7 @@ function _fbOtpErrorMessage(err){
   if(code === 'auth/code-expired') return 'OTP expired — request a new one';
   if(code === 'auth/too-many-requests') return 'Too many SMS attempts — opening device / Admin approval…';
   if(code === 'auth/network-request-failed') return 'Network error — check internet';
+  if(code === 'auth/timeout' || /timed out/i.test(msg)) return 'OTP timed out — on laptop tick the security checkbox, allow popups, then retry';
   if(code === 'auth/captcha-check-failed') return 'Security check failed — reload page and retry';
   if(code === 'auth/invalid-phone-number') return 'Invalid mobile number';
   if(code === 'auth/missing-phone-number') return 'Enter mobile number';

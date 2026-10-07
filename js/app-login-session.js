@@ -2715,6 +2715,17 @@ async function confirmLeaveTeamTransfer(useRecommended){
   document.querySelectorAll('.modal-box .big-btn, .modal .big-btn').forEach(b=>{ b.disabled = true; });
 
   try{
+    // Phone Auth required — rules check auth.token.phone_number
+    if(typeof _ensureWriteAuth==='function'){
+      setProg('0/6 · Verifying phone login…');
+      const authOk = await _ensureWriteAuth();
+      if(!authOk){
+        toast('❌ Phone OTP verify required — Manager must complete OTP, then retry handoff');
+        setProg('Failed: need phone OTP (not device-password only)');
+        document.querySelectorAll('.modal-box .big-btn, .modal .big-btn').forEach(b=>{ b.disabled = false; });
+        return;
+      }
+    }
     setProg('1/6 · Transferring team roster…');
     const toTransfer = team.length ? team : (_cache.employees||[]).filter(e=>e.managerId===oldKey);
     let n = 0;
@@ -2756,21 +2767,37 @@ async function confirmLeaveTeamTransfer(useRecommended){
     setProg('2/6 · Promoting new Manager login…');
     let succUser = null;
     try{ succUser = await fbGet('mobileUsers/'+newKey); }catch(e){}
-    await fbSet('mobileUsers/'+newKey, {
-      ...(succUser||{}),
-      role: 'manager',
-      name: succ.name || succUser?.name || 'Manager',
-      mobile: newKey,
-      company: SESSION.company || succUser?.company || '',
-      companyId: SESSION.companyId || succUser?.companyId || '',
-      status: 'approved',
-      empId: succ.empId || '',
-      empObjId: succ.id,
-      approvedAt: new Date().toISOString(),
-      approvedBy: 'auto_handoff:'+(SESSION.name||oldKey),
-      transferredFrom: oldKey,
-      managerSince: new Date().toISOString()
-    });
+    // Employee row is source of truth for team ownership — always promote here
+    try{
+      await fbUpdate('employees/'+succ.id, {
+        role: 'manager',
+        accessLevel: 'manager',
+        isTeamManager: true,
+        managerId: newKey,
+        perms: { schedule:true, leave:true, reports:true },
+        updatedAt: new Date().toISOString()
+      });
+    }catch(eEmp){ console.warn('[handoff] emp promote', eEmp); }
+    try{
+      await fbSet('mobileUsers/'+newKey, {
+        ...(succUser||{}),
+        role: 'manager',
+        name: succ.name || succUser?.name || 'Manager',
+        mobile: newKey,
+        company: SESSION.company || succUser?.company || '',
+        companyId: SESSION.companyId || succUser?.companyId || '',
+        status: 'approved',
+        empId: succ.empId || '',
+        empObjId: succ.id,
+        approvedAt: new Date().toISOString(),
+        approvedBy: 'auto_handoff:'+(SESSION.name||oldKey),
+        transferredFrom: oldKey,
+        managerSince: new Date().toISOString()
+      });
+    }catch(eMu){
+      console.warn('[handoff] mobileUsers promote failed — roster still under new manager via employees', eMu);
+      toast('⚠️ Manager login role may need Admin → Promote / Repair managers');
+    }
 
     setProg('3/6 · Updating members’ mobile accounts…');
     try{
