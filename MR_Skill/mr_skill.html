@@ -698,6 +698,23 @@ window.toggleTheme=function(){
   const light=document.body.classList.contains('theme-light');
   applyTheme(light?'dark':'light');
 };
+// Parent app (Man Power hub) can switch theme via postMessage
+window.addEventListener('message', function(ev){
+  try{
+    const d = ev && ev.data;
+    if(d && d.type === 'metcost-theme' && (d.mode === 'light' || d.mode === 'dark')){
+      applyTheme(d.mode);
+    }
+  }catch(e){}
+});
+// React to same-tab localStorage changes
+window.addEventListener('storage', function(ev){
+  try{
+    if(ev && ev.key === 'metcost_theme_v1' && (ev.newValue === 'light' || ev.newValue === 'dark')){
+      applyTheme(ev.newValue);
+    }
+  }catch(e){}
+});
 
 
 const DEFAULT_RATES = [

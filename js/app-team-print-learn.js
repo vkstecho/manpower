@@ -628,23 +628,33 @@ function closeLearnSection(){
 }
 
 // ── MR SKILL HUB: Close (back to Learn main) ──
-window.
 // MR Skill Hub light/dark (shared key with mr_skill.html)
 window.applyMRSkillTheme = function(mode){
+  mode = (mode === 'light') ? 'light' : 'dark';
   const view = document.getElementById('learnMRSkillView');
   const btn = document.getElementById('mrSkillThemeBtn');
   if(view){
-    if(mode === 'light') view.classList.add('mrSkillHub-light');
-    else view.classList.remove('mrSkillHub-light');
+    view.classList.toggle('mrSkillHub-light', mode === 'light');
+    view.style.background = mode === 'light' ? '#eef2f7' : '#0a0f1a';
+    view.style.color = mode === 'light' ? '#0f172a' : '#e2e8f0';
   }
   if(btn) btn.textContent = mode === 'light' ? '☀️' : '🌙';
   try{ localStorage.setItem('metcost_theme_v1', mode); }catch(e){}
+  try{
+    ['metCostIframe','mrmPresIframe'].forEach(function(id){
+      const fr = document.getElementById(id);
+      if(!fr || !fr.contentWindow) return;
+      try{ fr.contentWindow.postMessage({ type:'metcost-theme', mode: mode }, '*'); }catch(e){}
+      try{ if(fr.contentWindow.applyTheme) fr.contentWindow.applyTheme(mode); }catch(e){}
+    });
+  }catch(e){}
 };
 window.toggleMRSkillTheme = function(){
   let mode = 'dark';
   try{ mode = localStorage.getItem('metcost_theme_v1') || 'dark'; }catch(e){}
   mode = (mode === 'light') ? 'dark' : 'light';
-  applyMRSkillTheme(mode);
+  window.applyMRSkillTheme(mode);
+  try{ if(typeof toast==='function') toast(mode==='light' ? '☀️ Light mode' : '🌙 Dark mode'); }catch(e){}
 };
 (function initMRSkillTheme(){
   let mode = 'dark';
@@ -689,7 +699,7 @@ window.closeMRMPres = function(){
   if(fr){ fr.src=''; fr.style.display='none'; }
   if(view) view.style.display='none';
   const mrView = document.getElementById('learnMRSkillView');
-  if(mrView) mrView.style.display='flex';
+  if(mrView) mrView.style.display='flex'; try{window.applyMRSkillTheme(localStorage.getItem('metcost_theme_v1')||'dark');}catch(e){};
 };
 
 // ── MRM PRESENTATION: Send MetCost data to iframe ──
@@ -708,7 +718,7 @@ window.closeMetCostPro = function(){
   if(view)   view.style.display='none';
   // Go back to MR Skill hub (not main buttons)
   const mrView = document.getElementById('learnMRSkillView');
-  if(mrView) mrView.style.display='flex';
+  if(mrView) mrView.style.display='flex'; try{window.applyMRSkillTheme(localStorage.getItem('metcost_theme_v1')||'dark');}catch(e){};
 };
 
 // ── KPI DASHBOARD (Man/Machine KPIs): Close (back to MR Skill hub) ──
@@ -721,7 +731,7 @@ window.closeKPIDashboard = function(){
   if(view)   view.style.display='none';
   // Go back to MR Skill hub (not main buttons)
   const mrView = document.getElementById('learnMRSkillView');
-  if(mrView) mrView.style.display='flex';
+  if(mrView) mrView.style.display='flex'; try{window.applyMRSkillTheme(localStorage.getItem('metcost_theme_v1')||'dark');}catch(e){};
 };
 
 // ── KPI DASHBOARD: Send manpower data to iframe (reuses _metCostManpowerData) ──
@@ -747,7 +757,7 @@ window.closeTimeStudy = function(){
   if(loader) loader.style.display='flex';
   if(view)   view.style.display='none';
   const mrView = document.getElementById('learnMRSkillView');
-  if(mrView) mrView.style.display='flex';
+  if(mrView) mrView.style.display='flex'; try{window.applyMRSkillTheme(localStorage.getItem('metcost_theme_v1')||'dark');}catch(e){};
 };
 
 // ── METCOST PRO: Generate manpower data ──

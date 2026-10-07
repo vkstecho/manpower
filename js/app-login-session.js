@@ -2584,9 +2584,28 @@ function _rankManagerSuccessors(){
 
 
 async function openChangeCompanyModal(){ /* profile */
-  if(SESSION.role!=='manager' && !isAdmin()){ toast(L('❌ Manager only','❌ Manager only')); return; }
+  // Promoted managers may have isMgr() true while SESSION.role still "member" until re-login
+  if(!(SESSION.role==='manager' || (typeof isMgr==='function' && isMgr()) || (typeof isAdmin==='function' && isAdmin()))){
+    toast(L('❌ Manager only','❌ Manager only')); return;
+  }
   const isEn = (_lang !== 'hi');
-  const cur = SESSION.company || '';
+  // Prefer live Firebase company if session blank (handoff / new Manager)
+  let cur = SESSION.company || '';
+  if(!cur || cur === '—'){
+    try{
+      const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+      if(mob){
+        const mu = await fbGet('mobileUsers/'+mob).catch(()=>null);
+        if(mu && mu.company) cur = String(mu.company);
+        else if(mu && mu.companyId) cur = String(mu.companyId);
+      }
+    }catch(e){}
+    try{
+      const emp = (typeof myEmp==='function') ? myEmp() : null;
+      if((!cur || cur==='—') && emp && (emp.company||emp.companyLabel||emp.companyId))
+        cur = String(emp.company||emp.companyLabel||emp.companyId||'');
+    }catch(e){}
+  }
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">🏢 ${L('Company Name बदलें','Change Company Name')}</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
@@ -2601,6 +2620,9 @@ async function openChangeCompanyModal(){ /* profile */
 
 async function saveChangeCompanyName(){
   const isEn = (_lang !== 'hi');
+  if(!(SESSION.role==='manager' || (typeof isMgr==='function' && isMgr()) || (typeof isAdmin==='function' && isAdmin()))){
+    toast(L('❌ Manager only','❌ Manager only')); return;
+  }
   const name = (document.getElementById('chgCompanyName')?.value||'').trim();
   if(!name || name.length < 2){ toast(L('⚠️ सही Company नाम डालें','⚠️ Enter a valid company name')); return; }
   try{
@@ -2610,21 +2632,49 @@ async function saveChangeCompanyName(){
     }
     const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     if(!mob){ toast('❌ Mobile not found in session'); return; }
-    await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
-    try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
+    const cid = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name;
+    // Own mobileUsers — keep role manager so hierarchy stays correct
+    await fbUpdate('mobileUsers/'+mob, {
+      company: name,
+      companyId: cid,
+      companyUpdatedAt: new Date().toISOString(),
+      role: (SESSION.role==='manager' || (typeof isMgr==='function'&&isMgr())) ? 'manager' : (SESSION.role||'manager'),
+      status: 'approved'
+    });
+    try{ await fbUpdate('managers/'+mob, { company: name, companyId: cid, name: SESSION.name||'' }); }catch(e){}
+    // Ensure SESSION role is manager after successful company write (promoted mgr fix)
+    if(typeof isMgr==='function' && isMgr()) SESSION.role = 'manager';
     SESSION.company = name;
-    try{ SESSION.companyId = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name; }catch(e){ SESSION.companyId = name; }
+    SESSION.companyId = cid;
     try{ saveSession(); }catch(e){}
-    // Propagate new name to all team employee records so Admin company list is not stale
     let synced = 0;
     try{ if(typeof _syncCompanyLabelToTeam==='function') synced = await _syncCompanyLabelToTeam(name); }catch(e){}
-    toast(isEn?('✅ Company name updated'+(synced?' · '+synced+' team records':'')):('✅ Company नाम update'+(synced?' · '+synced+' team':'')));
+    // Fallback sync by managerId if helper used role-only filter
+    try{
+      const emps = (typeof getEmps==='function'?getEmps():[])||[];
+      for(const emp of emps){
+        if(!emp||!emp.id) continue;
+        const mid = _normMobileKey(emp.managerId||'');
+        if(mid && mid === mob){
+          try{
+            await fbUpdate('employees/'+emp.id, { company: name, companyLabel: name, companyId: cid });
+            emp.company = name; emp.companyLabel = name; emp.companyId = cid;
+            synced++;
+          }catch(e2){}
+        }
+      }
+    }catch(e3){}
+    toast(isEn?('✅ Company name updated'+(synced?' · team synced':'')):('✅ Company नाम update'+(synced?' · team':'')));
     closeModal();
     try{ if(typeof renderCompanySwitcher==='function') renderCompanySwitcher(); }catch(e){}
     try{ showProfile(); }catch(e){}
   }catch(e){
     console.error('[saveChangeCompanyName]', e);
-    toast('❌ '+(e.message||e)+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
+    const msg = String(e.message||e);
+    if(/PERMISSION|permission/i.test(msg))
+      toast(L('❌ Save blocked — Phone OTP से login करके फिर try करें','❌ Permission denied — login with Phone OTP, then retry'));
+    else
+      toast('❌ '+msg+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
   }
 }
 
@@ -4592,7 +4642,7 @@ function toggleMyShiftMultiMode(){
   }
   try{ renderMyShift(); }catch(e){}
   toast(window._myShiftMultiMode
-    ? L('☑️ Multi-Select ON — दिनों को टैप करें','☑️ Multi-Select ON — tap days, then pick shift')
+    ? L('☑️ Multi-Select ON — क्लिक+ड्रैग या टैप','☑️ Multi-Select ON — click-drag or tap days')
     : L('Multi-Select OFF','Multi-Select OFF'));
 }
 
@@ -4600,6 +4650,129 @@ function _hideMyShiftBulkBar(){
   const bar = document.getElementById('myShiftBulkBar');
   if(bar) bar.remove();
 }
+
+
+/** Click-drag multi-select on My Shift calendar (manager + member) */
+window._msDrag = window._msDrag || { active:false, empId:null, empName:null, moved:false, startDate:null };
+
+function _msMarkCell(cell, on){
+  if(!cell || cell.classList.contains('empty')) return;
+  const ds = cell.getAttribute('data-ms-date');
+  if(!ds) return;
+  if(on){
+    window._myShiftMultiSel.add(ds);
+    cell.classList.add('ms-multi-on');
+    cell.style.outline = '2px solid #f97316';
+    cell.style.background = 'rgba(249,115,22,.12)';
+  } else {
+    window._myShiftMultiSel.delete(ds);
+    cell.classList.remove('ms-multi-on');
+    cell.style.outline = '';
+    cell.style.background = '';
+  }
+}
+
+function _msSelectRange(grid, dateA, dateB){
+  if(!grid || !dateA || !dateB) return;
+  const a = dateA < dateB ? dateA : dateB;
+  const b = dateA < dateB ? dateB : dateA;
+  grid.querySelectorAll('.ms-day[data-ms-date]').forEach(cell=>{
+    const ds = cell.getAttribute('data-ms-date');
+    if(ds >= a && ds <= b) _msMarkCell(cell, true);
+  });
+}
+
+function bindMyShiftDragSelect(root){
+  try{
+    const grids = (root || document).querySelectorAll('.ms-grid');
+    grids.forEach(grid=>{
+      if(grid._msDragBound) return;
+      grid._msDragBound = true;
+      grid.style.touchAction = 'none';
+      grid.style.userSelect = 'none';
+
+      const onDown = (ev)=>{
+        const cell = ev.target.closest && ev.target.closest('.ms-day[data-ms-date]');
+        if(!cell || cell.classList.contains('empty')) return;
+        if(typeof canEditSchedule==='function' && !canEditSchedule()){
+          // members without schedule edit: still allow self request via single click path
+        }
+        const empId = cell.getAttribute('data-ms-empid');
+        const empName = cell.getAttribute('data-ms-empname') || '';
+        const ds = cell.getAttribute('data-ms-date');
+        if(!empId || !ds) return;
+        // Only primary button / touch
+        if(ev.pointerType === 'mouse' && ev.button !== 0) return;
+        try{ grid.setPointerCapture(ev.pointerId); }catch(e){}
+        window._myShiftMultiMode = true;
+        if(window._myShiftMultiEmp && window._myShiftMultiEmp !== empId){
+          window._myShiftMultiSel = new Set();
+          grid.querySelectorAll('.ms-day.ms-multi-on').forEach(c=>{
+            c.classList.remove('ms-multi-on');
+            c.style.outline=''; c.style.background='';
+          });
+        }
+        window._myShiftMultiEmp = empId;
+        if(!window._myShiftMultiSel) window._myShiftMultiSel = new Set();
+        window._msDrag = { active:true, empId, empName, moved:false, startDate:ds, pointerId:ev.pointerId };
+        // Start selection with this day
+        _msMarkCell(cell, true);
+        ev.preventDefault();
+      };
+
+      const onMove = (ev)=>{
+        if(!window._msDrag || !window._msDrag.active) return;
+        if(window._msDrag.pointerId != null && ev.pointerId !== window._msDrag.pointerId) return;
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const cell = el && el.closest && el.closest('.ms-day[data-ms-date]');
+        if(!cell || cell.classList.contains('empty')) return;
+        const empId = cell.getAttribute('data-ms-empid');
+        if(empId !== window._msDrag.empId) return;
+        const ds = cell.getAttribute('data-ms-date');
+        if(ds !== window._msDrag.startDate) window._msDrag.moved = true;
+        // Fill continuous range from start to current
+        window._myShiftMultiSel = new Set();
+        grid.querySelectorAll('.ms-day[data-ms-date]').forEach(c=>{
+          c.classList.remove('ms-multi-on');
+          c.style.outline=''; c.style.background='';
+        });
+        _msSelectRange(grid, window._msDrag.startDate, ds);
+        ev.preventDefault();
+      };
+
+      const onUp = (ev)=>{
+        if(!window._msDrag || !window._msDrag.active) return;
+        const drag = window._msDrag;
+        window._msDrag.active = false;
+        try{ grid.releasePointerCapture(ev.pointerId); }catch(e){}
+        const n = window._myShiftMultiSel ? window._myShiftMultiSel.size : 0;
+        if(n === 0){ _hideMyShiftBulkBar(); return; }
+        if(n === 1 && !drag.moved){
+          // Pure single click → open day picker
+          const ds = drag.startDate;
+          const cell = grid.querySelector('.ms-day[data-ms-date="'+ds+'"]');
+          const sh = (cell && cell.getAttribute('data-ms-sh')) || '';
+          window._myShiftMultiSel = new Set();
+          if(cell){ cell.classList.remove('ms-multi-on'); cell.style.outline=''; cell.style.background=''; }
+          _hideMyShiftBulkBar();
+          if(typeof editShiftCell === 'function'){
+            editShiftCell(drag.empId, drag.empName, ds, sh);
+          }
+          return;
+        }
+        // Multi / drag → bulk bar
+        _showMyShiftBulkBar(drag.empId, drag.empName);
+      };
+
+      grid.addEventListener('pointerdown', onDown, {passive:false});
+      grid.addEventListener('pointermove', onMove, {passive:false});
+      grid.addEventListener('pointerup', onUp);
+      grid.addEventListener('pointercancel', onUp);
+    });
+  }catch(e){ console.warn('[bindMyShiftDragSelect]', e); }
+}
+try{ window.bindMyShiftDragSelect = bindMyShiftDragSelect; }catch(e){}
+
 
 function _showMyShiftBulkBar(empId, empName){
   _hideMyShiftBulkBar();
@@ -4703,11 +4876,12 @@ function renderMyShift(){
     const st = (typeof mpShiftStyle==='function' ? mpShiftStyle(sh) : (shStyle[sh]||{bg:'#1e293b',fg:'#94a3b8'}));
     const isToday = ds===TODAY_STR;
     const disp = cellDisp(sh) || '·';
-    const click = canSelf
-      ? `onclick="editShiftCell('${e.id}','${escHtml(String(e.name||'').replace(/'/g,"\\'"))}','${ds}','${String(sh).replace(/'/g,"\\'")}')"`
-      : '';
+    const nm = String(e.name||'').replace(/'/g,"\\'");
+    const shEsc = String(sh).replace(/'/g,"\\'");
+    const selected = !!(window._myShiftMultiSel && window._myShiftMultiEmp===e.id && window._myShiftMultiSel.has(ds));
     const cls = cellClass(sh);
-    cells += `<div class="ms-day${isToday?' today':''}" ${click} style="cursor:${canSelf?'pointer':'default'}">
+    cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
+      style="cursor:${canSelf?'pointer':'default'};touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
       <div class="ms-day-num">${d}</div>
       <div class="ms-day-sh shc ${cls}">${disp}</div>
     </div>`;
@@ -4778,8 +4952,7 @@ function renderMyShift(){
           const shEsc = String(sh).replace(/'/g,"\\'");
           const selected = (window._myShiftMultiSel && window._myShiftMultiSel.has(ds));
           mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
-            onclick="handleMyShiftDayClick(event,'${selEmp.id}','${nm}','${ds}','${shEsc}')"
-            style="cursor:pointer;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
+            style="cursor:pointer;touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
             <div class="ms-day-num">${d}</div>
             <div class="ms-day-sh shc ${cls}">${disp}</div>
           </div>`;
@@ -4815,6 +4988,8 @@ function renderMyShift(){
 
   // Show member's pending shift-change requests under calendar
   try{ _renderMyShiftPendingReqs(e.id); }catch(ex){}
+  // Enable click-drag multi-select on calendar grids
+  try{ bindMyShiftDragSelect(el); }catch(ex){}
 }
 
 async function _renderMyShiftPendingReqs(empObjId){
