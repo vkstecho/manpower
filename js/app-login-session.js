@@ -3201,7 +3201,7 @@ function renderAll(){
     _updateSchedAdminVisibility();
     try{ _mpInitHistory(); }catch(e){}
   }catch(e){
-    console.error('[renderAll] error:', e);
+    console.error('[renderAll] error:', e && (e.stack || e.message || e));
     try{ toast(L('⚠️ Display error — कृपया page refresh करें','⚠️ Display error — please refresh the page')); }catch(te){}
   }
 }
@@ -3882,16 +3882,18 @@ async function renderHome(){
   // Personal 3/14 calendar removed — My Shift tab only
   if(workerEl) workerEl.style.display='none';
 
-  document.getElementById('homeDateLbl').textContent =
+  const _hdl=document.getElementById('homeDateLbl');
+  if(_hdl) _hdl.textContent =
     TODAY_DATE.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
   if(!emps || emps.length===0){
-    document.getElementById('homeStats').innerHTML=`
+    const _hs0=document.getElementById('homeStats');
+    if(_hs0) _hs0.innerHTML=`
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="dayStatLbl">${en?'Day Shift':'दिन शिफ्ट'}</div></div>
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="leaveStatLbl">${en?'On Leave':'छुट्टी पर'}</div></div>`;
     if(stillLoading){
-      document.getElementById('homeSections').innerHTML='<div style="text-align:center;padding:20px;color:var(--muted2)">🔄 '+(en?'Loading data from Firebase...':'Firebase से डेटा लोड हो रहा है...')+'</div>';
+      (document.getElementById('homeSections')||{innerHTML:''}).innerHTML='<div style="text-align:center;padding:20px;color:var(--muted2)">🔄 '+(en?'Loading data from Firebase...':'Firebase से डेटा लोड हो रहा है...')+'</div>';
       if(!window._empLoadWatch){
         window._empLoadWatch = setTimeout(()=>{
           if(_cache.employees === null){
@@ -3902,12 +3904,12 @@ async function renderHome(){
         }, 8000);
       }
     } else {
-      document.getElementById('homeSections').innerHTML=`<div style="text-align:center;padding:30px 16px;color:var(--muted2)">
+      (document.getElementById('homeSections')||{innerHTML:''}).innerHTML=`<div style="text-align:center;padding:30px 16px;color:var(--muted2)">
         <div style="font-size:36px;margin-bottom:10px">👥</div>
         <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px">${en?'Team data not available yet':'अभी Team डेटा उपलब्ध नहीं'}</div>
       </div>`;
     }
-    document.getElementById('homeRoster').innerHTML='';
+    (document.getElementById('homeRoster')||{innerHTML:''}).innerHTML='';
     // Still try personal calendar
     try{ _renderHomePersonalCalendar(); }catch(e){}
     try{ updateHomeTodoSummary(); }catch(e){}
@@ -3917,7 +3919,7 @@ async function renderHome(){
   // ════════════════════════════════════════
   // 1) MANPOWER SUMMARY — same for all users
   // ════════════════════════════════════════
-  document.getElementById('homeNotice').innerHTML='';
+  (document.getElementById('homeNotice')||{innerHTML:''}).innerHTML='';
 
   const dayE=emps.filter(e=>getShift(e,TODAY_STR)==='D').length;
   const nE  =emps.filter(e=>getShift(e,TODAY_STR)==='N').length;
@@ -3981,7 +3983,7 @@ async function renderHome(){
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
   // Build one summary card per Excel Section
-  document.getElementById('homeSections').innerHTML = secNames.map((secName, idx)=>{
+  (document.getElementById('homeSections')||{innerHTML:''}).innerHTML = secNames.map((secName, idx)=>{
     const list = emps.filter(e=>getEmpSection(e)===secName);
     const dayN = list.filter(e=>isDay(getShift(e,TODAY_STR))).length;
     const nightN = list.filter(e=>isNight(getShift(e,TODAY_STR))).length;
@@ -4050,7 +4052,7 @@ async function renderHome(){
   if(typeof engToday!=='undefined' && engToday && engToday.length)
     rosterHtml += _groupBlock(en?'Engineers / Others Today':'आज Engineers / अन्य', '👷', '#7c3aed', engToday, '');
   rosterHtml += `<div class="hm-link-sched" onclick="goTab('schedule')">${en?'View full schedule →':'पूरा शेड्यूल देखें →'}</div>`;
-  document.getElementById('homeRoster').innerHTML = rosterHtml;
+  (document.getElementById('homeRoster')||{innerHTML:''}).innerHTML = rosterHtml;
 
   // ════════════════════════════════════════
   // 2) PERSONAL CALENDAR — previous 3 + upcoming 14 (all users)

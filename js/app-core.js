@@ -140,11 +140,24 @@ function getReports(){
   const all=_cache.reports||[];
   if(typeof isAdmin==='function'&&isAdmin())return all.filter(r=>!!r);
   const scopedIds=_teamEmpIdSet();
+  const myKey=(typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||SESSION.uid||''):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
+  const myEmpObjId=SESSION.empObjId||'';
+  const myName=String(SESSION.name||'').toLowerCase().trim();
   return all.filter(r=>{
     if(!r)return false;
-    if(r.type==='imp_info'||r.aboutId==='all'||r.section==='ALL')return true;
+    // Created by me
+    if(r.reportedById&&r.reportedById===myEmpObjId)return true;
+    if(myName&&r.reportedByName&&String(r.reportedByName).toLowerCase().trim()===myName)return true;
+    // Stamped to my manager phone
+    if(r.managerId){
+      const rm=(typeof _normMobileKey==='function'?_normMobileKey(r.managerId):String(r.managerId||'').replace(/\D/g,'').slice(-10));
+      if(rm&&myKey&&rm===myKey)return true;
+    }
+    // About someone on my team (NCR/absent/warning etc.)
     if(scopedIds.has(r.aboutId)||scopedIds.has(String(r.aboutId||'')))return true;
-    if(r.reportedById&&(r.reportedById===SESSION.empObjId||scopedIds.has(r.reportedById)))return true;
+    if(r.reportedById&&scopedIds.has(r.reportedById))return true;
+    // Broadcast / Imp Info: ONLY if same manager (or legacy with no managerId → creator only, already handled)
+    // Do NOT show other managers' imp_info / aboutId=all
     return false;
   });
 }
