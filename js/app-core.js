@@ -54,7 +54,7 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
     try{saveSession()}catch(e){}
   }
   const cur=SESSION.viewCompanyId||"ALL";
-  sel.innerHTML='<option value="ALL">🌐 सभी Companies (All)</option>'+companies.map(c=>{
+  sel.innerHTML='<option value="ALL">🌐 '+L('सभी Companies (All)','All Companies')+'</option>'+companies.map(c=>{
     const n=c.empCount!=null?` (${c.empCount})`:"";
     return `<option value="${escAttr(c.id)}"${c.id===cur?" selected":""}>🏢 ${escHtml(c.label)}${n}</option>`;
   }).join("");

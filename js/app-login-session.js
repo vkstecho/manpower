@@ -3194,16 +3194,12 @@ function _updateSchedAdminVisibility(){
 }
 
 function renderAll(){
-  try{
-    goTab(_currentTab);
-    updatePendingBadge();
-    updateTodoBadge();
-    _updateSchedAdminVisibility();
-    try{ _mpInitHistory(); }catch(e){}
-  }catch(e){
-    console.error('[renderAll] error:', e && (e.stack || e.message || e));
-    try{ toast(L('⚠️ Display error — कृपया page refresh करें','⚠️ Display error — please refresh the page')); }catch(te){}
-  }
+  // Each step isolated — one failure must not show generic Display error for whole Home
+  try{ goTab(_currentTab); }catch(e){ console.error('[renderAll] goTab', e && (e.stack||e.message||e)); }
+  try{ updatePendingBadge(); }catch(e){ console.error('[renderAll] pendingBadge', e && (e.stack||e.message||e)); }
+  try{ updateTodoBadge(); }catch(e){ console.error('[renderAll] todoBadge', e && (e.stack||e.message||e)); }
+  try{ _updateSchedAdminVisibility(); }catch(e){ console.error('[renderAll] schedAdmin', e && (e.stack||e.message||e)); }
+  try{ _mpInitHistory(); }catch(e){}
 }
 
 // ── Reusable confirm modal (replaces native confirm() dialogs) ──
@@ -3978,7 +3974,8 @@ async function renderHome(){
   if(unassigned.length && !secNames.includes('Unassigned')){
     /* do not add fake section name to filters — only list real Excel sections */
   }
-  document.getElementById('homeSectionTitle').textContent = en
+  const _hst = document.getElementById('homeSectionTitle');
+  if(_hst) _hst.textContent = en
     ? ("Today's Shift — " + (secNames.join(' · ') || 'All sections'))
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
@@ -4007,7 +4004,7 @@ async function renderHome(){
   }).join('') || '<div style="color:var(--muted2);padding:12px">Upload team Excel to see sections</div>';
 
   function _nameChip(emp, sh){
-    const role=getEmpRole(emp);
+    const role=(typeof getEmpRole==='function'?getEmpRole(emp):null)||{role:'assist'};
     const isMain=role.role==='main';
     const isSup=role.role==='sup_met'||role.role==='sup_slit';
     const chipCls = 'hm-chip' + (isMain?' main':isSup?' sup':'');
@@ -4018,7 +4015,7 @@ async function renderHome(){
     return `<div class="${chipCls}">
       <div class="hm-chip-name">${escHtml(emp.name)}</div>
       <div class="hm-chip-meta">
-        <span>${emp.mc||secName(emp.sec)||'—'}</span>
+        <span>${emp.mc||(typeof secName==='function'?secName(emp.sec):'')||'—'}</span>
         ${badge}${shLabel}
       </div>
     </div>`;
@@ -5351,6 +5348,50 @@ async function saveUserPaidUntilAdmin(){
 }
 
 // Hydrate paidUntil into SESSION after login
+/** New mobile: auto paidUntil = first login + 30 days (once only). */
+async function _ensureNewUserPaymentTrial(phone, mu, ps){
+  try{
+    if(!phone) return null;
+    // Admin / hard-admin never need trial
+    try{
+      if(typeof isAdmin==='function' && isAdmin()) return null;
+      if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(phone)) return null;
+    }catch(e){}
+    const src = Object.assign({}, mu || {}, ps || {});
+    // Already has paid-until or trial was granted before → do not overwrite Admin dates
+    if(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate) return null;
+    if(src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1) return null;
+
+    const base = new Date();
+    const end = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 30, 23, 59, 59, 999);
+    const iso = end.toISOString();
+    const payload = {
+      paymentPaidUntil: iso,
+      paidUntil: iso,
+      paymentTrialGranted: true,
+      paymentTrialDays: 30,
+      firstLoginAt: (src.firstLoginAt) || base.toISOString(),
+      updatedAt: base.toISOString(),
+      paymentUpdatedBy: 'auto_trial_30d'
+    };
+    try{
+      await fbSet('paymentStatus/'+phone, Object.assign({}, payload, { mobile: phone, phone: phone }));
+    }catch(e){ console.warn('[payTrial] paymentStatus write', e && e.message); }
+    try{
+      await fbUpdate('mobileUsers/'+phone, payload);
+    }catch(e){ console.warn('[payTrial] mobileUsers write', e && e.message); }
+    try{
+      if(window._cache && window._cache.mobileUsers && window._cache.mobileUsers[phone]){
+        Object.assign(window._cache.mobileUsers[phone], payload);
+      }
+    }catch(e){}
+    return payload;
+  }catch(e){
+    console.warn('[payTrial]', e && e.message);
+    return null;
+  }
+}
+
 async function _hydrateUserPaymentStatus(){
   try{
     if(!SESSION || !SESSION.mobile) return;
@@ -5371,6 +5412,16 @@ async function _hydrateUserPaymentStatus(){
     // Also load paymentStatus/{phone} (admin may save here when mobileUsers write is denied)
     let ps = null;
     try{ ps = await fbGet('paymentStatus/'+phone).catch(()=>null); }catch(e){}
+
+    // New mobile number → paidUntil = first login + 30 days (once)
+    try{
+      const trial = await _ensureNewUserPaymentTrial(phone, mu, ps);
+      if(trial){
+        ps = Object.assign({}, ps || {}, trial);
+        mu = Object.assign({}, mu || {}, trial);
+      }
+    }catch(e){}
+
     const src = Object.assign({}, mu || {}, ps || {});
     if(mu || ps){
       const until = src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate || null;
