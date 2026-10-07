@@ -4196,12 +4196,12 @@ async function updateHomeTodoSummary(){
     const myEmpId = SESSION.empId||'';
     const myName = (SESSION.name||'').toLowerCase();
     
-    // Scope same as To-Do tab (manager = own team only)
-    todos = todos.filter(t=> typeof _todoBelongsToMe==='function' ? _todoBelongsToMe(t) : (
+    // Filter: mine only
+    todos = todos.filter(t=>
       t.assignedToEmpId===myEmpObjId ||
       (t.assignedToEmpId===''&&t.assignedTo&&t.assignedTo.toLowerCase()===myName) ||
       t.createdBy===myEmpId || t.createdBy===myEmpObjId
-    ));
+    );
     
     const pending = todos.filter(t=>!t.done).length;
     const done = todos.filter(t=>t.done).length;
