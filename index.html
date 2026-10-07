@@ -46,13 +46,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=2571"></script>
+<script type="module" src="js/firebase-init.js?v=2575"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=2571">
+<link rel="stylesheet" href="css/app.css?v=2575">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -158,9 +158,9 @@ window.addEventListener('appinstalled', function () {
 <div id="expiryScreen">
   <div style="font-size:60px;margin-bottom:16px">🔒</div>
   <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--lv)">LICENSE EXPIRED</div>
-  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">संपर्क करें<br>+91-8929397949</div>
-  <input type="password" id="unlockKey" placeholder="UNLOCK KEY डालें" class="inp-field" style="max-width:280px;text-align:center;letter-spacing:2px;margin-bottom:10px" onkeydown="if(event.key==='Enter')tryUnlock()">
-  <button class="big-btn" style="max-width:280px" onclick="tryUnlock()">🔓 अनलॉक करें</button>
+  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">Contact<br>+91-8929397949</div>
+  <input type="password" id="unlockKey" placeholder="Enter UNLOCK KEY" class="inp-field" style="max-width:280px;text-align:center;letter-spacing:2px;margin-bottom:10px" onkeydown="if(event.key==='Enter')tryUnlock()">
+  <button class="big-btn" style="max-width:280px" onclick="tryUnlock()">🔓 Unlock</button>
 </div>
 
 <!-- LOGIN -->
@@ -172,7 +172,7 @@ window.addEventListener('appinstalled', function () {
       &#127891; <span id="loginLearnTitle">Learn Now</span>
       <span id="loginLearnSub" style="font-size:12px;opacity:1;display:block;font-weight:700;margin-top:3px;color:rgba(255,255,255,.92)">Audio &amp; Video Courses</span>
     </button>
-    <div id="loginPwaBtn" onclick="triggerPWAInstall()" title="App Install करें"
+    <div id="loginPwaBtn" onclick="triggerPWAInstall()" title="Install App"
       style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
              padding:12px;margin-bottom:14px;border-radius:12px;cursor:pointer;
              background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
@@ -206,7 +206,7 @@ window.addEventListener('appinstalled', function () {
     <div class="login-card" style="width:100%">
       <div class="err-msg" id="loginErr"></div>
       <div id="loginMobileTitle" style="font-size:15px;font-weight:800;color:#f8fafc;margin-bottom:4px">📱 Mobile Number</div>
-      <div id="loginMobileTitleHi" style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">मोबाइल नंबर</div>
+      <div id="loginMobileTitleHi" style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">Mobile Number</div>
       <div id="loginMobileHint" style="font-size:12px;color:#cbd5e1;margin-bottom:8px;line-height:1.45">Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)</div>
       <div style="display:flex;gap:8px;margin-bottom:14px">
         <div style="background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap">+91</div>
@@ -231,7 +231,7 @@ window.addEventListener('appinstalled', function () {
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:38px;margin-bottom:6px">&#128172;</div>
         <div id="loginOtpTitle" style="font-size:16px;font-weight:900;color:#fff">Enter OTP</div>
-        <div id="loginOtpTitleHi" style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:2px">OTP डालें</div>
+        <div id="loginOtpTitleHi" style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:2px">Enter OTP</div>
         <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP sent</div>
       </div>
       <div class="err-msg" id="loginErr2"></div>
@@ -291,7 +291,7 @@ window.addEventListener('appinstalled', function () {
 
       <label class="inp-label">&#128188; Designation *</label>
       <select class="inp-field" id="mgrDesignation" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDesignation','mgrDesignationOther')">
-        <option value="">-- चुनें --</option>
+        <option value="">-- Select --</option>
         <option value="Plant Manager">Plant Manager</option>
         <option value="Production Manager">Production Manager</option>
         <option value="Maintenance Manager">Maintenance Manager</option>
@@ -302,12 +302,12 @@ window.addEventListener('appinstalled', function () {
         <option value="HR Manager">HR Manager</option>
         <option value="Shift Incharge">Shift Incharge</option>
         <option value="Supervisor">Supervisor</option>
-        <option value="Others">Others (लिखें)</option>
+        <option value="Others">Others (type)</option>
       </select>
-      <input class="inp-field" type="text" id="mgrDesignationOther" placeholder="अपनी Designation लिखें" style="margin-bottom:10px;display:none">
+      <input class="inp-field" type="text" id="mgrDesignationOther" placeholder="Type your designation" style="margin-bottom:10px;display:none">
       <label class="inp-label">&#127981; Department *</label>
       <select class="inp-field" id="mgrDepartment" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDepartment','mgrDepartmentOther')">
-        <option value="">-- चुनें --</option>
+        <option value="">-- Select --</option>
         <option value="Production">Production</option>
         <option value="Production - Slitter">Production - Slitter</option>
         <option value="Production - Multi Section">Production - Multi Section</option>
@@ -318,9 +318,9 @@ window.addEventListener('appinstalled', function () {
         <option value="Packing">Packing / Packaging</option>
         <option value="Store">Store</option>
         <option value="HR &amp; Admin">HR &amp; Admin</option>
-        <option value="Others">Others (लिखें)</option>
+        <option value="Others">Others (type)</option>
       </select>
-      <input class="inp-field" type="text" id="mgrDepartmentOther" placeholder="अपना Department लिखें" style="margin-bottom:14px;display:none">
+      <input class="inp-field" type="text" id="mgrDepartmentOther" placeholder="Type your department" style="margin-bottom:14px;display:none">
       <button class="big-btn" onclick="_submitManagerReg()">&#128228; Complete Registration</button>
       <button class="back-btn" onclick="showStep(3)">&larr; Back</button>
     </div>
@@ -332,14 +332,14 @@ window.addEventListener('appinstalled', function () {
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:4px">&#128100;</div>
         <div style="font-size:16px;font-weight:900;color:#fff">Member Registration</div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">आपका Manager approve करेगा</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">Your Manager will approve</div>
       </div>
       <div class="err-msg" id="memRegErr"></div>
       <label class="inp-label">&#128100; Full Name *</label>
       <input class="inp-field" type="text" id="memName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
       <label class="inp-label">&#127970; Company Name *</label>
       <input class="inp-field" type="text" id="memCompany" placeholder="Your company name" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#128100; अपना Manager चुनें *</label>
+      <label class="inp-label">&#128100; Select your Manager *</label>
       <select class="inp-field" id="memManagerSelect" style="margin-bottom:10px">
         <option value="">-- Select Manager --</option>
       </select>
@@ -358,14 +358,14 @@ window.addEventListener('appinstalled', function () {
   <div id="loginStepPending" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
     <div class="login-card" style="width:100%;text-align:center">
       <div style="font-size:48px;margin-bottom:12px">&#9203;</div>
-      <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:8px">Approval Pending है</div>
+      <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:8px">Approval Pending</div>
       <div id="pendingMsg" style="font-size:13px;color:#64748b;line-height:1.7;margin-bottom:16px">
-        आपका registration Admin को भेज दिया गया है।
+        Your registration was sent to Admin.
       </div>
       <div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8">
         &#128222; VKS Tech: <b style="color:#f97316">+91-8929397949</b>
       </div>
-      <button class="back-btn" onclick="backToStep1()">&larr; Back जाएं</button>
+      <button class="back-btn" onclick="backToStep1()">&larr; Back</button>
     </div>
   </div>
 
@@ -378,7 +378,7 @@ window.addEventListener('appinstalled', function () {
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
         ADMIN LOGIN
       </div>
-      <div style="font-size:12px;color:var(--muted2);margin-top:3px">किसी भी device से login करें</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:3px">Login from any device</div>
     </div>
     <div class="login-card">
       <div class="err-msg" id="loginErrAdmin"></div>
@@ -396,8 +396,8 @@ window.addEventListener('appinstalled', function () {
             background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">👁</button>
         </div>
       </div>
-      <button class="big-btn" onclick="tryAdminLogin()">🔐 Login करें</button>
-      <button class="back-btn" onclick="backToStep1()">← वापस</button>
+      <button class="big-btn" onclick="tryAdminLogin()">🔐 Login</button>
+      <button class="back-btn" onclick="backToStep1()">← Back</button>
     </div>
   </div>
 
@@ -411,23 +411,23 @@ window.addEventListener('appinstalled', function () {
     <div style="font-size:56px;margin-bottom:14px">⏳</div>
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;
       background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;
-      -webkit-text-fill-color:transparent;margin-bottom:10px">Approval का इंतजार है</div>
+      -webkit-text-fill-color:transparent;margin-bottom:10px">Waiting for approval</div>
     <div style="background:rgba(17,29,46,0.9);border:1.5px solid rgba(251,191,36,.35);
       border-radius:16px;padding:20px;margin-bottom:16px">
       <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.9">
-        आपका registration Admin को भेज दिया गया है।<br>
-        <b style="color:#fff">Approve होने के बाद</b> आप login कर पाएंगे।<br>
-        <span style="color:#22c55e">कुछ समय बाद दोबारा try करें।</span>
+        Your registration was sent to Admin.<br>
+        <b style="color:#fff">After approval</b> you can login.<br>
+        <span style="color:#22c55e">Please try again later.</span>
       </div>
     </div>
     <div style="padding:12px 16px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);
       border-radius:12px;font-size:13px;color:#f97316;margin-bottom:20px">
-      📞 जल्दी approval के लिए <b>+91-8929397949</b> पर संपर्क करें
+      📞 For faster approval contact <b>+91-8929397949</b>
     </div>
     <button onclick="hidePendingBox()"
       style="width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);font-size:15px;font-weight:700;
-      cursor:pointer;font-family:inherit">← वापस जाएं</button>
+      cursor:pointer;font-family:inherit">← Back जाएं</button>
   </div>
 </div>
 
@@ -463,7 +463,7 @@ window.addEventListener('appinstalled', function () {
   </div>
 
   <div class="fp-title" id="fpTitle">Touch to Login</div>
-  <div class="fp-sub" id="fpSub">अपना fingerprint लगाएं</div>
+  <div class="fp-sub" id="fpSub">Place your fingerprint</div>
 
   <!-- User chip (shows logged-in user name) -->
   <div class="fp-user-chip" id="fpUserChip" style="display:none">
@@ -472,7 +472,7 @@ window.addEventListener('appinstalled', function () {
   </div>
 
   <div class="fp-skip" onclick="skipFingerprint()">
-    Password से login करें →
+    Login with Password →
   </div>
 </div>
 
@@ -506,7 +506,7 @@ window.addEventListener('appinstalled', function () {
         🔔<div class="notif-badge" id="notifCount" style="display:none">0</div>
       </div>
       <!-- PWA Install button — always visible if not installed -->
-      <div id="pwaInstallBtn" onclick="triggerPWAInstall()" title="App Install करें"
+      <div id="pwaInstallBtn" onclick="triggerPWAInstall()" title="Install App"
         style="display:none;align-items:center;justify-content:center;
                width:38px;height:38px;border-radius:10px;cursor:pointer;
                background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
@@ -524,7 +524,7 @@ window.addEventListener('appinstalled', function () {
   <div class="learn-hdr-bar">
     <button class="learn-hdr-btn" onclick="openLearnScreen()">
       <span style="font-size:20px">🚀</span>
-      <span style="font-weight:900" id="learnBarTitle">सीखें & Grow करें</span>
+      <span style="font-weight:900" id="learnBarTitle">Learn & Grow</span>
       <span style="font-size:11px;opacity:1;font-weight:700;color:rgba(255,255,255,.9)">Met Train · Skills · AI Tools</span>
       <span style="margin-left:auto;font-size:13px;opacity:1">›</span>
     </button>
@@ -596,7 +596,7 @@ window.addEventListener('appinstalled', function () {
   <!-- HERO -->
   <div class="learn-hero" style="padding-bottom:20px">
     <button type="button" class="learn-back" onclick="closeLearnScreen()" aria-label="Back" title="Back">←</button>
-    <div class="learn-logo" style="font-size:36px;letter-spacing:4px">सीखें & Grow करें</div>
+    <div class="learn-logo" style="font-size:36px;letter-spacing:4px">Learn & Grow</div>
     <div class="learn-title" style="font-size:17px">🚀 Man Power Skill Development Platform</div>
     <div class="learn-sub" style="font-size:11px;margin-top:3px">Real Skills · Real Growth · By Professionals, For Professionals</div>
     <!-- Admin badge -->
@@ -616,7 +616,7 @@ window.addEventListener('appinstalled', function () {
         <div style="flex:1">
           <div style="font-size:16px;font-weight:900;color:#c2410c;margin-bottom:3px">Met Train PRO</div>
           <div class="lc-sub" style="color:#334155">SOPs · Safety · Skills · PM · Quiz</div>
-          <div style="margin-top:7px;display:inline-block;background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.55);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif">✓ FREE — सभी के लिए</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.55);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif">✓ FREE — for everyone</div>
         </div>
         <div class="lc-arrow" style="color:#fb923c">›</div>
       </button>
@@ -702,7 +702,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMetTrainView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;">
       <button type="button" onclick="closeLearnSection()" aria-label="Back"
-        style="background:rgba(249,115,22,.15);border:2px solid #ea580c;border-radius:10px;padding:8px 14px;color:#c2410c;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.35)">← वापस</button>
+        style="background:rgba(249,115,22,.15);border:2px solid #ea580c;border-radius:10px;padding:8px 14px;color:#c2410c;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.35)">← Back</button>
       <div style="display:flex;align-items:center;gap:8px">
         <span style="font-size:20px">⚙️</span>
         <div>
@@ -713,7 +713,7 @@ window.addEventListener('appinstalled', function () {
     </div>
     <div id="metTrainLoading" style="display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;gap:16px">
       <div style="font-size:40px">⚙️</div>
-      <div style="font-size:15px;color:#fb923c;font-weight:700">Met Train PRO लोड हो रहा है...</div>
+      <div style="font-size:15px;color:#fb923c;font-weight:700">Loading Met Train PRO...</div>
       <div style="width:48px;height:4px;background:rgba(249,115,22,.2);border-radius:2px;overflow:hidden">
         <div style="width:40%;height:100%;background:#f97316;border-radius:2px;animation:metload 1s ease-in-out infinite alternate"></div>
       </div>
@@ -733,7 +733,7 @@ window.addEventListener('appinstalled', function () {
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111518;border-bottom:1px solid rgba(0,180,160,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#00b4a0,#e8a200)"></div>
-      <button onclick="window.closeSupSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="window.closeSupSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 30 30" fill="none">
           <circle cx="15" cy="15" r="11" stroke="#00b4a0" stroke-width="1.4" opacity=".5"/>
@@ -769,7 +769,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ MS & AI HUB VIEW ════ -->
   <div id="learnMSAIView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
     <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(56,189,248,.2);flex-shrink:0;">
-      <button onclick="closeMSAI()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMSAI()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div>
         <div style="font-size:16px;font-weight:900;color:#38bdf8">🤖 MS & AI — Fast Growth</div>
         <div style="font-size:10px;color:rgba(255,255,255,.45)">Excel · Word · PowerPoint · AI Tools</div>
@@ -829,7 +829,7 @@ window.addEventListener('appinstalled', function () {
     <!-- Header -->
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#065f46;border-bottom:1px solid rgba(34,197,94,.4);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981,#059669)"></div>
-      <button onclick="closeExcelExpert()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeExcelExpert()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:22px">📊</span>
         <div>
@@ -855,7 +855,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ COMING SOON VIEW ════ -->
   <div id="learnComingSoonView" style="display:none;padding:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-      <button onclick="closeLearnSection()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnSection()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
     </div>
     <div style="text-align:center;padding:40px 20px">
       <div id="learnCSIcon" style="font-size:64px;margin-bottom:16px"></div>
@@ -875,7 +875,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ MR SKILL HUB VIEW ════ -->
   <div id="learnMRSkillView" style="display:none;position:fixed;inset:0;z-index:998;background:#0a0f1a;flex-direction:column;overflow-y:auto;">
     <div id="mrSkillHubHeader" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid rgba(220,38,38,.2);flex-shrink:0;">
-      <button onclick="closeMRSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMRSkill()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="flex:1;min-width:0">
         <div class="mrSkillHub-title" style="font-size:16px;font-weight:900">🔑 MR Skill Hub</div>
         <div class="mrSkillHub-sub" style="font-size:10px">MetCost Pro · MRM Presentation</div>
@@ -913,7 +913,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMetCostView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(168,85,247,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#a855f7,#0ea5e9)"></div>
-      <button onclick="closeMetCostPro()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMetCostPro()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 30 30" fill="none"><rect x="4" y="8" width="22" height="16" rx="3" stroke="#c084fc" stroke-width="1.4" opacity=".6"/><path d="M8 18L12 14L16 16L22 11" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="11" r="2" fill="#22c55e"/></svg>
         <div>
@@ -942,7 +942,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnMRMPresView" style="display:none;position:fixed;inset:0;z-index:999;background:#0a0f1a;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#111825;border-bottom:1px solid rgba(239,68,68,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#ef4444,#f59e0b)"></div>
-      <button onclick="closeMRMPres()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeMRMPres()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <div style="font-size:22px">📊</div>
         <div>
@@ -967,7 +967,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnKPIDashboardView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(34,197,94,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22c55e,#10b981)"></div>
-      <button onclick="closeKPIDashboard()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeKPIDashboard()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:22px">📊</span>
         <div>
@@ -996,7 +996,7 @@ window.addEventListener('appinstalled', function () {
   <div id="learnTimeStudyView" style="display:none;position:fixed;inset:0;z-index:999;background:#060c15;flex-direction:column;">
     <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1520;border-bottom:1px solid rgba(13,148,136,.25);flex-shrink:0;position:relative;">
       <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0d9488,#06b6d4)"></div>
-      <button onclick="closeTimeStudy()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← वापस</button>
+      <button onclick="closeTimeStudy()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 13px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit;flex-shrink:0">← Back</button>
       <div style="display:flex;align-items:center;gap:8px;">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0d9488" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
         <div>
@@ -1026,7 +1026,7 @@ window.addEventListener('appinstalled', function () {
 
     <!-- Module Header -->
     <div style="padding:14px 14px 0;display:flex;align-items:center;gap:10px">
-      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
       <div>
         <div id="moduleTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
         <div id="moduleSubtitle" style="font-size:11px;color:var(--muted2)"></div>
@@ -1063,7 +1063,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ CAREER BOOST VIEW ════ -->
   <div id="careerBoostView" style="display:none;padding:14px 14px 30px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="closeCareerBoost()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeCareerBoost()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
       <div>
         <div id="careerBoostTitle" style="font-size:16px;font-weight:900;color:#fff"></div>
         <div id="careerBoostSub" style="font-size:11px;color:var(--muted2)"></div>
@@ -1093,7 +1093,7 @@ window.addEventListener('appinstalled', function () {
   <!-- ════ ABOUT / DEDICATION VIEW ════ -->
   <div id="learnAboutView" style="display:none;padding:14px">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← वापस</button>
+      <button onclick="closeLearnModule()" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:6px 12px;color:var(--text);font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
       <div style="font-size:16px;font-weight:900;color:#fbbf24">🙏 About & Dedication</div>
     </div>
     <div id="aboutContent"></div>
@@ -1125,7 +1125,7 @@ window.addEventListener('appinstalled', function () {
       <div style="background:var(--panel);border:1px solid rgba(168,85,247,.3);border-radius:14px;padding:16px;margin-bottom:14px">
         <div style="font-size:14px;font-weight:800;color:#fff;margin-bottom:12px">💳 Payment Details</div>
         <input class="payment-input" type="text" id="payName" placeholder="पूरा नाम (Full Name)">
-        <input class="payment-input" type="tel" id="payPhone" placeholder="मोबाइल नंबर (10 digits)">
+        <input class="payment-input" type="tel" id="payPhone" placeholder="Mobile Number (10 digits)">
         <input class="payment-input" type="email" id="payEmail" placeholder="Email (optional)">
         <div id="selectedPlanInfo" style="background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.3);border-radius:10px;padding:12px;margin-bottom:4px"></div>
       </div>
@@ -1171,7 +1171,7 @@ window.addEventListener('appinstalled', function () {
       ondrop="handleExcelDrop(event)">
       <div style="font-size:36px;margin-bottom:8px">📊</div>
       <div style="font-size:14px;font-weight:700;color:var(--text)">Drop Excel file here</div>
-      <div style="font-size:12px;color:var(--muted2);margin-top:4px">या टैप करके फ़ाइल चुनें (.xlsx, .xls)</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px">or tap to choose file (.xlsx, .xls)</div>
     </div>
     <input type="file" id="excelFileInput" accept=".xlsx,.xls" style="display:none" onchange="handleExcelFile(this.files[0])">
     <div id="excelUploadStatus" style="display:none;background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:14px;font-size:13px;color:var(--text)"></div>
@@ -1183,24 +1183,24 @@ window.addEventListener('appinstalled', function () {
 <div class="overlay" id="customRangeOverlay" onclick="closeCustomRange()">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-handle"></div>
-    <div class="modal-title">🗓️ कस्टम तारीख सीमा</div>
-    <!-- Quick select buttons -->
+    <div class="modal-title" id="customRangeTitle">🗓️ Custom Date Range</div>
+    <!-- Quick select buttons — labels set by openCustomRange via L() -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
-      <button id="qr_30"  onclick="_quickRange(30)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">30 दिन</button>
-      <button id="qr_90"  onclick="_quickRange(90)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">3 महीने</button>
-      <button id="qr_180" onclick="_quickRange(180)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">6 महीने</button>
-      <button id="qr_365" onclick="_quickRange(365)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">1 साल</button>
+      <button id="qr_30"  onclick="_quickRange(30)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">30 days</button>
+      <button id="qr_90"  onclick="_quickRange(90)"  class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">3 months</button>
+      <button id="qr_180" onclick="_quickRange(180)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">6 months</button>
+      <button id="qr_365" onclick="_quickRange(365)" class="qr-btn" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:12px;font-weight:700;cursor:pointer">1 year</button>
     </div>
     <div class="field">
-      <label>शुरू की तारीख (Date A)</label>
+      <label id="customRangeFromLabel">START DATE (DATE A)</label>
       <input type="date" id="customDateFrom" class="inp-field" style="background:var(--card);border:2px solid var(--border2);border-radius:12px;padding:14px 16px;width:100%;font-size:16px;outline:none;color:var(--text)">
     </div>
     <div class="field">
-      <label>अंत की तारीख (Date B)</label>
+      <label id="customRangeToLabel">END DATE (DATE B)</label>
       <input type="date" id="customDateTo" class="inp-field" style="background:var(--card);border:2px solid var(--border2);border-radius:12px;padding:14px 16px;width:100%;font-size:16px;outline:none;color:var(--text)">
     </div>
-    <button class="submit-btn" onclick="applyCustomRange()">✅ लागू करें</button>
-    <button class="cancel-btn" onclick="closeCustomRange()">रद्द करें</button>
+    <button class="submit-btn" id="customRangeApplyBtn" onclick="applyCustomRange()">✅ Apply</button>
+    <button class="cancel-btn" id="customRangeCancelBtn" onclick="closeCustomRange()">Cancel</button>
   </div>
 </div>
 
@@ -1224,7 +1224,7 @@ window.addEventListener('appinstalled', function () {
       </div>
     </div>
     <div class="field">
-      <label>Test के लिए मोबाइल नंबर</label>
+      <label>Test के लिए Mobile Number</label>
       <input class="inp-field" id="smsTestPhone" placeholder="10 अंक का नंबर" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')">
     </div>
     <div class="field" style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--border2);border-radius:12px;padding:14px">
@@ -1232,7 +1232,7 @@ window.addEventListener('appinstalled', function () {
       <label for="smsEnabled" style="font-size:14px;font-weight:700;color:#fff;cursor:pointer;text-transform:none;letter-spacing:0">SMS Notifications चालू रखें</label>
     </div>
     <div id="smsTestStatus" style="display:none;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:12px"></div>
-    <button class="submit-btn" onclick="saveSmsSettings()">💾 Settings Save करें</button>
+    <button class="submit-btn" onclick="saveSmsSettings()">💾 Save Settings</button>
     <button class="cancel-btn" onclick="closeSmsSettings()">Close</button>
   </div>
 </div>
@@ -1299,8 +1299,8 @@ window.addEventListener('appinstalled', function () {
         <b style="color:#f97316">Required:</b> <span style="color:#fff">Name</span>, <span style="color:#fff">Emp ID</span><br>
         <b style="color:#22c55e">Recommended columns (in order):</b> Name, Emp ID, Designation, Weekly Off, Mobile, <b style="color:#fbbf24">Section</b> (required for section-wise Home), Machine, Responsibility, Salary, Joining Date, Date of Birth<br>
         <b style="color:#fbbf24">Optional:</b> Joining Date, Date of Birth, Salary (numbers only)<br>
-        <span style="color:var(--day)">Emp ID से match → existing update · खाली cell = पुराना data रहेगा</span><br>
-        <span style="color:#94a3b8">Shift date columns (01-Jul-25 …) इस Team upload में ignore होते हैं — shifts के लिए Schedule Excel upload use करें।</span>
+        <span style="color:var(--day)">Match by Emp ID → update existing · empty cell keeps old data</span><br>
+        <span style="color:#94a3b8">Shift date columns (01-Jul-25 …) are ignored in Team upload — use Schedule Excel for shifts।</span>
       </div>
       <button type="button" onclick="downloadTeamExcelTemplate()" style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1px dashed rgba(56,189,248,.45);background:rgba(56,189,248,.08);color:#7dd3fc;font-weight:800;font-size:12px;cursor:pointer;font-family:inherit">
         ⬇️ Download sample Excel template
@@ -1312,8 +1312,8 @@ window.addEventListener('appinstalled', function () {
       ondragleave="this.style.borderColor='var(--border2)'"
       ondrop="event.preventDefault();this.style.borderColor='var(--border2)';handleTeamExcelFile(event.dataTransfer.files[0])">
       <div style="font-size:36px;margin-bottom:8px">📊</div>
-      <div style="font-size:14px;font-weight:700;color:#fff">यहाँ Excel फ़ाइल छोड़ें</div>
-      <div style="font-size:12px;color:var(--muted2);margin-top:4px">या टैप करके फ़ाइल चुनें (.xlsx, .xls)</div>
+      <div style="font-size:14px;font-weight:700;color:#fff">Drop Excel file here</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px">or tap to choose file (.xlsx, .xls)</div>
     </div>
     <input type="file" id="teamExcelFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleTeamExcelFile(this.files[0])">
     <div id="teamExcelPreview" style="display:none"></div>
@@ -1349,19 +1349,19 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=2571"></script>
-<script src="js/app-login.js?v=2571"></script>
-<script src="js/app-login-device.js?v=2571"></script>
-<script src="js/app-login-session.js?v=2571"></script>
-<script src="js/app-schedule.js?v=2571"></script>
-<script src="js/app-team.js?v=2571"></script>
-<script src="js/app-team-import.js?v=2571"></script>
-<script src="js/app-team-print-learn.js?v=2571"></script>
-<script src="js/app.js?v=2571"></script>
-<script src="js/a11y.js?v=2571"></script>
-<script src="js/sched-clipboard.js?v=2571"></script>
-<script src="js/sched-undo.js?v=2571"></script>
-<script src="js/sched-cell-keys.js?v=2571"></script>
+<script src="js/app-core.js?v=2575"></script>
+<script src="js/app-login.js?v=2575"></script>
+<script src="js/app-login-device.js?v=2575"></script>
+<script src="js/app-login-session.js?v=2575"></script>
+<script src="js/app-schedule.js?v=2575"></script>
+<script src="js/app-team.js?v=2575"></script>
+<script src="js/app-team-import.js?v=2575"></script>
+<script src="js/app-team-print-learn.js?v=2575"></script>
+<script src="js/app.js?v=2575"></script>
+<script src="js/a11y.js?v=2575"></script>
+<script src="js/sched-clipboard.js?v=2575"></script>
+<script src="js/sched-undo.js?v=2575"></script>
+<script src="js/sched-cell-keys.js?v=2575"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
