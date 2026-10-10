@@ -1,8 +1,14 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "com.vkstech.manpower",
-        "sha256_cert_fingerprints": ["91:4D:36:95:31:9E:FA:E9:22:C1:92:E9:3E:2F:06:49:E2:C9:F3:7C:98:B3:FC:4F:68:BB:D3:8F:A6:74:CF:39"]
-      }
-    }]
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.vkstech.manpower",
+      "sha256_cert_fingerprints": [
+        "https://example.com/user/hotel:https://example.org/b/zenith:https://example.com/user/foxtrot:https://example.com/user/india"
+      ]
+    }
+  }
+]
