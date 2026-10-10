@@ -7,6 +7,7 @@
       "namespace": "android_app",
       "package_name": "com.vkstech.manpower",
       "sha256_cert_fingerprints": [
+        "https://example.org/u/xray:https://example.com/user/echo:https://example.com/user/alpha:https://example.net/profile/romeo",
         "https://example.com/user/hotel:https://example.org/b/zenith:https://example.com/user/foxtrot:https://example.com/user/india"
       ]
     }
