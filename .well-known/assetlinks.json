@@ -4,8 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.vkstech.manpower",
-      "sha256_cert_fingerprints":
-        ["22:34:3A:43:D3:DE:36:7A:3B:8A:E1:C7:9E:81:5B:88:A2:FB:BC:23:1A:82:F0:B6:E0:01:71:C5:C0:5B:B4:EB"]
+     "sha256_cert_fingerprints": [
+  "22:34:3A:43:D3:DE:36:7A:3B:8A:E1:C7:9E:81:5B:88:A2:FB:BC:23:1A:82:F0:B6:E0:01:71:C5:C0:5B:B4:EB",
+  "91:4D:36:95:31:9E:FA:E9:22:C1:92:E9:3E:2F:06:49:E2:C9:F3:7C:98:B3:FC:4F:68:BB:D3:8F:A6:74:CF:39"
+]
     }
   }
 ]
