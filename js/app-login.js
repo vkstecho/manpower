@@ -851,7 +851,28 @@ async function _checkUserAfterOTP(){
       }
     }catch(e){ console.warn('[otp] early roster', e); }
 
-    let userData=await fbGet('mobileUsers/'+mobile);
+    // Load mobileUsers — try common key formats (10-digit, +91, 91)
+    let userData = null;
+    let _muReadErr = null;
+    try{
+      userData = await fbGet('mobileUsers/'+mobile);
+      if(!userData){
+        try{ userData = await fbGet('mobileUsers/+91'+mobile); }catch(e){}
+      }
+      if(!userData){
+        try{ userData = await fbGet('mobileUsers/91'+mobile); }catch(e){}
+      }
+      // If found under prefixed key, continue with same object (do not rewrite key here)
+    }catch(e){
+      _muReadErr = e;
+      console.warn('[otp] mobileUsers read failed', e);
+    }
+    if(!userData && _muReadErr){
+      // Network / permission — do not treat as brand-new registration blindly
+      try{
+        toast(L('⚠️ सर्वर से प्रोफ़ाइल नहीं मिली। नेटवर्क चेक करें या दोबारा OTP try करें।','⚠️ Could not load profile from server. Check network and try OTP again.'));
+      }catch(e){}
+    }
     if(userData){
       if(userData.status==='pending'){
         // Team Member pending → if on roster, already handled above; else limited app
