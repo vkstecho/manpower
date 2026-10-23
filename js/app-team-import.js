@@ -1451,11 +1451,14 @@ async function renderLeftMembers(){
   if(countEl) countEl.textContent = leftList.length;
 
   if(leftList.length === 0){
-    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">🎉 कोई भी Left नहीं हुआ</div>';
+    listEl.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">🎉 '+(typeof L==='function'?L('कोई भी Left नहीं हुआ','No one has left'):'No one has left')+'</div>';
     return;
   }
 
-  const reasonLabel = { resigned:'खुद छोड़ा', terminated:'हटाया गया', contract_end:'Contract समाप्त', retired:'Retired', other:'अन्य' };
+  const _enLeft = (typeof _lang!=='undefined' && _lang && _lang!=='hi');
+  const reasonLabel = _enLeft
+    ? { resigned:'Resigned', terminated:'Terminated', contract_end:'Contract ended', retired:'Retired', other:'Other' }
+    : { resigned:'खुद छोड़ा', terminated:'हटाया गया', contract_end:'Contract समाप्त', retired:'Retired', other:'अन्य' };
 
   // Sort by leftAt descending
   leftList.sort((a,b) => new Date(b.leftAt||0) - new Date(a.leftAt||0));
@@ -1469,19 +1472,20 @@ async function renderLeftMembers(){
     secGroups[k].push(e);
   });
 
-  let html = `<div style="font-size:11px;color:var(--muted2);margin-bottom:8px;font-weight:700">कुल ${leftList.length} कर्मचारी · Section-wise:</div>`;
+  let html = `<div style="font-size:11px;color:var(--muted2);margin-bottom:8px;font-weight:700">${typeof L==='function'?L('कुल '+leftList.length+' कर्मचारी · सेक्शन के अनुसार:','Total '+leftList.length+' employees · Section-wise:'):(leftList.length+' employees · Section-wise:')}</div>`;
   
   const renderOrder = [...SEC_ORDER, ...Object.keys(secGroups).filter(k => !SEC_ORDER.includes(k))];
   renderOrder.forEach(sec => {
     const members = secGroups[sec];
     if(!members || !members.length) return;
     const s = getSectionMeta(sec);
-    html += `<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:${s.color};margin:10px 0 6px;display:flex;align-items:center;gap:6px">${s.icon||'👤'} ${s.hi||sec} <span style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:4px;padding:1px 6px;font-size:9px;color:var(--lv)">${members.length}</span></div>`;
+    const secTitle = (typeof secName==='function'?secName(sec):null) || ((_enLeft?(s.label||sec):(s.hi||s.label||sec)));
+    html += `<div style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:1px;color:${s.color};margin:10px 0 6px;display:flex;align-items:center;gap:6px">${s.icon||'👤'} ${secTitle} <span style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);border-radius:4px;padding:1px 6px;font-size:9px;color:var(--lv)">${members.length}</span></div>`;
     html += members.map(e => {
       const ini = (e.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
       const leftDate = e.leftAt ? new Date(e.leftAt).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '—';
       const joinDate = e.joiningDate ? new Date(e.joiningDate+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : null;
-      const reason = reasonLabel[e.leftReason] || e.leftReason || 'अज्ञात';
+      const reason = reasonLabel[e.leftReason] || e.leftReason || (_enLeft?'Unknown':'अज्ञात');
 
       return `<div class="left-card">
         <div class="left-avatar">${ini}</div>
@@ -1491,11 +1495,11 @@ async function renderLeftMembers(){
           ${joinDate ? `<div class="left-meta">📅 Joined: ${joinDate}</div>` : ''}
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px">
             <span class="left-exit">🚪 Left: ${leftDate}</span>
-            <span style="font-size:10px;color:var(--muted2)">कारण: ${escHtml(reason)}</span>
+            <span style="font-size:10px;color:var(--muted2)">${_enLeft?'Reason: ':'कारण: '}${escHtml(reason)}</span>
           </div>
         </div>
         ${isAdmin() && !e._fromCache ? `<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-          <button onclick="restoreEmployee('${e.id}','${escHtml(e.name||'')}')" style="padding:6px 9px;font-size:11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:7px;color:#22c55e;cursor:pointer;font-weight:700">↩️ वापस</button>
+          <button onclick="restoreEmployee('${e.id}','${escHtml(e.name||'')}')" style="padding:6px 9px;font-size:11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:7px;color:#22c55e;cursor:pointer;font-weight:700">↩️ ${_enLeft?'Restore':'वापस'}</button>
           <button onclick="permanentDeleteEmp('${e.id}','${escHtml(e.name||'')}')" style="padding:6px 9px;font-size:11px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:7px;color:#f43f5e;cursor:pointer;font-weight:700">🗑️</button>
         </div>` : ''}
       </div>`;

@@ -1199,21 +1199,24 @@ function _renderShiftTimingRows(){
     el.value = v;
     return v;
   }
-;
   let html = '';
   html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C/G)</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
     if(!isTimedCode(s.code)) return;
-    html += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
-      <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
-        <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
-          onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
-        <span style="width:32px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code)}</span>
-      </label>
-      <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:60px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].label=this.value">
-      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].start=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
-      <span style="color:#64748b;font-size:11px">to</span>
-      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].end=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+    html += `<div style="margin-bottom:10px;padding:10px;border-radius:12px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
+          <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
+            onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
+          <span style="width:32px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code)}</span>
+        </label>
+        <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="Start 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].start=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+        <span style="color:#64748b;font-size:12px;font-weight:700;flex-shrink:0">to</span>
+        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="End 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].end=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+      </div>
     </div>`;
   });
   html += `<div style="font-size:11px;font-weight:800;color:#a855f7;margin:12px 0 6px">📋 ${L('स्टेटस / लेजेंड','Status / Legends')} (O L CO ½ Ab H OD GP)</div>`;

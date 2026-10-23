@@ -87,7 +87,7 @@ function _renderTeamImpl(search=''){
   // Show total count
   const totalLabel = _teamSec === 'ALL' 
     ? `${L('कुल','Total')} <b style="color:var(--m1)">${list.length}</b> ${L('कर्मचारी','employees')} (Active — ${L('Schedule में','in Schedule')})` 
-    : `${secName(_teamSec)}: <b style="color:var(--m1)">${list.length}</b> / ${totalAll} कुल`;
+    : `${secName(_teamSec)}: <b style="color:var(--m1)">${list.length}</b> / ${totalAll} ${L('कुल','total')}`;
   
   const countDiv = document.getElementById('teamCount');
   if(countDiv) countDiv.innerHTML = totalLabel;
