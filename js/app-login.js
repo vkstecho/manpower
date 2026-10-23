@@ -810,14 +810,8 @@ async function _checkUserAfterOTP(){
   const mobile=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
   try{
     // Hard-coded Admin phones → always Admin (full team), not User/Member from mobileUsers
-    // Defensive: also match known admin digits even if CFG/utils failed to load
-    const _adminDigits = String(mobile||'').replace(/\D/g,'').slice(-10);
-    const _isAdminNum = (_adminDigits === '8929397949')
-      || (typeof _isHardAdminPhone==='function' && (_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)))
-      || (typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(mobile))
-      || (typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(_loginMobile));
-    if(_isAdminNum){
-      _launchAsHardAdmin(_adminDigits || mobile);
+    if(_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
+      _launchAsHardAdmin(mobile);
       return;
     }
     // Rejoin: same mobile left/removed earlier → restore mobileUsers link to existing employee (keeps ms/shifts)
