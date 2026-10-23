@@ -591,6 +591,12 @@ async function _verifyOTP(){
     toast(L('⏳ Verify हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
     toast('✅ Mobile Verified!');
+    try{
+      if(typeof _isAdminMobileQuick==='function' && _isAdminMobileQuick(_loginMobile)){
+        _launchAsHardAdmin(_loginMobile);
+        return;
+      }
+    }catch(e){}
     await _checkUserAfterOTP();
   }catch(err){
     const errEl=document.getElementById('loginErr2');
@@ -810,8 +816,8 @@ async function _checkUserAfterOTP(){
   const mobile=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
   try{
     // Hard-coded Admin phones → always Admin (full team), not User/Member from mobileUsers
-    if(_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
-      _launchAsHardAdmin(mobile);
+    if((typeof _isAdminMobileQuick==='function' && (_isAdminMobileQuick(mobile) || _isAdminMobileQuick(_loginMobile))) || _isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
+      _launchAsHardAdmin(mobile || _loginMobile);
       return;
     }
     // Rejoin: same mobile left/removed earlier → restore mobileUsers link to existing employee (keeps ms/shifts)
@@ -1050,6 +1056,12 @@ async function _checkUserAfterOTP(){
     }, 400);
   }catch(err){
     console.error('_checkUserAfterOTP:',err);
+    try{
+      if(typeof _isAdminMobileQuick==='function' && (_isAdminMobileQuick(_loginMobile) || _isAdminMobileQuick(mobile))){
+        _launchAsHardAdmin(_loginMobile || mobile);
+        return;
+      }
+    }catch(eAd){}
     // Last chance: roster login even if mobileUsers read failed
     try{
       const mobile2=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
@@ -1320,37 +1332,71 @@ async function _submitMemberReg(){
 }
 
 /** Launch session as full Admin from OTP (hard-admin phone list) */
-function _launchAsHardAdmin(mobile10){
-  const key = _normMobileKey(mobile10||_loginMobile||'');
-  SESSION = {
-    uid: '+91'+key,
-    name: 'ADMIN',
-    role: 'admin',
-    company: '',
-    companyId: 'ALL',
-    viewCompanyId: 'ALL',
-    managerId: '',
-    mobile: '+91'+key,
-    empId: '',
-    empObjId: '',
-    newUser: false,
-    loginAt: new Date().toISOString()
-  };
-  try{ writeIntegrityToken(); localStorage.setItem('mp_int_ok','1'); }catch(e){}
-  saveSession();
+function _isAdminMobileQuick(m){
+  const d = String(m||'').replace(/\D/g,'');
+  const last10 = d.slice(-10);
+  if(last10 === '8929397949') return true;
+  try{ if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(m)) return true; }catch(e){}
+  try{ if(typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(m)) return true; }catch(e){}
   try{
-    _recordLoginEvent({
-      name: 'ADMIN',
-      mobile: SESSION.mobile,
-      company: '—',
-      role: 'admin',
-      method: 'admin_otp'
-    });
+    const list = (typeof CFG!=='undefined' && CFG.hardAdminPhones) || (typeof MP_CFG!=='undefined' && MP_CFG.hardAdminPhones) || [];
+    for(let i=0;i<list.length;i++){
+      const x = String(list[i]||'').replace(/\D/g,'').slice(-10);
+      if(x && x === last10) return true;
+    }
   }catch(e){}
-  try{ _syncAuthRoleNodes(); }catch(e){}
-  toast('✅ Admin login');
-  launchApp();
-  setTimeout(()=>{ try{ _syncAuthRoleNodes(); }catch(e){} }, 1500);
+  return false;
+}
+function _launchAsHardAdmin(mobile10){
+  try{
+    const key = (typeof _normMobileKey==='function')
+      ? _normMobileKey(mobile10||_loginMobile||'')
+      : String(mobile10||_loginMobile||'').replace(/\D/g,'').slice(-10);
+    if(!key) throw new Error('no admin mobile');
+    SESSION = {
+      uid: '+91'+key,
+      name: 'ADMIN',
+      role: 'admin',
+      company: '',
+      companyId: 'ALL',
+      viewCompanyId: 'ALL',
+      managerId: '',
+      mobile: '+91'+key,
+      empId: '',
+      empObjId: '',
+      newUser: false,
+      loginAt: new Date().toISOString()
+    };
+    try{ if(typeof writeIntegrityToken==='function') writeIntegrityToken(); }catch(e){}
+    try{ localStorage.setItem('mp_int_ok','1'); }catch(e){}
+    try{ if(typeof saveSession==='function') saveSession(); }catch(e){}
+    try{
+      if(typeof _recordLoginEvent==='function') _recordLoginEvent({
+        name: 'ADMIN', mobile: SESSION.mobile, company: '—', role: 'admin', method: 'admin_otp'
+      });
+    }catch(e){}
+    try{ if(typeof _syncAuthRoleNodes==='function') _syncAuthRoleNodes(); }catch(e){}
+    try{ toast('✅ Admin login'); }catch(e){}
+    try{
+      const ls = document.getElementById('loginScreen');
+      if(ls){ ls.style.display='none'; ls.classList.remove('show'); }
+      const s3 = document.getElementById('loginStep3');
+      if(s3) s3.style.display='none';
+    }catch(e){}
+    try{
+      if(typeof launchApp==='function'){
+        const p = launchApp();
+        if(p && typeof p.catch==='function') p.catch(err=>{ console.error('[admin launchApp]', err); });
+      } else {
+        setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 400);
+      }
+    }catch(e){ console.error('[admin] launchApp', e); }
+    setTimeout(()=>{ try{ if(typeof _syncAuthRoleNodes==='function') _syncAuthRoleNodes(); }catch(e){} }, 1500);
+    return true;
+  }catch(e){
+    console.error('[admin] _launchAsHardAdmin failed', e);
+    return false;
+  }
 }
 
 function _guessDeviceLabel(){
