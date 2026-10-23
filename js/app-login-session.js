@@ -924,7 +924,7 @@ function _renderShiftSettingsModal(){
     {code:'C', label:'C Shift', start:'22:00', end:'06:00', active:false, kind:'work'},
     {code:'O', label:'Weekly Off', start:'', end:'', active:true, kind:'status'},
     {code:'L', label:'Leave', start:'', end:'', active:true, kind:'status'},
-    {code:'G', label:'General', start:'', end:'', active:true, kind:'status'},
+    {code:'G', label:'General', start:'08:00', end:'20:00', active:true, kind:'work'},
     {code:'C/O', label:'Comp Off', start:'', end:'', active:true, kind:'status'},
     {code:'HLF', label:'Half Day', start:'', end:'', active:true, kind:'status'},
     {code:'Ab', label:'Absent', start:'', end:'', active:true, kind:'status'},
@@ -1183,11 +1183,27 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 }
 
 function _renderShiftTimingRows(){
-  const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase());
+  const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase())
+  const isTimedCode = (code)=>['D','N','A','B','C','G'].includes(String(code||'').toUpperCase())
+
+  function _normTime24(v){
+    v = String(v||'').trim();
+    if(!v) return '';
+    var m = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if(!m) return v;
+    return (m[1].length===1?'0':'')+m[1]+':'+m[2];
+  }
+  function _onTime24Input(el){
+    var v = String(el.value||'').replace(/[^0-9:]/g,'').slice(0,5);
+    if(v.length===2 && v.indexOf(':')<0) v = v+':';
+    el.value = v;
+    return v;
+  }
+;
   let html = '';
-  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C)</div>`;
+  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C/G)</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
-    if(!isWorkCode(s.code)) return;
+    if(!isTimedCode(s.code)) return;
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
@@ -1195,15 +1211,15 @@ function _renderShiftTimingRows(){
         <span style="width:32px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code)}</span>
       </label>
       <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:60px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].label=this.value">
-      <input type="time" value="${s.start||''}" style="padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].start=this.value">
+      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].start=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
       <span style="color:#64748b;font-size:11px">to</span>
-      <input type="time" value="${s.end||''}" style="padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].end=this.value">
+      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].end=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
     </div>`;
   });
-  html += `<div style="font-size:11px;font-weight:800;color:#a855f7;margin:12px 0 6px">📋 ${L('स्टेटस / लेजेंड','Status / Legends')} (O L G CO ½ Ab H OD GP)</div>`;
+  html += `<div style="font-size:11px;font-weight:800;color:#a855f7;margin:12px 0 6px">📋 ${L('स्टेटस / लेजेंड','Status / Legends')} (O L CO ½ Ab H OD GP)</div>`;
   html += `<div style="font-size:10px;color:#64748b;margin-bottom:8px;line-height:1.4">${L('टिक = Schedule मेनू, कीबोर्ड और लेजेंड में दिखेगा। नाम बदल सकते हैं।','Tick = show in schedule menu, keyboard & legend. Labels are editable.')}</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
-    if(isWorkCode(s.code)) return;
+    if(isTimedCode(s.code)) return;
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(168,85,247,.08)':'var(--card2)'}">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#a855f7"
@@ -2385,6 +2401,16 @@ async function showProfile(){
         <div><div class="pa-label">${typeof L==='function'?L('Payment Link & Reminders','Payment Link & Reminders'):'Payment Link & Reminders'}</div><div class="pa-sub">${typeof L==='function'?L('₹999/month · link · paid-until dates','₹999/month · link · paid-until dates'):'₹999/month · link · paid-until dates'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
+      <button class="profile-action" onclick="closeModal();openShareAppLinkAdmin()">
+        <div class="pa-icon" style="background:rgba(59,130,246,.12)">🔗</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Share App Link','Share App Link'):'Share App Link'}</div><div class="pa-sub">${typeof L==='function'?L('Play Store / custom link for Share button','Play Store / custom link for Share button'):'Play Store / custom link for Share button'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
+      <button class="profile-action" onclick="closeModal();openCustomerCareAdmin()">
+        <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Name · Email · WhatsApp · 7-day refund text','Name · Email · WhatsApp · 7-day refund text'):'Name · Email · WhatsApp · 7-day refund text'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
         <div class="pa-icon" style="background:rgba(14,116,144,.12)">🔭</div>
         <div><div class="pa-label">Tab Visibility</div><div class="pa-sub">Guest tab access control</div></div>
@@ -2539,6 +2565,11 @@ async function showProfile(){
         <div><div class="pa-label">${L('Leave team / Transfer Manager','Leave team / Transfer Manager')}</div><div class="pa-sub">${L('किसी सदस्य को नया Manager बनाकर टीम छोड़ें','Promote a member and leave the team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
+      <button class="profile-action" onclick="closeModal();openCustomerCarePage()">
+        <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · 7-day refund','Help · Cancel · 7-day refund'):'Help · Cancel · 7-day refund'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
       <button class="profile-action danger" onclick="doLogout()">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
         <div><div class="pa-label">Logout</div><div class="pa-sub">${typeof L==='function'?L('सभी sessions साफ़ करें','Clear all sessions'):'Clear all sessions'}</div></div>
@@ -3105,7 +3136,7 @@ function openNavMoreSheet(){
   if(!sheet || !grid) return;
   const tabs = window._navMoreTabs || [];
   const en = (typeof _lang !== 'undefined' && _lang !== 'hi');
-  grid.innerHTML = tabs.map(t=>{
+  let html = tabs.map(t=>{
     const label = en ? (t.lblEn||t.lbl) : t.lbl;
     if(t.action || t.id==='resign'){
       return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();try{openResignationForm()}catch(e){}" aria-label="${label}">
@@ -3115,7 +3146,13 @@ function openNavMoreSheet(){
     return `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();goTab('${t.id}')" aria-label="${label}">
       <span style="font-size:22px">${t.ico}</span>${label}
     </button>`;
-  }).join('') || `<div class="empty-state-sub">${en?'No extra tabs':'और टैब नहीं'}</div>`;
+  }).join('');
+  // Always show Customer Care in More
+  const ccLabel = en ? 'Customer Care' : 'Customer Care';
+  html += `<button type="button" class="nav-more-item" onclick="closeNavMoreSheet();openCustomerCarePage()" aria-label="${ccLabel}">
+      <span style="font-size:22px">🎧</span>${ccLabel}
+    </button>`;
+  grid.innerHTML = html || `<div class="empty-state-sub">${en?'No extra tabs':'और टैब नहीं'}</div>`;
   sheet.classList.add('open');
 }
 function closeNavMoreSheet(){
@@ -5057,6 +5094,27 @@ function _paymentGateAllows(tab){
   return false;
 }
 
+function _getLinksByAmountMap(cfg){
+  const out = {};
+  try{
+    const raw = (cfg && cfg.linksByAmount) || window._payLinksByAmountEdit || {};
+    if(raw && typeof raw === 'object' && !Array.isArray(raw)){
+      Object.keys(raw).forEach(k=>{
+        const n = parseInt(k,10);
+        const url = String(raw[k]||'').trim();
+        if(n>0 && url) out[String(n)] = url;
+      });
+    }
+  }catch(e){}
+  return out;
+}
+function _resolvePaymentLink(cfg, amount){
+  const am = parseInt(amount,10)||999;
+  const map = _getLinksByAmountMap(cfg);
+  // Exact amount link first, then default link
+  let link = (map[String(am)] || (cfg && cfg.link) || '').trim();
+  return _paymentLinkForAmount(link, am);
+}
 function _paymentLinkForAmount(baseLink, amount){
   const am = String(parseInt(amount,10)||999);
   let link = String(baseLink||'').trim();
@@ -5071,9 +5129,12 @@ function _paymentLinkForAmount(baseLink, amount){
     if(!/[?&]cu=/i.test(link)) link += '&cu=INR';
     return link;
   }
-  // https payment pages: append amount query if possible
+  // Fixed Razorpay / HTTPS links: do NOT rewrite amount query (link is already for that price)
+  // Only append am if it looks like a generic template URL
   try{
     if(/^https?:\/\//i.test(link)){
+      // Keep rzp.io / razorpay fixed links as-is (per-amount map already chose the right URL)
+      if(/rzp\.io|razorpay\.com\/payment|pages\.razorpay/i.test(link)) return link;
       const u = new URL(link);
       u.searchParams.set('amount', am);
       u.searchParams.set('am', am);
@@ -5082,6 +5143,149 @@ function _paymentLinkForAmount(baseLink, amount){
   }catch(e){}
   return link;
 }
+
+
+// ═══════════════════════════════════════════════════════════
+// CUSTOMER CARE + 7-day refund policy (Admin-editable)
+// ═══════════════════════════════════════════════════════════
+window._customerCareCache = window._customerCareCache || null;
+
+function _defaultCustomerCare(){
+  return {
+    name: 'Man power App Admin',
+    email: 'CareMP@vkstech.com',
+    whatsapp: '+91-8929394920',
+    refundDays: 7,
+    refundPolicy: 'If you are not satisfied with the Man Power subscription, you may request cancellation and a refund within 7 days of payment. Contact Customer Care with your payment reference (UTR / Razorpay payment id) and registered mobile number.',
+    updatedAt: null
+  };
+}
+
+async function _loadCustomerCare(force){
+  try{
+    if(!force && window._customerCareCache) return window._customerCareCache;
+    const s = await fbGet('settings/customerCare').catch(()=>null);
+    const d = _defaultCustomerCare();
+    const merged = Object.assign({}, d, (s && typeof s === 'object') ? s : {});
+    if(!merged.name) merged.name = d.name;
+    if(!merged.email) merged.email = d.email;
+    if(!merged.whatsapp) merged.whatsapp = d.whatsapp;
+    if(!(parseInt(merged.refundDays,10) > 0)) merged.refundDays = d.refundDays;
+    if(!merged.refundPolicy) merged.refundPolicy = d.refundPolicy;
+    window._customerCareCache = merged;
+    return merged;
+  }catch(e){
+    return window._customerCareCache || _defaultCustomerCare();
+  }
+}
+
+function _waDigits(wa){
+  return String(wa||'').replace(/\D/g,'');
+}
+
+function _customerCareHtml(cc, opts){
+  opts = opts || {};
+  const name = String(cc.name||'Man power App Admin');
+  const email = String(cc.email||'CareMP@vkstech.com');
+  const wa = String(cc.whatsapp||'+91-8929394920');
+  const days = parseInt(cc.refundDays,10) || 7;
+  const policy = String(cc.refundPolicy||'');
+  const waNum = _waDigits(wa);
+  const waLink = waNum ? ('https://wa.me/'+waNum+'?text='+encodeURIComponent('Hi, I need help with Man Power App subscription / refund.')) : '#';
+  const mailLink = 'mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent('Man Power — Subscription / Refund');
+  let body = `
+  <div style="text-align:center;margin-bottom:14px">
+    <div style="font-size:40px;margin-bottom:6px">🎧</div>
+    <div class="modal-title" style="margin-bottom:4px">${opts.title || (typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care')}</div>
+    <div style="font-size:12px;color:var(--muted);line-height:1.4">${typeof L==='function'?L('सहायता, रद्द करना और रिफंड','Help, cancel & refund support'):'Help, cancel & refund support'}</div>
+  </div>
+  <div style="padding:14px;border-radius:14px;border:1px solid var(--border2);background:var(--card);margin-bottom:12px;text-align:left">
+    <div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Contact</div>
+    <div style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:10px">${escHtml(name)}</div>
+    <a href="${mailLink}" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
+      <span style="font-size:18px">✉️</span>
+      <div>
+        <div style="font-size:11px;color:var(--muted2)">Email</div>
+        <div style="font-size:13px;font-weight:800;color:#38bdf8">${escHtml(email)}</div>
+      </div>
+    </a>
+    <a href="${waLink}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
+      <span style="font-size:18px">💬</span>
+      <div>
+        <div style="font-size:11px;color:var(--muted2)">WhatsApp</div>
+        <div style="font-size:13px;font-weight:800;color:#22c55e">${escHtml(wa)}</div>
+      </div>
+    </a>
+  </div>
+  <div style="padding:14px;border-radius:14px;border:1px solid rgba(234,88,12,.35);background:rgba(234,88,12,.08);margin-bottom:12px;text-align:left">
+    <div style="font-size:13px;font-weight:900;color:#ea580c;margin-bottom:6px">↩️ ${typeof L==='function'?L(days+' दिन में रद्द / रिफंड', days+'-day cancel & refund'):(days+'-day cancel & refund')}</div>
+    <div style="font-size:12px;color:var(--text);line-height:1.55">${escHtml(policy)}</div>
+  </div>`;
+  if(opts.showRequestBtn){
+    body += `<a href="${waLink}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:900;padding:14px;border-radius:12px">💬 ${typeof L==='function'?L('WhatsApp पर Cancel / Refund माँगें','Request Cancel / Refund on WhatsApp'):'Request Cancel / Refund on WhatsApp'}</a>
+    <a href="${mailLink}" class="cancel-btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px">✉️ ${typeof L==='function'?L('Email भेजें','Send Email'):'Send Email'}</a>`;
+  }
+  return body;
+}
+
+async function openCustomerCarePage(){
+  try{ if(typeof closeNavMoreSheet==='function') closeNavMoreSheet(); }catch(e){}
+  const cc = await _loadCustomerCare(true);
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-scroll-body" style="padding:8px 0 4px">
+      ${_customerCareHtml(cc, { showRequestBtn: true })}
+      <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal()">${typeof L==='function'?L('बंद करें','Close'):'Close'}</button>
+    </div>`);
+}
+
+async function openCustomerCareAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const cc = await _loadCustomerCare(true);
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">🎧 Customer Care settings</div>
+  <p style="font-size:12px;color:var(--muted);margin:0 0 12px">Shown on Customer Care page and on the subscription pay screen. Users can request cancel/refund within the days you set.</p>
+  <div class="field"><label>Name</label>
+    <input id="cc_name" class="inp-field" value="${String(cc.name||'').replace(/"/g,'&quot;')}">
+  </div>
+  <div class="field"><label>Email</label>
+    <input id="cc_email" type="email" class="inp-field" value="${String(cc.email||'').replace(/"/g,'&quot;')}">
+  </div>
+  <div class="field"><label>WhatsApp number</label>
+    <input id="cc_whatsapp" class="inp-field" placeholder="+91-8929394920" value="${String(cc.whatsapp||'').replace(/"/g,'&quot;')}">
+  </div>
+  <div class="field"><label>Refund window (days)</label>
+    <input id="cc_days" type="number" min="1" max="90" class="inp-field" value="${parseInt(cc.refundDays,10)||7}">
+  </div>
+  <div class="field"><label>Refund / cancel policy text</label>
+    <textarea id="cc_policy" class="inp-field" rows="4">${String(cc.refundPolicy||'').replace(/</g,'&lt;')}</textarea>
+  </div>
+  <button class="submit-btn" onclick="saveCustomerCareAdmin()">💾 Save</button>
+  <button class="cancel-btn" style="margin-top:8px" onclick="closeModal()">Cancel</button>
+  <button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal();openCustomerCarePage()">👁 Preview page</button>`);
+}
+
+async function saveCustomerCareAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const name = String((document.getElementById('cc_name')||{}).value||'').trim() || 'Man power App Admin';
+  const email = String((document.getElementById('cc_email')||{}).value||'').trim() || 'CareMP@vkstech.com';
+  const whatsapp = String((document.getElementById('cc_whatsapp')||{}).value||'').trim() || '+91-8929394920';
+  const refundDays = Math.max(1, Math.min(90, parseInt((document.getElementById('cc_days')||{}).value||'7',10)||7));
+  const refundPolicy = String((document.getElementById('cc_policy')||{}).value||'').trim() || _defaultCustomerCare().refundPolicy;
+  try{
+    const payload = {
+      name, email, whatsapp, refundDays, refundPolicy,
+      updatedAt: new Date().toISOString(),
+      updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
+    };
+    await fbSet('settings/customerCare', payload);
+    window._customerCareCache = payload;
+    toast('✅ Customer Care saved');
+    closeModal();
+  }catch(e){
+    toast('❌ '+(e && e.message || 'Save failed'));
+  }
+}
+
 
 function openPaymentRequiredModal(attemptedTab){
   _loadPaymentSettings(false).then(async cfg=>{
@@ -5102,15 +5306,26 @@ function openPaymentRequiredModal(attemptedTab){
     }
     if(!amount) amount = (cfg && cfg.amount) || 999;
 
-    const baseLink = (cfg && cfg.link) || '';
-    const link = _paymentLinkForAmount(baseLink, amount);
+    const link = (typeof _resolvePaymentLink==='function')
+      ? _resolvePaymentLink(cfg, amount)
+      : _paymentLinkForAmount((cfg && cfg.link) || '', amount);
     const title = 'Pay ₹'+amount+' / month';
-    const msg = (cfg && cfg.message) || ('Subscribe at ₹'+amount+'/month to continue using Schedule, Team, Leave and other tabs.');
+    const msg = (cfg && cfg.message) || 'After payment, WhatsApp UTR + your registered mobile to +91-8929394920. Access is enabled within a few minutes.';
     const until = _getUserPaidUntilDate();
     const untilStr = until ? until.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
     const linkBtn = link
       ? `<a href="${link.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
       : `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px">Payment link not set — contact Admin</div>`;
+    // Load customer care for refund notice (non-blocking defaults)
+    let cc = window._customerCareCache || null;
+    try{ cc = await _loadCustomerCare(false); }catch(e){ cc = _defaultCustomerCare(); }
+    if(!cc) cc = _defaultCustomerCare();
+    const days = parseInt(cc.refundDays,10)||7;
+    const refundBox = `<div style="margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);text-align:left">
+      <div style="font-size:12px;font-weight:900;color:#16a34a;margin-bottom:4px">↩️ ${days}-day cancel & refund</div>
+      <div style="font-size:11px;color:var(--text);line-height:1.45;margin-bottom:8px">${escHtml(String(cc.refundPolicy||'').slice(0,280))}</div>
+      <button type="button" onclick="closeModal();openCustomerCarePage()" style="border:none;background:transparent;color:#38bdf8;font-weight:800;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">🎧 Customer Care / Request refund ›</button>
+    </div>`;
     openModal(`<div class="modal-handle"></div>
       <div style="text-align:center;padding:8px 0 4px">
         <div style="font-size:42px;margin-bottom:8px">💳</div>
@@ -5118,6 +5333,7 @@ function openPaymentRequiredModal(attemptedTab){
         <div style="font-size:13px;color:var(--muted);line-height:1.45;margin-bottom:8px">${String(msg).replace(/</g,'')}</div>
         ${untilStr?`<div style="font-size:12px;color:#b45309;margin-bottom:8px">Previous access till: <b>${untilStr}</b></div>`:''}
         ${linkBtn}
+        ${refundBox}
         <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal();goTab('home')">← Back to Home</button>
       </div>`);
   }).catch(()=>{
@@ -5133,9 +5349,10 @@ async function openPaymentSettingsAdmin(){
   const link = (cfg && cfg.link) || '';
   const enabled = !cfg || cfg.enabled !== false;
   const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
-  const message = (cfg && cfg.message) || '';
+  const message = (cfg && cfg.message) || 'After payment, WhatsApp UTR + your registered mobile to +91-8929394920. Access is enabled within a few minutes.';
   const opts = _getPaymentAmountOptions(cfg);
   window._payAmountOptionsEdit = opts.slice();
+  window._payLinksByAmountEdit = Object.assign({}, (cfg && cfg.linksByAmount) || {});
 
   let userOpts = '<option value="">— Select manager / member —</option>';
   try{
@@ -5173,8 +5390,9 @@ async function openPaymentSettingsAdmin(){
   <div class="field"><label>Default amount (₹ / month)</label>
     <input id="pay_amount" type="number" min="1" class="inp-field" value="${amount}">
   </div>
-  <div class="field"><label>Payment link (UPI / Razorpay / etc.)</label>
-    <input id="pay_link" type="url" class="inp-field" placeholder="upi://pay?pa=...@ybl&pn=Name" value="${String(link).replace(/"/g,'&quot;')}">
+  <div class="field"><label>Default payment link (fallback)</label>
+    <input id="pay_link" type="url" class="inp-field" placeholder="https://rzp.io/i/xxxxx or upi://pay?pa=..." value="${String(link).replace(/"/g,'&quot;')}">
+    <div style="font-size:10px;color:var(--muted);margin-top:4px">Used when an amount has no specific link below.</div>
   </div>
   <div class="field"><label>Popup title</label>
     <input id="pay_title" class="inp-field" value="${String(title).replace(/"/g,'&quot;')}">
@@ -5184,12 +5402,15 @@ async function openPaymentSettingsAdmin(){
   </div>
 
   <div style="margin:14px 0;padding:12px;border-radius:12px;border:1px solid rgba(16,185,129,.35);background:rgba(16,185,129,.08)">
-    <div style="font-size:13px;font-weight:900;margin-bottom:8px">📋 Subscription amount list (dropdown)</div>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:8px">These values appear when setting Pay amount for each user in Team.</div>
-    <div id="pay_amount_list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <div style="font-size:13px;font-weight:900;margin-bottom:6px">📋 Amounts + payment links</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.45">
+      Add each subscription price and its own <b>Razorpay / UPI link</b>.<br>
+      Example: ₹999 → one rzp.io link, ₹1499 → another. User sees the link for <b>their</b> amount.
+    </div>
+    <div id="pay_amount_list" style="margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="e.g. 799">
-      <button type="button" class="submit-btn" style="width:auto;padding:10px 14px;margin:0" onclick="payAmountListAdd()">+ Add</button>
+      <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="Add amount e.g. 999">
+      <button type="button" class="submit-btn" style="width:auto;padding:10px 14px;margin:0" onclick="payAmountListAdd()">+ Add amount</button>
     </div>
   </div>
 
@@ -5228,16 +5449,25 @@ function payAmountListRender(){
   if(!el) return;
   const opts = window._payAmountOptionsEdit || _getPaymentAmountOptions(window._paymentSettingsCache);
   window._payAmountOptionsEdit = opts.slice();
+  if(!window._payLinksByAmountEdit || typeof window._payLinksByAmountEdit !== 'object'){
+    window._payLinksByAmountEdit = {};
+  }
+  const links = window._payLinksByAmountEdit;
   if(!opts.length){
     el.innerHTML = '<span style="font-size:12px;color:var(--muted)">No amounts — add one</span>';
     return;
   }
-  el.innerHTML = opts.map((a,i)=>`
-    <span style="display:inline-flex;align-items:center;gap:4px;padding:6px 8px;border-radius:8px;background:#fff;border:1px solid #cbd5e1;font-weight:800;font-size:13px;color:#0f172a">
-      ₹${a}
-      <button type="button" onclick="payAmountListEdit(${i})" title="Edit" style="border:none;background:rgba(59,130,246,.12);color:#2563eb;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✎</button>
-      <button type="button" onclick="payAmountListRemove(${i})" title="Remove" style="border:none;background:rgba(239,68,68,.12);color:#dc2626;border-radius:4px;padding:2px 6px;cursor:pointer;font-size:11px">✕</button>
-    </span>`).join('');
+  el.innerHTML = opts.map((a,i)=>{
+    const url = String(links[String(a)] || links[a] || '').replace(/"/g,'&quot;');
+    return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px;border-radius:10px;background:#fff;border:1px solid #cbd5e1">
+      <div style="font-weight:900;font-size:14px;min-width:64px;color:#0f172a">₹${a}</div>
+      <input type="url" class="inp-field" style="flex:1;min-width:160px;margin:0;font-size:12px" placeholder="https://rzp.io/i/... for ₹${a}"
+        value="${url}"
+        oninput="if(!window._payLinksByAmountEdit)window._payLinksByAmountEdit={};window._payLinksByAmountEdit['${a}']=this.value.trim()">
+      <button type="button" onclick="payAmountListEdit(${i})" title="Edit amount" style="border:none;background:rgba(59,130,246,.12);color:#2563eb;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">✎</button>
+      <button type="button" onclick="payAmountListRemove(${i})" title="Remove" style="border:none;background:rgba(239,68,68,.12);color:#dc2626;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">✕</button>
+    </div>`;
+  }).join('');
   // refresh user amount dropdown if open
   try{
     const sel = document.getElementById('pay_user_amount');
@@ -5269,6 +5499,15 @@ function payAmountListEdit(i){
   if(v===null) return;
   const n = parseInt(v, 10);
   if(!n || n < 1){ toast('⚠️ Invalid'); return; }
+  try{
+    if(!window._payLinksByAmountEdit) window._payLinksByAmountEdit = {};
+    const prevLink = window._payLinksByAmountEdit[String(cur)] || window._payLinksByAmountEdit[cur] || '';
+    if(prevLink && n !== cur){
+      window._payLinksByAmountEdit[String(n)] = prevLink;
+      delete window._payLinksByAmountEdit[String(cur)];
+      delete window._payLinksByAmountEdit[cur];
+    }
+  }catch(e){}
   opts[i] = n;
   window._payAmountOptionsEdit = [...new Set(opts.map(x=>parseInt(x,10)).filter(x=>x>0))].sort((a,b)=>a-b);
   payAmountListRender();
@@ -5277,8 +5516,15 @@ function payAmountListEdit(i){
 function payAmountListRemove(i){
   const opts = window._payAmountOptionsEdit || [];
   if(opts.length <= 1){ toast('⚠️ Keep at least one amount'); return; }
+  const removed = opts[i];
   opts.splice(i, 1);
   window._payAmountOptionsEdit = opts;
+  try{
+    if(window._payLinksByAmountEdit && removed!=null){
+      delete window._payLinksByAmountEdit[String(removed)];
+      delete window._payLinksByAmountEdit[removed];
+    }
+  }catch(e){}
   payAmountListRender();
 }
 
@@ -5292,10 +5538,21 @@ async function savePaymentSettingsAdmin(){
   const amountOptions = (window._payAmountOptionsEdit && window._payAmountOptionsEdit.length)
     ? window._payAmountOptionsEdit.slice()
     : _getPaymentAmountOptions(window._paymentSettingsCache);
+  // Collect per-amount links (from live inputs + edit map)
+  const linksByAmount = {};
+  try{
+    const map = window._payLinksByAmountEdit || {};
+    amountOptions.forEach(a=>{
+      const key = String(a);
+      let url = String(map[key] || map[a] || '').trim();
+      if(url) linksByAmount[key] = url;
+    });
+  }catch(e){}
   try{
     const payload = {
       enabled, amount, link, title, message,
       amountOptions,
+      linksByAmount,
       currency: 'INR',
       updatedAt: new Date().toISOString(),
       updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
