@@ -810,8 +810,14 @@ async function _checkUserAfterOTP(){
   const mobile=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
   try{
     // Hard-coded Admin phones → always Admin (full team), not User/Member from mobileUsers
-    if(_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
-      _launchAsHardAdmin(mobile);
+    // Defensive: also match known admin digits even if CFG/utils failed to load
+    const _adminDigits = String(mobile||'').replace(/\D/g,'').slice(-10);
+    const _isAdminNum = (_adminDigits === '8929397949')
+      || (typeof _isHardAdminPhone==='function' && (_isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)))
+      || (typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(mobile))
+      || (typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(_loginMobile));
+    if(_isAdminNum){
+      _launchAsHardAdmin(_adminDigits || mobile);
       return;
     }
     // Rejoin: same mobile left/removed earlier → restore mobileUsers link to existing employee (keeps ms/shifts)
@@ -851,28 +857,7 @@ async function _checkUserAfterOTP(){
       }
     }catch(e){ console.warn('[otp] early roster', e); }
 
-    // Load mobileUsers — try common key formats (10-digit, +91, 91)
-    let userData = null;
-    let _muReadErr = null;
-    try{
-      userData = await fbGet('mobileUsers/'+mobile);
-      if(!userData){
-        try{ userData = await fbGet('mobileUsers/+91'+mobile); }catch(e){}
-      }
-      if(!userData){
-        try{ userData = await fbGet('mobileUsers/91'+mobile); }catch(e){}
-      }
-      // If found under prefixed key, continue with same object (do not rewrite key here)
-    }catch(e){
-      _muReadErr = e;
-      console.warn('[otp] mobileUsers read failed', e);
-    }
-    if(!userData && _muReadErr){
-      // Network / permission — do not treat as brand-new registration blindly
-      try{
-        toast(L('⚠️ सर्वर से प्रोफ़ाइल नहीं मिली। नेटवर्क चेक करें या दोबारा OTP try करें।','⚠️ Could not load profile from server. Check network and try OTP again.'));
-      }catch(e){}
-    }
+    let userData=await fbGet('mobileUsers/'+mobile);
     if(userData){
       if(userData.status==='pending'){
         // Team Member pending → if on roster, already handled above; else limited app
