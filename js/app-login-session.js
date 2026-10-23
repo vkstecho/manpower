@@ -924,7 +924,7 @@ function _renderShiftSettingsModal(){
     {code:'C', label:'C Shift', start:'22:00', end:'06:00', active:false, kind:'work'},
     {code:'O', label:'Weekly Off', start:'', end:'', active:true, kind:'status'},
     {code:'L', label:'Leave', start:'', end:'', active:true, kind:'status'},
-    {code:'G', label:'General', start:'08:00', end:'20:00', active:true, kind:'work'},
+    {code:'G', label:'General', start:'', end:'', active:true, kind:'status'},
     {code:'C/O', label:'Comp Off', start:'', end:'', active:true, kind:'status'},
     {code:'HLF', label:'Half Day', start:'', end:'', active:true, kind:'status'},
     {code:'Ab', label:'Absent', start:'', end:'', active:true, kind:'status'},
@@ -1183,27 +1183,11 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
 }
 
 function _renderShiftTimingRows(){
-  const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase())
-  const isTimedCode = (code)=>['D','N','A','B','C','G'].includes(String(code||'').toUpperCase())
-
-  function _normTime24(v){
-    v = String(v||'').trim();
-    if(!v) return '';
-    var m = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
-    if(!m) return v;
-    return (m[1].length===1?'0':'')+m[1]+':'+m[2];
-  }
-  function _onTime24Input(el){
-    var v = String(el.value||'').replace(/[^0-9:]/g,'').slice(0,5);
-    if(v.length===2 && v.indexOf(':')<0) v = v+':';
-    el.value = v;
-    return v;
-  }
-;
+  const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase());
   let html = '';
-  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C/G)</div>`;
+  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C)</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
-    if(!isTimedCode(s.code)) return;
+    if(!isWorkCode(s.code)) return;
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
@@ -1211,15 +1195,15 @@ function _renderShiftTimingRows(){
         <span style="width:32px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code)}</span>
       </label>
       <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:60px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].label=this.value">
-      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].start=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+      <input type="time" value="${s.start||''}" style="padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].start=this.value">
       <span style="color:#64748b;font-size:11px">to</span>
-      <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="24-hour HH:MM" style="width:72px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;font-variant-numeric:tabular-nums;text-align:center" oninput="_shiftDraft.shifts[${i}].end=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+      <input type="time" value="${s.end||''}" style="padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].end=this.value">
     </div>`;
   });
-  html += `<div style="font-size:11px;font-weight:800;color:#a855f7;margin:12px 0 6px">📋 ${L('स्टेटस / लेजेंड','Status / Legends')} (O L CO ½ Ab H OD GP)</div>`;
+  html += `<div style="font-size:11px;font-weight:800;color:#a855f7;margin:12px 0 6px">📋 ${L('स्टेटस / लेजेंड','Status / Legends')} (O L G CO ½ Ab H OD GP)</div>`;
   html += `<div style="font-size:10px;color:#64748b;margin-bottom:8px;line-height:1.4">${L('टिक = Schedule मेनू, कीबोर्ड और लेजेंड में दिखेगा। नाम बदल सकते हैं।','Tick = show in schedule menu, keyboard & legend. Labels are editable.')}</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
-    if(isTimedCode(s.code)) return;
+    if(isWorkCode(s.code)) return;
     html += `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;padding:8px;border-radius:10px;border:1px solid var(--border);background:${s.active!==false?'rgba(168,85,247,.08)':'var(--card2)'}">
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#a855f7"
@@ -2399,11 +2383,6 @@ async function showProfile(){
       <button class="profile-action" onclick="closeModal();openPaymentSettingsAdmin()">
         <div class="pa-icon" style="background:rgba(234,88,12,.12)">💳</div>
         <div><div class="pa-label">${typeof L==='function'?L('Payment Link & Reminders','Payment Link & Reminders'):'Payment Link & Reminders'}</div><div class="pa-sub">${typeof L==='function'?L('₹999/month · link · paid-until dates','₹999/month · link · paid-until dates'):'₹999/month · link · paid-until dates'}</div></div>
-        <div class="pa-arrow">›</div>
-      </button>
-      <button class="profile-action" onclick="closeModal();openShareAppLinkAdmin()">
-        <div class="pa-icon" style="background:rgba(59,130,246,.12)">🔗</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Share App Link','Share App Link'):'Share App Link'}</div><div class="pa-sub">${typeof L==='function'?L('Play Store / custom link for Share button','Play Store / custom link for Share button'):'Play Store / custom link for Share button'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
