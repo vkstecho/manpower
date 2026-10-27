@@ -2532,8 +2532,8 @@ async function showProfile(){
         <div class="pa-arrow">›</div>
       </button>`:''}
 
-      <div style="background:var(--panel);border:1.5px solid ${daysLeft<=7?color:'var(--border2)'};border-radius:14px;padding:16px;margin:16px 0;text-align:left">
-        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${L('ऐप एक्सेस वैधता','APP ACCESS VALIDITY')}</div>
+      <div role="button" tabindex="0" onclick="typeof openMemberPayPlans==='function'&&openMemberPayPlans()" style="cursor:pointer;background:var(--panel);border:1.5px solid ${daysLeft<=7?color:'var(--border2)'};border-radius:14px;padding:16px;margin:16px 0;text-align:left">
+        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${L('भुगतान वैध तक','Paid till')} · ${L('टैप करें भुगतान के लिए','Tap to pay')}</div>
         <div style="display:flex;align-items:center;gap:10px">
           <div style="font-size:28px">${icon}</div>
           <div>
@@ -3664,7 +3664,7 @@ function getShiftTimingStripHtml(){
   const cfg=getShiftConfigSync();
   const byCode={};
   (cfg.shifts||[]).forEach(s=>{ if(s&&s.code) byCode[String(s.code).toUpperCase()]=s; });
-  const order=['D','N','A','B','C'];
+  const order=['D','N','G','A','B','C'];
   // Prefer showing only active (Auto) shifts under section; if none flagged, show all configured
   let codes = order.filter(c=>{
     const s=byCode[c];
@@ -4684,83 +4684,79 @@ function bindMyShiftDragSelect(root){
     grids.forEach(grid=>{
       if(grid._msDragBound) return;
       grid._msDragBound = true;
-      grid.style.touchAction = 'none';
+      // Allow vertical scroll; selection starts only after horizontal/small movement threshold
+      grid.style.touchAction = 'pan-y';
       grid.style.userSelect = 'none';
 
       const onDown = (ev)=>{
         const cell = ev.target.closest && ev.target.closest('.ms-day[data-ms-date]');
         if(!cell || cell.classList.contains('empty')) return;
-        if(typeof canEditSchedule==='function' && !canEditSchedule()){
-          // members without schedule edit: still allow self request via single click path
-        }
         const empId = cell.getAttribute('data-ms-empid');
         const empName = cell.getAttribute('data-ms-empname') || '';
         const ds = cell.getAttribute('data-ms-date');
         if(!empId || !ds) return;
-        // Only primary button / touch
         if(ev.pointerType === 'mouse' && ev.button !== 0) return;
-        try{ grid.setPointerCapture(ev.pointerId); }catch(e){}
-        window._myShiftMultiMode = true;
-        if(window._myShiftMultiEmp && window._myShiftMultiEmp !== empId){
-          window._myShiftMultiSel = new Set();
-          grid.querySelectorAll('.ms-day.ms-multi-on').forEach(c=>{
-            c.classList.remove('ms-multi-on');
-            c.style.outline=''; c.style.background='';
-          });
-        }
-        window._myShiftMultiEmp = empId;
-        if(!window._myShiftMultiSel) window._myShiftMultiSel = new Set();
-        window._msDrag = { active:true, empId, empName, moved:false, startDate:ds, pointerId:ev.pointerId };
-        // Start selection with this day
-        _msMarkCell(cell, true);
-        ev.preventDefault();
+        window._msDrag = {
+          active:false, pending:true, empId, empName, moved:false, startDate:ds,
+          pointerId:ev.pointerId, x:ev.clientX, y:ev.clientY, cell
+        };
       };
 
       const onMove = (ev)=>{
-        if(!window._msDrag || !window._msDrag.active) return;
-        if(window._msDrag.pointerId != null && ev.pointerId !== window._msDrag.pointerId) return;
-        const el = document.elementFromPoint(ev.clientX, ev.clientY);
-        const cell = el && el.closest && el.closest('.ms-day[data-ms-date]');
-        if(!cell || cell.classList.contains('empty')) return;
-        const empId = cell.getAttribute('data-ms-empid');
-        if(empId !== window._msDrag.empId) return;
-        const ds = cell.getAttribute('data-ms-date');
-        if(ds !== window._msDrag.startDate) window._msDrag.moved = true;
-        // Fill continuous range from start to current
-        window._myShiftMultiSel = new Set();
-        grid.querySelectorAll('.ms-day[data-ms-date]').forEach(c=>{
-          c.classList.remove('ms-multi-on');
-          c.style.outline=''; c.style.background='';
-        });
-        _msSelectRange(grid, window._msDrag.startDate, ds);
-        ev.preventDefault();
-      };
-
-      const onUp = (ev)=>{
-        if(!window._msDrag || !window._msDrag.active) return;
         const drag = window._msDrag;
-        window._msDrag.active = false;
-        try{ grid.releasePointerCapture(ev.pointerId); }catch(e){}
-        const n = window._myShiftMultiSel ? window._myShiftMultiSel.size : 0;
-        if(n === 0){ _hideMyShiftBulkBar(); return; }
-        if(n === 1 && !drag.moved){
-          // Pure single click → open day picker
-          const ds = drag.startDate;
-          const cell = grid.querySelector('.ms-day[data-ms-date="'+ds+'"]');
-          const sh = (cell && cell.getAttribute('data-ms-sh')) || '';
-          window._myShiftMultiSel = new Set();
-          if(cell){ cell.classList.remove('ms-multi-on'); cell.style.outline=''; cell.style.background=''; }
-          _hideMyShiftBulkBar();
-          if(typeof editShiftCell === 'function'){
-            editShiftCell(drag.empId, drag.empName, ds, sh);
-          }
+        if(!drag || (!drag.pending && !drag.active)) return;
+        const dx = Math.abs(ev.clientX - drag.x);
+        const dy = Math.abs(ev.clientY - drag.y);
+        // Vertical scroll intent — cancel selection pending
+        if(drag.pending && dy > 12 && dy > dx * 1.2){
+          window._msDrag = null;
           return;
         }
-        // Multi / drag → bulk bar
+        // Start multi-select only after clear pointer movement (prefer horizontal)
+        if(drag.pending && (dx > 10 || dy > 10) && dx >= dy * 0.85){
+          drag.pending = false;
+          drag.active = true;
+          drag.moved = true;
+          try{ grid.setPointerCapture(ev.pointerId); }catch(e){}
+          window._myShiftMultiMode = true;
+          if(window._myShiftMultiEmp && window._myShiftMultiEmp !== drag.empId){
+            window._myShiftMultiSel = new Set();
+            grid.querySelectorAll('.ms-day.ms-multi-on').forEach(c=>{
+              c.classList.remove('ms-multi-on');
+              c.style.outline=''; c.style.background='';
+            });
+          }
+          window._myShiftMultiEmp = drag.empId;
+          if(!window._myShiftMultiSel) window._myShiftMultiSel = new Set();
+          _msMarkCell(drag.cell, true);
+          try{ ev.preventDefault(); }catch(e){}
+        }
+        if(!drag.active) return;
+        try{ ev.preventDefault(); }catch(e){}
+        drag.moved = true;
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const over = el && el.closest && el.closest('.ms-day[data-ms-date]');
+        if(!over || over.classList.contains('empty')) return;
+        if(over.getAttribute('data-ms-empid') !== drag.empId) return;
+        _msMarkCell(over, true);
         _showMyShiftBulkBar(drag.empId, drag.empName);
       };
 
-      grid.addEventListener('pointerdown', onDown, {passive:false});
+      const onUp = (ev)=>{
+        const drag = window._msDrag;
+        window._msDrag = null;
+        if(!drag) return;
+        try{ grid.releasePointerCapture(drag.pointerId); }catch(e){}
+        // Pure tap (no drag) — leave selection mode; single-day handler uses click
+        if(drag.pending && !drag.moved){
+          return;
+        }
+        if(drag.active){
+          _showMyShiftBulkBar(drag.empId, drag.empName);
+        }
+      };
+
+      grid.addEventListener('pointerdown', onDown, {passive:true});
       grid.addEventListener('pointermove', onMove, {passive:false});
       grid.addEventListener('pointerup', onUp);
       grid.addEventListener('pointercancel', onUp);

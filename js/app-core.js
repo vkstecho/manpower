@@ -178,14 +178,14 @@ try{window._teamEmpIdSet=_teamEmpIdSet;window._belongsToMyTeamEmp=_belongsToMyTe
       <div class="pa-icon" style="background:rgba(148,163,184,.18);display:flex;align-items:center;justify-content:center">
         <span style="font-size:22px">🍎</span>
       </div>
-      <div><div class="pa-label">iOS / iPhone</div><div class="pa-sub">https://manpower.vkstech.com</div></div>
+      <div><div class="pa-label">iPhone / iPad / Desktop</div><div class="pa-sub">Web app · Install as PWA</div></div>
       <div class="pa-arrow">›</div>
     </button>
     <button type="button" class="profile-action" style="width:100%;margin-bottom:10px;text-align:left" onclick="closeModal();_doPlatformShare('android')">
       <div class="pa-icon" style="background:rgba(52,168,83,.15);display:flex;align-items:center;justify-content:center">
         <span style="font-size:20px;font-weight:900;color:#34a853">▶</span>
       </div>
-      <div><div class="pa-label">Android</div><div class="pa-sub">Play Store (set in Admin)</div></div>
+      <div><div class="pa-label">Android</div><div class="pa-sub">Google Play Store</div></div>
       <div class="pa-arrow">›</div>
     </button>
     <button type="button" class="cancel-btn" style="width:100%;margin-top:4px" onclick="closeModal()">Cancel</button>`);

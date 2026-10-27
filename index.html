@@ -17,7 +17,35 @@ window.addEventListener('beforeinstallprompt', function (e) {
 window.addEventListener('appinstalled', function () {
   window.__pwaDeferredPrompt = null;
   window.__pwaInstallReady = false;
+  window.__pwaInstalled = true;
+  try { if (typeof window._mpHideInstallButtons === 'function') window._mpHideInstallButtons(); } catch (e) {}
 });
+(function(){
+  function isStandalone(){
+    try{
+      if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if(navigator.standalone === true) return true;
+    }catch(e){}
+    return false;
+  }
+  function isPlayStoreTwa(){
+    try{
+      if(document.referrer && document.referrer.indexOf('android-app://com.vkstech.manpower')===0) return true;
+      if(isStandalone() && /Android/i.test(navigator.userAgent||'')) return true;
+    }catch(e){}
+    return false;
+  }
+  window._mpHideInstallButtons = window._mpHideInstallButtons || function(){
+    var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true;
+    ['loginPwaBtn','loginAndroidStoreBtn','loginInstallRow','pwaInstallBtn','pwaBanner'].forEach(function(id){
+      var el=document.getElementById(id); if(el) el.style.display = hide ? 'none' : '';
+    });
+  };
+  document.addEventListener('DOMContentLoaded', function(){
+    window._mpHideInstallButtons();
+    setTimeout(window._mpHideInstallButtons, 500);
+  });
+})();
 </script>
 
 <meta charset="UTF-8">
@@ -46,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300006"></script>
+<script type="module" src="js/firebase-init.js?v=300007"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300006">
+<link rel="stylesheet" href="css/app.css?v=300007">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -168,16 +196,38 @@ window.addEventListener('appinstalled', function () {
 
   <!-- STEP 1 - MOBILE NUMBER -->
   <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
-    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-bottom:14px">
+    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-bottom:10px">
       &#127891; <span id="loginLearnTitle">Learn Now</span>
       <span id="loginLearnSub" style="font-size:12px;opacity:1;display:block;font-weight:700;margin-top:3px;color:rgba(255,255,255,.92)">Audio &amp; Video Courses</span>
     </button>
-    <div id="loginPwaBtn" onclick="triggerPWAInstall()" title="Install App"
-      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
-             padding:12px;margin-bottom:14px;border-radius:12px;cursor:pointer;
-             background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
-             border:1px solid rgba(249,115,22,.4);font-size:14px;font-weight:800;color:#f97316">
-      📲 <span id="loginPwaLabel">Install App / Download App</span>
+    <button type="button" id="loginHowToBtn" onclick="openHowToVideo()"
+      style="width:100%;max-width:360px;margin-bottom:10px;padding:12px 14px;border-radius:12px;cursor:pointer;
+             background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;font-weight:800;font-size:14px;
+             display:flex;align-items:center;justify-content:center;gap:8px">
+      ▶ <span id="loginHowToLabel">How to use — Shift Management</span>
+    </button>
+    <div style="width:100%;max-width:360px;margin-bottom:12px;display:flex;gap:8px">
+      <a id="loginWaSupport" href="https://wa.me/918929394920" target="_blank" rel="noopener"
+         style="flex:1;padding:11px;border-radius:12px;text-align:center;text-decoration:none;font-weight:800;font-size:13px;
+                background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.45);color:#16a34a">WhatsApp Support</a>
+      <a id="loginEmailSupport" href="mailto:CareMP@vkstech.com"
+         style="flex:1;padding:11px;border-radius:12px;text-align:center;text-decoration:none;font-weight:800;font-size:13px;
+                background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);color:#2563eb">Email Support</a>
+    </div>
+    <div id="loginInstallRow" style="width:100%;max-width:360px;margin-bottom:14px;display:flex;flex-direction:column;gap:8px">
+      <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower"
+         target="_blank" rel="noopener"
+         style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:12px;text-decoration:none;
+                background:#01875f;color:#fff;font-weight:800;font-size:14px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.04c-.34-.17-.55-.5-.55-.89V1.85c0-.39.21-.72.55-.89l11.4 11.04L3.18 23.04zM14.53 13.3l2.73 2.64-9.9 5.55 7.17-8.19zM14.53 10.7L7.36 2.51l9.9 5.55-2.73 2.64zM17.86 9.66l2.85 1.6c.9.5.9 1.8 0 2.3l-2.85 1.6-3.12-3.02 3.12-2.48z"/></svg>
+        Get it on Google Play
+      </a>
+      <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()"
+        style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:12px;cursor:pointer;
+               background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
+               border:1px solid rgba(249,115,22,.4);font-size:14px;font-weight:800;color:#f97316">
+        📲 <span id="loginPwaLabel">Install on iPhone / Desktop (PWA)</span>
+      </button>
     </div>
     <div style="display:flex;justify-content:center;margin-bottom:8px">
       <svg width="80" height="80" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
@@ -1349,19 +1399,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300006"></script>
-<script src="js/app-login.js?v=300006"></script>
-<script src="js/app-login-device.js?v=300006"></script>
-<script src="js/app-login-session.js?v=300006"></script>
-<script src="js/app-schedule.js?v=300006"></script>
-<script src="js/app-team.js?v=300006"></script>
-<script src="js/app-team-import.js?v=300006"></script>
-<script src="js/app-team-print-learn.js?v=300006"></script>
-<script src="js/app.js?v=300006"></script>
-<script src="js/a11y.js?v=300006"></script>
-<script src="js/sched-clipboard.js?v=300006"></script>
-<script src="js/sched-undo.js?v=300006"></script>
-<script src="js/sched-cell-keys.js?v=300006"></script>
+<script src="js/app-core.js?v=300007"></script>
+<script src="js/app-login.js?v=300007"></script>
+<script src="js/app-login-device.js?v=300007"></script>
+<script src="js/app-login-session.js?v=300007"></script>
+<script src="js/app-schedule.js?v=300007"></script>
+<script src="js/app-team.js?v=300007"></script>
+<script src="js/app-team-import.js?v=300007"></script>
+<script src="js/app-team-print-learn.js?v=300007"></script>
+<script src="js/app.js?v=300007"></script>
+<script src="js/mp-commercial.js?v=300007"></script>
+<script src="js/a11y.js?v=300007"></script>
+<script src="js/sched-clipboard.js?v=300007"></script>
+<script src="js/sched-undo.js?v=300007"></script>
+<script src="js/sched-cell-keys.js?v=300007"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
