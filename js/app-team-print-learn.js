@@ -1900,3 +1900,215 @@ async function deleteLearnButton(idx){
     window.renderLearnScreen = function(){ try{ renderLearnCustomButtons(); }catch(e){} };
   }
 })();
+
+
+
+/* ===== Learn hierarchy v2: Buttons → sub (video/audio/link) + hide built-ins ===== */
+async function _loadLearnConfig(){
+  try{
+    const data = await fbGet('settings/learnConfig');
+    window._learnConfigCache = data || { hiddenModules: [], buttons: [] };
+    return window._learnConfigCache;
+  }catch(e){
+    return window._learnConfigCache || { hiddenModules: [], buttons: (window._learnButtonsCache||[]) };
+  }
+}
+async function _saveLearnConfig(cfg){
+  window._learnConfigCache = cfg;
+  await fbSet('settings/learnConfig', cfg);
+}
+
+async function openLearnButtonsAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const cfg = await _loadLearnConfig();
+  const hidden = new Set(cfg.hiddenModules || []);
+  const modules = [
+    {id:'met_train', name:'Met Train PRO'},
+    {id:'supskill', name:'SupSkill'},
+    {id:'mr_skill', name:'MR Skill'},
+    {id:'ms_ai', name:'MS & AI — Fast Growth'}
+  ];
+  const modRows = modules.map(m=>`
+    <label style="display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--border2);border-radius:10px;margin-bottom:6px">
+      <input type="checkbox" data-mod="${m.id}" ${hidden.has(m.id)?'':'checked'} onchange="toggleLearnModuleVisibility('${m.id}', this.checked)">
+      <span style="font-weight:700">${m.name}</span>
+      <span style="font-size:11px;color:var(--muted2);margin-left:auto">${hidden.has(m.id)?'Hidden':'Visible'}</span>
+    </label>`).join('');
+
+  const buttons = cfg.buttons || window._learnButtonsCache || [];
+  const btnRows = buttons.map((b,i)=>`
+    <div style="padding:12px;border:1px solid var(--border2);border-radius:12px;margin-bottom:8px;background:var(--card)">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+        <div style="font-weight:900">${(b.icon||'🔗')} ${b.name||'—'}</div>
+        <button type="button" class="cancel-btn" style="width:auto;padding:6px 10px;margin:0" onclick="deleteLearnButton(${i})">Remove</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted2);margin-top:4px">${(b.subs||[]).length} sub-items · ${b.memberOnly?'Member-only':'All users'}</div>
+      <button type="button" style="margin-top:8px;padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:transparent;font-weight:700;cursor:pointer"
+        onclick="openLearnSubEditor(${i})">➕ Sub topic / Video / Audio</button>
+    </div>`).join('') || '<div class="empty-text">No custom buttons yet</div>';
+
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">Learn & Grow — Admin</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Show/hide built-in modules. Add custom buttons with sub video/audio/links.</div>
+    <div style="font-weight:800;margin-bottom:8px">Built-in modules</div>
+    ${modRows}
+    <div style="font-weight:800;margin:16px 0 8px">Custom buttons</div>
+    <div class="field"><label>Button name</label><input id="lb_name" class="inp-field" placeholder="e.g. Safety Videos"></div>
+    <div class="field"><label>Icon (emoji)</label><input id="lb_icon" class="inp-field" value="📚"></div>
+    <div class="field"><label>Member only? (10-digit mobile, blank = all)</label>
+      <input id="lb_member" class="inp-field" placeholder="Optional mobile"></div>
+    <button class="big-btn" onclick="saveLearnButton()">➕ Add button</button>
+    <div style="margin-top:14px">${btnRows}</div>
+    <button class="cancel-btn" style="width:100%;margin-top:10px" onclick="closeModal()">Close</button>`);
+}
+
+async function toggleLearnModuleVisibility(modId, visible){
+  const cfg = await _loadLearnConfig();
+  const set = new Set(cfg.hiddenModules || []);
+  if(visible) set.delete(modId); else set.add(modId);
+  cfg.hiddenModules = Array.from(set);
+  await _saveLearnConfig(cfg);
+  toast(visible ? '✅ Module visible' : '🙈 Module hidden');
+  try{ applyLearnModuleVisibility(); }catch(e){}
+}
+
+function applyLearnModuleVisibility(){
+  const cfg = window._learnConfigCache || {};
+  const hidden = new Set(cfg.hiddenModules || []);
+  const map = {
+    met_train: ['met_train','met-train','Met Train'],
+    supskill: ['supskill','SupSkill'],
+    mr_skill: ['mr_skill','mr-skill','MR Skill'],
+    ms_ai: ['ms_ai','ms-ai','MS & AI']
+  };
+  document.querySelectorAll('#learnScreen [data-learn-mod], #learnScreen .learn-card, #learnScreen a, #learnScreen button').forEach(el=>{
+    const id = el.getAttribute('data-learn-mod') || '';
+    const text = (el.textContent||'');
+    for(const [key, aliases] of Object.entries(map)){
+      if(hidden.has(key) && (id===key || aliases.some(a=>text.includes(a)))){
+        el.style.display = 'none';
+      }
+    }
+  });
+  // Also hide by card titles
+  document.querySelectorAll('#learnScreen div').forEach(el=>{
+    const t = (el.textContent||'').trim();
+    if(hidden.has('met_train') && t.startsWith('Met Train')) el.closest('[onclick],a,button,div') && (el.style.opacity='1');
+  });
+}
+
+async function saveLearnButton(){
+  const name = String((document.getElementById('lb_name')||{}).value||'').trim();
+  const icon = String((document.getElementById('lb_icon')||{}).value||'📚').trim() || '📚';
+  const member = String((document.getElementById('lb_member')||{}).value||'').replace(/\D/g,'').slice(-10);
+  if(!name){ toast('⚠️ Name required'); return; }
+  const cfg = await _loadLearnConfig();
+  cfg.buttons = cfg.buttons || [];
+  cfg.buttons.push({ name, icon, memberOnly: !!member, memberMobile: member||null, subs: [] });
+  await _saveLearnConfig(cfg);
+  window._learnButtonsCache = cfg.buttons;
+  toast('✅ Button added — open Sub topic to add video/audio/links');
+  closeModal();
+  setTimeout(()=>openLearnButtonsAdmin(), 150);
+  try{ renderLearnCustomButtons(); }catch(e){}
+}
+
+async function deleteLearnButton(idx){
+  const cfg = await _loadLearnConfig();
+  cfg.buttons = (cfg.buttons||[]).slice();
+  cfg.buttons.splice(idx,1);
+  await _saveLearnConfig(cfg);
+  window._learnButtonsCache = cfg.buttons;
+  toast('🗑️ Removed');
+  closeModal();
+  setTimeout(()=>openLearnButtonsAdmin(), 150);
+  try{ renderLearnCustomButtons(); }catch(e){}
+}
+
+async function openLearnSubEditor(btnIdx){
+  const cfg = await _loadLearnConfig();
+  const btn = (cfg.buttons||[])[btnIdx];
+  if(!btn) return;
+  const subs = btn.subs || [];
+  const rows = subs.map((s,i)=>`
+    <div style="padding:8px;border:1px solid var(--border2);border-radius:8px;margin-bottom:6px;display:flex;justify-content:space-between;gap:8px;align-items:center">
+      <div><b>${s.type||'link'}</b> · ${s.title||'—'}<div style="font-size:10px;color:var(--muted2);word-break:break-all">${s.url||''}</div></div>
+      <button type="button" class="cancel-btn" style="width:auto;padding:4px 8px;margin:0" onclick="deleteLearnSub(${btnIdx},${i})">✕</button>
+    </div>`).join('') || '<div class="empty-text">No sub-items</div>';
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">Sub items — ${btn.name}</div>
+    <div class="field"><label>Title</label><input id="ls_title" class="inp-field" placeholder="e.g. Safety Video 1"></div>
+    <div class="field"><label>Type</label>
+      <select id="ls_type" class="inp-field"><option value="video">Video link</option><option value="audio">Audio link</option><option value="link">Other link</option></select>
+    </div>
+    <div class="field"><label>URL</label><input id="ls_url" class="inp-field" placeholder="https://..."></div>
+    <button class="big-btn" onclick="saveLearnSub(${btnIdx})">➕ Add sub item</button>
+    <div style="margin-top:12px">${rows}</div>
+    <button class="cancel-btn" style="width:100%;margin-top:10px" onclick="closeModal();openLearnButtonsAdmin()">← Back</button>`);
+}
+
+async function saveLearnSub(btnIdx){
+  const title = String((document.getElementById('ls_title')||{}).value||'').trim();
+  const type = String((document.getElementById('ls_type')||{}).value||'link');
+  const url = String((document.getElementById('ls_url')||{}).value||'').trim();
+  if(!title||!url){ toast('⚠️ Title and URL required'); return; }
+  const cfg = await _loadLearnConfig();
+  if(!cfg.buttons[btnIdx]) return;
+  cfg.buttons[btnIdx].subs = cfg.buttons[btnIdx].subs || [];
+  cfg.buttons[btnIdx].subs.push({ title, type, url });
+  await _saveLearnConfig(cfg);
+  toast('✅ Sub item added');
+  closeModal();
+  setTimeout(()=>openLearnSubEditor(btnIdx), 150);
+  try{ renderLearnCustomButtons(); }catch(e){}
+}
+
+async function deleteLearnSub(btnIdx, subIdx){
+  const cfg = await _loadLearnConfig();
+  if(!cfg.buttons[btnIdx]) return;
+  cfg.buttons[btnIdx].subs.splice(subIdx,1);
+  await _saveLearnConfig(cfg);
+  toast('🗑️ Removed');
+  closeModal();
+  setTimeout(()=>openLearnSubEditor(btnIdx), 150);
+  try{ renderLearnCustomButtons(); }catch(e){}
+}
+
+// Override render to expand subs
+async function renderLearnCustomButtons(){
+  const host = document.getElementById('learnCustomButtons');
+  if(!host) return;
+  const cfg = await _loadLearnConfig();
+  try{ applyLearnModuleVisibility(); }catch(e){}
+  const myMob = String(SESSION&&SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  const list = (cfg.buttons||[]).filter(b=>{
+    if(!b||!b.name) return false;
+    if(b.memberOnly){
+      const mm = String(b.memberMobile||'').replace(/\D/g,'').slice(-10);
+      return mm && mm===myMob;
+    }
+    return true;
+  });
+  if(!list.length){ host.innerHTML=''; return; }
+  host.innerHTML = list.map((b,bi)=>{
+    const subs = (b.subs||[]).map(s=>`
+      <a href="${String(s.url).replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
+         style="display:flex;align-items:center;gap:8px;padding:10px 12px;margin:6px 0 0 12px;border-radius:10px;background:rgba(15,23,42,.04);border:1px solid var(--border2);text-decoration:none;color:inherit">
+        <span>${s.type==='video'?'🎬':s.type==='audio'?'🎧':'🔗'}</span>
+        <span style="font-size:13px;font-weight:700">${String(s.title||'').replace(/</g,'')}</span>
+      </a>`).join('');
+    return `<div style="padding:14px 16px;border-radius:14px;border:1.5px solid rgba(249,115,22,.35);background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(168,85,247,.06));margin-bottom:8px">
+      <div style="font-weight:900;font-size:15px;color:#c2410c">${b.icon||'📚'} ${String(b.name).replace(/</g,'')}</div>
+      ${subs || '<div style="font-size:11px;color:var(--muted2);margin-top:6px">No links yet</div>'}
+    </div>`;
+  }).join('');
+}
+
+// load config on learn open
+(function(){
+  const hook = window.renderLearnScreen;
+  window.renderLearnScreen = function(){
+    if(typeof hook==='function') hook.apply(this, arguments);
+    _loadLearnConfig().then(()=>{ try{ applyLearnModuleVisibility(); renderLearnCustomButtons(); }catch(e){} });
+  };
+})();

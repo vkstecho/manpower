@@ -5444,7 +5444,8 @@ function editShiftCell(empId, empName, date, currentShift){
       let stt=s.start, enn=s.end;
       if((!stt||!enn) && _defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
       const time=(stt&&enn)?` (${stt}–${enn})`:'';
-      const lab = (code==='G' ? (s.label||'General Shift') : (s.label||code));
+      let lab = (s.label && String(s.label).trim()) ? s.label : (code==='G' ? 'General Shift' : code);
+      if(code==='G' && (!s.label || String(s.label).trim()==='G')) lab = 'General Shift';
       return {v:code, label:lab+time, bg:st.bg, color:st.color};
     }),
     ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
@@ -5482,7 +5483,7 @@ function editShiftCell(empId, empName, date, currentShift){
       <div style="font-size:17px;font-weight:900;color:#fff">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD}</div>
       <div style="margin-top:6px;font-size:12px;color:var(--muted2)">
-        वर्तमान: <span class="shc ${cellClass(currentShift)}" style="display:inline-flex;vertical-align:middle">${cellDisp(currentShift)}</span>
+        ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: <span class="shc ${cellClass(currentShift)}" style="display:inline-flex;vertical-align:middle">${cellDisp(currentShift)}</span>
         ${alreadyPending?`<span style="color:var(--day);margin-left:8px">⚡ pending: ${cellDisp(alreadyPending.newShift)}</span>`:''}
       </div>
     </div>

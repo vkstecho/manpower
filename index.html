@@ -74,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300010"></script>
+<script type="module" src="js/firebase-init.js?v=300011"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300010">
+<link rel="stylesheet" href="css/app.css?v=300011">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -140,42 +140,72 @@ window.addEventListener('appinstalled', function () {
 
 
 <style id="mp-landing-desktop">
-/* Desktop / wide landing layout */
-@media (min-width: 900px){
+/* Desktop marketing + login split */
+@media (min-width: 960px){
   #loginScreen{
     min-height:100vh;
     display:flex !important;
-    flex-direction:column;
+    flex-direction:row;
     align-items:center;
     justify-content:center;
-    padding:40px 24px 48px;
+    gap:48px;
+    padding:40px 32px 48px;
+    max-width:1100px;
+    margin:0 auto;
   }
+  #loginScreen::before{
+    content:none;
+  }
+  #mpDesktopPitch{
+    display:block !important;
+    flex:1;
+    max-width:480px;
+    color:#e2e8f0;
+    text-align:left;
+  }
+  #mpDesktopPitch h1{
+    font-size:32px;font-weight:900;line-height:1.2;margin:0 0 12px;
+    background:linear-gradient(90deg,#fb923c,#a78bfa,#38bdf8);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  #mpDesktopPitch .tag{
+    display:inline-block;padding:4px 10px;border-radius:999px;font-size:11px;font-weight:700;
+    background:rgba(249,115,22,.15);color:#fdba74;border:1px solid rgba(249,115,22,.35);margin-bottom:14px;
+  }
+  #mpDesktopPitch ul{margin:16px 0 0;padding:0;list-style:none}
+  #mpDesktopPitch li{
+    display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:14px;color:#cbd5e1;line-height:1.45
+  }
+  #mpDesktopPitch li span.icon{font-size:18px;flex-shrink:0}
   #loginStep1{
-    max-width:420px !important;
+    flex:0 0 400px;
+    max-width:400px !important;
     width:100%;
-    background:rgba(15,23,42,.55);
-    border:1px solid rgba(148,163,184,.18);
+    background:rgba(15,23,42,.72);
+    border:1px solid rgba(148,163,184,.2);
     border-radius:24px;
-    padding:28px 28px 32px;
-    box-shadow:0 24px 64px rgba(0,0,0,.45);
-    backdrop-filter:blur(12px);
-  }
-  #loginHowToBtn, .learn-top-btn-login, #loginInstallRow a, #loginInstallRow button,
-  #loginWaSupport, #loginEmailSupport{
-    transition: transform .15s ease, box-shadow .15s ease;
-  }
-  #loginHowToBtn:hover, .learn-top-btn-login:hover, #loginInstallRow a:hover, #loginInstallRow button:hover{
-    transform:translateY(-1px);
-    box-shadow:0 8px 24px rgba(0,0,0,.25);
-  }
-  #loginStep1 > div[style*="MAN POWER"],
-  #loginStep1 > div[style*="Team Management"]{
-    margin-top:4px;
+    padding:24px 24px 28px;
+    box-shadow:0 24px 64px rgba(0,0,0,.5);
+    backdrop-filter:blur(14px);
   }
 }
-@media (min-width: 1200px){
-  #loginStep1{ max-width:460px !important; }
+@media (max-width: 959px){
+  #mpDesktopPitch{ display:none !important; }
 }
+</style>
+
+
+<style id="mp-learn-admin-simplify">
+/* Hide legacy bottom admin buttons on Learn (replaced by Manage custom Learn buttons) */
+#learnAdminPanel .grid-admin-legacy,
+#learnAdminPanel button[onclick="openContentUpload()"],
+#learnAdminPanel button[onclick="openManageLearnButtons()"],
+#learnAdminPanel button[onclick="openEditAbout()"],
+#learnAdminPanel button[onclick="openLearnPriceManager()"],
+#learnAdminPanel button[onclick*="openSupSkill"]{
+  display:none !important;
+}
+#learnAdminPanel > div:first-child{display:none !important;} /* Admin Controls label if only legacy */
 </style>
 
 </head>
@@ -1442,20 +1472,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300010"></script>
-<script src="js/app-login.js?v=300010"></script>
-<script src="js/app-login-device.js?v=300010"></script>
-<script src="js/app-login-session.js?v=300010"></script>
-<script src="js/app-schedule.js?v=300010"></script>
-<script src="js/app-team.js?v=300010"></script>
-<script src="js/app-team-import.js?v=300010"></script>
-<script src="js/app-team-print-learn.js?v=300010"></script>
-<script src="js/app.js?v=300010"></script>
-<script src="js/mp-commercial.js?v=300010"></script>
-<script src="js/a11y.js?v=300010"></script>
-<script src="js/sched-clipboard.js?v=300010"></script>
-<script src="js/sched-undo.js?v=300010"></script>
-<script src="js/sched-cell-keys.js?v=300010"></script>
+<script src="js/app-core.js?v=300011"></script>
+<script src="js/app-login.js?v=300011"></script>
+<script src="js/app-login-device.js?v=300011"></script>
+<script src="js/app-login-session.js?v=300011"></script>
+<script src="js/app-schedule.js?v=300011"></script>
+<script src="js/app-team.js?v=300011"></script>
+<script src="js/app-team-import.js?v=300011"></script>
+<script src="js/app-team-print-learn.js?v=300011"></script>
+<script src="js/app.js?v=300011"></script>
+<script src="js/mp-commercial.js?v=300011"></script>
+<script src="js/a11y.js?v=300011"></script>
+<script src="js/sched-clipboard.js?v=300011"></script>
+<script src="js/sched-undo.js?v=300011"></script>
+<script src="js/sched-cell-keys.js?v=300011"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

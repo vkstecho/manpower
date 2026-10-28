@@ -2457,28 +2457,42 @@ async function showProfile(){
       </button>
     </div>`);
   } else {
-    // Fetch live validity from Firebase
+    // Paid-till = subscription date set by Admin (paymentPaidUntil / paidUntil), NOT App License
     let daysLeft = 0, expiryStr = '', expiryDate = '', hasExpiry = false;
     try{
-      if(SESSION.role==='manager' || SESSION.role==='member'){
-        const mobileKey = _normMobileKey(SESSION.mobile);
+      let paidIso = '';
+      const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+      // 1) SESSION cache
+      paidIso = SESSION.paymentPaidUntil || SESSION.paidUntil || window._userPaymentPaidUntil || '';
+      // 2) mobileUsers record (manager or member)
+      if(!paidIso && mobileKey){
         const rec = await fbGet('mobileUsers/' + mobileKey);
-        if(rec && rec.validTill){
-          hasExpiry = true;
-          daysLeft = Math.ceil((new Date(rec.validTill) - new Date()) / 86400000);
-          expiryDate = new Date(rec.validTill).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-          expiryStr = expiryDate;
+        if(rec){
+          paidIso = rec.paymentPaidUntil || rec.paidUntil || rec.validTill || '';
+          // Member: fall back to manager's paid-until (team subscription)
+          if(!paidIso && rec.managerId){
+            try{
+              const mgr = await fbGet('mobileUsers/' + String(rec.managerId).replace(/\D/g,'').slice(-10));
+              if(mgr) paidIso = mgr.paymentPaidUntil || mgr.paidUntil || '';
+            }catch(e2){}
+          }
         }
-      } else {
-        const empObjId = myEmp()?.id || SESSION.empObjId;
+      }
+      // 3) deviceApprovals fallback
+      if(!paidIso){
+        const empObjId = (typeof myEmp==='function' && myEmp()?.id) || SESSION.empObjId;
         if(empObjId){
           const approval = await fbGet('deviceApprovals/' + empObjId);
-          if(approval && approval.validTill){
-            hasExpiry = true;
-            daysLeft = Math.ceil((new Date(approval.validTill) - new Date()) / 86400000);
-            expiryDate = new Date(approval.validTill).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-            expiryStr = expiryDate;
-          }
+          if(approval) paidIso = approval.paymentPaidUntil || approval.paidUntil || approval.validTill || '';
+        }
+      }
+      if(paidIso){
+        const d = new Date(paidIso);
+        if(!isNaN(d.getTime())){
+          hasExpiry = true;
+          daysLeft = Math.ceil((d.getTime() - Date.now()) / 86400000);
+          expiryDate = d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
+          expiryStr = expiryDate;
         }
       }
     }catch(ex){}
@@ -2487,7 +2501,7 @@ async function showProfile(){
     const msg = !hasExpiry
       ? ((typeof L==='function')?L('कोई Expiry तय नहीं है','No expiry set'):'No expiry set')
       : daysLeft<=0
-        ? ((typeof L==='function')?L('Subscription समाप्त — भुगतान करें','Subscription expired — please pay'):'Validity expired — contact Admin')
+        ? ((typeof L==='function')?L('Subscription समाप्त — भुगतान करें','Subscription expired — please pay'):'Subscription expired — please pay')
         : daysLeft<=7
           ? ((typeof L==='function')?L('सिर्फ '+daysLeft+' दिन बाकी','Only '+daysLeft+' days left'):('Only '+daysLeft+' days left'))
           : ((typeof L==='function')?L(daysLeft+' दिन बाकी', daysLeft+' days left'):(daysLeft+' days left'));
@@ -3678,7 +3692,8 @@ function getShiftTimingStripHtml(){
     let stt=s.start, enn=s.end;
     if((!stt||!enn)&&_defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
     const t=(stt&&enn)?`${stt}–${enn}`:'';
-    const lab = code==='G' ? (s.label||'General') : (s.label||code);
+    let lab = (s.label && String(s.label).trim()) ? String(s.label).trim() : (code==='G' ? 'General Shift' : code);
+    if(code==='G' && (lab==='G' || lab==='General')) lab = 'General Shift';
     return `<span class="shc ${cellClass(code)}" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">${code}</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">${escHtml(lab)}${t?' · '+t:''}</span>`;
   }).join('');
   return `<div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;opacity:.95">${bits}</div>`;
@@ -4130,7 +4145,7 @@ function _renderHomePersonalCalendar(){
           const daysLeft = Math.ceil((new Date(approval.validTill) - new Date()) / 86400000);
           if(daysLeft <= 7 && daysLeft > 0 && !sessionStorage.getItem('validity_warned')){
             sessionStorage.setItem('validity_warned','1');
-            setTimeout(()=> toast((typeof L==='function')?L('⚠️ App Validity: सिर्फ '+daysLeft+' दिन बाकी! Profile tap करें।','⚠️ App Validity: Only '+daysLeft+' days left! Tap Profile.'):('⚠️ Only '+daysLeft+' days left')), 2500);
+            setTimeout(()=> toast((typeof L==='function')?L('⚠️ Paid till: सिर्फ '+daysLeft+' दिन बाकी! Profile tap करें।','⚠️ Paid till: Only '+daysLeft+' days left! Tap Profile.'):('⚠️ Only '+daysLeft+' days left')), 2500);
           }
         }
       }).catch(()=>{});
@@ -4625,7 +4640,12 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
       _showMyShiftBulkBar(empId, empName);
       return;
     }
-    // Default: open shift picker for this day (saves via existing Save bar after pick)
+    // If day is Leave, show saved reason first (tap again / Edit opens picker)
+    const isLeave = String(currentShift||'').toUpperCase()==='L' || String(currentShift||'').toUpperCase().startsWith('L');
+    if(isLeave){
+      showLeaveReasonForDay(empId, empName, date, currentShift);
+      return;
+    }
     if(typeof editShiftCell === 'function'){
       editShiftCell(empId, empName, date, currentShift);
     } else {
@@ -4633,6 +4653,44 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
     }
   }catch(e){ console.warn('[handleMyShiftDayClick]', e); }
 }
+
+async function showLeaveReasonForDay(empId, empName, date, currentShift){
+  let reason = '', typeCode = '', status = '';
+  try{
+    // 1) leaves path
+    const leaves = await fbGet('leaves') || {};
+    const day = String(date).slice(0,10);
+    Object.values(leaves).forEach(lv=>{
+      if(!lv) return;
+      const matchEmp = (lv.empId===empId || lv.employeeId===empId);
+      const from = String(lv.from||lv.date||'').slice(0,10);
+      const to = String(lv.to||lv.from||lv.date||'').slice(0,10);
+      if(matchEmp && day >= from && day <= to){
+        reason = lv.leaveType || lv.reason || lv.leaveReason || reason;
+        typeCode = lv.type || lv.leaveCode || typeCode;
+        status = lv.status || status;
+      }
+    });
+  }catch(e){}
+  const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
+  const body = reason
+    ? `<div style="padding:12px;background:rgba(244,63,94,.08);border-radius:12px;border:1px solid rgba(244,63,94,.25)">
+         <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">${typeCode?('Type: '+typeCode):'Leave'}${status?(' · '+status):''}</div>
+         <div style="font-size:15px;font-weight:700;color:var(--text)">${String(reason).replace(/</g,'')}</div>
+       </div>`
+    : `<div style="padding:12px;color:var(--muted2);font-size:13px">${typeof L==='function'?L('कोई कारण सुरक्षित नहीं','No reason saved'):'No reason saved'}</div>`;
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🌴 ${typeof L==='function'?L('Leave विवरण','Leave details'):'Leave details'}</div>
+    <div style="text-align:center;margin-bottom:10px">
+      <div style="font-weight:900">${String(empName||'').replace(/</g,'')}</div>
+      <div style="font-size:12px;color:var(--muted2)">${fmtD}</div>
+    </div>
+    ${body}
+    <button class="big-btn" style="margin-top:14px" onclick="closeModal();if(typeof editShiftCell==='function')editShiftCell('${empId}','${String(empName||'').replace(/'/g,"\'")}','${date}','${currentShift||'L'}')">${typeof L==='function'?L('शिफ्ट बदलें','Change shift'):'Change shift'}</button>
+    <button class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">${typeof L==='function'?L('बंद करें','Close'):'Close'}</button>`);
+}
+window.showLeaveReasonForDay = showLeaveReasonForDay;
+
 
 function toggleMyShiftMultiMode(){
   window._myShiftMultiMode = !window._myShiftMultiMode;
@@ -4831,7 +4889,17 @@ function _showMyShiftBulkBar(empId, empName){
 
   const bar = document.createElement('div');
   bar.id = 'myShiftBulkBar';
-  bar.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px';
+  // Prefer top if selection is in lower half of viewport (so cells stay visible)
+  let placeTop = false;
+  try{
+    const cells = document.querySelectorAll('.ms-day.ms-multi-on, .ms-day[style*="f97316"]');
+    let maxBottom = 0;
+    cells.forEach(c=>{ const r=c.getBoundingClientRect(); if(r.bottom>maxBottom) maxBottom=r.bottom; });
+    if(maxBottom > window.innerHeight * 0.55) placeTop = true;
+  }catch(e){}
+  bar.style.cssText = placeTop
+    ? 'position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;'
+    : 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;';
   bar.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
       <div style="font-size:12px;font-weight:800;color:#f97316">${n} day${n>1?'s':''} selected · ${escHtml(empName||'')}</div>
@@ -5543,13 +5611,28 @@ function payAmountListRender(){
 function paySeedPlanAmounts(){
   const disc = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
   const monthly = [99,499,999,1499];
-  const amounts = monthly.concat(monthly.map(m=>Math.round(m*12*(1-disc/100))));
+  const annual = monthly.map(m=>Math.round(m*12*(1-disc/100)));
+  const amounts = monthly.concat(annual);
   try{
-    if(typeof window._payAmountRows !== 'object' || !window._payAmountRows) window._payAmountRows = {};
-    amounts.forEach(a=>{ if(!window._payAmountRows[String(a)]) window._payAmountRows[String(a)] = ''; });
+    // UI list uses _payAmountOptionsEdit + _payLinksByAmountEdit (NOT _payAmountRows)
+    const opts = Array.isArray(window._payAmountOptionsEdit) ? window._payAmountOptionsEdit.slice() : [];
+    amounts.forEach(a=>{
+      const n = parseInt(a,10);
+      if(!n) return;
+      if(!opts.includes(n) && !opts.includes(String(n))) opts.push(n);
+    });
+    // sort monthly first then annual
+    opts.sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    window._payAmountOptionsEdit = opts;
+    if(!window._payLinksByAmountEdit || typeof window._payLinksByAmountEdit !== 'object')
+      window._payLinksByAmountEdit = {};
+    amounts.forEach(a=>{
+      const k = String(a);
+      if(window._payLinksByAmountEdit[k] == null) window._payLinksByAmountEdit[k] = '';
+    });
     if(typeof payAmountListRender==='function') payAmountListRender();
     else if(typeof renderPayAmountList==='function') renderPayAmountList();
-    toast('✅ Plan amounts added (discount '+disc+'%) — paste Razorpay links');
+    toast('✅ Seeded monthly + annual (discount '+disc+'%: '+annual.join(', ')+') — paste Razorpay links');
   }catch(e){ toast('⚠️ '+(e.message||e)); }
 }
 function payAmountListAdd(){
