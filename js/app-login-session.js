@@ -935,7 +935,7 @@ function _renderShiftSettingsModal(){
     {code:'C', label:'C Shift', start:'22:00', end:'06:00', active:false, kind:'work'},
     {code:'O', label:'Weekly Off', start:'', end:'', active:true, kind:'status'},
     {code:'L', label:'Leave', start:'', end:'', active:true, kind:'status'},
-    {code:'G', label:'General', start:'08:00', end:'20:00', active:true, kind:'work'},
+    {code:'G', label:'General Shift', start:'08:00', end:'20:00', active:true, kind:'work'},
     {code:'C/O', label:'Comp Off', start:'', end:'', active:true, kind:'status'},
     {code:'HLF', label:'Half Day', start:'', end:'', active:true, kind:'status'},
     {code:'Ab', label:'Absent', start:'', end:'', active:true, kind:'status'},
@@ -1418,11 +1418,31 @@ async function _saveShiftSettings(){
       }
     }catch(e){ console.warn('[waAppLink] save', e); }
   }
+  // Ensure G keeps user label+times in draft before save
+  try{
+    (_shiftDraft.shifts||[]).forEach(function(s){
+      if(s && String(s.code).toUpperCase()==='G'){
+        if(!s.label || String(s.label).trim()==='G') s.label='General Shift';
+        s.start = s.start || s.startTime || '08:00';
+        s.end = s.end || s.endTime || '20:00';
+        if(s.active===undefined) s.active=true;
+      }
+    });
+  }catch(e){}
   const ok=await saveShiftConfig(_shiftDraft);
   if(ok){
     try{ _applyCompanyLogoToUI(_shiftDraft.companyLogo||''); }catch(e){}
+    try{
+      if(typeof myShiftConfigKey==='function' && typeof _shiftConfigCache!=='undefined'){
+        const k=myShiftConfigKey();
+        const fixed = (typeof _canonicalizeShiftConfig==='function') ? _canonicalizeShiftConfig(_shiftDraft) : _shiftDraft;
+        if(k) _shiftConfigCache[k]=fixed;
+      }
+    }catch(e){}
     closeModal();
     toast(L('✅ शिफ्ट सेटिंग सेव हो गई','✅ Shift settings saved'));
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+    try{ if(typeof renderScheduleLegend==='function') renderScheduleLegend(); }catch(e){}
   }
 }
 
@@ -3836,7 +3856,7 @@ function _scheduleStatusLegendDefs(){
     {code:'GP',  label: en?'Gate Pass':'Gate Pass',icon:'🪪', clr:'#9333ea', bg:'rgba(147,51,234,.08)'},
     {code:'OD',  label: en?'Other Dept':'Other Dept', icon:'🏢', clr:'#0d9488', bg:'rgba(13,148,136,.08)'},
     {code:'HLF', label: en?'Half Day':'Half Day',  icon:'½',  clr:'#c2410c', bg:'rgba(194,65,12,.08)'},
-    {code:'G',   label: en?'General':'General',    icon:'⚙️', clr:'#0284c7', bg:'rgba(2,132,199,.08)'},
+    {code:'G',   label: en?'General Shift':'General Shift',    icon:'⚙️', clr:'#0284c7', bg:'rgba(2,132,199,.08)'},
   ];
 }
 
@@ -4218,7 +4238,7 @@ function _renderHomePersonalCalendar(){
 
   // Full fixed legend
   const legendItems = en
-    ? [['D','Day','#f59e0b','#1a1a2e'],['N','Night','#4f46e5','#fff'],['A','A Shift','#16a34a','#fff'],['B','B Shift','#db2777','#fff'],['C','C Shift','#0891b2','#fff'],['O','Off','#475569','#fff'],['L','Leave','#be123c','#fff'],['G','General','#0284c7','#fff'],['CO','C-Off','#92400e','#fde68a'],['H','Holiday','#ea580c','#fff']]
+    ? [['D','Day','#f59e0b','#1a1a2e'],['N','Night','#4f46e5','#fff'],['A','A Shift','#16a34a','#fff'],['B','B Shift','#db2777','#fff'],['C','C Shift','#0891b2','#fff'],['O','Off','#475569','#fff'],['L','Leave','#be123c','#fff'],['G','General Shift','#0284c7','#fff'],['CO','C-Off','#92400e','#fde68a'],['H','Holiday','#ea580c','#fff']]
     : [['D','दिन','#f59e0b','#1a1a2e'],['N','रात','#4f46e5','#fff'],['A','A शिफ्ट','#16a34a','#fff'],['B','B शिफ्ट','#db2777','#fff'],['C','C शिफ्ट','#0891b2','#fff'],['O','ऑफ','#475569','#fff'],['L','छुट्टी','#be123c','#fff'],['G','जनरल','#0284c7','#fff'],['CO','C-Off','#92400e','#fde68a'],['H','हॉलिडे','#ea580c','#fff']];
   calHtml += `<div class="hm-legend">
     ${legendItems.map(([c,l,bg,fg])=>
@@ -4442,7 +4462,7 @@ async function downloadMyShiftRecords(){
   rows.push(['Generated', genAt]);
   rows.push([]);
   rows.push(['#','Date','Day','Shift Code','Meaning']);
-  const meaning = {D:'Day',N:'Night',A:'A',B:'B',C:'C',O:'Weekly Off',L:'Leave','C/O':'Comp Off',CO:'Comp Off',H:'Holiday',Ab:'Absent',G:'General',GP:'Gate Pass',HLF:'Half Day',OD:'Other Dept'};
+  const meaning = {D:'Day',N:'Night',A:'A',B:'B',C:'C',O:'Weekly Off',L:'Leave','C/O':'Comp Off',CO:'Comp Off',H:'Holiday',Ab:'Absent',G:'General Shift',GP:'Gate Pass',HLF:'Half Day',OD:'Other Dept'};
   let n = 0;
   const cur = new Date(from+'T12:00:00');
   const end = new Date(to+'T12:00:00');
@@ -5572,7 +5592,7 @@ async function openPaymentSettingsAdmin(){
     <div class="field" style="margin-top:10px">
       <label>Default annual discount % (auto-calculates annual price)</label>
       <input id="pay_default_discount" type="number" min="0" max="90" class="inp-field" value="${(cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17}" placeholder="17">
-      <div style="font-size:10px;color:var(--muted2);margin-top:4px">Example: ₹99 × 12 × (1−17%) = ₹986/year. User sees this % on plan screen.</div>
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px">Example: ₹99 × 12 × (1−${(cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17}%) = ₹${Math.round(99*12*(1-((cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17)/100))}/year. User sees this % on plan screen.</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
       <button type="button" class="cancel-btn" style="width:auto;padding:8px 10px;margin:0;font-size:11px" onclick="paySeedPlanAmounts()">Seed plan amounts (99/499/999/1499 + annual)</button>
@@ -5757,6 +5777,12 @@ async function savePaymentSettingsAdmin(){
     window._paymentSettingsAt = Date.now();
     try{ localStorage.setItem('mp_payment_enabled', payload.enabled ? '1' : '0'); }catch(e){}
     toast('✅ Payment settings saved');
+    try{ closeModal(); }catch(e){}
+    try{
+      if(typeof goTab==='function') goTab('home');
+      else if(typeof _goTabDirect==='function') _goTabDirect('home');
+      else if(typeof showTab==='function') showTab('home');
+    }catch(e){}
   }catch(err){
     console.error(err);
     toast('❌ Save failed: '+(err.message||err.code||'permission'));
