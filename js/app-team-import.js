@@ -5439,8 +5439,13 @@ function editShiftCell(empId, empName, date, currentShift){
     ..._stdCodes.map(code=>{
       const s=_cfgByCode[code]||{code,label:code};
       const st=_fixedShiftStyle[code]||{bg:'#334155',color:'#fff'};
-      const time=(s.start&&s.end)?` (${s.start}–${s.end})`:'';
-      return {v:code, label:(s.label||code)+time, bg:st.bg, color:st.color};
+      // Always show times for work shifts (D/N/G/A/B/C); G defaults 08:00–20:00 if manager not set
+      const _defTimes={D:['07:00','19:00'],N:['19:00','07:00'],G:['08:00','20:00'],A:['06:00','14:00'],B:['14:00','22:00'],C:['22:00','06:00']};
+      let stt=s.start, enn=s.end;
+      if((!stt||!enn) && _defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
+      const time=(stt&&enn)?` (${stt}–${enn})`:'';
+      const lab = (code==='G' ? (s.label||'General Shift') : (s.label||code));
+      return {v:code, label:lab+time, bg:st.bg, color:st.color};
     }),
     ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
     ...[
@@ -5456,11 +5461,11 @@ function editShiftCell(empId, empName, date, currentShift){
     ].filter(opt=>{
       const s = _cfgByCode[String(opt.v).toUpperCase()] || _cfgByCode[opt.v] || _cfgByCode[String(opt.v).toLowerCase()];
       if(s && s.active === false) return false;
-      // Prefer custom label + times from manager Shift settings (same as D/N)
-      const base = (s && s.label) ? s.label : opt.label;
-      const time = (s && s.start && s.end) ? (' ('+s.start+'–'+s.end+')') : '';
-      // Avoid duplicating if already in _stdCodes map above
       if(_stdCodes.includes(opt.v)) return false;
+      const base = (s && s.label) ? s.label : opt.label;
+      let stt = s && s.start, enn = s && s.end;
+      if(opt.v==='G' && (!stt||!enn)){ stt='08:00'; enn='20:00'; }
+      const time = (stt&&enn) ? (' ('+stt+'–'+enn+')') : '';
       opt.label = base + time;
       return true;
     })

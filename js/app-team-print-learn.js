@@ -1258,7 +1258,19 @@ function renderLearnScreen(){
   // Show/hide admin panel
   const adminPanel = document.getElementById('learnAdminPanel');
   const adminBadge = document.getElementById('learnAdminBadge');
-  if(adminPanel) adminPanel.style.display = isAdmin() ? 'block' : 'none';
+  if(adminPanel){
+    adminPanel.style.display = isAdmin() ? 'block' : 'none';
+    if(isAdmin() && !document.getElementById('learnBtnAdminManage')){
+      const b=document.createElement('button');
+      b.id='learnBtnAdminManage';
+      b.type='button';
+      b.textContent='➕ Manage custom Learn buttons';
+      b.className='big-btn';
+      b.style.cssText='margin:8px 16px;width:calc(100% - 32px)';
+      b.onclick=function(){ openLearnButtonsAdmin(); };
+      adminPanel.insertBefore(b, adminPanel.firstChild);
+    }
+  }
   if(adminBadge) adminBadge.style.display = isAdmin() ? 'flex' : 'none';
   // Show MR Skill Hub button only for Manager/Admin
   const mcBtn = document.getElementById('mrSkillBtn');
@@ -1776,3 +1788,115 @@ async function submitContent(){
 
 
 // ════════════════════════════════════════════════════════════════
+
+
+/* ===== Custom Learn buttons (Admin sets name + URL; optional per-member) ===== */
+async function _loadLearnButtons(){
+  try{
+    const data = await fbGet('settings/learnButtons');
+    window._learnButtonsCache = Array.isArray(data) ? data : (data && data.items) ? data.items : [];
+    return window._learnButtonsCache;
+  }catch(e){ return window._learnButtonsCache || []; }
+}
+
+async function renderLearnCustomButtons(){
+  const host = document.getElementById('learnCustomButtons');
+  if(!host) return;
+  const items = await _loadLearnButtons();
+  const myId = (SESSION && (SESSION.empObjId || SESSION.mobile || '')) || '';
+  const visible = (items||[]).filter(b=>{
+    if(!b || !b.name || !b.url) return false;
+    if(b.memberOnly && b.memberId && String(b.memberId)!==String(myId) && String(b.memberMobile||'')!==String(SESSION&&SESSION.mobile||'')) return false;
+    if(b.memberOnly && !b.memberId && !b.memberMobile) return false;
+    return true;
+  });
+  // Always show global buttons (not memberOnly)
+  const globals = (items||[]).filter(b=>b && b.name && b.url && !b.memberOnly);
+  const personal = (items||[]).filter(b=>{
+    if(!b || !b.memberOnly || !b.name || !b.url) return false;
+    const mid = String(b.memberId||'');
+    const mm = String(b.memberMobile||'').replace(/\D/g,'').slice(-10);
+    const mine = String(myId);
+    const myMob = String(SESSION&&SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+    return (mid && mid===mine) || (mm && mm===myMob);
+  });
+  const list = globals.concat(personal);
+  if(!list.length){ host.innerHTML = ''; return; }
+  host.innerHTML = list.map(b=>`
+    <a href="${String(b.url).replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
+       style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-radius:14px;
+              background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(168,85,247,.08));
+              border:1.5px solid rgba(249,115,22,.35);text-decoration:none;color:inherit">
+      <span style="font-size:22px">${b.icon||'🔗'}</span>
+      <div style="flex:1">
+        <div style="font-weight:900;font-size:15px;color:#c2410c">${String(b.name).replace(/</g,'')}</div>
+        <div style="font-size:11px;color:var(--muted2)">${b.subtitle?String(b.subtitle).replace(/</g,''):'Open link'}</div>
+      </div>
+      <span style="opacity:.5">›</span>
+    </a>`).join('');
+}
+
+async function openLearnButtonsAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const items = await _loadLearnButtons();
+  const rows = (items||[]).map((b,i)=>`
+    <div style="padding:10px;border:1px solid var(--border2);border-radius:10px;margin-bottom:8px">
+      <div style="font-weight:800">${b.name||'—'}</div>
+      <div style="font-size:11px;color:var(--muted2);word-break:break-all">${b.url||''}</div>
+      <div style="font-size:10px;color:var(--muted2)">${b.memberOnly?'Member-only':'All users'}</div>
+      <button type="button" class="cancel-btn" style="width:auto;padding:6px 10px;margin-top:6px" onclick="deleteLearnButton(${i})">Delete</button>
+    </div>`).join('') || '<div class="empty-text">No custom buttons yet</div>';
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">Learn & Grow — Custom buttons</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">Add Name + Link. Optional: restrict to one member (mobile).</div>
+    <div class="field"><label>Button name</label><input id="lb_name" class="inp-field" placeholder="e.g. Safety Video"></div>
+    <div class="field"><label>URL / Link</label><input id="lb_url" class="inp-field" placeholder="https://..."></div>
+    <div class="field"><label>Icon (emoji)</label><input id="lb_icon" class="inp-field" value="🔗"></div>
+    <div class="field"><label>Member only? (10-digit mobile, blank = all users)</label>
+      <input id="lb_member" class="inp-field" placeholder="Optional mobile"></div>
+    <button class="big-btn" onclick="saveLearnButton()">➕ Add button</button>
+    <div style="margin-top:14px;font-weight:800;font-size:13px">Existing</div>
+    <div style="max-height:40vh;overflow:auto;margin-top:8px">${rows}</div>
+    <button class="cancel-btn" style="width:100%;margin-top:10px" onclick="closeModal()">Close</button>`);
+}
+
+async function saveLearnButton(){
+  const name = String((document.getElementById('lb_name')||{}).value||'').trim();
+  const url = String((document.getElementById('lb_url')||{}).value||'').trim();
+  const icon = String((document.getElementById('lb_icon')||{}).value||'🔗').trim() || '🔗';
+  const member = String((document.getElementById('lb_member')||{}).value||'').replace(/\D/g,'').slice(-10);
+  if(!name || !url){ toast('⚠️ Name and URL required'); return; }
+  const items = (await _loadLearnButtons()).slice();
+  items.push({ name, url, icon, memberOnly: !!member, memberMobile: member || null });
+  await fbSet('settings/learnButtons', items);
+  window._learnButtonsCache = items;
+  toast('✅ Button added');
+  closeModal();
+  try{ renderLearnCustomButtons(); }catch(e){}
+  setTimeout(()=>openLearnButtonsAdmin(), 200);
+}
+
+async function deleteLearnButton(idx){
+  const items = (await _loadLearnButtons()).slice();
+  items.splice(idx,1);
+  await fbSet('settings/learnButtons', items);
+  window._learnButtonsCache = items;
+  toast('🗑️ Deleted');
+  closeModal();
+  try{ renderLearnCustomButtons(); }catch(e){}
+  setTimeout(()=>openLearnButtonsAdmin(), 200);
+}
+
+// Hook into renderLearnScreen
+(function(){
+  const _orig = window.renderLearnScreen;
+  if(typeof _orig === 'function'){
+    window.renderLearnScreen = function(){
+      const r = _orig.apply(this, arguments);
+      try{ renderLearnCustomButtons(); }catch(e){}
+      return r;
+    };
+  } else {
+    window.renderLearnScreen = function(){ try{ renderLearnCustomButtons(); }catch(e){} };
+  }
+})();

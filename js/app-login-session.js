@@ -3674,8 +3674,12 @@ function getShiftTimingStripHtml(){
   if(!codes.length) codes = getActiveRotationCodes();
   const bits=codes.map(code=>{
     const s=byCode[code]||{code,label:code};
-    const t=(s.start&&s.end)?`${s.start}–${s.end}`:'';
-    return `<span class="shc ${cellClass(code)}" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">${code}</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">${escHtml(s.label||code)}${t?' · '+t:''}</span>`;
+    const _defTimes={D:['07:00','19:00'],N:['19:00','07:00'],G:['08:00','20:00'],A:['06:00','14:00'],B:['14:00','22:00'],C:['22:00','06:00']};
+    let stt=s.start, enn=s.end;
+    if((!stt||!enn)&&_defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
+    const t=(stt&&enn)?`${stt}–${enn}`:'';
+    const lab = code==='G' ? (s.label||'General') : (s.label||code);
+    return `<span class="shc ${cellClass(code)}" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">${code}</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">${escHtml(lab)}${t?' · '+t:''}</span>`;
   }).join('');
   return `<div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;opacity:.95">${bits}</div>`;
 }
@@ -4811,13 +4815,19 @@ function _showMyShiftBulkBar(empId, empName){
     {v:'G', label:'G'},
     {v:'D+N', label:'D+N'}
   ];
-  const shiftBtns = codes.slice(0,8).map(code=>
-    `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${code}')"
-      style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">${code}</button>`
-  ).join('') + extra.map(x=>
-    `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${x.v}')"
-      style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;font-size:13px;cursor:pointer">${x.label}</button>`
-  ).join('');
+  const _legC = (window.MP_SHIFT_COLORS||window.SHIFT_LEGEND_COLORS||{
+    D:{bg:'#a16207',fg:'#fff'},N:{bg:'#4f46e5',fg:'#fff'},G:{bg:'#2563eb',fg:'#fff'},
+    O:{bg:'#64748b',fg:'#fff'},L:{bg:'#be123c',fg:'#fff'},'D+N':{bg:'#7c3aed',fg:'#fff'}
+  });
+  const shiftBtns = codes.slice(0,8).map(code=>{
+    const c=_legC[code]||{bg:'#334155',fg:'#fff'};
+    return `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${code}')"
+      style="padding:8px 12px;border-radius:10px;border:none;background:${c.bg};color:${c.fg};font-weight:800;font-size:13px;cursor:pointer">${code}</button>`;
+  }).join('') + extra.map(x=>{
+    const c=_legC[x.v]||{bg:'#334155',fg:'#fff'};
+    return `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${x.v}')"
+      style="padding:8px 12px;border-radius:10px;border:none;background:${c.bg};color:${c.fg};font-weight:800;font-size:13px;cursor:pointer">${x.label}</button>`;
+  }).join('');
 
   const bar = document.createElement('div');
   bar.id = 'myShiftBulkBar';
@@ -5414,7 +5424,8 @@ async function openPaymentSettingsAdmin(){
     }
   }catch(e){}
 
-  const defaultPaid = new Date(Date.now()+30*86400000).toISOString().slice(0,10);
+  const _trialD = (window._appLicenseCache && parseInt(window._appLicenseCache.freeTrialDays,10)) || 30;
+  const defaultPaid = new Date(Date.now()+_trialD*86400000).toISOString().slice(0,10);
   const userAmtOpts = opts.map(a=>`<option value="${a}" ${a===amount?'selected':''}>₹${a}</option>`).join('');
 
   openModal(`<div class="modal-handle"></div>
@@ -5453,7 +5464,12 @@ async function openPaymentSettingsAdmin(){
       <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="Amount e.g. 999 or 9950">
       <button type="button" class="submit-btn" style="width:auto;padding:10px 14px;margin:0" onclick="payAmountListAdd()">+ Add amount</button>
     </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">
+    <div class="field" style="margin-top:10px">
+      <label>Default annual discount % (auto-calculates annual price)</label>
+      <input id="pay_default_discount" type="number" min="0" max="90" class="inp-field" value="${(cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17}" placeholder="17">
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px">Example: ₹99 × 12 × (1−17%) = ₹986/year. User sees this % on plan screen.</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
       <button type="button" class="cancel-btn" style="width:auto;padding:8px 10px;margin:0;font-size:11px" onclick="paySeedPlanAmounts()">Seed plan amounts (99/499/999/1499 + annual)</button>
     </div>
   </div>
@@ -5525,14 +5541,15 @@ function payAmountListRender(){
 
 
 function paySeedPlanAmounts(){
-  // Monthly + annual (17% off) plan amounts — admin still pastes Razorpay links
-  const amounts = [99,499,999,1499,986,4970,9950,14930];
+  const disc = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
+  const monthly = [99,499,999,1499];
+  const amounts = monthly.concat(monthly.map(m=>Math.round(m*12*(1-disc/100))));
   try{
     if(typeof window._payAmountRows !== 'object' || !window._payAmountRows) window._payAmountRows = {};
     amounts.forEach(a=>{ if(!window._payAmountRows[String(a)]) window._payAmountRows[String(a)] = ''; });
     if(typeof payAmountListRender==='function') payAmountListRender();
     else if(typeof renderPayAmountList==='function') renderPayAmountList();
-    toast('✅ Plan amounts added — paste Razorpay links for each');
+    toast('✅ Plan amounts added (discount '+disc+'%) — paste Razorpay links');
   }catch(e){ toast('⚠️ '+(e.message||e)); }
 }
 function payAmountListAdd(){
@@ -5605,10 +5622,12 @@ async function savePaymentSettingsAdmin(){
     });
   }catch(e){}
   try{
+    const defaultDiscountPct = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
     const payload = {
       enabled, amount, link, title, message,
       amountOptions,
       linksByAmount,
+      defaultDiscountPct,
       currency: 'INR',
       updatedAt: new Date().toISOString(),
       updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
@@ -5770,3 +5789,40 @@ try{
     setTimeout(()=>{ try{ _hydrateUserPaymentStatus(); }catch(e){} }, 2500);
   }
 }catch(e){}
+
+
+async function openAppLicenseAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  let lic = {};
+  try{ lic = await fbGet('settings/appLicense') || {}; }catch(e){}
+  const trialDays = parseInt(lic.freeTrialDays,10) || 30;
+  const expiry = lic.expiry || (typeof CFG!=='undefined' && CFG.license && CFG.license.expiry
+    ? (CFG.license.expiry instanceof Date ? CFG.license.expiry.toISOString().slice(0,10) : String(CFG.license.expiry).slice(0,10))
+    : '2026-12-31');
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🔑 App License / Expiry</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Whole-app license and free trial for new users</div>
+    <div class="field"><label>App license expiry (YYYY-MM-DD)</label>
+      <input id="lic_expiry" type="date" class="inp-field" value="${String(expiry).slice(0,10)}">
+    </div>
+    <div class="field"><label>Free trial days for each NEW user</label>
+      <input id="lic_trial_days" type="number" min="1" max="365" class="inp-field" value="${trialDays}">
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px">Currently used when a new Manager/Member is approved. Default was 30.</div>
+    </div>
+    <button class="big-btn" style="margin-top:12px" onclick="saveAppLicenseAdmin()">💾 Save</button>
+    <button class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">Cancel</button>`);
+}
+async function saveAppLicenseAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()) return;
+  const expiry = String((document.getElementById('lic_expiry')||{}).value||'').trim();
+  const freeTrialDays = Math.max(1, Math.min(365, parseInt((document.getElementById('lic_trial_days')||{}).value||'30',10)||30));
+  try{
+    const payload = { expiry, freeTrialDays, updatedAt: new Date().toISOString() };
+    await fbSet('settings/appLicense', payload);
+    window._appLicenseCache = payload;
+    toast('✅ License settings saved · trial '+freeTrialDays+' days');
+    closeModal();
+  }catch(e){ toast('❌ '+(e.message||e)); }
+}
+window.openAppLicenseAdmin = openAppLicenseAdmin;
+window.saveAppLicenseAdmin = saveAppLicenseAdmin;

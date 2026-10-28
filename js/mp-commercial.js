@@ -221,10 +221,26 @@
   function getSubscriptionPlans(cfg) {
     var fromAdmin =
       cfg && Array.isArray(cfg.plans) && cfg.plans.length ? cfg.plans : defaultPlans();
+    // Global default discount from Admin (settings/payment.defaultDiscountPct)
+    var globalDisc = 17;
+    try {
+      if (cfg && cfg.defaultDiscountPct != null) globalDisc = parseInt(cfg.defaultDiscountPct, 10) || 17;
+      if (cfg && cfg.planDiscounts && typeof cfg.planDiscounts === 'object') {
+        /* per-amount override e.g. { "99": 17, "499": 20 } */
+      }
+    } catch (e) {}
     return fromAdmin.map(function (p) {
       if (p.custom) return p;
       var monthly = parseInt(p.monthly, 10) || 0;
-      var discountPct = Math.min(90, Math.max(0, parseInt(p.discountPct, 10) || 17));
+      var discountPct = parseInt(p.discountPct, 10);
+      if (isNaN(discountPct)) {
+        try {
+          if (cfg && cfg.planDiscounts && cfg.planDiscounts[String(monthly)] != null)
+            discountPct = parseInt(cfg.planDiscounts[String(monthly)], 10);
+        } catch (e2) {}
+      }
+      if (isNaN(discountPct)) discountPct = globalDisc;
+      discountPct = Math.min(90, Math.max(0, discountPct));
       var annual = Math.round(monthly * 12 * (1 - discountPct / 100));
       return Object.assign({}, p, { monthly: monthly, discountPct: discountPct, annual: annual });
     });

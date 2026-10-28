@@ -74,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300009"></script>
+<script type="module" src="js/firebase-init.js?v=300010"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300009">
+<link rel="stylesheet" href="css/app.css?v=300010">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -136,6 +136,46 @@ window.addEventListener('appinstalled', function () {
 .ms-day[data-ms-date]{touch-action:none;-webkit-user-select:none;user-select:none}
 .ms-day.ms-multi-on{outline:2px solid #f97316!important;background:rgba(249,115,22,.15)!important}
 .ms-day.ms-multi-on .ms-day-num{font-weight:900}
+</style>
+
+
+<style id="mp-landing-desktop">
+/* Desktop / wide landing layout */
+@media (min-width: 900px){
+  #loginScreen{
+    min-height:100vh;
+    display:flex !important;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:40px 24px 48px;
+  }
+  #loginStep1{
+    max-width:420px !important;
+    width:100%;
+    background:rgba(15,23,42,.55);
+    border:1px solid rgba(148,163,184,.18);
+    border-radius:24px;
+    padding:28px 28px 32px;
+    box-shadow:0 24px 64px rgba(0,0,0,.45);
+    backdrop-filter:blur(12px);
+  }
+  #loginHowToBtn, .learn-top-btn-login, #loginInstallRow a, #loginInstallRow button,
+  #loginWaSupport, #loginEmailSupport{
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  #loginHowToBtn:hover, .learn-top-btn-login:hover, #loginInstallRow a:hover, #loginInstallRow button:hover{
+    transform:translateY(-1px);
+    box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  #loginStep1 > div[style*="MAN POWER"],
+  #loginStep1 > div[style*="Team Management"]{
+    margin-top:4px;
+  }
+}
+@media (min-width: 1200px){
+  #loginStep1{ max-width:460px !important; }
+}
 </style>
 
 </head>
@@ -732,7 +772,10 @@ window.addEventListener('appinstalled', function () {
     </div>
 
     <!-- Admin Panel -->
-    <div id="learnAdminPanel" style="display:none;padding:0;margin-top:4px">
+    
+    <!-- Admin / member custom Learn buttons (from settings/learnButtons) -->
+    <div id="learnCustomButtons" style="padding:12px 16px 4px;display:flex;flex-direction:column;gap:10px"></div>
+<div id="learnAdminPanel" style="display:none;padding:12px 16px;margin-top:4px">
       <div style="font-size:10px;font-weight:800;color:rgba(249,115,22,.7);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center">🔑 Admin Controls</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         <button onclick="openContentUpload()" style="background:rgba(249,115,22,.1);border:1.5px solid rgba(249,115,22,.3);border-radius:12px;padding:12px 8px;color:var(--m1);font-size:12px;font-weight:800;cursor:pointer;font-family:inherit">➕ Content Add</button>
@@ -1399,20 +1442,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300009"></script>
-<script src="js/app-login.js?v=300009"></script>
-<script src="js/app-login-device.js?v=300009"></script>
-<script src="js/app-login-session.js?v=300009"></script>
-<script src="js/app-schedule.js?v=300009"></script>
-<script src="js/app-team.js?v=300009"></script>
-<script src="js/app-team-import.js?v=300009"></script>
-<script src="js/app-team-print-learn.js?v=300009"></script>
-<script src="js/app.js?v=300009"></script>
-<script src="js/mp-commercial.js?v=300009"></script>
-<script src="js/a11y.js?v=300009"></script>
-<script src="js/sched-clipboard.js?v=300009"></script>
-<script src="js/sched-undo.js?v=300009"></script>
-<script src="js/sched-cell-keys.js?v=300009"></script>
+<script src="js/app-core.js?v=300010"></script>
+<script src="js/app-login.js?v=300010"></script>
+<script src="js/app-login-device.js?v=300010"></script>
+<script src="js/app-login-session.js?v=300010"></script>
+<script src="js/app-schedule.js?v=300010"></script>
+<script src="js/app-team.js?v=300010"></script>
+<script src="js/app-team-import.js?v=300010"></script>
+<script src="js/app-team-print-learn.js?v=300010"></script>
+<script src="js/app.js?v=300010"></script>
+<script src="js/mp-commercial.js?v=300010"></script>
+<script src="js/a11y.js?v=300010"></script>
+<script src="js/sched-clipboard.js?v=300010"></script>
+<script src="js/sched-undo.js?v=300010"></script>
+<script src="js/sched-cell-keys.js?v=300010"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
