@@ -1,0 +1,211 @@
+/* ===== Form & Shared ===== */
+.form-input {
+  width: 100%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-size: 0.875rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dark .form-input {
+  border-color: #475569;
+  background-color: #0f172a;
+  color: #f1f5f9;
+}
+.form-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+/* Hours selector */
+.hrs-btn {
+  border-color: #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  transition: all 0.15s;
+}
+.dark .hrs-btn {
+  border-color: #475569;
+  background: #1e293b;
+  color: #cbd5e1;
+}
+.hrs-btn.active-hrs {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  color: #1d4ed8;
+  box-shadow: 0 0 0 1px #3b82f6;
+}
+.dark .hrs-btn.active-hrs {
+  background: rgba(30, 58, 138, 0.35);
+  color: #93c5fd;
+}
+
+/* Topic Cards */
+.topic-card {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+.dark .topic-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+.topic-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px -8px rgba(0,0,0,0.12);
+}
+.dark .topic-card:hover {
+  box-shadow: 0 12px 28px -8px rgba(0,0,0,0.4);
+}
+
+.topic-card .card-banner {
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.topic-card .card-body {
+  padding: 1rem 1.1rem 1.15rem;
+}
+
+.topic-card .status-badge {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  z-index: 2;
+}
+.status-unlocked {
+  background: #d1fae5;
+  color: #065f46;
+}
+.dark .status-unlocked {
+  background: rgba(6, 95, 70, 0.4);
+  color: #6ee7b7;
+}
+.status-locked {
+  background: #fef3c7;
+  color: #92400e;
+}
+.dark .status-locked {
+  background: rgba(146, 64, 14, 0.35);
+  color: #fcd34d;
+}
+
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+  margin: 0.1rem;
+}
+.dark .tag {
+  background: #334155;
+  color: #94a3b8;
+}
+
+/* Chat bubbles */
+.chat-bubble {
+  max-width: 88%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 1rem;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.chat-bubble.me {
+  margin-left: auto;
+  background: #2563eb;
+  color: #fff;
+  border-bottom-right-radius: 0.25rem;
+}
+.chat-bubble.them {
+  margin-right: auto;
+  background: #e2e8f0;
+  color: #1e293b;
+  border-bottom-left-radius: 0.25rem;
+}
+.dark .chat-bubble.them {
+  background: #334155;
+  color: #e2e8f0;
+}
+.chat-meta {
+  font-size: 10px;
+  opacity: 0.7;
+  margin-top: 0.2rem;
+}
+
+/* Recording item */
+.rec-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.dark .rec-item {
+  border-color: #334155;
+}
+.rec-item:hover, .rec-item.active {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+.dark .rec-item:hover, .dark .rec-item.active {
+  background: rgba(30, 58, 138, 0.3);
+  border-color: #3b82f6;
+}
+
+/* History card */
+.hist-card {
+  padding: 0.9rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+.dark .hist-card {
+  border-color: #334155;
+  background: #0f172a;
+}
+
+/* Scrollbar thin */
+#chatMessages, #recordingsList, #historyContent {
+  scrollbar-width: thin;
+}
+
+/* Logo SVGs inside banners */
+.logo-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+}
+.dark .logo-badge {
+  background: rgba(255,255,255,0.95);
+}
