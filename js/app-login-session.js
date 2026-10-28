@@ -2487,9 +2487,9 @@ async function showProfile(){
     const msg = !hasExpiry
       ? ((typeof L==='function')?L('कोई Expiry तय नहीं है','No expiry set'):'No expiry set')
       : daysLeft<=0
-        ? ((typeof L==='function')?L('Validity Expire हो गई — Admin से मिलें','Validity expired — contact Admin'):'Validity expired — contact Admin')
+        ? ((typeof L==='function')?L('Subscription समाप्त — भुगतान करें','Subscription expired — please pay'):'Validity expired — contact Admin')
         : daysLeft<=7
-          ? ((typeof L==='function')?L('सिर्फ '+daysLeft+' दिन बाकी — जल्दी Admin से मिलें','Only '+daysLeft+' days left — contact Admin soon'):('Only '+daysLeft+' days left'))
+          ? ((typeof L==='function')?L('सिर्फ '+daysLeft+' दिन बाकी','Only '+daysLeft+' days left'):('Only '+daysLeft+' days left'))
           : ((typeof L==='function')?L(daysLeft+' दिन बाकी', daysLeft+' days left'):(daysLeft+' days left'));
     const empRec = myEmp();
     const secLabel = empRec ? (secName(empRec.sec) || empRec.sec) : '';
@@ -2538,7 +2538,7 @@ async function showProfile(){
           <div style="font-size:28px">${icon}</div>
           <div>
             <div style="font-size:22px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif">${msg}</div>
-            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('वैध तक: ','Valid till: ')}${expiryStr}</div>`:''}
+            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('भुगतान तक: ','Paid till: ')}${expiryStr}</div>`:''}
           </div>
         </div>
       </div>
@@ -3492,7 +3492,7 @@ function getShift(emp, dateStr){
 window.MP_SHIFT_COLORS = {
   D:{bg:'#a16207',fg:'#fff'}, N:{bg:'#4f46e5',fg:'#fff'},
   A:{bg:'#16a34a',fg:'#fff'}, B:{bg:'#db2777',fg:'#fff'}, C:{bg:'#0891b2',fg:'#fff'},
-  O:{bg:'#475569',fg:'#fff'}, L:{bg:'#be123c',fg:'#fff'}, G:{bg:'#0284c7',fg:'#fff'},
+  O:{bg:'#475569',fg:'#fff'}, L:{bg:'#be123c',fg:'#fff'}, G:{bg:'#2563eb',fg:'#fff'},
   'C/O':{bg:'#92400e',fg:'#fde68a'}, CO:{bg:'#92400e',fg:'#fde68a'},
   H:{bg:'#ea580c',fg:'#fff'}, HLF:{bg:'#ea580c',fg:'#fff'},
   OD:{bg:'#0d9488',fg:'#ccfbf1'}, GP:{bg:'#6d28d9',fg:'#e9d5ff'},
@@ -4684,9 +4684,9 @@ function bindMyShiftDragSelect(root){
     grids.forEach(grid=>{
       if(grid._msDragBound) return;
       grid._msDragBound = true;
-      // Allow vertical scroll; selection starts only after horizontal/small movement threshold
       grid.style.touchAction = 'pan-y';
       grid.style.userSelect = 'none';
+      let lastTapAt = 0, lastTapKey = '';
 
       const onDown = (ev)=>{
         const cell = ev.target.closest && ev.target.closest('.ms-day[data-ms-date]');
@@ -4698,7 +4698,7 @@ function bindMyShiftDragSelect(root){
         if(ev.pointerType === 'mouse' && ev.button !== 0) return;
         window._msDrag = {
           active:false, pending:true, empId, empName, moved:false, startDate:ds,
-          pointerId:ev.pointerId, x:ev.clientX, y:ev.clientY, cell
+          pointerId:ev.pointerId, x:ev.clientX, y:ev.clientY, cell, curShift: cell.getAttribute('data-ms-shift')||''
         };
       };
 
@@ -4707,12 +4707,10 @@ function bindMyShiftDragSelect(root){
         if(!drag || (!drag.pending && !drag.active)) return;
         const dx = Math.abs(ev.clientX - drag.x);
         const dy = Math.abs(ev.clientY - drag.y);
-        // Vertical scroll intent — cancel selection pending
         if(drag.pending && dy > 12 && dy > dx * 1.2){
           window._msDrag = null;
           return;
         }
-        // Start multi-select only after clear pointer movement (prefer horizontal)
         if(drag.pending && (dx > 10 || dy > 10) && dx >= dy * 0.85){
           drag.pending = false;
           drag.active = true;
@@ -4728,7 +4726,7 @@ function bindMyShiftDragSelect(root){
           }
           window._myShiftMultiEmp = drag.empId;
           if(!window._myShiftMultiSel) window._myShiftMultiSel = new Set();
-          _msMarkCell(drag.cell, true);
+          if(typeof _msMarkCell==='function') _msMarkCell(drag.cell, true);
           try{ ev.preventDefault(); }catch(e){}
         }
         if(!drag.active) return;
@@ -4738,8 +4736,8 @@ function bindMyShiftDragSelect(root){
         const over = el && el.closest && el.closest('.ms-day[data-ms-date]');
         if(!over || over.classList.contains('empty')) return;
         if(over.getAttribute('data-ms-empid') !== drag.empId) return;
-        _msMarkCell(over, true);
-        _showMyShiftBulkBar(drag.empId, drag.empName);
+        if(typeof _msMarkCell==='function') _msMarkCell(over, true);
+        if(typeof _showMyShiftBulkBar==='function') _showMyShiftBulkBar(drag.empId, drag.empName);
       };
 
       const onUp = (ev)=>{
@@ -4747,12 +4745,37 @@ function bindMyShiftDragSelect(root){
         window._msDrag = null;
         if(!drag) return;
         try{ grid.releasePointerCapture(drag.pointerId); }catch(e){}
-        // Pure tap (no drag) — leave selection mode; single-day handler uses click
-        if(drag.pending && !drag.moved){
+        if(drag.active){
+          if(typeof _showMyShiftBulkBar==='function') _showMyShiftBulkBar(drag.empId, drag.empName);
           return;
         }
-        if(drag.active){
-          _showMyShiftBulkBar(drag.empId, drag.empName);
+        // Tap (no drag): double-tap opens single-day Select Shift picker
+        if(drag.pending && !drag.moved){
+          const key = drag.empId + '|' + drag.startDate;
+          const now = Date.now();
+          if(lastTapKey === key && (now - lastTapAt) < 350){
+            lastTapAt = 0; lastTapKey = '';
+            try{
+              if(typeof editShiftCell === 'function'){
+                editShiftCell(drag.empId, drag.empName, drag.startDate, drag.curShift || '');
+              } else if(typeof openLeaveReasonModal === 'function' && drag.curShift === 'L'){
+                openLeaveReasonModal(drag.empId, drag.empName, drag.startDate, 'L');
+              }
+            }catch(e){ console.warn('[myShift double-tap]', e); }
+          } else {
+            lastTapAt = now; lastTapKey = key;
+            // single tap on Leave day: show reason if any
+            try{
+              if(drag.curShift === 'L' && typeof editShiftCell === 'function'){
+                // short delay so double-tap can cancel
+                setTimeout(()=>{
+                  if(lastTapKey === key && Date.now() - lastTapAt >= 340){
+                    editShiftCell(drag.empId, drag.empName, drag.startDate, 'L');
+                  }
+                }, 360);
+              }
+            }catch(e){}
+          }
         }
       };
 
@@ -4821,12 +4844,13 @@ async function applyMyShiftBulk(empId, empName, shiftVal){
   const dates = Array.from(window._myShiftMultiSel || []).sort();
   if(!dates.length){ toast(L('कोई दिन चुना नहीं','No days selected')); return; }
   if(shiftVal === 'L' && typeof openLeaveReasonModal === 'function'){
-    // For leave, open reason for first day then apply L with reason to all via stage
     try{
-      // Stage L for all dates without reason first is incomplete; use multi leave path
       window._myShiftPendingLeaveDates = dates.slice();
       window._myShiftPendingLeaveEmp = {id:empId, name:empName};
-    }catch(e){}
+      // Open reason modal for first date; on confirm, apply L+reason to all pending dates
+      openLeaveReasonModal(empId, empName, dates[0], 'L');
+      return;
+    }catch(e){ console.warn(e); }
   }
   let n=0;
   for(const ds of dates){
@@ -4878,7 +4902,7 @@ function renderMyShift(){
     const shEsc = String(sh).replace(/'/g,"\\'");
     const selected = !!(window._myShiftMultiSel && window._myShiftMultiEmp===e.id && window._myShiftMultiSel.has(ds));
     const cls = cellClass(sh);
-    cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
+    cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
       style="cursor:${canSelf?'pointer':'default'};touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
       <div class="ms-day-num">${d}</div>
       <div class="ms-day-sh shc ${cls}">${disp}</div>
@@ -4949,7 +4973,7 @@ function renderMyShift(){
           const nm = String(selEmp.name||'').replace(/'/g,"\\'");
           const shEsc = String(sh).replace(/'/g,"\\'");
           const selected = (window._myShiftMultiSel && window._myShiftMultiSel.has(ds));
-          mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
+          mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
             style="cursor:pointer;touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
             <div class="ms-day-num">${d}</div>
             <div class="ms-day-sh shc ${cls}">${disp}</div>
@@ -5220,6 +5244,13 @@ function _customerCareHtml(cc, opts){
     <div style="font-size:13px;font-weight:900;color:#ea580c;margin-bottom:6px">↩️ ${typeof L==='function'?L(days+' दिन में रद्द / रिफंड', days+'-day cancel & refund'):(days+'-day cancel & refund')}</div>
     <div style="font-size:12px;color:var(--text);line-height:1.55">${escHtml(policy)}</div>
   </div>`;
+  // How-to video (from Admin Customer Care / settings/howToVideoUrl)
+  const videoUrl = String(cc.howToVideoUrl || cc.videoUrl || window._howToVideoUrl || '').trim();
+  if(videoUrl){
+    body += `<button type="button" class="big-btn" style="display:block;width:100%;text-align:center;margin:12px 0 4px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:#fff;font-weight:900;padding:14px;border-radius:12px;border:none;cursor:pointer" onclick="window.open('${videoUrl.replace(/'/g,"\'")}',' _blank','noopener')">▶ ${typeof L==='function'?L('How to use — Shift Management','How to use — Shift Management'):'How to use — Shift Management'}</button>`;
+  } else {
+    body += `<button type="button" class="cancel-btn" style="display:block;width:100%;text-align:center;margin:12px 0 4px;padding:12px" onclick="typeof openHowToVideo==='function'&&openHowToVideo()">▶ ${typeof L==='function'?L('How to use video','How to use video'):'How to use video'}</button>`;
+  }
   if(opts.showRequestBtn){
     body += `<a href="${waLink}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:900;padding:14px;border-radius:12px">💬 ${typeof L==='function'?L('WhatsApp पर Cancel / Refund माँगें','Request Cancel / Refund on WhatsApp'):'Request Cancel / Refund on WhatsApp'}</a>
     <a href="${mailLink}" class="cancel-btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px">✉️ ${typeof L==='function'?L('Email भेजें','Send Email'):'Send Email'}</a>`;
@@ -5252,6 +5283,10 @@ async function openCustomerCareAdmin(){
   <div class="field"><label>WhatsApp number</label>
     <input id="cc_whatsapp" class="inp-field" placeholder="+91-8929394920" value="${String(cc.whatsapp||'').replace(/"/g,'&quot;')}">
   </div>
+  <div class="field"><label>How to use video URL (YouTube)</label>
+    <input id="cc_howto_video" class="inp-field" placeholder="https://youtube.com/watch?v=..." value="${String((cc.howToVideoUrl||cc.videoUrl||window._howToVideoUrl||'')).replace(/"/g,'&quot;')}">
+    <div style="font-size:10px;color:var(--muted2);margin-top:4px">Shown on login page + Customer Care tab for all users</div>
+  </div>
   <div class="field"><label>Refund window (days)</label>
     <input id="cc_days" type="number" min="1" max="90" class="inp-field" value="${parseInt(cc.refundDays,10)||7}">
   </div>
@@ -5263,21 +5298,27 @@ async function openCustomerCareAdmin(){
   <button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal();openCustomerCarePage()">👁 Preview page</button>`);
 }
 
-async function saveCustomerCareAdmin(){
+async async function saveCustomerCareAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const name = String((document.getElementById('cc_name')||{}).value||'').trim() || 'Man power App Admin';
   const email = String((document.getElementById('cc_email')||{}).value||'').trim() || 'CareMP@vkstech.com';
   const whatsapp = String((document.getElementById('cc_whatsapp')||{}).value||'').trim() || '+91-8929394920';
+  const howToVideoUrl = String((document.getElementById('cc_howto_video')||{}).value||'').trim();
   const refundDays = Math.max(1, Math.min(90, parseInt((document.getElementById('cc_days')||{}).value||'7',10)||7));
   const refundPolicy = String((document.getElementById('cc_policy')||{}).value||'').trim() || _defaultCustomerCare().refundPolicy;
   try{
     const payload = {
-      name, email, whatsapp, refundDays, refundPolicy,
+      name, email, whatsapp, howToVideoUrl, refundDays, refundPolicy,
       updatedAt: new Date().toISOString(),
       updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
     };
     await fbSet('settings/customerCare', payload);
     window._customerCareCache = payload;
+    // Also store dedicated how-to path for login page
+    if(howToVideoUrl){
+      try{ await fbSet('settings/howToVideoUrl', {url: howToVideoUrl, updatedAt: payload.updatedAt}); }catch(e2){}
+      window._howToVideoUrl = howToVideoUrl;
+    }
     toast('✅ Customer Care saved');
     closeModal();
   }catch(e){
@@ -5401,15 +5442,19 @@ async function openPaymentSettingsAdmin(){
   </div>
 
   <div style="margin:14px 0;padding:12px;border-radius:12px;border:1px solid rgba(16,185,129,.35);background:rgba(16,185,129,.08)">
-    <div style="font-size:13px;font-weight:900;margin-bottom:6px">📋 Amounts + payment links</div>
+    <div style="font-size:13px;font-weight:900;margin-bottom:6px">📋 Plans · Monthly + Annual payment links</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.45">
-      Add each subscription price and its own <b>Razorpay / UPI link</b>.<br>
-      Example: ₹999 → one rzp.io link, ₹1499 → another. User sees the link for <b>their</b> amount.
+      Categorised plans (same as user login):<br>
+      <b>₹99</b> Individual (1) · <b>₹499</b> up to 25 · <b>₹999</b> up to 50 · <b>₹1499</b> up to 200<br>
+      Also add <b>annual</b> amounts (17% off default): ₹986, ₹4970, ₹9950, ₹14930 — each with its own Razorpay link.
     </div>
     <div id="pay_amount_list" style="margin-bottom:10px"></div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-      <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="Add amount e.g. 999">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+      <input id="pay_new_amount" type="number" min="1" class="inp-field" style="flex:1;min-width:100px" placeholder="Amount e.g. 999 or 9950">
       <button type="button" class="submit-btn" style="width:auto;padding:10px 14px;margin:0" onclick="payAmountListAdd()">+ Add amount</button>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button type="button" class="cancel-btn" style="width:auto;padding:8px 10px;margin:0;font-size:11px" onclick="paySeedPlanAmounts()">Seed plan amounts (99/499/999/1499 + annual)</button>
     </div>
   </div>
 
@@ -5478,6 +5523,18 @@ function payAmountListRender(){
   }catch(e){}
 }
 
+
+function paySeedPlanAmounts(){
+  // Monthly + annual (17% off) plan amounts — admin still pastes Razorpay links
+  const amounts = [99,499,999,1499,986,4970,9950,14930];
+  try{
+    if(typeof window._payAmountRows !== 'object' || !window._payAmountRows) window._payAmountRows = {};
+    amounts.forEach(a=>{ if(!window._payAmountRows[String(a)]) window._payAmountRows[String(a)] = ''; });
+    if(typeof payAmountListRender==='function') payAmountListRender();
+    else if(typeof renderPayAmountList==='function') renderPayAmountList();
+    toast('✅ Plan amounts added — paste Razorpay links for each');
+  }catch(e){ toast('⚠️ '+(e.message||e)); }
+}
 function payAmountListAdd(){
   const inp = document.getElementById('pay_new_amount');
   const n = parseInt((inp && inp.value) || '0', 10);

@@ -2947,7 +2947,7 @@ const _i18n_HI_EN = {
   '✏️ Shift चुनें':                          '✏️ Select Shift',
   '✏️ निर्देश संपादित करें':                  '✏️ Edit Instructions',
   '➕ Content Add करें':                      '➕ Add Content',
-  '🌴 Leave का कारण':                        '🌴 Leave Reason',
+  '🌴 '+(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')+'':                        '🌴 Leave Reason',
   '🌴 छुट्टी आवेदन':                         '🌴 Leave Application',
   '👁️ Preview — Save करने से पहले देखें':    '👁️ Preview — Review before saving',
   '👤 नया कर्मचारी':                         '👤 New Employee',
@@ -3194,7 +3194,7 @@ const _i18n_HI_EN = {
   '➕ Content Add करें':                      '➕ Add Content',
   '➕ नया Button जोड़ें':                    '➕ Add New Button',
   '🌟 प्रशंसा':                              '🌟 Praise',
-  '🌴 Leave का कारण':                         '🌴 Leave Reason',
+  '🌴 '+(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')+'':                         '🌴 Leave Reason',
   '🌴 छुट्टी आवेदन':                          '🌴 Leave Application',
   '🎉 कोई भी Left नहीं हुआ':                 '🎉 Nobody has left',
   '🎬 Video URL set नहीं है':                 '🎬 Video URL not set',
@@ -5204,7 +5204,7 @@ async function _loadManagerLeaveQuota(){
   return null;
 }
 
-async function openLeaveReasonModal(empId, empName, date, currentShift){
+async async function openLeaveReasonModal(empId, empName, date, currentShift){
   const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   let typeOpts = _typesFromLeaveQuota(null);
   try{
@@ -5214,7 +5214,7 @@ async function openLeaveReasonModal(empId, empName, date, currentShift){
   const QUICK_REASONS = typeOpts; // used below as objects
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🌴 Leave का कारण</div>
+    <div class="modal-title">🌴 ${(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')}</div>
     <div style="text-align:center;padding:4px 0 12px">
       <div style="font-size:16px;font-weight:900;color:#fff">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD} — Leave (L)</div>
@@ -5414,7 +5414,7 @@ function editShiftCell(empId, empName, date, currentShift){
   // Offer only active work shifts (D/N/A/B/C); hide if inactive or profile hide flags
   const _cfgByCode = {};
   (_cfg.shifts||[]).forEach(s=>{ if(s&&s.code) _cfgByCode[String(s.code).toUpperCase()]=s; });
-  const _stdCodes = ['D','N','A','B','C'].filter(code=>{
+  const _stdCodes = ['D','N','G','A','B','C'].filter(code=>{
     const s = _cfgByCode[code];
     // Profile "Hide D&N" / "Hide A/B/C" controls picker visibility
     // ticked shifts only — inactive already filtered above
@@ -5444,20 +5444,24 @@ function editShiftCell(empId, empName, date, currentShift){
     }),
     ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
     ...[
-      {v:'O',   label:'Weekly Off',       bg:'#475569', color:'#ffffff'},
-      {v:'L',   label:'Leave (pick type)', bg:'#be123c', color:'#ffffff'},
-      {v:'G',   label:'General Shift',    bg:'#0284c7', color:'#ffffff'},
-      {v:'C/O', label:'Comp Off',         bg:'#92400e', color:'#fde68a'},
-      {v:'H',   label:'Holiday',          bg:'#ea580c', color:'#ffffff'},
-      {v:'OD',  label:'Other Dept/Door',  bg:'#0d9488', color:'#ccfbf1'},
-      {v:'GP',  label:'Gate Pass',        bg:'#6d28d9', color:'#e9d5ff'},
-      {v:'HLF', label:'Half Day',         bg:'#ea580c', color:'#ffffff'},
-      {v:'Ab',  label:'Absent',           bg:'#7f1d1d', color:'#fca5a5'},
+      {v:'O',   label:'Weekly Off',       bg:'#64748b', color:'#ffffff'},
+      {v:'L',   label:'Leave (pick type)', bg:'#fb7185', color:'#ffffff'},
+      {v:'G',   label:'General Shift',    bg:'#2563eb', color:'#ffffff'},
+      {v:'C/O', label:'Comp Off',         bg:'#a16207', color:'#ffffff'},
+      {v:'H',   label:'Holiday',          bg:'#f97316', color:'#ffffff'},
+      {v:'OD',  label:'Other Dept/Door',  bg:'#0d9488', color:'#ffffff'},
+      {v:'GP',  label:'Gate Pass',        bg:'#9333ea', color:'#ffffff'},
+      {v:'HLF', label:'Half Day',         bg:'#f97316', color:'#ffffff'},
+      {v:'Ab',  label:'Absent',           bg:'#b91c1c', color:'#ffffff'},
     ].filter(opt=>{
-      const s = _cfgByCode[String(opt.v).toUpperCase()] || _cfgByCode[opt.v];
+      const s = _cfgByCode[String(opt.v).toUpperCase()] || _cfgByCode[opt.v] || _cfgByCode[String(opt.v).toLowerCase()];
       if(s && s.active === false) return false;
-      // Prefer custom label from Profile when set
-      if(s && s.label) opt.label = s.label;
+      // Prefer custom label + times from manager Shift settings (same as D/N)
+      const base = (s && s.label) ? s.label : opt.label;
+      const time = (s && s.start && s.end) ? (' ('+s.start+'–'+s.end+')') : '';
+      // Avoid duplicating if already in _stdCodes map above
+      if(_stdCodes.includes(opt.v)) return false;
+      opt.label = base + time;
       return true;
     })
   ];
