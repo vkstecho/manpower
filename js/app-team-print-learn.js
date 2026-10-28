@@ -2221,7 +2221,7 @@ async function renderLearnCustomButtons(){
     return `<div style="padding:16px;border-radius:16px;border:2px solid rgba(249,115,22,.4);
                         background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(168,85,247,.06));margin-bottom:12px">
       <div style="font-weight:900;font-size:16px;color:#c2410c">${b.icon||'📚'} ${String(b.name).replace(/</g,'')}</div>
-      ${subs || '<div style="font-size:13px;color:var(--muted2);margin-top:8px;font-weight:600">No links yet — admin can add video/audio/link</div>'}
+      ${subs || '<div style="font-size:13px;color:#64748b;margin-top:8px;font-weight:700">No links yet — use Edit to add video / audio / link</div>'}
       ${editBtn}
     </div>`;
   }).join('');
@@ -2244,3 +2244,59 @@ async function renderLearnCustomButtons(){
   };
   setInterval(fix, 1500);
 })();
+
+(function(){
+  const wrap = function(){
+    const o = window.openLearnScreen;
+    if(typeof o !== 'function' || o._visWrapped) return;
+    window.openLearnScreen = async function(){
+      const r = o.apply(this, arguments);
+      try{
+        window._learnConfigCache = await _loadLearnConfig();
+        applyLearnModuleVisibility();
+        if(typeof renderLearnCustomButtons==='function') renderLearnCustomButtons();
+      }catch(e){}
+      return r;
+    };
+    window.openLearnScreen._visWrapped = true;
+  };
+  wrap(); setTimeout(wrap, 1500); setTimeout(wrap, 4000);
+})();
+
+/* v3.1.3: delete by index from custom buttons array */
+async function deleteLearnButton(idxOrKey){
+  try{
+    if(typeof idxOrKey === 'number' || (typeof idxOrKey==='string' && /^\d+$/.test(idxOrKey))){
+      const idx = parseInt(idxOrKey, 10);
+      const cfg = await _loadLearnConfig();
+      cfg.buttons = (cfg.buttons||[]).filter((_,i)=>i!==idx);
+      await _saveLearnConfig(cfg);
+      window._learnConfigCache = cfg;
+      toast('✅ Button removed');
+      try{ closeModal(); }catch(e){}
+      setTimeout(function(){ try{ openLearnButtonsAdmin(); }catch(e){} }, 200);
+      try{ renderLearnCustomButtons(); }catch(e){}
+      return;
+    }
+  }catch(e){ console.warn(e); }
+  // legacy key path
+  try{
+    if(typeof fbSet==='function') await fbSet('learnButtons/'+idxOrKey, null);
+    toast('✅ Button removed');
+    try{ openManageLearnButtons(); }catch(e){}
+    try{ renderLearnButtons(); }catch(e){}
+  }catch(e2){ toast('❌ Delete failed'); }
+}
+window.deleteLearnButton = deleteLearnButton;
+
+async function toggleLearnModuleVisibility(modId, visible){
+  const cfg = await _loadLearnConfig();
+  const set = new Set(cfg.hiddenModules || []);
+  if(visible) set.delete(modId); else set.add(modId);
+  cfg.hiddenModules = Array.from(set);
+  await _saveLearnConfig(cfg);
+  window._learnConfigCache = cfg;
+  try{ applyLearnModuleVisibility(); }catch(e){}
+  toast(visible ? '✅ Module visible to users' : '✅ Module hidden for users');
+}
+window.toggleLearnModuleVisibility = toggleLearnModuleVisibility;

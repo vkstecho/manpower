@@ -1318,10 +1318,16 @@ async function openAppLicenseAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   let validTill = '';
   let extendTo = '';
+  let freeTrialDays = 30;
   try{
     const lic = await fbGet('settings/license');
     if(lic && lic.validTill) validTill = String(lic.validTill).slice(0,10);
     if(lic && lic.extendTo) extendTo = String(lic.extendTo).slice(0,10);
+    if(lic && lic.freeTrialDays != null) freeTrialDays = parseInt(lic.freeTrialDays,10)||30;
+  }catch(e){}
+  try{
+    const lic2 = await fbGet('settings/appLicense');
+    if(lic2 && lic2.freeTrialDays != null) freeTrialDays = parseInt(lic2.freeTrialDays,10)||freeTrialDays;
   }catch(e){}
   if(!validTill && CFG && CFG.license && CFG.license.expiry){
     const d = new Date(CFG.license.expiry);
@@ -1338,6 +1344,10 @@ async function openAppLicenseAdmin(){
     <input id="lic_validTill" type="date" class="inp-field" value="${validTill||''}"></div>
   <div class="field"><label>extendTo (After unlock key)</label>
     <input id="lic_extendTo" type="date" class="inp-field" value="${extendTo||''}"></div>
+  <div class="field"><label>Free trial days for each NEW user (Pay till)</label>
+    <input id="lic_freeTrialDays" type="number" min="1" max="365" class="inp-field" value="${freeTrialDays}">
+    <div style="font-size:11px;color:var(--muted2);margin-top:4px">Default 30. Set 15 (or any number) so new users get that many free days.</div>
+  </div>
   <button class="big-btn" style="margin-top:12px" onclick="saveAppLicenseAdmin()">${L('💾 सेव करें','💾 Save')}</button>
   <p style="font-size:11px;color:var(--muted);margin-top:10px">${L('सिर्फ hard-admin Firebase rules से write कर सकता है।','Only hard-admin can write via Firebase rules.')}</p>`);
 }
@@ -1345,15 +1355,18 @@ async function saveAppLicenseAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const vt = (document.getElementById('lic_validTill')||{}).value || '';
   const et = (document.getElementById('lic_extendTo')||{}).value || '';
+  const trial = Math.max(1, Math.min(365, parseInt((document.getElementById('lic_freeTrialDays')||{}).value||'30',10)||30));
   if(!vt){ toast('❌ validTill required'); return; }
   try{
     const payload = {
       validTill: new Date(vt+'T23:59:59.000Z').toISOString(),
+      freeTrialDays: trial,
       updatedAt: new Date().toISOString(),
       updatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
     };
     if(et) payload.extendTo = new Date(et+'T23:59:59.000Z').toISOString();
     await fbUpdate('settings/license', payload);
+    try{ await fbUpdate('settings/appLicense', { freeTrialDays: trial, expiry: vt }); }catch(e){}
     try{
       if(CFG && CFG.license){
         CFG.license.expiry = new Date(payload.validTill);

@@ -4712,7 +4712,7 @@ async function showLeaveReasonForDay(empId, empName, date, currentShift){
       <div style="font-size:12px;color:var(--muted2)">${fmtD}</div>
     </div>
     ${body}
-    <button class="big-btn" style="margin-top:14px" onclick="closeModal();if(typeof editShiftCell==='function')editShiftCell('${empId}','${String(empName||'').replace(/'/g,"\'")}','${date}','${currentShift||'L'}')">${typeof L==='function'?L('शिफ्ट बदलें','Change shift'):'Change shift'}</button>
+    <button class="big-btn" style="margin-top:14px" onclick="closeModal();window._forceShiftPicker=true;if(typeof editShiftCell==='function')editShiftCell('${empId}','${String(empName||'').replace(/'/g,"\'")}','${date}','${currentShift||'L'}')">${typeof L==='function'?L('शिफ्ट बदलें','Change shift'):'Change shift'}</button>
     <button class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">${typeof L==='function'?L('बंद करें','Close'):'Close'}</button>`);
 }
 window.showLeaveReasonForDay = showLeaveReasonForDay;
@@ -5945,6 +5945,11 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
     window._leaveReasonHooked = true;
     const orig = window.editShiftCell;
     window.editShiftCell = function(empId, empName, date, currentShift){
+      // If caller set force picker (Change shift from leave details), skip reason modal
+      if(window._forceShiftPicker){
+        window._forceShiftPicker = false;
+        return orig.apply(this, arguments);
+      }
       const sh = String(currentShift||'').toUpperCase();
       if(sh==='L' || sh.indexOf('L')===0){
         if(typeof showLeaveReasonForDay === 'function'){
@@ -5959,4 +5964,34 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
   document.addEventListener('firebase-ready', installLeaveReasonHook);
   setTimeout(installLeaveReasonHook, 2000);
   setTimeout(installLeaveReasonHook, 5000);
+})();
+
+/* Force G legend text on schedule */
+(function mpFixGLegend(){
+  function fix(){
+    try{
+      document.querySelectorAll('.shc, [class*="legend"]').forEach(function(){});
+      // text nodes in schedule footer
+      document.querySelectorAll('#scheduleScreen, #schedScreen, .sched-wrap, main').forEach(function(root){
+        if(!root) return;
+        root.querySelectorAll('span, div').forEach(function(el){
+          if(el.children.length) return;
+          const t = (el.textContent||'').trim();
+          if(t === 'General' || t === 'G General' || t === 'General '){
+            // find start/end from shift config
+            let times = '08:00–20:00';
+            try{
+              const cfg = typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null;
+              const g = (cfg && cfg.shifts||[]).find(s=>s && String(s.code).toUpperCase()==='G');
+              if(g && (g.start||g.startTime) && (g.end||g.endTime))
+                times = (g.start||g.startTime)+'–'+(g.end||g.endTime);
+            }catch(e){}
+            el.textContent = 'General Shift · '+times;
+          }
+        });
+      });
+    }catch(e){}
+  }
+  setInterval(fix, 2000);
+  document.addEventListener('click', function(){ setTimeout(fix, 400); });
 })();

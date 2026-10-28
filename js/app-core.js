@@ -231,7 +231,7 @@ function _doPlatformShare(kind){
   const titleHi=document.getElementById('loginMobileTitleHi');
   if(titleHi){ if(lang==='en') titleHi.style.display='none'; else { titleHi.style.display=''; titleHi.textContent=T('मोबाइल नंबर','Mobile Number'); } }
   const hint=document.getElementById('loginMobileHint');
-  if(hint) hint.innerHTML = T('Member / Manager login — <b style="color:#ffffff">केवल Mobile Number</b> (Employee Code नहीं)','Member / Manager login — <b style="color:#ffffff">Mobile Number only</b> (not Employee Code)');
+  if(hint) if(hint){ hint.style.display='none'; hint.innerHTML=''; }
   setPh('loginMobile','10 अंकों का Mobile Number','10-digit Mobile Number');
   const otpBtn=document.getElementById('sendOtpBtn');
   if(otpBtn){ const dis=otpBtn.disabled; otpBtn.innerHTML=T('OTP भेजें','Send OTP')+' &#128172;'; otpBtn.disabled=dis; }

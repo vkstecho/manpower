@@ -5346,21 +5346,37 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   try{ await fbPush('leaves',leaveData); }catch(e){ console.warn('leave push',e); }
   _leaveImgBase64=null;
 
-  // Write L to schedule immediately (plain 'L' so cell always shows Leave red badge)
+  // Write L to ALL selected dates (bulk multi-select support)
   const shiftVal = 'L';
-  const ovPayload = { [empId+'_'+date]: shiftVal };
-  // Also key by empCode if available (Excel rows sometimes keyed by code)
+  const allDates = (window._myShiftPendingLeaveDates && window._myShiftPendingLeaveDates.length)
+    ? window._myShiftPendingLeaveDates.slice()
+    : [date];
+  window._myShiftPendingLeaveDates = null;
+  const ovPayload = {};
   try{
     const empObj = (getEmps()||[]).find(e=>e.id===empId);
-    if(empObj && empObj.empId && String(empObj.empId)!==String(empId)){
-      ovPayload[empObj.empId+'_'+date] = shiftVal;
-    }
-  }catch(e){}
+    allDates.forEach(d=>{
+      ovPayload[empId+'_'+d] = shiftVal;
+      if(empObj && empObj.empId && String(empObj.empId)!==String(empId))
+        ovPayload[empObj.empId+'_'+d] = shiftVal;
+    });
+  }catch(e){
+    allDates.forEach(d=>{ ovPayload[empId+'_'+d] = shiftVal; });
+  }
   try{
     await fbUpdate('overrides', ovPayload);
     _cache.overrides = {...(getOverrides()||{}), ...ovPayload};
   }catch(e){
-    stageSingleShiftChange(empId, empName, date, currentShift, shiftVal, { leaveType: typeCode, reason });
+    for(const d of allDates){
+      try{ stageSingleShiftChange(empId, empName, d, currentShift, shiftVal, { leaveType: typeCode, reason }); }catch(e2){}
+    }
+  }
+  // Extra leave records for other days (first day already pushed above)
+  for(const d of allDates){
+    if(d === date) continue;
+    try{
+      await fbPush('leaves', Object.assign({}, leaveData, { from:d, to:d }));
+    }catch(e){}
   }
   closeModal();
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
