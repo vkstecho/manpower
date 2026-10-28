@@ -607,7 +607,7 @@ function openLearnSection(section){
       setTimeout(_sendAdminInfo, 2000);
       setTimeout(_sendAdminInfo, 4000);
     }
-  } else if(section === 'msai'){
+  } else if(section === 'msai_REMOVED' && false){
     msaiView.style.display='flex';
   } else {
     comingSoonView.style.display='block';
@@ -1983,7 +1983,7 @@ function applyLearnModuleVisibility(){
     met_train: ['metrain'],
     supskill: ['supskill'],
     mr_skill: ['mrskill','metcost','mrmpres'],
-    ms_ai: ['msai','excelexpert']
+    ms_ai: ['excelexpert']
   };
   const sectionToKey = {};
   Object.keys(keyToSection).forEach(k=> keyToSection[k].forEach(s=> sectionToKey[s]=k));
@@ -2416,29 +2416,84 @@ function _learnModuleUrls(){
 
 function injectLearnModuleButtons(){
   try{
-    if(document.getElementById('learnBuiltInModules')) return;
-    const host = document.getElementById('learnScreen');
-    if(!host) return;
-    const urls = _learnModuleUrls();
-    const wrap = document.createElement('div');
-    wrap.id = 'learnBuiltInModules';
-    wrap.style.cssText = 'padding:12px 16px;display:flex;flex-direction:column;gap:12px';
-    function mkBtn(id, label, bg, url, title){
-      const b = document.createElement('button');
+    var slot = document.getElementById('learnModuleSlot')
+      || document.getElementById('learnMainButtons')
+      || document.getElementById('learnScreen');
+    if(!slot) return;
+    var urls = _learnModuleUrls();
+    var wrap = document.getElementById('learnBuiltInModules');
+    if(!wrap){
+      wrap = document.createElement('div');
+      wrap.id = 'learnBuiltInModules';
+      // Always first inside slot
+      if(slot.id === 'learnModuleSlot'){
+        slot.innerHTML = '';
+        slot.appendChild(wrap);
+      } else {
+        slot.insertBefore(wrap, slot.firstChild);
+      }
+    }
+    wrap.style.cssText = 'display:flex;flex-direction:column;gap:14px;width:100%;box-sizing:border-box;margin-bottom:4px';
+
+    function styleBtn(b, bg, border, iconBg){
       b.type = 'button';
-      b.id = id;
-      b.textContent = label;
-      b.style.cssText = 'width:100%;padding:16px 18px;border-radius:16px;border:1.5px solid rgba(15,23,42,.12);background:'+bg+';color:#0f172a;font-weight:900;font-size:16px;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.08)';
+      b.className = 'learn-module-btn';
+      b.style.cssText = [
+        'width:100%',
+        'min-height:72px',
+        'padding:20px 18px',
+        'border-radius:18px',
+        'border:2.5px solid '+border,
+        'background:'+bg,
+        'color:#0f172a',
+        '-webkit-text-fill-color:#0f172a',
+        'font-weight:900',
+        'font-size:18px',
+        'line-height:1.3',
+        'text-align:left',
+        'cursor:pointer',
+        'font-family:inherit',
+        'box-shadow:0 6px 18px rgba(15,23,42,.12)',
+        'display:flex',
+        'align-items:center',
+        'gap:14px'
+      ].join(';');
+      try{
+        b.style.setProperty('color','#0f172a','important');
+        b.style.setProperty('-webkit-text-fill-color','#0f172a','important');
+        b.style.setProperty('opacity','1','important');
+      }catch(e){}
+    }
+
+    function ensureBtn(id, label, bg, border, url, title){
+      var b = document.getElementById(id);
+      if(!b){
+        b = document.createElement('button');
+        b.id = id;
+        wrap.appendChild(b);
+      } else if(b.parentNode !== wrap){
+        wrap.appendChild(b);
+      }
+      b.innerHTML = '<span style="font-size:28px;line-height:1">'+label.split('  ')[0]+'</span><span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:18px">'+label.replace(/^📄\s*|^🎯\s*/,'')+'</span><span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, bg, border);
       b.onclick = function(){ openLearnIframeModule(title, url); };
       return b;
     }
-    wrap.appendChild(mkBtn('learnBtnResumeBuilder', '📄  Resume Builder', 'linear-gradient(135deg,#fef3c7,#fde68a)', urls.resume, 'Resume Builder'));
-    wrap.appendChild(mkBtn('learnBtnOneToOne', '🎯  One-to-One Guidance', 'linear-gradient(135deg,#d1fae5,#a7f3d0)', urls.guidance, 'One-to-One Guidance'));
-    const admin = document.getElementById('learnAdminPanel');
-    if(admin && admin.parentNode) admin.parentNode.insertBefore(wrap, admin.nextSibling);
-    else host.insertBefore(wrap, host.firstChild);
+
+    ensureBtn('learnBtnResumeBuilder', '📄  Resume Builder', '#fef3c7', '#d97706', urls.resume, 'Resume Builder');
+    ensureBtn('learnBtnOneToOne', '🎯  One-to-One Guidance', '#bbf7d0', '#16a34a', urls.guidance, 'One-to-One Guidance');
+
+    // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
+    try{
+      var custom = document.getElementById('learnCustomButtons');
+      var main = document.getElementById('learnMainButtons');
+      if(custom && main && custom.parentNode === main){
+        main.appendChild(custom); // ensure last among main buttons area
+      }
+    }catch(e){}
   }catch(e){ console.warn('[learn modules]', e); }
 }
+
 
 // Hook renderLearnScreen
 (function(){

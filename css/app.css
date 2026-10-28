@@ -858,3 +858,63 @@ body.light .fp-modal button.fp-setup-no{
   -webkit-text-fill-color:#0f172a !important;
   background:#f1f5f9 !important;
 }
+
+
+/* ===== v3.2.3 Learn module buttons — ALWAYS readable ===== */
+#learnBuiltInModules .learn-module-btn,
+#learnBtnResumeBuilder,
+#learnBtnOneToOne,
+button#learnBtnResumeBuilder,
+button#learnBtnOneToOne {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  opacity: 1 !important;
+  font-weight: 900 !important;
+  font-size: 17px !important;
+  text-shadow: none !important;
+}
+#learnBtnResumeBuilder {
+  background: #fef3c7 !important;
+  border: 2.5px solid #d97706 !important;
+}
+#learnBtnOneToOne {
+  background: #bbf7d0 !important;
+  border: 2.5px solid #16a34a !important;
+}
+body.light #learnBtnResumeBuilder,
+body.light #learnBtnOneToOne,
+body.dark #learnBtnResumeBuilder,
+body.dark #learnBtnOneToOne {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+
+/* v3.2.4 Learn hub visibility */
+body.light #learnMainButtons .lc-sub,
+#learnMainButtons .lc-sub,
+.learn-screen .lc-sub {
+  color: #1e293b !important;
+  -webkit-text-fill-color: #1e293b !important;
+  opacity: 1 !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+}
+#learnBuiltInModules .learn-module-btn,
+#learnBtnResumeBuilder,
+#learnBtnOneToOne {
+  min-height: 72px !important;
+  padding: 20px 18px !important;
+  font-size: 18px !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+#learnBtnResumeBuilder, #learnBtnResumeBuilder * {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+#learnBtnOneToOne, #learnBtnOneToOne * {
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+#learnModuleSlot { order: -1; }

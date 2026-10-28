@@ -74,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300022"></script>
+<script type="module" src="js/firebase-init.js?v=300024"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300022">
+<link rel="stylesheet" href="css/app.css?v=300024">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -771,6 +771,9 @@ body.login-open{overflow:auto}
 
   <!-- ════ SKILL HUB ════ -->
   <div id="learnMainButtons" style="padding:0 16px 16px">
+    <!-- Built-in modules first: Resume + One-to-One -->
+    <div id="learnModuleSlot" style="margin-bottom:16px"></div>
+
 
     <!-- ══ MET TRAIN PRO ══ -->
     <div style="margin-bottom:14px">
@@ -778,8 +781,8 @@ body.login-open{overflow:auto}
         <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(249,115,22,.45),rgba(251,146,60,.25));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">⚙️</div>
         <div style="flex:1">
           <div style="font-size:16px;font-weight:900;color:#c2410c;margin-bottom:3px">Met Train PRO</div>
-          <div class="lc-sub" style="color:#334155">SOPs · Safety · Skills · PM · Quiz</div>
-          <div style="margin-top:7px;display:inline-block;background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.55);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif">✓ FREE — for everyone</div>
+          <div class="lc-sub" style="color:#1e293b !important;-webkit-text-fill-color:#1e293b;font-weight:700;font-size:13px;opacity:1">SOPs · Safety · Skills · PM · Quiz</div>
+          <div style="margin-top:7px;display:inline-block;background:rgba(34,197,94,.25);border:1px solid rgba(34,197,94,.55);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#15803d;font-family:'Barlow Condensed',sans-serif">✓ FREE — for everyone</div>
         </div>
         <div class="lc-arrow" style="color:#fb923c">›</div>
       </button>
@@ -802,7 +805,7 @@ body.login-open{overflow:auto}
         </div>
         <div style="flex:1">
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:900;letter-spacing:1px;margin-bottom:2px;color:#0d9488;-webkit-text-fill-color:#0d9488">SupSkill</div>
-          <div class="lc-sub" style="color:#334155">Shift Report · OD Targets · Boat Calculator · Performance</div>
+          <div class="lc-sub" style="color:#1e293b !important;-webkit-text-fill-color:#1e293b;font-weight:700;font-size:13px;opacity:1">Shift Report · OD Targets · Boat Calculator · Performance</div>
           <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px;background:rgba(0,180,160,.16);border:1px solid rgba(0,180,160,.40);border-radius:6px;padding:2px 10px;font-size:10px;font-weight:900;color:#00b4a0;font-family:'Barlow Condensed',sans-serif">
             <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;display:inline-block;animation:pulse 2s infinite"></span>
             LIVE · Supervisor Platform
@@ -818,29 +821,13 @@ body.login-open{overflow:auto}
         <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(220,38,38,.35),rgba(249,115,22,.20));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🔑</div>
         <div style="flex:1">
           <div style="font-size:16px;font-weight:900;color:#b91c1c;margin-bottom:3px">MR Skill</div>
-          <div class="lc-sub" style="color:#334155">MetCost Pro · MRM Presentation · Manager tools</div>
+          <div class="lc-sub" style="color:#1e293b !important;-webkit-text-fill-color:#1e293b;font-weight:700;font-size:13px;opacity:1">MetCost Pro · MRM Presentation · Manager tools</div>
           <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
-            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">Manager Only</span>
+            <span style="font-size:10px;font-weight:900;color:#15803d;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">Manager Only</span>
           </div>
         </div>
         <div class="lc-arrow" style="color:#ef4444">›</div>
-      </button>
-    </div>
-
-    <!-- ══ MS & AI TOOLS HUB ══ -->
-    <div style="margin-bottom:14px">
-      <button onclick="openLearnSection('msai')" style="width:100%;background:linear-gradient(135deg,rgba(56,189,248,.24),rgba(99,102,241,.12));border:2px solid rgba(56,189,248,.55);border-radius:18px;padding:18px 16px;text-align:left;cursor:pointer;font-family:inherit;transition:all .18s;display:flex;align-items:center;gap:14px;" onmousedown="this.style.transform='scale(.97)'" onmouseup="this.style.transform=''" onmouseleave="this.style.transform=''">
-        <div style="width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,rgba(56,189,248,.40),rgba(99,102,241,.20));display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0">🤖</div>
-        <div style="flex:1">
-          <div style="font-size:16px;font-weight:900;color:#38bdf8;margin-bottom:3px">MS & AI — Fast Growth</div>
-          <div class="lc-sub">Excel · Word · PowerPoint · AI Tools · Productivity</div>
-          <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
-            <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
-            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">1 Module LIVE</span>
-          </div>
-        </div>
-        <div class="lc-arrow" style="color:#38bdf8">›</div>
       </button>
     </div>
 
@@ -951,7 +938,7 @@ body.login-open{overflow:auto}
           <div style="font-size:12px;color:rgba(255,255,255,.55)">Excel Formulas · Industry Examples · Practice · Quiz</div>
           <div style="margin-top:7px;display:inline-flex;align-items:center;gap:5px">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite"></span>
-            <span style="font-size:10px;font-weight:900;color:#22c55e;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">LIVE</span>
+            <span style="font-size:10px;font-weight:900;color:#15803d;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px">LIVE</span>
           </div>
         </div>
         <div style="color:#22c55e;font-size:20px">›</div>
@@ -1515,20 +1502,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300022"></script>
-<script src="js/app-login.js?v=300022"></script>
-<script src="js/app-login-device.js?v=300022"></script>
-<script src="js/app-login-session.js?v=300022"></script>
-<script src="js/app-schedule.js?v=300022"></script>
-<script src="js/app-team.js?v=300022"></script>
-<script src="js/app-team-import.js?v=300022"></script>
-<script src="js/app-team-print-learn.js?v=300022"></script>
-<script src="js/app.js?v=300022"></script>
-<script src="js/mp-commercial.js?v=300022"></script>
-<script src="js/a11y.js?v=300022"></script>
-<script src="js/sched-clipboard.js?v=300022"></script>
-<script src="js/sched-undo.js?v=300022"></script>
-<script src="js/sched-cell-keys.js?v=300022"></script>
+<script src="js/app-core.js?v=300024"></script>
+<script src="js/app-login.js?v=300024"></script>
+<script src="js/app-login-device.js?v=300024"></script>
+<script src="js/app-login-session.js?v=300024"></script>
+<script src="js/app-schedule.js?v=300024"></script>
+<script src="js/app-team.js?v=300024"></script>
+<script src="js/app-team-import.js?v=300024"></script>
+<script src="js/app-team-print-learn.js?v=300024"></script>
+<script src="js/app.js?v=300024"></script>
+<script src="js/mp-commercial.js?v=300024"></script>
+<script src="js/a11y.js?v=300024"></script>
+<script src="js/sched-clipboard.js?v=300024"></script>
+<script src="js/sched-undo.js?v=300024"></script>
+<script src="js/sched-cell-keys.js?v=300024"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 
