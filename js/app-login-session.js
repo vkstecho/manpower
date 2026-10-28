@@ -785,7 +785,18 @@ function doLogout(){
   // ── 5. Firebase sign-out FIRST so Phone session is cleared only on Logout ──
   try{ if(window._fbSignOut) window._fbSignOut().catch(()=>{}); }catch(e){}
 
-  // ── 6. Redirect ──
+  // ── 6. Hide app UI immediately (avoid white screen) ──
+  try{
+    var main=document.getElementById('mainApp')||document.getElementById('appRoot');
+    if(main) main.style.display='none';
+    var hdr=document.getElementById('mainHdr');
+    if(hdr) hdr.style.display='none';
+    var login=document.getElementById('loginScreen');
+    if(login){ login.style.display='flex'; login.classList.add('show'); login.style.visibility='visible'; }
+    var ls=document.getElementById('loadingScreen');
+    if(ls){ ls.style.cssText='display:none!important;opacity:0;pointer-events:none;visibility:hidden'; }
+  }catch(e){}
+  // ── 7. Redirect ──
   window.location.href = window.location.pathname + '?logout=' + Date.now();
   try{
     const req = indexedDB.open('mp_db', 1);
@@ -5996,27 +6007,35 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
   document.addEventListener('click', function(){ setTimeout(fix, 400); });
 })();
 
-/* OTP step UI: hide learn/install chrome */
+/* OTP step UI: hide learn/install chrome (safe, no MutationObserver) */
 (function(){
   function markOtp(on){
-    var ls = document.getElementById('loginScreen');
-    if(!ls) return;
-    if(on) ls.classList.add('otp-step'); else ls.classList.remove('otp-step');
-  }
-  var obs = new MutationObserver(function(){
     try{
-      var step2 = document.getElementById('loginStep2');
-      var on = step2 && (step2.style.display!=='none' && step2.offsetParent!==null || step2.classList.contains('show'));
-      // also check visibility
-      if(step2){
-        var st = window.getComputedStyle(step2);
-        on = st.display!=='none' && st.visibility!=='hidden';
-      }
-      markOtp(!!on);
+      var ls = document.getElementById('loginScreen');
+      if(!ls) return;
+      if(on) ls.classList.add('otp-step'); else ls.classList.remove('otp-step');
     }catch(e){}
-  });
-  document.addEventListener('DOMContentLoaded', function(){
-    var root = document.getElementById('loginScreen')||document.body;
-    obs.observe(root, {attributes:true, childList:true, subtree:true, attributeFilter:['style','class']});
-  });
+  }
+  var _origShowStep = window.showStep;
+  if(typeof _origShowStep === 'function'){
+    window.showStep = function(n){
+      try{ markOtp(Number(n)===2 || Number(n)===3); }catch(e){}
+      return _origShowStep.apply(this, arguments);
+    };
+  } else {
+    // poll lightly until showStep exists
+    var t = setInterval(function(){
+      if(typeof window.showStep === 'function' && !window.showStep._otpWrapped){
+        var o = window.showStep;
+        window.showStep = function(n){
+          try{ markOtp(Number(n)===2 || Number(n)===3); }catch(e){}
+          return o.apply(this, arguments);
+        };
+        window.showStep._otpWrapped = true;
+        clearInterval(t);
+      }
+    }, 200);
+    setTimeout(function(){ clearInterval(t); }, 15000);
+  }
 })();
+
