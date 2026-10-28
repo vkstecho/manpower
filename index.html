@@ -74,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300015"></script>
+<script type="module" src="js/firebase-init.js?v=300016"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300015">
+<link rel="stylesheet" href="css/app.css?v=300016">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -98,6 +98,13 @@ window.addEventListener('appinstalled', function () {
   html[dir="rtl"] .nb, html[dir="rtl"] .nav-bottom { direction: rtl; }
   html[dir="rtl"] .back-btn { flex-direction: row-reverse; }
   .i18n-miss { outline: 1px dashed #f472b6; background: rgba(244,114,182,.08); }
+
+#loginStep2 .login-card > div:empty,
+#loginStep2 .login-card > span:empty,
+#loginStep2 input:not([type]):not([id]),
+#loginStep2 .recaptcha-container:empty,
+#loginScreen #recaptcha-container:empty{display:none !important;height:0 !important;min-height:0 !important;padding:0 !important;margin:0 !important;border:none !important}
+#loginStep2 .g-recaptcha:empty{display:none !important}
 </style>
 
 <style id="mrSkillHubThemeCss">
@@ -145,18 +152,23 @@ html,body{overflow-x:hidden}
 body.login-open{overflow:auto}
 #loginScreen{overflow:auto;-webkit-overflow-scrolling:touch}
 #loginScreen.show{display:flex !important;visibility:visible !important;opacity:1 !important}
+#loginScreen:not(.show){display:none !important}
 #loadingScreen.hidden,#loadingScreen[style*="display:none"]{display:none !important;visibility:hidden !important}
 
 #loginInstallRow{display:flex;flex-direction:column;gap:12px;width:100%;max-width:360px;margin-bottom:14px;position:relative;z-index:2}
 #loginAndroidStoreBtn,#loginPwaBtn{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin:0;position:relative;z-index:1}
 #loginPwaBtn{margin-top:0 !important}
 @media (min-width: 960px){
-  #loginScreen.show, #loginScreen{
+  /* ONLY when .show — never force display on #loginScreen alone (blocked desktop login) */
+  #loginScreen.show{
     min-height:100vh;width:100%;max-width:none;
     display:flex !important;flex-direction:row !important;
     align-items:center;justify-content:center;gap:48px;
     padding:40px 48px;box-sizing:border-box;
     background:#0b1220 !important;
+  }
+  #loginScreen:not(.show){
+    display:none !important;
   }
   #mpDesktopPitch{
     display:block !important;flex:1 1 480px;max-width:520px;
@@ -195,6 +207,14 @@ body.login-open{overflow:auto}
 #loginScreen.otp-step #loginInstallRow,
 #loginScreen.otp-step #loginWaSupport,
 #loginScreen.otp-step #loginEmailSupport{display:none !important}
+
+#loginStep2 .login-card > div:empty,
+#loginStep2 .login-card > span:empty,
+#loginStep2 input:not([type]):not([id]),
+#loginStep2 .recaptcha-container:empty,
+#loginScreen #recaptcha-container:empty{display:none !important;height:0 !important;min-height:0 !important;padding:0 !important;margin:0 !important;border:none !important}
+#loginStep2 .g-recaptcha:empty{display:none !important}
+
 </style>
 
 
@@ -1492,20 +1512,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300015"></script>
-<script src="js/app-login.js?v=300015"></script>
-<script src="js/app-login-device.js?v=300015"></script>
-<script src="js/app-login-session.js?v=300015"></script>
-<script src="js/app-schedule.js?v=300015"></script>
-<script src="js/app-team.js?v=300015"></script>
-<script src="js/app-team-import.js?v=300015"></script>
-<script src="js/app-team-print-learn.js?v=300015"></script>
-<script src="js/app.js?v=300015"></script>
-<script src="js/mp-commercial.js?v=300015"></script>
-<script src="js/a11y.js?v=300015"></script>
-<script src="js/sched-clipboard.js?v=300015"></script>
-<script src="js/sched-undo.js?v=300015"></script>
-<script src="js/sched-cell-keys.js?v=300015"></script>
+<script src="js/app-core.js?v=300016"></script>
+<script src="js/app-login.js?v=300016"></script>
+<script src="js/app-login-device.js?v=300016"></script>
+<script src="js/app-login-session.js?v=300016"></script>
+<script src="js/app-schedule.js?v=300016"></script>
+<script src="js/app-team.js?v=300016"></script>
+<script src="js/app-team-import.js?v=300016"></script>
+<script src="js/app-team-print-learn.js?v=300016"></script>
+<script src="js/app.js?v=300016"></script>
+<script src="js/mp-commercial.js?v=300016"></script>
+<script src="js/a11y.js?v=300016"></script>
+<script src="js/sched-clipboard.js?v=300016"></script>
+<script src="js/sched-undo.js?v=300016"></script>
+<script src="js/sched-cell-keys.js?v=300016"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

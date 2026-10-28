@@ -964,3 +964,57 @@ async function saveAdminTeamSize(mgrKey){
 }
 window.openAdminTeamSizeModal = openAdminTeamSizeModal;
 window.saveAdminTeamSize = saveAdminTeamSize;
+
+/* v3.1.6 force G legend label+times from manager shift config */
+(function(){
+  function gCfg(){
+    try{
+      var cfg = (typeof getShiftConfigSync==='function' && getShiftConfigSync()) || {};
+      var shifts = cfg.shifts || cfg.shiftList || [];
+      var g = null;
+      for(var i=0;i<shifts.length;i++){
+        var s = shifts[i];
+        if(s && String(s.code||s.id||'').toUpperCase()==='G'){ g=s; break; }
+      }
+      var lab = (g && (g.label||g.name||g.title)) || 'General Shift';
+      lab = String(lab).trim();
+      if(!lab || lab==='G' || /^general$/i.test(lab)) lab = 'General Shift';
+      var st = (g && (g.start||g.startTime||g.from)) || '08:00';
+      var en = (g && (g.end||g.endTime||g.to)) || '20:00';
+      return {lab:lab, st:String(st).slice(0,5), en:String(en).slice(0,5)};
+    }catch(e){ return {lab:'General Shift', st:'08:00', en:'20:00'}; }
+  }
+  function apply(){
+    try{
+      var c = gCfg();
+      var want = c.lab + ' ' + c.st + '-' + c.en;
+      // Legend chips at bottom of schedule
+      document.querySelectorAll('[data-shift="G"], .leg-G, .legend-G, .ms-btn[data-shift="G"]').forEach(function(el){
+        // don't overwrite button letter-only chips that should stay "G"
+      });
+      // Text nodes next to G color chip in legend row
+      var legends = document.querySelectorAll('.sched-legend, .legend-row, #schedLegend, [class*="legend"]');
+      legends.forEach(function(row){
+        var txt = row.textContent || '';
+        if(/\bG\b/.test(txt) && /General/.test(txt) && txt.indexOf(c.st) < 0){
+          // replace trailing General without times
+          row.innerHTML = row.innerHTML.replace(/>\s*General\s*</g, '>'+c.lab+' '+c.st+'-'+c.en+'<');
+          row.innerHTML = row.innerHTML.replace(/(G<\/[^>]+>)\s*General\b/g, '$1 '+c.lab+' '+c.st+'-'+c.en);
+        }
+      });
+      // Bottom legend line like: "L Leave  G General"
+      document.querySelectorAll('span, div, label, p').forEach(function(el){
+        if(el.children && el.children.length > 2) return;
+        var t = (el.textContent||'').trim();
+        if(t === 'General' || t === 'G General' || t === 'General '){
+          el.textContent = c.lab + ' ' + c.st + '-' + c.en;
+        }
+      });
+    }catch(e){}
+  }
+  window.mpForceGLegend316 = apply;
+  setInterval(apply, 2000);
+  document.addEventListener('click', function(){ setTimeout(apply, 200); });
+  if(document.readyState==='complete') setTimeout(apply, 500);
+  else window.addEventListener('load', function(){ setTimeout(apply, 500); });
+})();

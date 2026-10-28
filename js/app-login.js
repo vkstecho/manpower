@@ -100,7 +100,13 @@ function showStep(n){
 function showPendingBox(msgHtml){
   try{
     const ls = document.getElementById('loginScreen');
-    if(ls){ ls.style.display='none'; ls.classList.remove('show'); }
+    if(ls){
+      ls.classList.remove('show');
+      ls.style.setProperty('display','none','important');
+      ls.style.visibility='hidden';
+      ls.style.opacity='0';
+      ls.style.pointerEvents='none';
+    }
     const mh = document.getElementById('mainHdr');
     const mc = document.getElementById('mainContent');
     if(mh) mh.style.display='none';
@@ -1638,7 +1644,13 @@ function _launchAsNewUser(userData){
     if(_mh) _mh.style.display='block';
     if(_mc) _mc.style.display='block';
     const ls = document.getElementById('loginScreen');
-    if(ls){ ls.style.display='none'; ls.classList.remove('show'); }
+    if(ls){
+      ls.classList.remove('show');
+      ls.style.setProperty('display','none','important');
+      ls.style.visibility='hidden';
+      ls.style.opacity='0';
+      ls.style.pointerEvents='none';
+    }
     const pb = document.getElementById('pendingBox');
     if(pb) pb.style.display='none';
   }catch(e){}
