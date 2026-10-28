@@ -4932,7 +4932,7 @@ function _showMyShiftBulkBar(empId, empName){
       <button type="button" onclick="clearMyShiftMulti()" style="border:none;background:transparent;color:var(--muted2);font-size:12px;cursor:pointer;font-weight:700">${L('Clear','Clear')}</button>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${shiftBtns}</div>
-    <div style="font-size:11px;color:var(--muted2)">${L('Shift चुनें → तुरंत save','Pick shift → saves immediately')} · ${L('Double-tap cell = single day picker','Double-tap cell = single day picker')}</div>
+    <div style="font-size:11px;color:var(--muted2)">${L('Shift चुनें → saves now','Pick shift → saves immediately')} · ${L('Double-tap cell = single day picker','Double-tap cell = single day picker')}</div>
   `;
   document.body.appendChild(bar);
 }
@@ -5994,4 +5994,29 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
   }
   setInterval(fix, 2000);
   document.addEventListener('click', function(){ setTimeout(fix, 400); });
+})();
+
+/* OTP step UI: hide learn/install chrome */
+(function(){
+  function markOtp(on){
+    var ls = document.getElementById('loginScreen');
+    if(!ls) return;
+    if(on) ls.classList.add('otp-step'); else ls.classList.remove('otp-step');
+  }
+  var obs = new MutationObserver(function(){
+    try{
+      var step2 = document.getElementById('loginStep2');
+      var on = step2 && (step2.style.display!=='none' && step2.offsetParent!==null || step2.classList.contains('show'));
+      // also check visibility
+      if(step2){
+        var st = window.getComputedStyle(step2);
+        on = st.display!=='none' && st.visibility!=='hidden';
+      }
+      markOtp(!!on);
+    }catch(e){}
+  });
+  document.addEventListener('DOMContentLoaded', function(){
+    var root = document.getElementById('loginScreen')||document.body;
+    obs.observe(root, {attributes:true, childList:true, subtree:true, attributeFilter:['style','class']});
+  });
 })();

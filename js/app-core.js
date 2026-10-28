@@ -341,3 +341,23 @@ try{
 async function _loadShareAppLink(){try{const s=await fbGet("settings/shareAppLink");window._shareAppLinkCache=s&&typeof s==="object"?s:{url:s?String(s):""};}catch(e){window._shareAppLinkCache={url:""};}}
 function openShareAppLinkAdmin(){if(typeof isAdmin!=="function"||!isAdmin()){toast("❌ Admin only");return;}const cur=(window._shareAppLinkCache&&window._shareAppLinkCache.url)||"https://play.google.com/store/apps/details?id=com.vkstech.manpower";openModal('<div class="modal-handle"></div><div class="modal-title">🔗 Share App Link</div><div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">This link is used when anyone taps <b>Share App</b>. Default is Play Store.</div><label style="font-size:11px;font-weight:700;color:var(--muted2)">URL</label><input id="ss_shareAppUrl" type="url" value="'+String(cur).replace(/"/g,"&quot;")+'" placeholder="https://play.google.com/store/apps/details?id=com.vkstech.manpower" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;margin:6px 0 14px;box-sizing:border-box"><button class="submit-btn" onclick="saveShareAppLinkAdmin()">💾 Save</button><button class="cancel-btn" onclick="closeModal()" style="margin-top:8px">Cancel</button>');}
 async function saveShareAppLinkAdmin(){const el=document.getElementById("ss_shareAppUrl");let url=(el&&el.value||"").trim();if(!url)url="https://play.google.com/store/apps/details?id=com.vkstech.manpower";try{await fbSet("settings/shareAppLink",{url:url,updatedAt:new Date().toISOString()});window._shareAppLinkCache={url:url};toast("✅ Share App link saved");closeModal()}catch(e){toast("❌ "+(e&&e.message||"Save failed"))}}
+
+/* v3.1.4: never WhatsApp yourself when editing own shift */
+(function(){
+  var _orig = typeof openWA === 'function' ? openWA : null;
+  if(!_orig) return;
+  window.openWA = function(phone, text){
+    try{
+      var ph = String(phone||'').replace(/\D/g,'').slice(-10);
+      var mine = '';
+      if(typeof SESSION!=='undefined' && SESSION){
+        mine = String(SESSION.mobile||SESSION.phone||'').replace(/\D/g,'').slice(-10);
+      }
+      if(ph && mine && ph === mine){
+        console.log('[WA] skip self', ph);
+        return; // no WA to self
+      }
+    }catch(e){}
+    return _orig.apply(this, arguments);
+  };
+})();

@@ -74,13 +74,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300013"></script>
+<script type="module" src="js/firebase-init.js?v=300014"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300013">
+<link rel="stylesheet" href="css/app.css?v=300014">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -115,10 +115,10 @@ window.addEventListener('appinstalled', function () {
 #learnMRSkillView .mrSkillHub-card .mrSkillHub-card-arrow{color:#c084fc!important}
 #learnMRSkillView .mrSkillHub-card.mrm .mrSkillHub-card-arrow{color:#f87171!important}
 /* Light */
-#learnMRSkillView.mrSkillHub-light{background:#eef2f7!important;color:#0f172a}
+#learnMRSkillView.mrSkillHub-light{background:#eef2f7!important;color:#f8fafc}
 #learnMRSkillView.mrSkillHub-light #mrSkillHubHeader{background:#fff!important;border-bottom-color:#cbd5e1!important}
 #learnMRSkillView.mrSkillHub-light #mrSkillHubHeader button,
-#learnMRSkillView.mrSkillHub-light #mrSkillThemeBtn{color:#0f172a!important;background:#f1f5f9!important;border-color:#94a3b8!important}
+#learnMRSkillView.mrSkillHub-light #mrSkillThemeBtn{color:#f8fafc!important;background:#f1f5f9!important;border-color:#94a3b8!important}
 #learnMRSkillView.mrSkillHub-light .mrSkillHub-title{color:#b91c1c!important}
 #learnMRSkillView.mrSkillHub-light .mrSkillHub-sub{color:#475569!important}
 #learnMRSkillView.mrSkillHub-light .mrSkillHub-card{background:linear-gradient(135deg,#f5f3ff,#e0f2fe)!important;border:2px solid #a78bfa!important;box-shadow:0 2px 8px rgba(15,23,42,.08)}
@@ -141,53 +141,57 @@ window.addEventListener('appinstalled', function () {
 
 <style id="mp-landing-desktop">
 #mpDesktopPitch{display:none}
+html,body{overflow-x:hidden}
+body.login-open{overflow:auto}
+#loginScreen{overflow:auto;-webkit-overflow-scrolling:touch}
+#loginInstallRow{display:flex;flex-direction:column;gap:12px;width:100%;max-width:360px;margin-bottom:14px;position:relative;z-index:2}
+#loginAndroidStoreBtn,#loginPwaBtn{display:flex;align-items:center;justify-content:center;width:100%;box-sizing:border-box;margin:0;position:relative;z-index:1}
+#loginPwaBtn{margin-top:0 !important}
 @media (min-width: 960px){
-  #loginLearnFullWidth{display:block !important}
-  #loginStep1 > .learn-top-btn-login{display:none !important}
-
-  body{background:#f1f5f9 !important}
   #loginScreen.show, #loginScreen{
-    min-height:100vh !important;width:100% !important;max-width:none !important;
-    display:flex !important;flex-direction:column !important;align-items:center !important;
-    justify-content:flex-start !important;gap:0 !important;padding:24px 40px 40px !important;
-    box-sizing:border-box !important;
-    background:linear-gradient(160deg,#f8fafc 0%,#e0f2fe 45%,#faf5ff 100%) !important;
-  }
-  /* Full-width Learn strip on desktop */
-  #loginStep1 > .learn-top-btn-login,
-  #loginStep1 > button.learn-top-btn-login{
-    max-width:920px !important;width:100% !important;margin-bottom:18px !important;
+    min-height:100vh;width:100%;max-width:none;
+    display:flex !important;flex-direction:row !important;
+    align-items:center;justify-content:center;gap:48px;
+    padding:40px 48px;box-sizing:border-box;
+    background:#0b1220 !important;
   }
   #mpDesktopPitch{
-    display:block !important;width:100%;max-width:920px;color:#0f172a;text-align:left;
-    padding:8px 4px 20px;order:-1;
+    display:block !important;flex:1 1 480px;max-width:520px;
+    color:#e2e8f0;text-align:left;padding:8px;
   }
   #mpDesktopPitch .tag{
     display:inline-block;padding:5px 12px;border-radius:999px;font-size:11px;font-weight:800;
-    background:#fff7ed;color:#c2410c;border:1px solid #fdba74;margin-bottom:12px;
+    background:rgba(249,115,22,.15);color:#fdba74;border:1px solid rgba(249,115,22,.35);margin-bottom:12px;
   }
   #mpDesktopPitch h1{
-    font-size:clamp(28px,3.2vw,38px);font-weight:900;line-height:1.2;margin:0 0 10px;
-    background:linear-gradient(90deg,#ea580c,#7c3aed,#0284c7);
+    font-size:clamp(28px,3vw,36px);font-weight:900;line-height:1.2;margin:0 0 12px;
+    background:linear-gradient(90deg,#fb923c,#c084fc,#38bdf8);
     -webkit-background-clip:text;background-clip:text;color:transparent;
   }
-  #mpDesktopPitch .lead{margin:0 0 6px;font-size:15px;color:#475569;line-height:1.55}
-  #mpDesktopPitch ul{margin:14px 0 0;padding:0;list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:10px 24px}
-  #mpDesktopPitch li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:#334155;line-height:1.4}
-  #mpDesktopPitch li .ic{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+  #mpDesktopPitch .lead{margin:0 0 8px;font-size:15px;color:#94a3b8;line-height:1.55}
+  #mpDesktopPitch ul{margin:16px 0 0;padding:0;list-style:none}
+  #mpDesktopPitch li{display:flex;gap:12px;align-items:flex-start;margin:12px 0;font-size:14px;color:#cbd5e1;line-height:1.45}
+  #mpDesktopPitch li .ic{font-size:18px;width:26px;text-align:center;flex-shrink:0}
+  #mpDesktopPitch li strong{color:#f8fafc}
   #loginStep1{
-    flex:0 0 auto !important;width:100% !important;max-width:420px !important;
-    background:#ffffff !important;border:1px solid #e2e8f0 !important;
-    border-radius:24px !important;padding:22px 22px 28px !important;
-    box-shadow:0 20px 50px rgba(15,23,42,.08) !important;
-    box-sizing:border-box !important;
+    flex:0 0 400px;width:400px;max-width:400px;
+    background:rgba(15,23,42,.85);border:1px solid rgba(148,163,184,.2);
+    border-radius:24px;padding:22px 22px 28px;
+    box-shadow:0 24px 60px rgba(0,0,0,.45);box-sizing:border-box;
   }
-  /* Desktop: stack pitch full width then login card centered */
-  #loginScreen{flex-direction:column !important;align-items:center !important}
+  #loginLearnFullWidth{display:none !important}
 }
 @media (max-width: 959px){
   #mpDesktopPitch{display:none !important}
+  #loginLearnFullWidth{display:none !important}
 }
+/* Hide marketing chrome on OTP step */
+#loginScreen.otp-step #loginLearnFullWidth,
+#loginScreen.otp-step .learn-top-btn-login,
+#loginScreen.otp-step #loginHowToBtn,
+#loginScreen.otp-step #loginInstallRow,
+#loginScreen.otp-step #loginWaSupport,
+#loginScreen.otp-step #loginEmailSupport{display:none !important}
 </style>
 
 
@@ -269,11 +273,11 @@ window.addEventListener('appinstalled', function () {
     <h1>India’s First Automatic Shift Schedule Maker</h1>
     <p class="lead">Customizable manpower &amp; shift platform — schedule, leave, team &amp; learning in one app.</p>
     <ul>
-      <li><span class="ic">⚡</span><div><strong style="color:#0f172a">Auto shift scheduling</strong><br>Build full team rosters in minutes</div></li>
-      <li><span class="ic">🧩</span><div><strong style="color:#0f172a">Fully customizable</strong><br>Shifts, sections, machines, leave types</div></li>
-      <li><span class="ic">📄</span><div><strong style="color:#0f172a">Free Resume Builder</strong><br>Inside Learn &amp; Grow for every member</div></li>
-      <li><span class="ic">📊</span><div><strong style="color:#0f172a">Free Excel Formula Helpbook</strong><br>Practical formulas for supervisors</div></li>
-      <li><span class="ic">🤖</span><div><strong style="color:#0f172a">Guided 1‑to‑1 AI support</strong><br>WhatsApp &amp; email care for work problems</div></li>
+      <li><span class="ic">⚡</span><div><strong style="color:#f8fafc">Auto shift scheduling</strong><br>Build full team rosters in minutes</div></li>
+      <li><span class="ic">🧩</span><div><strong style="color:#f8fafc">Fully customizable</strong><br>Shifts, sections, machines, leave types</div></li>
+      <li><span class="ic">📄</span><div><strong style="color:#f8fafc">Free Resume Builder</strong><br>Inside Learn &amp; Grow for every member</div></li>
+      <li><span class="ic">📊</span><div><strong style="color:#f8fafc">Free Excel Formula Helpbook</strong><br>Practical formulas for supervisors</div></li>
+      <li><span class="ic">🤖</span><div><strong style="color:#f8fafc">Guided 1‑to‑1 AI support</strong><br>WhatsApp &amp; email care for work problems</div></li>
     </ul>
   </div>
 
@@ -302,13 +306,13 @@ window.addEventListener('appinstalled', function () {
       <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower"
          target="_blank" rel="noopener"
          style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:12px;text-decoration:none;
-                background:#01875f;color:#fff;font-weight:800;font-size:14px">
+                background:#01875f;color:#fff;font-weight:800;font-size:14px;width:100%;box-sizing:border-box">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.04c-.34-.17-.55-.5-.55-.89V1.85c0-.39.21-.72.55-.89l11.4 11.04L3.18 23.04zM14.53 13.3l2.73 2.64-9.9 5.55 7.17-8.19zM14.53 10.7L7.36 2.51l9.9 5.55-2.73 2.64zM17.86 9.66l2.85 1.6c.9.5.9 1.8 0 2.3l-2.85 1.6-3.12-3.02 3.12-2.48z"/></svg>
         Get it on Google Play
       </a>
       <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()"
         style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:12px;cursor:pointer;box-sizing:border-box;
-               background:#fff7ed;border:2px solid #fb923c;font-size:14px;font-weight:800;color:#c2410c;margin:0">
+               background:rgba(249,115,22,.12);border:2px solid rgba(249,115,22,.55);font-size:14px;font-weight:800;color:#fdba74;margin:0">
         📲 <span id="loginPwaLabel">Install on iPhone / Desktop (PWA)</span>
       </button>
     </div>
@@ -1485,20 +1489,20 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/i18n_locale.js"></script>
 <script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300013"></script>
-<script src="js/app-login.js?v=300013"></script>
-<script src="js/app-login-device.js?v=300013"></script>
-<script src="js/app-login-session.js?v=300013"></script>
-<script src="js/app-schedule.js?v=300013"></script>
-<script src="js/app-team.js?v=300013"></script>
-<script src="js/app-team-import.js?v=300013"></script>
-<script src="js/app-team-print-learn.js?v=300013"></script>
-<script src="js/app.js?v=300013"></script>
-<script src="js/mp-commercial.js?v=300013"></script>
-<script src="js/a11y.js?v=300013"></script>
-<script src="js/sched-clipboard.js?v=300013"></script>
-<script src="js/sched-undo.js?v=300013"></script>
-<script src="js/sched-cell-keys.js?v=300013"></script>
+<script src="js/app-core.js?v=300014"></script>
+<script src="js/app-login.js?v=300014"></script>
+<script src="js/app-login-device.js?v=300014"></script>
+<script src="js/app-login-session.js?v=300014"></script>
+<script src="js/app-schedule.js?v=300014"></script>
+<script src="js/app-team.js?v=300014"></script>
+<script src="js/app-team-import.js?v=300014"></script>
+<script src="js/app-team-print-learn.js?v=300014"></script>
+<script src="js/app.js?v=300014"></script>
+<script src="js/mp-commercial.js?v=300014"></script>
+<script src="js/a11y.js?v=300014"></script>
+<script src="js/sched-clipboard.js?v=300014"></script>
+<script src="js/sched-undo.js?v=300014"></script>
+<script src="js/sched-cell-keys.js?v=300014"></script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

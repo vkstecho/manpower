@@ -5329,10 +5329,12 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
     else typeCode='CL';
   }
   // Manager marks leave → APPROVED immediately (no pending approval notification)
+  const _bulkDates = (window._myShiftPendingLeaveDates && window._myShiftPendingLeaveDates.length)
+    ? window._myShiftPendingLeaveDates.slice().sort() : [date];
   const leaveData={
     empId, empName,
     section: (getEmps().find(e=>e.id===empId)||{}).sec||'',
-    from:date, to:date, days:1,
+    from:_bulkDates[0], to:_bulkDates[_bulkDates.length-1], days:_bulkDates.length,
     leaveType: reason,
     type: typeCode,
     status:'approved',
@@ -5379,6 +5381,12 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
     }catch(e){}
   }
   closeModal();
+  try{ window._myShiftPendingLeaveDates = null; }catch(e){}
+  try{ if(window._myShiftMultiSel) window._myShiftMultiSel.clear(); }catch(e){}
+  try{ document.querySelectorAll('.ms-day.selected,.ms-day.ms-selected,td.cell-selected').forEach(function(el){ el.classList.remove('selected','ms-selected','cell-selected'); }); }catch(e){}
+  try{ var bar=document.getElementById('myShiftBulkBar')||document.getElementById('multiSelectBar'); if(bar) bar.style.display='none'; }catch(e){}
+  /*_bulkLeaveCleared314*/
+
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
   try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
 

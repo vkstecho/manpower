@@ -2300,3 +2300,59 @@ async function toggleLearnModuleVisibility(modId, visible){
   toast(visible ? '✅ Module visible to users' : '✅ Module hidden for users');
 }
 window.toggleLearnModuleVisibility = toggleLearnModuleVisibility;
+
+/* v3.1.4 Learn: visible Delete + dark fonts */
+async function renderLearnCustomButtons(){
+  const host = document.getElementById('learnCustomButtons');
+  if(!host) return;
+  let cfg = {};
+  try{ cfg = await _loadLearnConfig(); }catch(e){}
+  try{ applyLearnModuleVisibility(); }catch(e){}
+  const myMob = String((typeof SESSION!=='undefined'&&SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
+  const isAdm = typeof isAdmin==='function' && isAdmin();
+  const list = (cfg.buttons||[]).filter(b=>{
+    if(!b||!b.name) return false;
+    if(b.memberOnly){
+      const mm = String(b.memberMobile||'').replace(/\D/g,'').slice(-10);
+      return (mm && mm===myMob) || isAdm;
+    }
+    return true;
+  });
+  if(!list.length){ host.innerHTML=''; return; }
+  host.innerHTML = list.map((b,bi)=>{
+    const subs = (b.subs||[]).map(s=>`
+      <a href="${String(s.url||'').replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
+         style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:8px 0 0;
+                border-radius:12px;background:#fff;border:1.5px solid #e2e8f0;text-decoration:none;color:#0f172a">
+        <span style="font-size:18px">${s.type==='video'?'🎬':s.type==='audio'?'🎧':'🔗'}</span>
+        <span style="font-size:14px;font-weight:800;color:#0f172a">${String(s.title||'').replace(/</g,'')}</span>
+      </a>`).join('');
+    const adminBtns = isAdm ? `
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button type="button" onclick="event.stopPropagation();openLearnSubEditor(${bi})"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #fb923c;background:#fff7ed;color:#c2410c;font-weight:800;font-size:13px;cursor:pointer">✏️ Edit</button>
+        <button type="button" onclick="event.stopPropagation();if(confirm('Delete this button?'))deleteLearnButton(${bi})"
+          style="flex:1;padding:10px;border-radius:10px;border:1.5px solid #fb7185;background:#fff1f2;color:#be123c;font-weight:800;font-size:13px;cursor:pointer">🗑️ Delete</button>
+      </div>` : '';
+    return `<div style="padding:16px;border-radius:16px;border:2px solid #fdba74;background:#fffbeb;margin-bottom:12px">
+      <div style="font-weight:900;font-size:16px;color:#9a3412">${b.icon||'📚'} ${String(b.name).replace(/</g,'')}</div>
+      ${subs || '<div style="font-size:13px;color:#64748b;margin-top:8px;font-weight:700">No links yet</div>'}
+      ${adminBtns}
+    </div>`;
+  }).join('');
+}
+window.renderLearnCustomButtons = renderLearnCustomButtons;
+
+async function deleteLearnButton(idx){
+  try{
+    const cfg = await _loadLearnConfig();
+    cfg.buttons = (cfg.buttons||[]).filter((_,i)=>i!==idx);
+    await _saveLearnConfig(cfg);
+    window._learnConfigCache = cfg;
+    toast('✅ Button deleted');
+    try{ closeModal(); }catch(e){}
+    try{ renderLearnCustomButtons(); }catch(e){}
+    try{ if(typeof openLearnButtonsAdmin==='function') setTimeout(openLearnButtonsAdmin, 200); }catch(e){}
+  }catch(e){ toast('❌ Delete failed'); }
+}
+window.deleteLearnButton = deleteLearnButton;
