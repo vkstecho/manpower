@@ -1975,25 +1975,33 @@ async function toggleLearnModuleVisibility(modId, visible){
 function applyLearnModuleVisibility(){
   const cfg = window._learnConfigCache || {};
   const hidden = new Set(cfg.hiddenModules || []);
-  const map = {
-    met_train: ['met_train','met-train','Met Train'],
-    supskill: ['supskill','SupSkill'],
-    mr_skill: ['mr_skill','mr-skill','MR Skill'],
-    ms_ai: ['ms_ai','ms-ai','MS & AI']
+  const allow = cfg.moduleAllowMobiles || {}; // { met_train: ['98765...'], ... }
+  const myMob = String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
+  const isAdm = (typeof isAdmin==='function' && isAdmin());
+  // Map admin keys → openLearnSection ids
+  const keyToSection = {
+    met_train: ['metrain'],
+    supskill: ['supskill'],
+    mr_skill: ['mrskill','metcost','mrmpres'],
+    ms_ai: ['msai','excelexpert']
   };
-  document.querySelectorAll('#learnScreen [data-learn-mod], #learnScreen .learn-card, #learnScreen a, #learnScreen button').forEach(el=>{
-    const id = el.getAttribute('data-learn-mod') || '';
-    const text = (el.textContent||'');
-    for(const [key, aliases] of Object.entries(map)){
-      if(hidden.has(key) && (id===key || aliases.some(a=>text.includes(a)))){
-        el.style.display = 'none';
-      }
+  const sectionToKey = {};
+  Object.keys(keyToSection).forEach(k=> keyToSection[k].forEach(s=> sectionToKey[s]=k));
+
+  document.querySelectorAll('#learnScreen button[onclick*="openLearnSection"]').forEach(btn=>{
+    const m = String(btn.getAttribute('onclick')||'').match(/openLearnSection\('([^']+)'\)/);
+    if(!m) return;
+    const sec = m[1];
+    const key = sectionToKey[sec] || sec;
+    let show = true;
+    if(hidden.has(key) || hidden.has(sec)) show = false;
+    // Optional allow-list: if mobiles listed, only those mobiles (+ admin) see it
+    const list = allow[key] || allow[sec] || [];
+    if(Array.isArray(list) && list.length){
+      const norm = list.map(x=>String(x).replace(/\D/g,'').slice(-10)).filter(Boolean);
+      if(!isAdm && (!myMob || norm.indexOf(myMob)<0)) show = false;
     }
-  });
-  // Also hide by card titles
-  document.querySelectorAll('#learnScreen div').forEach(el=>{
-    const t = (el.textContent||'').trim();
-    if(hidden.has('met_train') && t.startsWith('Met Train')) el.closest('[onclick],a,button,div') && (el.style.opacity='1');
+    btn.style.display = show ? '' : 'none';
   });
 }
 
@@ -2111,4 +2119,128 @@ async function renderLearnCustomButtons(){
     if(typeof hook==='function') hook.apply(this, arguments);
     _loadLearnConfig().then(()=>{ try{ applyLearnModuleVisibility(); renderLearnCustomButtons(); }catch(e){} });
   };
+})();
+
+
+
+/* ===== Learn visibility + edit custom button (v3.1.2) ===== */
+async function openLearnButtonsAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  const cfg = await _loadLearnConfig();
+  const hidden = new Set(cfg.hiddenModules || []);
+  const allow = cfg.moduleAllowMobiles || {};
+  const modules = [
+    {id:'met_train', name:'Met Train PRO'},
+    {id:'supskill', name:'SupSkill'},
+    {id:'mr_skill', name:'MR Skill'},
+    {id:'ms_ai', name:'MS & AI — Fast Growth'}
+  ];
+  const modRows = modules.map(m=>{
+    const mobiles = (allow[m.id]||[]).join(', ');
+    return `<div style="padding:12px;border:1px solid var(--border2);border-radius:12px;margin-bottom:8px;background:var(--card)">
+      <label style="display:flex;align-items:center;gap:10px">
+        <input type="checkbox" ${hidden.has(m.id)?'':'checked'} onchange="toggleLearnModuleVisibility('${m.id}', this.checked)">
+        <span style="font-weight:800;flex:1">${m.name}</span>
+        <span style="font-size:11px;color:var(--muted2)">${hidden.has(m.id)?'Hidden':'Visible'}</span>
+      </label>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted2)">Show only to mobiles (comma-separated, blank = everyone when visible)</div>
+      <input class="inp-field" style="margin-top:4px;font-size:13px" id="mod_mob_${m.id}" value="${mobiles.replace(/"/g,'&quot;')}"
+        placeholder="e.g. 9876543210, 9123456789"
+        onchange="saveModuleAllowMobiles('${m.id}', this.value)">
+    </div>`;
+  }).join('');
+
+  const buttons = cfg.buttons || [];
+  const btnRows = buttons.map((b,i)=>`
+    <div style="padding:12px;border:1.5px solid rgba(249,115,22,.35);border-radius:12px;margin-bottom:10px;background:linear-gradient(135deg,rgba(249,115,22,.06),rgba(168,85,247,.05))">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center">
+        <div style="font-weight:900;font-size:15px;color:#c2410c">${(b.icon||'🔗')} ${String(b.name||'').replace(/</g,'')}</div>
+        <div style="display:flex;gap:6px">
+          <button type="button" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--card);font-weight:800;cursor:pointer;font-size:12px"
+            onclick="openLearnSubEditor(${i})">✏️ Edit / Subs</button>
+          <button type="button" style="padding:8px 12px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.08);color:#be123c;font-weight:800;cursor:pointer;font-size:12px"
+            onclick="deleteLearnButton(${i})">Remove</button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:6px">${(b.subs||[]).length} sub-items · ${b.memberOnly?('Member: '+(b.memberMobile||'')):'All users'}</div>
+    </div>`).join('') || '<div style="padding:12px;color:var(--muted2);font-size:13px">No custom buttons yet</div>';
+
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">Learn & Grow — Admin</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Show/hide modules, limit by mobile, add custom buttons with video/audio/link subs.</div>
+    <div style="font-weight:800;margin-bottom:8px">Built-in modules</div>
+    ${modRows}
+    <div style="font-weight:800;margin:16px 0 8px">Custom buttons</div>
+    <div class="field"><label>Button name</label><input id="lb_name" class="inp-field" placeholder="e.g. Safety Videos"></div>
+    <div class="field"><label>Icon (emoji)</label><input id="lb_icon" class="inp-field" value="📚"></div>
+    <div class="field"><label>Member only? (10-digit mobile, blank = all)</label>
+      <input id="lb_member" class="inp-field" placeholder="Optional mobile"></div>
+    <button class="big-btn" onclick="saveLearnButton()">➕ Add button</button>
+    <div style="margin-top:14px;max-height:40vh;overflow:auto">${btnRows}</div>
+    <button class="cancel-btn" style="width:100%;margin-top:10px" onclick="closeModal()">Close</button>`);
+  setTimeout(()=>{ try{ applyLearnModuleVisibility(); }catch(e){} }, 100);
+}
+
+async function saveModuleAllowMobiles(modId, val){
+  const cfg = await _loadLearnConfig();
+  cfg.moduleAllowMobiles = cfg.moduleAllowMobiles || {};
+  cfg.moduleAllowMobiles[modId] = String(val||'').split(/[,\\s]+/).map(x=>x.replace(/\\D/g,'').slice(-10)).filter(x=>x.length>=10);
+  await _saveLearnConfig(cfg);
+  try{ applyLearnModuleVisibility(); }catch(e){}
+  toast('✅ Mobile list saved');
+}
+
+// Make custom buttons on Learn screen tappable to expand / edit for admin
+async function renderLearnCustomButtons(){
+  const host = document.getElementById('learnCustomButtons');
+  if(!host) return;
+  const cfg = await _loadLearnConfig();
+  try{ applyLearnModuleVisibility(); }catch(e){}
+  const myMob = String(SESSION&&SESSION.mobile||'').replace(/\\D/g,'').slice(-10);
+  const isAdm = typeof isAdmin==='function' && isAdmin();
+  const list = (cfg.buttons||[]).filter(b=>{
+    if(!b||!b.name) return false;
+    if(b.memberOnly){
+      const mm = String(b.memberMobile||'').replace(/\\D/g,'').slice(-10);
+      return (mm && mm===myMob) || isAdm;
+    }
+    return true;
+  });
+  if(!list.length){ host.innerHTML=''; return; }
+  host.innerHTML = list.map((b,bi)=>{
+    const subs = (b.subs||[]).map(s=>`
+      <a href="${String(s.url).replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
+         style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:8px 0 0 0;border-radius:12px;
+                background:rgba(15,23,42,.04);border:1.5px solid rgba(148,163,184,.25);text-decoration:none;color:inherit">
+        <span style="font-size:18px">${s.type==='video'?'🎬':s.type==='audio'?'🎧':'🔗'}</span>
+        <span style="font-size:14px;font-weight:800;color:var(--text)">${String(s.title||'').replace(/</g,'')}</span>
+      </a>`).join('');
+    const editBtn = isAdm ? `<button type="button" onclick="event.stopPropagation();openLearnSubEditor(${bi})"
+      style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:1.5px solid rgba(249,115,22,.4);
+             background:rgba(249,115,22,.1);color:#c2410c;font-weight:800;font-size:13px;cursor:pointer">✏️ Edit button &amp; sub links</button>` : '';
+    return `<div style="padding:16px;border-radius:16px;border:2px solid rgba(249,115,22,.4);
+                        background:linear-gradient(135deg,rgba(249,115,22,.08),rgba(168,85,247,.06));margin-bottom:12px">
+      <div style="font-weight:900;font-size:16px;color:#c2410c">${b.icon||'📚'} ${String(b.name).replace(/</g,'')}</div>
+      ${subs || '<div style="font-size:13px;color:var(--muted2);margin-top:8px;font-weight:600">No links yet — admin can add video/audio/link</div>'}
+      ${editBtn}
+    </div>`;
+  }).join('');
+}
+
+// Hindi empty quick-link message → English when EN
+(function(){
+  const fix = ()=>{
+    try{
+      const lang = (typeof _lang!=='undefined'?_lang:(localStorage.getItem('mp_lang')||'en'));
+      if(lang==='hi') return;
+      document.querySelectorAll('#learnScreen, #learnScreen *').forEach(el=>{
+        if(el.childNodes && el.childNodes.length===1 && el.childNodes[0].nodeType===3){
+          const t = el.textContent||'';
+          if(t.indexOf('कोई Quick Link')>=0) el.textContent = 'No Quick Links — add from Manage custom Learn buttons';
+          if(t.indexOf('Manage Links')>=0 && t.indexOf('जोड़ें')>=0) el.textContent = 'No Quick Links — add from Manage custom Learn buttons';
+        }
+      });
+    }catch(e){}
+  };
+  setInterval(fix, 1500);
 })();

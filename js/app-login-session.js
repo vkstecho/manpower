@@ -3689,12 +3689,15 @@ function getShiftTimingStripHtml(){
   const bits=codes.map(code=>{
     const s=byCode[code]||{code,label:code};
     const _defTimes={D:['07:00','19:00'],N:['19:00','07:00'],G:['08:00','20:00'],A:['06:00','14:00'],B:['14:00','22:00'],C:['22:00','06:00']};
-    let stt=s.start, enn=s.end;
+    let stt=s.start||s.startTime||s.from||'';
+    let enn=s.end||s.endTime||s.to||'';
     if((!stt||!enn)&&_defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
-    const t=(stt&&enn)?`${stt}–${enn}`:'';
+    // Always show times for G (and other work codes)
+    if(code==='G' && (!stt||!enn)){ stt='08:00'; enn='20:00'; }
+    const t=(stt&&enn)?(stt+'–'+enn):'';
     let lab = (s.label && String(s.label).trim()) ? String(s.label).trim() : (code==='G' ? 'General Shift' : code);
-    if(code==='G' && (lab==='G' || lab==='General')) lab = 'General Shift';
-    return `<span class="shc ${cellClass(code)}" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">${code}</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">${escHtml(lab)}${t?' · '+t:''}</span>`;
+    if(code==='G' && (lab==='G' || lab==='General' || lab.toLowerCase()==='general')) lab = 'General Shift';
+    return '<span class="shc '+cellClass(code)+'" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">'+code+'</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">'+escHtml(lab)+(t?' · '+t:'')+'</span>';
   }).join('');
   return `<div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;opacity:.95">${bits}</div>`;
 }
@@ -4657,20 +4660,43 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
 async function showLeaveReasonForDay(empId, empName, date, currentShift){
   let reason = '', typeCode = '', status = '';
   try{
-    // 1) leaves path
-    const leaves = await fbGet('leaves') || {};
     const day = String(date).slice(0,10);
-    Object.values(leaves).forEach(lv=>{
+    // 1) leaves collection
+    const leaves = await fbGet('leaves') || {};
+    Object.keys(leaves).forEach(k=>{
+      const lv = leaves[k];
       if(!lv) return;
-      const matchEmp = (lv.empId===empId || lv.employeeId===empId);
-      const from = String(lv.from||lv.date||'').slice(0,10);
-      const to = String(lv.to||lv.from||lv.date||'').slice(0,10);
-      if(matchEmp && day >= from && day <= to){
-        reason = lv.leaveType || lv.reason || lv.leaveReason || reason;
+      const matchEmp = (lv.empId===empId || lv.employeeId===empId || String(lv.empObjId||'')===String(empId));
+      const from = String(lv.from||lv.date||lv.start||'').slice(0,10);
+      const to = String(lv.to||lv.from||lv.date||lv.end||from).slice(0,10);
+      if(matchEmp && from && day >= from && day <= to){
+        reason = lv.leaveType || lv.reason || lv.leaveReason || lv.remark || reason;
         typeCode = lv.type || lv.leaveCode || typeCode;
         status = lv.status || status;
       }
     });
+    // 2) schedule cell meta
+    if(!reason){
+      try{
+        const y = day.slice(0,4), m = day.slice(5,7);
+        const path = 'schedules/'+y+'/'+m+'/'+empId+'/'+day;
+        const cell = await fbGet(path);
+        if(cell && typeof cell === 'object'){
+          reason = cell.leaveReason || cell.reason || cell.remark || cell.leaveType || reason;
+          typeCode = cell.leaveCode || cell.type || typeCode;
+        } else if(typeof cell === 'string' && cell.length>1 && cell!=='L'){
+          reason = cell;
+        }
+      }catch(e2){}
+    }
+    // 3) in-memory cache
+    if(!reason && window._cache && window._cache.leaves){
+      Object.values(window._cache.leaves).forEach(lv=>{
+        if(!lv) return;
+        if((lv.empId===empId||lv.employeeId===empId) && String(lv.from||'').slice(0,10)<=day && String(lv.to||lv.from||'').slice(0,10)>=day)
+          reason = lv.leaveType||lv.reason||reason;
+      });
+    }
   }catch(e){}
   const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const body = reason
@@ -5909,3 +5935,28 @@ async function saveAppLicenseAdmin(){
 }
 window.openAppLicenseAdmin = openAppLicenseAdmin;
 window.saveAppLicenseAdmin = saveAppLicenseAdmin;
+
+
+/* Leave reason on any L cell open (Schedule + My Shift) */
+(function(){
+  function installLeaveReasonHook(){
+    if(window._leaveReasonHooked) return;
+    if(typeof window.editShiftCell !== 'function') return;
+    window._leaveReasonHooked = true;
+    const orig = window.editShiftCell;
+    window.editShiftCell = function(empId, empName, date, currentShift){
+      const sh = String(currentShift||'').toUpperCase();
+      if(sh==='L' || sh.indexOf('L')===0){
+        if(typeof showLeaveReasonForDay === 'function'){
+          showLeaveReasonForDay(empId, empName, date, currentShift);
+          return;
+        }
+      }
+      return orig.apply(this, arguments);
+    };
+  }
+  installLeaveReasonHook();
+  document.addEventListener('firebase-ready', installLeaveReasonHook);
+  setTimeout(installLeaveReasonHook, 2000);
+  setTimeout(installLeaveReasonHook, 5000);
+})();

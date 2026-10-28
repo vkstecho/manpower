@@ -210,10 +210,10 @@
   // ─── Subscription plans ────────────────────────────────────────────────
   function defaultPlans() {
     return [
-      { id: 'm1', label: 'Individual (1 member)', maxMembers: 1, monthly: 99, discountPct: 17 },
-      { id: 'm25', label: 'Up to 25 members', maxMembers: 25, monthly: 499, discountPct: 17 },
-      { id: 'm50', label: 'Up to 50 members', maxMembers: 50, monthly: 999, discountPct: 17 },
-      { id: 'm200', label: 'Up to 200 members', maxMembers: 200, monthly: 1499, discountPct: 17 },
+      { id: 'm1', label: 'Individual (1 member)', maxMembers: 1, monthly: 99, discountPct: null },
+      { id: 'm25', label: 'Up to 25 members', maxMembers: 25, monthly: 499, discountPct: null },
+      { id: 'm50', label: 'Up to 50 members', maxMembers: 50, monthly: 999, discountPct: null },
+      { id: 'm200', label: 'Up to 200 members', maxMembers: 200, monthly: 1499, discountPct: null },
       { id: 'custom', label: 'Customized plan', custom: true }
     ];
   }
@@ -221,25 +221,23 @@
   function getSubscriptionPlans(cfg) {
     var fromAdmin =
       cfg && Array.isArray(cfg.plans) && cfg.plans.length ? cfg.plans : defaultPlans();
-    // Global default discount from Admin (settings/payment.defaultDiscountPct)
+    // Admin defaultDiscountPct ALWAYS wins (user saw 17% because plans had hardcoded 17)
     var globalDisc = 17;
     try {
-      if (cfg && cfg.defaultDiscountPct != null) globalDisc = parseInt(cfg.defaultDiscountPct, 10) || 17;
-      if (cfg && cfg.planDiscounts && typeof cfg.planDiscounts === 'object') {
-        /* per-amount override e.g. { "99": 17, "499": 20 } */
-      }
+      if (cfg && cfg.defaultDiscountPct != null && cfg.defaultDiscountPct !== '')
+        globalDisc = parseInt(cfg.defaultDiscountPct, 10);
+      if (isNaN(globalDisc)) globalDisc = 17;
     } catch (e) {}
     return fromAdmin.map(function (p) {
       if (p.custom) return p;
       var monthly = parseInt(p.monthly, 10) || 0;
-      var discountPct = parseInt(p.discountPct, 10);
-      if (isNaN(discountPct)) {
-        try {
-          if (cfg && cfg.planDiscounts && cfg.planDiscounts[String(monthly)] != null)
-            discountPct = parseInt(cfg.planDiscounts[String(monthly)], 10);
-        } catch (e2) {}
-      }
-      if (isNaN(discountPct)) discountPct = globalDisc;
+      var discountPct = globalDisc; // prefer admin setting
+      try {
+        if (cfg && cfg.planDiscounts && cfg.planDiscounts[String(monthly)] != null) {
+          var o = parseInt(cfg.planDiscounts[String(monthly)], 10);
+          if (!isNaN(o)) discountPct = o;
+        }
+      } catch (e2) {}
       discountPct = Math.min(90, Math.max(0, discountPct));
       var annual = Math.round(monthly * 12 * (1 - discountPct / 100));
       return Object.assign({}, p, { monthly: monthly, discountPct: discountPct, annual: annual });
@@ -346,7 +344,9 @@
       if (typeof _loadPaymentSettings === 'function') cfg = await _loadPaymentSettings(true);
       else if (typeof fbGet === 'function') cfg = await fbGet('settings/payment');
     } catch (e) {}
-    window._paymentSettingsCache = cfg || window._paymentSettingsCache || {};
+    // Always merge freshest Firebase settings so defaultDiscountPct is current
+    window._paymentSettingsCache = Object.assign({}, window._paymentSettingsCache || {}, cfg || {});
+    if (cfg && cfg.defaultDiscountPct != null) window._paymentSettingsCache.defaultDiscountPct = cfg.defaultDiscountPct;
 
     var plans = getSubscriptionPlans(window._paymentSettingsCache);
     var Lfn = typeof L === 'function' ? L : function (a, b) {
