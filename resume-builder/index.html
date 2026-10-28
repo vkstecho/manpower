@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Top-Class Resume Builder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            serif: ['Georgia', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300">
+  <!-- Top Navigation -->
+  <header class="sticky top-0 z-50 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-16">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 flex items-center justify-center text-white shadow">
+            <i class="fas fa-file-alt text-lg"></i>
+          </div>
+          <div>
+            <h1 class="text-lg font-bold tracking-tight">Resume<span class="text-primary-600 dark:text-primary-400">Builder</span></h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">Professional • ATS-Friendly</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="themeToggle" class="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors" title="Toggle theme">
+            <i class="fas fa-moon text-slate-600 dark:hidden"></i>
+            <i class="fas fa-sun text-amber-400 hidden dark:inline"></i>
+          </button>
+          <button id="printBtn" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium shadow transition-colors">
+            <i class="fas fa-print"></i> Print / PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Progress Bar -->
+    <div class="mb-6">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-slate-600 dark:text-slate-300">Step <span id="currentStepNum">1</span> of 6</span>
+        <span id="stepTitle" class="text-sm font-semibold text-primary-600 dark:text-primary-400">Personal & Contact</span>
+      </div>
+      <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
+        <div id="progressBar" class="bg-gradient-to-r from-primary-500 to-primary-600 h-2.5 rounded-full transition-all duration-500 ease-out" style="width: 16.66%"></div>
+      </div>
+      <div class="flex justify-between mt-2 text-xs text-slate-400 dark:text-slate-500">
+        <span class="step-dot active" data-step="1">1</span>
+        <span class="step-dot" data-step="2">2</span>
+        <span class="step-dot" data-step="3">3</span>
+        <span class="step-dot" data-step="4">4</span>
+        <span class="step-dot" data-step="5">5</span>
+        <span class="step-dot" data-step="6">6</span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <!-- Left: Wizard Form -->
+      <div class="xl:col-span-5 space-y-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+          <!-- Step 1: Personal -->
+          <section id="step-1" class="wizard-step p-6 space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-user"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold">Personal & Contact</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Basic information and contact details</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                <input type="text" id="fullName" class="form-input" placeholder="John Doe" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Job Title</label>
+                <input type="text" id="jobTitle" class="form-input" placeholder="Senior Software Engineer" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Email <span class="text-red-500">*</span></label>
+                <input type="email" id="email" class="form-input" placeholder="john@example.com" required />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Phone</label>
+                <input type="tel" id="phone" class="form-input" placeholder="+1 234 567 8900" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Location</label>
+                <input type="text" id="location" class="form-input" placeholder="San Francisco, CA" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Passport Number</label>
+                <input type="text" id="passport" class="form-input" placeholder="Optional" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">LinkedIn</label>
+                <input type="url" id="linkedin" class="form-input" placeholder="linkedin.com/in/johndoe" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1.5">Portfolio / Website</label>
+                <input type="url" id="portfolio" class="form-input" placeholder="johndoe.dev" />
+              </div>
+            </div>
+
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div class="flex items-center justify-between mb-3">
+                <label class="text-sm font-medium">Include Passport-size Photo</label>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="includePhoto" class="sr-only peer" />
+                  <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-500 peer-checked:bg-primary-600"></div>
+                </label>
+              </div>
+              <div id="photoUploadArea" class="hidden">
+                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                  <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                    <i class="fas fa-cloud-upload-alt text-2xl text-slate-400 mb-2"></i>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Click to upload photo</p>
+                    <p class="text-xs text-slate-400">PNG, JPG (max 2MB)</p>
+                  </div>
+                  <input type="file" id="photoInput" accept="image/*" class="hidden" />
+                </label>
+                <div id="photoPreview" class="mt-3 hidden flex items-center gap-3">
+                  <img id="photoImg" class="w-16 h-16 rounded-full object-cover border-2 border-primary-200" alt="Photo" />
+                  <button type="button" id="removePhoto" class="text-sm text-red-500 hover:text-red-600"><i class="fas fa-trash mr-1"></i>Remove</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Step 2: Summary -->
+          <section id="step-2" class="wizard-step hidden p-6 space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-align-left"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold">Professional Summary</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">A concise overview of your professional profile</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Summary / Objective</label>
+              <textarea id="summary" rows="6" class="form-input resize-none" placeholder="Results-driven professional with X years of experience in..."></textarea>
+              <p class="text-xs text-slate-400 mt-1.5"><span id="summaryCount">0</span>/400 characters recommended</p>
+            </div>
+          </section>
+
+          <!-- Step 3: Experience -->
+          <section id="step-3" class="wizard-step hidden p-6 space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-briefcase"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold">Work Experience</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Add your roles and achievements</p>
+                </div>
+              </div>
+              <button type="button" id="addExperience" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                <i class="fas fa-plus"></i> Add Role
+              </button>
+            </div>
+            <div id="experienceList" class="space-y-4"></div>
+          </section>
+
+          <!-- Step 4: Education -->
+          <section id="step-4" class="wizard-step hidden p-6 space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold">Education & Certifications</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Degrees, courses and certificates</p>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <button type="button" id="addEducation" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                  <i class="fas fa-plus"></i> Education
+                </button>
+                <button type="button" id="addCertification" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                  <i class="fas fa-plus"></i> Cert
+                </button>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Education</h3>
+              <div id="educationList" class="space-y-4 mb-6"></div>
+            </div>
+            <div>
+              <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 mb-2">Certifications</h3>
+              <div id="certificationList" class="space-y-4"></div>
+            </div>
+          </section>
+
+          <!-- Step 5: Skills & Languages -->
+          <section id="step-5" class="wizard-step hidden p-6 space-y-5">
+            <div class="flex items-center gap-3 mb-2">
+              <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                <i class="fas fa-tools"></i>
+              </div>
+              <div>
+                <h2 class="text-lg font-semibold">Skills & Languages</h2>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Technical, soft skills and languages</p>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Technical Skills <span class="text-slate-400 font-normal">(comma separated)</span></label>
+              <input type="text" id="techSkills" class="form-input" placeholder="JavaScript, React, Node.js, Python, AWS..." />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Soft Skills <span class="text-slate-400 font-normal">(comma separated)</span></label>
+              <input type="text" id="softSkills" class="form-input" placeholder="Leadership, Communication, Problem Solving..." />
+            </div>
+            <div>
+              <label class="block text-sm font-medium mb-1.5">Languages <span class="text-slate-400 font-normal">(e.g. English - Native, Spanish - Intermediate)</span></label>
+              <input type="text" id="languages" class="form-input" placeholder="English - Native, Hindi - Fluent" />
+            </div>
+          </section>
+
+          <!-- Step 6: Projects / Custom -->
+          <section id="step-6" class="wizard-step hidden p-6 space-y-5">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-primary-100 dark:bg-primary-900/40 text-primary-600 dark:text-primary-400 flex items-center justify-center">
+                  <i class="fas fa-project-diagram"></i>
+                </div>
+                <div>
+                  <h2 class="text-lg font-semibold">Projects & Custom Sections</h2>
+                  <p class="text-sm text-slate-500 dark:text-slate-400">Showcase projects, publications or other sections</p>
+                </div>
+              </div>
+              <button type="button" id="addProject" class="text-sm font-medium text-primary-600 dark:text-primary-400 hover:text-primary-700 flex items-center gap-1">
+                <i class="fas fa-plus"></i> Add Item
+              </button>
+            </div>
+            <div id="projectList" class="space-y-4"></div>
+          </section>
+
+          <!-- Navigation Buttons -->
+          <div class="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <button type="button" id="prevBtn" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              <i class="fas fa-arrow-left mr-1.5"></i> Previous
+            </button>
+            <button type="button" id="nextBtn" class="px-5 py-2 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium shadow transition-colors">
+              Next <i class="fas fa-arrow-right ml-1.5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Template & Options -->
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5 space-y-4">
+          <h3 class="text-sm font-semibold flex items-center gap-2">
+            <i class="fas fa-palette text-primary-500"></i> Template & Layout
+          </h3>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" data-template="executive" class="template-btn active-template">Executive</button>
+            <button type="button" data-template="minimalist" class="template-btn">Minimalist</button>
+            <button type="button" data-template="creative" class="template-btn">Creative</button>
+            <button type="button" data-template="twocolumn" class="template-btn">Two-Column</button>
+          </div>
+          <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-700">
+            <span class="text-sm">Compact Spacing</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="compactSpacing" class="sr-only peer" />
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-500 peer-checked:bg-primary-600"></div>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Live Preview -->
+      <div class="xl:col-span-7">
+        <div class="sticky top-24">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+              <i class="fas fa-eye"></i> Live Preview
+            </h3>
+            <div class="flex items-center gap-2">
+              <button id="mobilePrintBtn" class="sm:hidden px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-medium">
+                <i class="fas fa-print mr-1"></i> Print
+              </button>
+              <span class="text-xs text-slate-400">A4 Preview</span>
+            </div>
+          </div>
+          <div class="resume-preview-wrapper overflow-auto max-h-[calc(100vh-10rem)] rounded-xl bg-slate-200/50 dark:bg-slate-950/50 p-4 shadow-inner">
+            <div id="resumePaper" class="resume-paper template-executive">
+              <!-- Dynamically rendered by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 right-6 px-5 py-3 rounded-xl bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium shadow-lg transform translate-y-20 opacity-0 transition-all duration-300 z-50 pointer-events-none">
+    Saved to local storage
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
