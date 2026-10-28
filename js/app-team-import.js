@@ -2947,7 +2947,7 @@ const _i18n_HI_EN = {
   '✏️ Shift चुनें':                          '✏️ Select Shift',
   '✏️ निर्देश संपादित करें':                  '✏️ Edit Instructions',
   '➕ Content Add करें':                      '➕ Add Content',
-  '🌴 '+(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')+'':                        '🌴 Leave Reason',
+  '🌴 Leave का कारण':                        '🌴 Leave Reason',
   '🌴 छुट्टी आवेदन':                         '🌴 Leave Application',
   '👁️ Preview — Save करने से पहले देखें':    '👁️ Preview — Review before saving',
   '👤 नया कर्मचारी':                         '👤 New Employee',
@@ -3194,7 +3194,7 @@ const _i18n_HI_EN = {
   '➕ Content Add करें':                      '➕ Add Content',
   '➕ नया Button जोड़ें':                    '➕ Add New Button',
   '🌟 प्रशंसा':                              '🌟 Praise',
-  '🌴 '+(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')+'':                         '🌴 Leave Reason',
+  '🌴 Leave का कारण':                        '🌴 Leave Reason',
   '🌴 छुट्टी आवेदन':                          '🌴 Leave Application',
   '🎉 कोई भी Left नहीं हुआ':                 '🎉 Nobody has left',
   '🎬 Video URL set नहीं है':                 '🎬 Video URL not set',
@@ -5204,7 +5204,7 @@ async function _loadManagerLeaveQuota(){
   return null;
 }
 
-async async function openLeaveReasonModal(empId, empName, date, currentShift){
+async function openLeaveReasonModal(empId, empName, date, currentShift){
   const fmtD = new Date(date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   let typeOpts = _typesFromLeaveQuota(null);
   try{

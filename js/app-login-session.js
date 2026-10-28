@@ -5298,7 +5298,7 @@ async function openCustomerCareAdmin(){
   <button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal();openCustomerCarePage()">👁 Preview page</button>`);
 }
 
-async async function saveCustomerCareAdmin(){
+async function saveCustomerCareAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const name = String((document.getElementById('cc_name')||{}).value||'').trim() || 'Man power App Admin';
   const email = String((document.getElementById('cc_email')||{}).value||'').trim() || 'CareMP@vkstech.com';
