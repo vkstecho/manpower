@@ -8,7 +8,7 @@ async function _getMyTeamSizeLimit(){
       : String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
     if(!mob) return 25;
     let lim = null;
-    for(const path of ['managers/'+mob,'users/'+mob,'mobileUsers/'+mob]){
+    for(const path of ['mobileUsers/'+mob,'managers/'+mob,'users/'+mob]){
       try{
         const rec = await fbGet(path);
         if(rec && (rec.teamSize!=null || rec.maxMembers!=null)){

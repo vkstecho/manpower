@@ -945,8 +945,11 @@ async function adminDeleteMobileProfile(phone, name){
 async function openAdminTeamSizeModal(mgrKey, mgrName){
   let cur = 25;
   try{
-    const m = await fbGet('managers/'+mgrKey) || await fbGet('users/'+mgrKey) || await fbGet('mobileUsers/'+mgrKey) || {};
-    cur = parseInt(m.teamSize || m.maxMembers || 25, 10) || 25;
+    let m=null;
+    for (const p of ['mobileUsers/'+mgrKey,'managers/'+mgrKey,'users/'+mgrKey]){
+      try{ const r=await fbGet(p); if(r&&typeof r==='object'&&(r.teamSize!=null||r.maxMembers!=null)){ m=r; break; } }catch(e){}
+    }
+    if(m) cur = parseInt(m.teamSize!=null?m.teamSize:m.maxMembers,10)||25;
   }catch(e){}
   const opts = [1,25,50,200];
   const chips = opts.map(n=>`<button type="button" onclick="document.getElementById('admTeamSizeVal').value='${n}'"
@@ -967,10 +970,16 @@ async function saveAdminTeamSize(mgrKey){
   const n = parseInt((document.getElementById('admTeamSizeVal')||{}).value, 10);
   if(!n || n < 1){ toast('❌ Enter a valid size'); return; }
   try{
-    for (const p of ['managers/'+mgrKey,'users/'+mgrKey,'mobileUsers/'+mgrKey]){
-      try{ await fbUpdate(p, { teamSize: n, maxMembers: n }); }catch(e){}
+    mgrKey=String(mgrKey||'').replace(/\D/g,'').slice(-10)||String(mgrKey||'');
+    for (const p of ['mobileUsers/'+mgrKey,'managers/'+mgrKey,'users/'+mgrKey]){
+      try{
+        const ex=await fbGet(p);
+        if(ex&&typeof ex==='object') await fbUpdate(p,{teamSize:n,maxMembers:n});
+        else if(typeof fbSet==='function') await fbSet(p,{teamSize:n,maxMembers:n,mobile:mgrKey});
+        else await fbUpdate(p,{teamSize:n,maxMembers:n,mobile:mgrKey});
+      }catch(e){console.warn(e);}
     }
-    toast('✅ Team size set to '+n);
+    toast('✅ Team size set to '+n+' for '+mgrKey);
     closeModal();
   }catch(e){ toast('❌ '+(e.message||e)); }
 }

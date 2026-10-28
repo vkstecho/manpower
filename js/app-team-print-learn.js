@@ -2363,23 +2363,47 @@ function openLearnIframeModule(title, url){
     const safeTitle = String(title||'Module').replace(/</g,'');
     const safeUrl = String(url||'').trim();
     if(!safeUrl){ toast('Link not configured'); return; }
-    openModal(`<div class="modal-handle"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-        <div class="modal-title" style="margin:0;flex:1">${safeTitle}</div>
-        <button type="button" onclick="closeModal()" style="padding:8px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);font-weight:800;cursor:pointer">✕</button>
-      </div>
-      <div style="position:relative;width:100%;height:min(75vh,640px);border-radius:14px;overflow:hidden;border:1px solid var(--border2);background:#0b1220">
-        <iframe src="${safeUrl.replace(/"/g,'&quot;')}" title="${safeTitle}"
-          style="width:100%;height:100%;border:0;background:#fff"
-          allow="clipboard-read; clipboard-write; fullscreen"
-          loading="lazy"></iframe>
-      </div>
-      <a href="${safeUrl.replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
-         style="display:block;text-align:center;margin-top:10px;font-size:13px;font-weight:700;color:#f97316">Open in new tab ↗</a>
-      <button class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">Close</button>`);
+    // Full-screen layer so it feels like the same app (not a tiny modal)
+    let layer = document.getElementById('learnModuleLayer');
+    if(!layer){
+      layer = document.createElement('div');
+      layer.id = 'learnModuleLayer';
+      document.body.appendChild(layer);
+    }
+    layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:#f8fafc;display:flex;flex-direction:column;';
+    layer.innerHTML = '';
+    const bar = document.createElement('div');
+    bar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '←';
+    back.setAttribute('aria-label','Back');
+    back.style.cssText = 'width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;font-weight:900;cursor:pointer';
+    back.onclick = function(){ closeLearnModuleLayer(); };
+    const tit = document.createElement('div');
+    tit.textContent = safeTitle;
+    tit.style.cssText = 'flex:1;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    bar.appendChild(back);
+    bar.appendChild(tit);
+    const frame = document.createElement('iframe');
+    frame.src = safeUrl;
+    frame.title = safeTitle;
+    frame.setAttribute('allow', 'clipboard-read; clipboard-write; fullscreen');
+    frame.style.cssText = 'flex:1;width:100%;border:0;background:#fff;min-height:0';
+    layer.appendChild(bar);
+    layer.appendChild(frame);
+    try{ document.body.classList.add('learn-module-open'); }catch(e){}
+    try{ history.pushState({ learnModule: true }, ''); }catch(e){}
   }catch(e){ console.error('[learn iframe]', e); toast('Could not open module'); }
 }
-window.openLearnIframeModule = openLearnIframeModule;
+function closeLearnModuleLayer(){
+  try{
+    const layer = document.getElementById('learnModuleLayer');
+    if(layer){ layer.style.display='none'; layer.innerHTML=''; }
+    document.body.classList.remove('learn-module-open');
+  }catch(e){}
+}
+window.closeLearnModuleLayer = closeLearnModuleLayer;
 
 function _learnModuleUrls(){
   // Same-origin paths when modules are deployed with the app (GitHub repo folders)
@@ -2398,23 +2422,18 @@ function injectLearnModuleButtons(){
     const urls = _learnModuleUrls();
     const wrap = document.createElement('div');
     wrap.id = 'learnBuiltInModules';
-    wrap.style.cssText = 'padding:12px 16px;display:flex;flex-direction:column;gap:10px';
-    const b1 = document.createElement('button');
-    b1.type = 'button';
-    b1.id = 'learnBtnResumeBuilder';
-    b1.className = 'big-btn';
-    b1.textContent = '📄 Resume Builder';
-    b1.style.cssText = 'background:linear-gradient(135deg,#0ea5e9,#6366f1);border:none;color:#fff;font-weight:900';
-    b1.onclick = function(){ openLearnIframeModule('Resume Builder', urls.resume); };
-    const b2 = document.createElement('button');
-    b2.type = 'button';
-    b2.id = 'learnBtnOneToOne';
-    b2.className = 'big-btn';
-    b2.textContent = '🎯 One-to-One Guidance';
-    b2.style.cssText = 'background:linear-gradient(135deg,#a855f7,#ec4899);border:none;color:#fff;font-weight:900';
-    b2.onclick = function(){ openLearnIframeModule('One-to-One Guidance', urls.guidance); };
-    wrap.appendChild(b1);
-    wrap.appendChild(b2);
+    wrap.style.cssText = 'padding:12px 16px;display:flex;flex-direction:column;gap:12px';
+    function mkBtn(id, label, bg, url, title){
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.id = id;
+      b.textContent = label;
+      b.style.cssText = 'width:100%;padding:16px 18px;border-radius:16px;border:1.5px solid rgba(15,23,42,.12);background:'+bg+';color:#0f172a;font-weight:900;font-size:16px;text-align:left;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.08)';
+      b.onclick = function(){ openLearnIframeModule(title, url); };
+      return b;
+    }
+    wrap.appendChild(mkBtn('learnBtnResumeBuilder', '📄  Resume Builder', 'linear-gradient(135deg,#fef3c7,#fde68a)', urls.resume, 'Resume Builder'));
+    wrap.appendChild(mkBtn('learnBtnOneToOne', '🎯  One-to-One Guidance', 'linear-gradient(135deg,#d1fae5,#a7f3d0)', urls.guidance, 'One-to-One Guidance'));
     const admin = document.getElementById('learnAdminPanel');
     if(admin && admin.parentNode) admin.parentNode.insertBefore(wrap, admin.nextSibling);
     else host.insertBefore(wrap, host.firstChild);
