@@ -1,3 +1,65 @@
+
+/** v3.2.1 — enforce Admin-set teamSize / maxMembers for this manager's roster */
+async function _getMyTeamSizeLimit(){
+  try{
+    if(typeof isAdmin==='function' && isAdmin()) return 9999; // admin unrestricted
+    const mob = (typeof _normMobileKey==='function')
+      ? _normMobileKey((SESSION&&(SESSION.mobile||SESSION.uid))||'')
+      : String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
+    if(!mob) return 25;
+    let lim = null;
+    for(const path of ['managers/'+mob,'users/'+mob,'mobileUsers/'+mob]){
+      try{
+        const rec = await fbGet(path);
+        if(rec && (rec.teamSize!=null || rec.maxMembers!=null)){
+          lim = parseInt(rec.teamSize!=null ? rec.teamSize : rec.maxMembers, 10);
+          if(lim>0) break;
+        }
+      }catch(e){}
+    }
+    if(!lim || lim<1) lim = 25;
+    return lim;
+  }catch(e){ return 25; }
+}
+function _countMyActiveRoster(){
+  try{
+    const mob = (typeof _normMobileKey==='function')
+      ? _normMobileKey((SESSION&&(SESSION.mobile||SESSION.uid))||'')
+      : String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
+    const all = (typeof getEmps==='function' ? getEmps() : []) || [];
+    return all.filter(e=>{
+      if(!e || e.status==='resigned' || e.status==='left' || e.status==='left_team' || e.status==='removed') return false;
+      if(typeof isAdmin==='function' && isAdmin()) return true;
+      const mid = (typeof _normMobileKey==='function') ? _normMobileKey(e.managerId||'') : String(e.managerId||'').replace(/\D/g,'').slice(-10);
+      // Manager's own record + members under this manager
+      if(mid && mob && mid===mob) return true;
+      const ePhone = (typeof _normMobileKey==='function') ? _normMobileKey(e.phone||e.mobile||'') : '';
+      if(ePhone && mob && ePhone===mob) return true;
+      return false;
+    }).length;
+  }catch(e){ return 0; }
+}
+async function _assertCanAddToRoster(addCount){
+  addCount = addCount || 1;
+  try{
+    if(typeof isAdmin==='function' && isAdmin()) return true;
+    if(SESSION && SESSION.role==='admin') return true;
+    const lim = await _getMyTeamSizeLimit();
+    const cur = _countMyActiveRoster();
+    if(cur + addCount > lim){
+      toast((typeof L==='function')
+        ? L('❌ Team size limit: अधिकतम '+lim+' members (Admin ने सेट किया). अभी roster में '+cur+' हैं।',
+            '❌ Team size limit: max '+lim+' members (set by Admin). Roster now has '+cur+'.')
+        : '❌ Team size limit: max '+lim+' members. Current: '+cur);
+      return false;
+    }
+    return true;
+  }catch(e){ return true; }
+}
+window._getMyTeamSizeLimit = _getMyTeamSizeLimit;
+window._countMyActiveRoster = _countMyActiveRoster;
+window._assertCanAddToRoster = _assertCanAddToRoster;
+
 /**
  * Man Power — Bulk import / ops / schedule builder helpers
  * Split from monolithic module for maintainability. Global scope (no ES modules).
@@ -344,6 +406,18 @@ let _bulkImportInProgress=false;
 async function confirmBulkImportTeam(){
   if(_bulkImportInProgress) return;
   if(!_bulkImportParsed.length) return;
+  // Count how many NEW employees would be created (not updates)
+  try{
+    const existingCodes = new Set((getEmps()||[]).filter(e=>e&&e.status!=='resigned').map(e=>String(e.empId||'').trim().toUpperCase()));
+    let newCount = 0;
+    (_bulkImportParsed||[]).forEach(r=>{
+      const c = String((r&& (r.empId||r.code||''))||'').trim().toUpperCase();
+      if(c && !existingCodes.has(c)) newCount++;
+    });
+    if(newCount>0 && !(await _assertCanAddToRoster(newCount))){
+      return;
+    }
+  }catch(e){}
   _bulkImportInProgress=true;
 
   const cid = (typeof myCompanyId==='function') ? myCompanyId() : (SESSION.companyId||'');
@@ -692,6 +766,7 @@ function openAddEmpForm(){
 }
 
 async function addEmployee(){
+  if(!(await _assertCanAddToRoster(1))) return;
   const name=document.getElementById('ne_name').value.trim().toUpperCase();
   const code=document.getElementById('ne_code').value.trim();
   const mc=_resolveDynField('ne_mc','ne_mc_other');

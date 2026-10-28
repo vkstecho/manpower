@@ -2356,3 +2356,83 @@ async function deleteLearnButton(idx){
   }catch(e){ toast('❌ Delete failed'); }
 }
 window.deleteLearnButton = deleteLearnButton;
+
+/* v3.2.1 — Resume Builder + One-to-One Guidance as iframe modules in Learn & Grow */
+function openLearnIframeModule(title, url){
+  try{
+    const safeTitle = String(title||'Module').replace(/</g,'');
+    const safeUrl = String(url||'').trim();
+    if(!safeUrl){ toast('Link not configured'); return; }
+    openModal(`<div class="modal-handle"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div class="modal-title" style="margin:0;flex:1">${safeTitle}</div>
+        <button type="button" onclick="closeModal()" style="padding:8px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);font-weight:800;cursor:pointer">✕</button>
+      </div>
+      <div style="position:relative;width:100%;height:min(75vh,640px);border-radius:14px;overflow:hidden;border:1px solid var(--border2);background:#0b1220">
+        <iframe src="${safeUrl.replace(/"/g,'&quot;')}" title="${safeTitle}"
+          style="width:100%;height:100%;border:0;background:#fff"
+          allow="clipboard-read; clipboard-write; fullscreen"
+          loading="lazy"></iframe>
+      </div>
+      <a href="${safeUrl.replace(/"/g,'&quot;')}" target="_blank" rel="noopener"
+         style="display:block;text-align:center;margin-top:10px;font-size:13px;font-weight:700;color:#f97316">Open in new tab ↗</a>
+      <button class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">Close</button>`);
+  }catch(e){ console.error('[learn iframe]', e); toast('Could not open module'); }
+}
+window.openLearnIframeModule = openLearnIframeModule;
+
+function _learnModuleUrls(){
+  // Same-origin paths when modules are deployed with the app (GitHub repo folders)
+  const origin = (typeof location!=='undefined' && location.origin) ? location.origin : '';
+  return {
+    resume: origin + '/resume-builder/index.html',
+    guidance: origin + '/One_To_One_Guidance/one_to_one_guidance.html'
+  };
+}
+
+function injectLearnModuleButtons(){
+  try{
+    if(document.getElementById('learnBuiltInModules')) return;
+    const host = document.getElementById('learnScreen');
+    if(!host) return;
+    const urls = _learnModuleUrls();
+    const wrap = document.createElement('div');
+    wrap.id = 'learnBuiltInModules';
+    wrap.style.cssText = 'padding:12px 16px;display:flex;flex-direction:column;gap:10px';
+    const b1 = document.createElement('button');
+    b1.type = 'button';
+    b1.id = 'learnBtnResumeBuilder';
+    b1.className = 'big-btn';
+    b1.textContent = '📄 Resume Builder';
+    b1.style.cssText = 'background:linear-gradient(135deg,#0ea5e9,#6366f1);border:none;color:#fff;font-weight:900';
+    b1.onclick = function(){ openLearnIframeModule('Resume Builder', urls.resume); };
+    const b2 = document.createElement('button');
+    b2.type = 'button';
+    b2.id = 'learnBtnOneToOne';
+    b2.className = 'big-btn';
+    b2.textContent = '🎯 One-to-One Guidance';
+    b2.style.cssText = 'background:linear-gradient(135deg,#a855f7,#ec4899);border:none;color:#fff;font-weight:900';
+    b2.onclick = function(){ openLearnIframeModule('One-to-One Guidance', urls.guidance); };
+    wrap.appendChild(b1);
+    wrap.appendChild(b2);
+    const admin = document.getElementById('learnAdminPanel');
+    if(admin && admin.parentNode) admin.parentNode.insertBefore(wrap, admin.nextSibling);
+    else host.insertBefore(wrap, host.firstChild);
+  }catch(e){ console.warn('[learn modules]', e); }
+}
+
+// Hook renderLearnScreen
+(function(){
+  const hook = function(){
+    try{ injectLearnModuleButtons(); }catch(e){}
+  };
+  if(typeof window.renderLearnScreen === 'function'){
+    const o = window.renderLearnScreen;
+    window.renderLearnScreen = function(){ const r=o.apply(this,arguments); hook(); return r; };
+  } else {
+    window.renderLearnScreen = function(){ hook(); };
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    setTimeout(hook, 500);
+  });
+})();
