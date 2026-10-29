@@ -40,7 +40,14 @@
     };
 
     try {
-      const app = initializeApp(firebaseConfig, "mentorApp");
+      // Use DEFAULT app name (named apps often break Phone Auth + reCAPTCHA)
+      let app;
+      try {
+        const { getApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+        app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      } catch (e) {
+        app = initializeApp(firebaseConfig);
+      }
       const db = getDatabase(app);
       const auth = getAuth(app);
 
@@ -50,17 +57,23 @@
         db, ref, set, get, update, onValue, auth,
         async sendPhoneOtp(phone10) {
           const phone = '+91' + phone10;
-          // Clear previous verifier
           try { if (window._mentorRecaptcha) { window._mentorRecaptcha.clear(); } } catch(e) {}
           window._mentorRecaptcha = null;
           const host = document.getElementById('recaptcha-container');
-          if (host) host.innerHTML = '';
+          if (host) {
+            host.innerHTML = '';
+            host.style.minHeight = '78px';
+            host.style.display = 'flex';
+            host.style.justifyContent = 'center';
+            host.style.marginTop = '8px';
+          }
+          // Visible reCAPTCHA is more reliable than invisible (fixes captcha-check-failed in many cases)
           window._mentorRecaptcha = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
+            size: 'normal',
             callback: () => {},
             'expired-callback': () => { window._mentorRecaptcha = null; }
           });
-          try { if (window._mentorRecaptcha.render) await window._mentorRecaptcha.render(); } catch(e) {}
+          await window._mentorRecaptcha.render();
           const conf = await signInWithPhoneNumber(auth, phone, window._mentorRecaptcha);
           window._mentorConfirmOtp = (code) => conf.confirm(code);
           return true;
