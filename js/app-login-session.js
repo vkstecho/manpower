@@ -758,7 +758,7 @@ function doLogout(){
   // ── 1. Show instant visual feedback ──
   try{
     const logoutBtn = document.querySelector('.profile-action[onclick*="doLogout"]');
-    if(logoutBtn){ logoutBtn.style.opacity='.5'; logoutBtn.style.pointerEvents='none'; logoutBtn.querySelector('.pa-label').textContent='Logout हो रहा है...'; }
+    if(logoutBtn){ logoutBtn.style.opacity='.5'; logoutBtn.style.pointerEvents='none'; logoutBtn.querySelector('.pa-label').textContent=L('🚪 Logout हो रहा है...','🚪 Logging out...'); }
     toast(L('🚪 Logout हो रहा है...','🚪 Logging out...'));
   }catch(e){}
 

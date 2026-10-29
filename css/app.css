@@ -918,3 +918,16 @@ body.light #learnMainButtons .lc-sub,
   -webkit-text-fill-color: #0f172a !important;
 }
 #learnModuleSlot { order: -1; }
+
+/* v3.2.5 Learn banner subtitle visible on light */
+#learnBarTitle + span,
+button[onclick*="openLearnScreen"] span[style*="Met Train"],
+.learn-top-btn span {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+  opacity: 1 !important;
+}
+body.light button[onclick*="openLearnScreen"] span {
+  color: #334155 !important;
+  -webkit-text-fill-color: #334155 !important;
+}

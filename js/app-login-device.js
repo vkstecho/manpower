@@ -391,12 +391,12 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
         अगली बार <b style="color:#fff">OTP की जरूरत नहीं</b> — सिर्फ password।
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">PASSWORD (कम से कम 5 अंक) *</div>
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
         <input id="spw1" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
           oninput="_spwValidate()">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin:12px 0 8px">PASSWORD दोबारा डालें *</div>
+        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin:12px 0 8px">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
         <input id="spw2" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
@@ -407,12 +407,12 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
         style="width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#15803d);border:none;
                border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:12px;
                opacity:.4;pointer-events:none;font-family:inherit">
-        ✅ Password Save करें
+        ${L('✅ Password Save करें','✅ Save Password')}
       </button>
       <button onclick="_skipSetPassword()"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
                color:#64748b;font-size:13px;cursor:pointer;font-family:inherit">
-        अभी नहीं → ${afterApproval ? 'App खोलें' : 'OTP से Login'}
+        ${L('अभी नहीं → ','Not now → ')}${afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')}
       </button>
     </div>`;
   ov.style.display='flex';
@@ -500,12 +500,12 @@ function showPasswordLoginScreen(emp, deviceId){
       <button onclick="_submitPwLogin('${empId}','${empName}','${deviceId}')"
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
                border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
-        ✅ Login करें
+        ${L('✅ Login करें','✅ Login')}
       </button>
       <button onclick="_forgotPw('${empId}','${empName}', '${escHtml(String((emp.phone||emp.mobile||'')).replace(/\D/g,'').slice(-10))}')"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
                color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
-        🔑 Password भूल गए? OTP से दोबारा verify करें
+        ${L('🔑 Password भूल गए? OTP से दोबारा verify करें','🔑 Forgot password? Verify with OTP again')}
       </button>
     </div>`;
   ov.style.display='flex';
@@ -590,12 +590,12 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
       <button onclick="_submitMobilePwLogin()"
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
                border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
-        ✅ Login करें
+        ${L('✅ Login करें','✅ Login')}
       </button>
       <button onclick="_forgotMobilePw()"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
                color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
-        🔑 Password भूल गए? OTP से verify करें
+        ${L('🔑 Password भूल गए? OTP से verify करें','🔑 Forgot password? Verify with OTP')}
       </button>
     </div>`;
   ov.style.display='flex';

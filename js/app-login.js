@@ -1768,7 +1768,7 @@ async function tryAdminLogin(){
 
   const btn=document.getElementById('aLoginBtn')||(document.querySelector('#adminLoginPanel .big-btn'));
   if(btn){ btn.innerHTML='⏳ Login ho raha hai...'; btn.style.opacity='0.7'; btn.style.pointerEvents='none'; }
-  const restoreBtn=()=>{ if(btn){ btn.innerHTML='🔐 Login करें'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; } };
+  const restoreBtn=()=>{ if(btn){ btn.innerHTML=L('🔐 Login करें','🔐 Login'); btn.style.opacity='1'; btn.style.pointerEvents='auto'; } };
 
   try{
     const passHash = await hashPass(u+':'+p+':MP_ADMIN');

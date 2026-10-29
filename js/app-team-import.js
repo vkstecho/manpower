@@ -3653,19 +3653,27 @@ function mpGreeting(lang){
 }
 
 function L(hi, en){
-  if(typeof _lang === 'undefined' || _lang === 'hi') return hi;
-  if(typeof mlT === 'function'){
-    var v = mlT(hi, _lang);
-    if(v && v !== hi) return v;
-  }
-  if(typeof t === 'function'){
-    var v2 = t(hi);
-    if(v2 && v2 !== hi) return v2;
-  }
-  if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[hi]) return _i18n_HI_EN[hi];
-  // Non-Hindi UI: prefer explicit English arg over leftover Hindi
-  if(en != null && en !== '') return en;
-  return hi;
+  try{
+    var lang = (typeof _lang !== 'undefined' && _lang) ? String(_lang).toLowerCase() : '';
+    if(!lang){
+      try{ lang = String(localStorage.getItem('mp_lang')||'').toLowerCase(); }catch(e){}
+    }
+    // Hindi only when explicitly hi
+    var isHi = (lang === 'hi' || lang === 'hindi' || lang === 'hin');
+    if(isHi) return hi;
+    // English (or any non-hi): prefer explicit en, then maps
+    if(en != null && en !== '') return en;
+    if(typeof mlT === 'function'){
+      var v = mlT(hi, lang || 'en');
+      if(v && v !== hi) return v;
+    }
+    if(typeof t === 'function'){
+      var v2 = t(hi);
+      if(v2 && v2 !== hi) return v2;
+    }
+    if(typeof _i18n_HI_EN === 'object' && _i18n_HI_EN[hi]) return _i18n_HI_EN[hi];
+    return hi;
+  }catch(e){ return (en != null && en !== '') ? en : hi; }
 }
 
 function t(str){
@@ -4506,7 +4514,7 @@ function _updateSaveBar(){
 
   // Count unique employees
   const empIds = [...new Set(entries.map(e=>e.empId))];
-  const _titleTxt = `📝 ${entries.length} बदलाव pending — ${empIds.length} कर्मचारी`;
+  const _titleTxt = L('📝 '+entries.length+' बदलाव pending — '+empIds.length+' कर्मचारी','📝 '+entries.length+' changes pending — '+empIds.length+' employee(s)');
   if(title) title.textContent = _titleTxt;
   if(titleMy) titleMy.textContent = _titleTxt;
 
@@ -4516,8 +4524,8 @@ function _updateSaveBar(){
     return emp && emp.phone && emp.phone.length===10;
   }).length;
   sub.textContent = withPhone
-    ? `📲 Save करने पर ${withPhone} कर्मचारी को WhatsApp जाएगा (Free)`
-    : '⚠️ किसी कर्मचारी का मोबाइल नंबर नहीं है';
+    ? L('📲 Save करने पर '+withPhone+' कर्मचारी को WhatsApp जाएगा (Free)','📲 On Save, WhatsApp will be sent to '+withPhone+' employee(s) (Free)')
+    : L('⚠️ किसी कर्मचारी का मोबाइल नंबर नहीं है','⚠️ No employee mobile number available');
 
   // List each pending change
   list.innerHTML = entries.map(e=>{
@@ -5094,8 +5102,8 @@ async function _saveShiftChangesBackground(savedEntries){
       const first = changes[0];
       const payload = {
         type: 'shift_change',
-        title: '📋 Shift बदली गई',
-        body: changeLines || 'आपकी shift update हुई',
+        title: L('📋 Shift बदली गई','📋 Shift changed'),
+        body: changeLines || L('आपकी shift update हुई','Your shift was updated'),
         date: first.date,
         oldShift: first.currentShift || first.oldShift || '',
         newShift: first.newShift || '',
