@@ -94,3 +94,14 @@ Only hard-admin phones / `admins/{uid}` can write `settings/license`.
 ## Notes
 - Company isolation is still enforced mainly in the **client** (`companyId` filters). Rules do not yet partition every path by company.
 - After deploy, test: member leave submit, manager approve, admin login, Excel team upload.
+
+## v3.2.5+ — Mentor (One-to-One Guidance)
+
+Added RTDB paths for Mentor module (same Firebase project):
+
+- `mentor_guidance/$mobile` — per-student workspace data (payments, chats, recordings, unlocked topics)
+- `mentor_guidance_index/$mobile` — student list for Mentor dropdown
+
+Rules: `auth != null` for read/write (same pattern as other Man Power paths).
+
+Redeploy `database.rules.json` after uploading the app so Mentor can sync across devices.

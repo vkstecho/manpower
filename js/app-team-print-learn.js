@@ -2410,7 +2410,7 @@ function _learnModuleUrls(){
   const origin = (typeof location!=='undefined' && location.origin) ? location.origin : '';
   return {
     resume: origin + '/resume-builder/index.html',
-    guidance: origin + '/One_To_One_Guidance/one_to_one_guidance.html'
+    guidance: origin + '/Mentor/mentor.html'
   };
 }
 
@@ -2474,14 +2474,14 @@ function injectLearnModuleButtons(){
       } else if(b.parentNode !== wrap){
         wrap.appendChild(b);
       }
-      b.innerHTML = '<span style="font-size:28px;line-height:1">'+label.split('  ')[0]+'</span><span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:18px">'+label.replace(/^📄\s*|^🎯\s*/,'')+'</span><span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">'+label.split('  ')[0]+'</span><span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:18px">'+label.replace(/^📄\s*|^🎯\s*|^✨\s*|^🎓\s*/,'')+'</span><span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, bg, border);
       b.onclick = function(){ openLearnIframeModule(title, url); };
       return b;
     }
 
-    ensureBtn('learnBtnResumeBuilder', '📄  Resume Builder', '#fef3c7', '#d97706', urls.resume, 'Resume Builder');
-    ensureBtn('learnBtnOneToOne', '🎯  One-to-One Guidance', '#bbf7d0', '#16a34a', urls.guidance, 'One-to-One Guidance');
+    ensureBtn('learnBtnResumeBuilder', '✨  AI Resume Builder', '#fef3c7', '#d97706', urls.resume, 'AI Resume Builder');
+    ensureBtn('learnBtnOneToOne', '🎓  Mentor — One-to-One Guidance', '#dbeafe', '#2563eb', urls.guidance, 'Mentor — One-to-One Guidance');
 
     // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
     try{
