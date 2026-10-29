@@ -215,3 +215,16 @@
 .topic-card:hover .logo-badge {
   transform: scale(1.08);
 }
+
+.logo-badge-img {
+  background: #fff !important;
+  padding: 2px;
+  overflow: hidden;
+}
+.logo-badge-img img {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  display: block;
+  border-radius: 6px;
+}

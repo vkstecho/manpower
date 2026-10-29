@@ -24,11 +24,12 @@
       tags: ['Gemini', 'Google Cloud', 'Grok', 'DeepSeek', 'ChatGPT', 'Prompt Eng'],
       gradient: 'linear-gradient(135deg, #4285F4 0%, #34A853 40%, #FBBC05 70%, #EA4335 100%)',
       icons: [
-        { icon: 'fa-solid fa-wand-magic-sparkles', bg: '#4285F4', title: 'Gemini' },
-        { icon: 'fa-brands fa-google', bg: '#4285F4', title: 'Google Cloud' },
-        { icon: 'fa-solid fa-brain', bg: '#000000', title: 'Grok' },
-        { icon: 'DS', bg: '#1E88E5', title: 'DeepSeek' },
-        { icon: 'fa-solid fa-robot', bg: '#10A37F', title: 'ChatGPT' }
+        { img: 'icons/gemini.svg', title: 'Gemini' },
+        { img: 'icons/google.svg', title: 'Google Cloud' },
+        { img: 'icons/grok.svg', title: 'Grok' },
+        { img: 'icons/deepseek.svg', title: 'DeepSeek' },
+        { img: 'icons/chatgpt.svg', title: 'ChatGPT' },
+        { img: 'icons/claude.svg', title: 'Claude' }
       ]
     },
     {
@@ -50,7 +51,7 @@
       tags: ['Formulas', 'Pivot', 'Dashboards', 'Macros', 'Power Query', 'VBA'],
       gradient: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%)',
       icons: [
-        { icon: 'fa-solid fa-file-excel', bg: '#217346', title: 'Excel' },
+        { img: 'icons/excel.svg', title: 'Excel' },
         { icon: 'fa-solid fa-square-root-variable', bg: '#0D9488', title: 'Formulas' },
         { icon: 'fa-solid fa-robot', bg: '#059669', title: 'AI' }
       ]
@@ -86,8 +87,8 @@
       tags: ['Google Ads', 'YouTube Ads', 'AdSense', 'ROI', 'Campaigns'],
       gradient: 'linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%)',
       icons: [
-        { icon: 'fa-brands fa-google', bg: '#EA4335', title: 'Google Ads' },
-        { icon: 'fa-brands fa-youtube', bg: '#FF0000', title: 'YouTube' },
+        { img: 'icons/google.svg', title: 'Google Ads' },
+        { img: 'icons/youtube.svg', title: 'YouTube' },
         { icon: 'fa-solid fa-indian-rupee-sign', bg: '#F97316', title: 'Revenue' }
       ]
     },
@@ -135,7 +136,7 @@
       gradient: 'linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%)',
       icons: [
         { icon: 'fa-solid fa-laptop-code', bg: '#047857', title: 'Freelance' },
-        { icon: 'fa-brands fa-linkedin', bg: '#0A66C2', title: 'LinkedIn' },
+        { img: 'icons/linkedin.svg', title: 'LinkedIn' },
         { icon: 'fa-solid fa-handshake', bg: '#10B981', title: 'Clients' }
       ]
     },
@@ -146,8 +147,8 @@
       tags: ['Google Business', 'WhatsApp Business', 'Local SEO', 'Reviews', 'Offers', 'Leads'],
       gradient: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%)',
       icons: [
-        { icon: 'fa-brands fa-google', bg: '#EA4335', title: 'Google Business' },
-        { icon: 'fa-brands fa-whatsapp', bg: '#25D366', title: 'WhatsApp' },
+        { img: 'icons/google.svg', title: 'Google Business' },
+        { img: 'icons/whatsapp.svg', title: 'WhatsApp' },
         { icon: 'fa-solid fa-location-dot', bg: '#DC2626', title: 'Local' }
       ]
     },
@@ -355,26 +356,26 @@
   function saveUserData(mob, userData) {
     userData.updatedAt = Date.now();
     userData.mobile = mob;
-    // Always cache locally
     try {
       localStorage.setItem(storageKey(mob), JSON.stringify(userData));
     } catch {}
-    // Push to Firebase (same project as Man Power)
-    try {
-      if (window.MentorFB && window.MentorFB.set) {
-        window.MentorFB.set(FB_ROOT + '/' + mob, userData).catch(e =>
-          console.warn('[Mentor] Firebase save failed', e.message || e)
-        );
-        // Maintain student index for Mentor dropdown
+    // Fire-and-forget Firebase write (log errors)
+    (async () => {
+      try {
+        if (!window.MentorFB || !window.MentorFB.set) return;
+        await window.MentorFB.set(FB_ROOT + '/' + mob, userData);
         if (mob !== MENTOR_MOBILE) {
-          window.MentorFB.set(FB_INDEX + '/' + mob, {
+          await window.MentorFB.set(FB_INDEX + '/' + mob, {
             mobile: mob,
             updatedAt: userData.updatedAt,
             paymentCount: (userData.payments || []).length
-          }).catch(() => {});
+          });
         }
+        console.info('[Mentor] Firebase saved', mob);
+      } catch (e) {
+        console.warn('[Mentor] Firebase save failed', e.message || e);
       }
-    } catch {}
+    })();
   }
 
   function getAllStudentMobiles() {
@@ -394,18 +395,45 @@
 
   async function getAllStudentMobilesAsync() {
     const list = new Set(getAllStudentMobiles());
+    let fbOk = false;
+    let fbError = null;
     try {
       if (window.MentorFB && window.MentorFB.get) {
-        const index = await window.MentorFB.get(FB_INDEX);
-        if (index && typeof index === 'object') {
-          Object.keys(index).forEach(m => {
-            if (/^[6-9]\d{9}$/.test(m) && m !== MENTOR_MOBILE) list.add(m);
-          });
+        // 1) Dedicated index
+        try {
+          const index = await window.MentorFB.get(FB_INDEX);
+          fbOk = true;
+          if (index && typeof index === 'object') {
+            Object.keys(index).forEach(m => {
+              if (/^[6-9]\d{9}$/.test(m) && m !== MENTOR_MOBILE) list.add(m);
+            });
+          }
+        } catch (e) {
+          fbError = e;
+          console.warn('[Mentor] index load failed', e.message || e);
         }
+        // 2) Fallback: scan all mentor_guidance children
+        try {
+          const all = await window.MentorFB.get(FB_ROOT);
+          fbOk = true;
+          if (all && typeof all === 'object') {
+            Object.keys(all).forEach(m => {
+              if (/^[6-9]\d{9}$/.test(m) && m !== MENTOR_MOBILE) list.add(m);
+            });
+          }
+        } catch (e) {
+          fbError = e;
+          console.warn('[Mentor] guidance root load failed', e.message || e);
+        }
+      } else {
+        fbError = new Error('MentorFB not ready');
       }
     } catch (e) {
-      console.warn('[Mentor] index load failed', e.message || e);
+      fbError = e;
+      console.warn('[Mentor] student list failed', e.message || e);
     }
+    // stash status for UI toast
+    window._mentorFbStatus = { ok: fbOk, error: fbError ? (fbError.message || String(fbError)) : null, count: list.size };
     return Array.from(list).sort();
   }
 
@@ -453,8 +481,11 @@
       card.dataset.id = topic.id;
 
       const iconsHtml = (topic.icons || []).map(ic => {
-        const isFa = typeof ic === 'object' && ic.icon && ic.icon.startsWith('fa-');
         const title = (typeof ic === 'object' && ic.title) ? ic.title : '';
+        if (typeof ic === 'object' && ic.img) {
+          return `<span class="logo-badge logo-badge-img" title="${title}"><img src="${ic.img}" alt="${title}" width="28" height="28"/></span>`;
+        }
+        const isFa = typeof ic === 'object' && ic.icon && String(ic.icon).startsWith('fa-');
         const bg = (typeof ic === 'object' && ic.bg) ? ic.bg : '#ffffff';
         const content = (typeof ic === 'object')
           ? (isFa ? `<i class="${ic.icon}"></i>` : ic.icon)
@@ -857,8 +888,13 @@
     sel.innerHTML = '<option value="">— My own view (Mentor) —</option>' +
       mobiles.map(m => `<option value="${m}">+91 ${m}</option>`).join('');
     if (viewingAs) sel.value = viewingAs;
-    if (!mobiles.length) {
-      showToast('No students in Firebase yet. They appear after first payment/save.');
+    const st = window._mentorFbStatus || {};
+    if (mobiles.length) {
+      showToast(mobiles.length + ' student(s) found');
+    } else if (st.error) {
+      showToast('Firebase: ' + st.error + ' — check rules + Phone auth');
+    } else {
+      showToast('No students yet. After a student pays, tap Refresh List.');
     }
   }
 
@@ -899,26 +935,58 @@
   }
 
   // ========== Init Flow ==========
+  function isMobileVerified(mob) {
+    if (!mob) return false;
+    try {
+      if (localStorage.getItem('vks_mentor_verified_' + mob) === '1') return true;
+    } catch {}
+    try {
+      const u = window.MentorFB && window.MentorFB.auth && window.MentorFB.auth.currentUser;
+      if (u && u.phoneNumber) {
+        const digits = String(u.phoneNumber).replace(/\D/g, '').slice(-10);
+        if (digits === mob) return true;
+      }
+    } catch {}
+    // Parent Man Power session with same phone counts as verified
+    try {
+      if (window.parent && window.parent !== window) {
+        const sess = window.parent.localStorage && window.parent.localStorage.getItem('mp_session');
+        if (sess && sess.includes(mob)) return true;
+        const ph = window.parent.localStorage && (window.parent.localStorage.getItem('mp_user_phone') || window.parent.localStorage.getItem('mp_device_phone'));
+        if (ph && String(ph).replace(/\D/g, '').slice(-10) === mob) return true;
+      }
+    } catch {}
+    return false;
+  }
+
   async function init() {
     // Theme
     applyTheme(localStorage.getItem(THEME_KEY) || 'light');
+    bindEvents();
 
-    // Detect mobile
+    // Wait a moment for Firebase module
+    for (let i = 0; i < 15 && !(window.MentorFB && window.MentorFB.ready); i++) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+
+    // Detect mobile from URL / parent / storage
     let detected = detectMobile();
     if (!detected) {
       detected = await requestMobileFromParent();
     }
 
-    if (detected) {
+    // Only auto-enter if this mobile was OTP-verified (or Man Power parent session)
+    if (detected && isMobileVerified(detected)) {
       startApp(detected);
     } else {
-      // show prompt
       $('#mobilePrompt').classList.remove('hidden');
       $('#mobilePrompt').classList.add('flex');
-      $('#mobileInput').focus();
+      if (detected) {
+        const input = $('#mobileInput');
+        if (input) input.value = detected;
+      }
+      $('#mobileInput')?.focus();
     }
-
-    bindEvents();
   }
 
   async function startApp(mob) {
@@ -949,20 +1017,100 @@
   // ========== Events ==========
   function bindEvents() {
     // Mobile prompt
-    $('#mobileSubmit').addEventListener('click', () => {
+    // ---- Firebase Phone OTP login ----
+    let _pendingMobile = null;
+
+    function showOtpStep(showCode) {
+      const phone = $('#otpStepPhone');
+      const code = $('#otpStepCode');
+      if (phone) phone.classList.toggle('hidden', !!showCode);
+      if (code) code.classList.toggle('hidden', !showCode);
+      if (showCode) {
+        $('#loginTitle').textContent = 'Enter OTP';
+        $('#loginSub').textContent = 'OTP sent to +91 ' + _pendingMobile;
+        setTimeout(() => $('#otpInput')?.focus(), 100);
+      } else {
+        $('#loginTitle').textContent = 'Login with Mobile OTP';
+        $('#loginSub').textContent = 'Firebase-secured login · same as Man Power';
+      }
+    }
+
+    async function sendMentorOtp() {
       const val = ($('#mobileInput').value || '').trim();
-      const m = extractMobileFromString(val);
+      const m = extractMobileFromString(val) || (/^[6-9]\d{9}$/.test(val) ? val : null);
       if (!m) {
-        $('#mobileError').classList.remove('hidden');
+        $('#mobileError')?.classList.remove('hidden');
         return;
       }
-      $('#mobileError').classList.add('hidden');
-      // also store for parent consistency
-      try { localStorage.setItem('mp_user_phone', m); } catch {}
-      startApp(m);
+      $('#mobileError')?.classList.add('hidden');
+      const btn = $('#mobileSubmit');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Sending OTP…'; }
+      try {
+        if (!window.MentorFB || !window.MentorFB.sendPhoneOtp) {
+          // Wait briefly for module
+          await new Promise(r => setTimeout(r, 800));
+        }
+        if (!window.MentorFB || !window.MentorFB.sendPhoneOtp) {
+          throw new Error('Firebase not ready. Refresh and try again.');
+        }
+        await window.MentorFB.sendPhoneOtp(m);
+        _pendingMobile = m;
+        showOtpStep(true);
+        showToast('OTP sent to +91 ' + m);
+      } catch (e) {
+        console.error(e);
+        showToast((e && e.message) ? e.message : 'Failed to send OTP');
+        $('#mobileError').textContent = (e && e.message) || 'Failed to send OTP';
+        $('#mobileError')?.classList.remove('hidden');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane mr-1.5"></i> Send OTP'; }
+      }
+    }
+
+    async function verifyMentorOtp() {
+      const code = ($('#otpInput').value || '').trim();
+      if (!/^[0-9]{6}$/.test(code)) {
+        $('#otpError')?.classList.remove('hidden');
+        return;
+      }
+      $('#otpError')?.classList.add('hidden');
+      const btn = $('#otpVerifyBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Verifying…'; }
+      try {
+        await window.MentorFB.verifyPhoneOtp(code);
+        try { localStorage.setItem('mp_user_phone', _pendingMobile); } catch {}
+        try { localStorage.setItem('vks_mentor_verified_' + _pendingMobile, '1'); } catch {}
+        showToast('Login verified');
+        startApp(_pendingMobile);
+      } catch (e) {
+        console.error(e);
+        $('#otpError').textContent = 'Invalid OTP. Please try again.';
+        $('#otpError')?.classList.remove('hidden');
+        showToast('OTP verification failed');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check mr-1.5"></i> Verify & Continue'; }
+      }
+    }
+
+    $('#mobileSubmit')?.addEventListener('click', sendMentorOtp);
+    $('#mobileInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMentorOtp();
     });
-    $('#mobileInput').addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') $('#mobileSubmit').click();
+    $('#otpVerifyBtn')?.addEventListener('click', verifyMentorOtp);
+    $('#otpInput')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyMentorOtp();
+    });
+    $('#otpResendBtn')?.addEventListener('click', async () => {
+      if (_pendingMobile) {
+        $('#mobileInput').value = _pendingMobile;
+        showOtpStep(false);
+        await sendMentorOtp();
+      }
+    });
+    $('#otpChangeNumBtn')?.addEventListener('click', () => {
+      _pendingMobile = null;
+      showOtpStep(false);
+      $('#otpInput').value = '';
     });
 
     // Header
