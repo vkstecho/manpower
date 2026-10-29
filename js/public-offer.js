@@ -1,19 +1,17 @@
 /**
- * Man Power — publicOffer landing reader (v3.2.7)
+ * Man Power — publicOffer landing reader (v3.2.9)
  * Anonymous RTDB read + localStorage cache. No hardcoded prices/trial.
  */
 (function (global) {
   'use strict';
   var CACHE_KEY = 'mp_public_offer_v1';
-  var CACHE_TTL_MS = 10 * 60 * 1000;
 
   function readCache() {
     try {
       var raw = localStorage.getItem(CACHE_KEY);
       if (!raw) return null;
       var o = JSON.parse(raw);
-      if (!o || !o.data) return null;
-      return o;
+      return o && o.data ? o : null;
     } catch (e) {
       return null;
     }
@@ -30,9 +28,10 @@
     return new Promise(function (resolve) {
       var done = false;
       var timer = setTimeout(function () {
-        if (done) return;
-        done = true;
-        resolve(null);
+        if (!done) {
+          done = true;
+          resolve(null);
+        }
       }, ms);
       function finish(val) {
         if (done) return;
@@ -40,7 +39,6 @@
         clearTimeout(timer);
         resolve(val);
       }
-      // Prefer Firebase REST (works without auth for publicOffer)
       try {
         var url =
           'https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json';
@@ -60,14 +58,10 @@
     });
   }
 
-  function safeOffer(o) {
-    if (!o || typeof o !== 'object') return null;
-    return o;
-  }
-
   function isHi() {
     try {
-      var lang = (typeof _lang !== 'undefined' && _lang) || localStorage.getItem('mp_lang') || '';
+      var lang =
+        (typeof _lang !== 'undefined' && _lang) || localStorage.getItem('mp_lang') || '';
       lang = String(lang).toLowerCase();
       return lang === 'hi' || lang === 'hindi' || lang === 'hin';
     } catch (e) {
@@ -101,6 +95,12 @@
     var stickyBtn = document.getElementById('loginStickyCta');
     var neutral = document.getElementById('loginNeutralLine');
     var faq = document.getElementById('loginFaq');
+    var refundLine = document.getElementById('loginRefundLine');
+    var langLabel = document.getElementById('loginLangBtnLabel');
+
+    if (langLabel) {
+      langLabel.textContent = isHi() ? 'हिन्दी' : 'English';
+    }
 
     var trialDays = offer ? parseInt(offer.trialDays, 10) || 0 : 0;
     var pct = offer ? parseInt(offer.annualDiscountPct, 10) || 0 : 0;
@@ -125,62 +125,84 @@
         neutral.style.display = 'block';
         neutral.textContent = t('OTP से लॉगिन करके शुरू करें', 'Login with OTP to get started');
       }
+      if (refundLine) {
+        refundLine.style.display = 'none';
+        refundLine.textContent = '';
+      }
       if (faq) faq.innerHTML = '';
       return;
     }
 
     if (neutral) neutral.style.display = 'none';
 
-    var parts = [];
+    // Row 1: trial + discount only
+    var top = [];
     if (trialDays > 0) {
-      parts.push(
+      top.push(
         '<span class="mp-offer-chip">' +
           t(trialDays + ' दिन मुफ़्त ट्रायल', trialDays + '-day free trial') +
           '</span>'
       );
     }
     if (pct > 0) {
-      parts.push(
+      top.push(
         '<span class="mp-offer-chip">' +
           t('वार्षिक पर ' + pct + '% बचत', 'Save ' + pct + '% on annual') +
           '</span>'
       );
     }
-    if (refundDays > 0) {
-      parts.push(
-        '<span class="mp-offer-chip mp-offer-muted">' +
-          t(
-            refundDays + ' दिन में Customer Care से रद्द व रिफंड',
-            refundDays + '-day cancel & refund via Customer Care'
-          ) +
-          '</span>'
-      );
-    }
+
+    // Row 2: max 3 plans
+    var planHtml = '';
     if (plans.length) {
-      var chips = plans
+      var shown = plans.slice(0, 3);
+      var chips = shown
         .map(function (p) {
           var name = (p && (p.name || p.label)) || '';
           var monthly = p && (p.monthly != null ? p.monthly : p.amount);
-          var label =
-            name ||
-            (monthly != null ? '₹' + monthly : '');
+          var label = name || (monthly != null ? '₹' + monthly : '');
           if (!label) return '';
           return '<span class="mp-plan-chip">' + String(label).replace(/</g, '') + '</span>';
         })
         .filter(Boolean)
         .join('');
-      if (chips) parts.push('<div class="mp-plan-row">' + chips + '</div>');
+      if (plans.length > 3) {
+        chips +=
+          '<span class="mp-plan-chip mp-plan-more">' +
+          t('+' + (plans.length - 3) + ' और', '+' + (plans.length - 3) + ' more') +
+          '</span>';
+      }
+      if (chips) planHtml = '<div class="mp-plan-row">' + chips + '</div>';
     }
-    if (offerBox) offerBox.innerHTML = parts.join('');
 
-    // FAQ — hide answers with no data
+    if (offerBox) {
+      var html = '';
+      if (top.length) html += '<div class="mp-offer-row">' + top.join('') + '</div>';
+      if (planHtml) html += planHtml;
+      offerBox.innerHTML = html;
+    }
+
+    if (refundLine) {
+      if (refundDays > 0) {
+        refundLine.style.display = 'block';
+        refundLine.textContent = t(
+          refundDays + ' दिन में Customer Care से रद्द व रिफंड',
+          refundDays + '-day cancel & refund via Customer Care'
+        );
+      } else {
+        refundLine.style.display = 'none';
+        refundLine.textContent = '';
+      }
+    }
+
+    // FAQ under fold
     if (faq) {
       var items = [];
       if (trialDays > 0) {
         items.push({
           q: t('ट्रायल कैसे काम करता है?', 'How does the trial work?'),
           a: t(
-            'नए यूज़र को ' + trialDays + ' दिन का मुफ़्त ट्रायल मिलता है (Admin सेटिंग के अनुसार)।',
+            'नए यूज़र को ' + trialDays + ' दिन का मुफ़्त ट्रायल मिलता है (Admin सेटिंग)।',
             'New users get a ' + trialDays + '-day free trial (as set by Admin).'
           )
         });
@@ -189,9 +211,9 @@
         items.push({
           q: t('कीमत क्या है?', 'What does it cost?'),
           a: t(
-            'प्लान Admin द्वारा सेट होते हैं। लॉगिन के बाद पेमेंट स्क्रीन पर देखें।' +
+            'प्लान Admin सेट करता है। पूरी सूची लॉगिन के बाद दिखती है।' +
               (pct > 0 ? ' वार्षिक पर ' + pct + '% छूट।' : ''),
-            'Plans are set by Admin. See the payment screen after login.' +
+            'Plans are set by Admin. Full list after login.' +
               (pct > 0 ? ' Save ' + pct + '% on annual.' : '')
           )
         });
@@ -201,8 +223,8 @@
           q: t('रद्द / रिफंड?', 'Cancel / refund?'),
           a: t(
             refundDays +
-              ' दिनों के अंदर Customer Care से अनुरोध करें। तुरंत ऑटो-कैंसिल नहीं है।',
-            'Request cancel & refund via Customer Care within ' +
+              ' दिनों के अंदर Customer Care से अनुरोध करें। ऑटो-कैंसिल नहीं है।',
+            'Request via Customer Care within ' +
               refundDays +
               ' days. Not instant auto-cancel.'
           )
@@ -228,7 +250,6 @@
         .join('');
     }
 
-    // Optional support links from snapshot (digits/email only)
     try {
       var wa = offer.supportWhatsApp ? String(offer.supportWhatsApp).replace(/\D/g, '') : '';
       var em = offer.supportEmail ? String(offer.supportEmail).trim() : '';
@@ -246,15 +267,12 @@
 
   async function loadPublicOffer() {
     var cached = readCache();
-    if (cached && cached.data) {
-      apply(safeOffer(cached.data));
-    } else {
-      apply(null);
-    }
+    if (cached && cached.data) apply(cached.data);
+    else apply(null);
     var fresh = await fetchWithTimeout(3000);
     if (fresh) {
       writeCache(fresh);
-      apply(safeOffer(fresh));
+      apply(fresh);
     } else if (!cached) {
       apply(null);
     }

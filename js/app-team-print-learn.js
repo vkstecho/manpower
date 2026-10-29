@@ -479,8 +479,19 @@ function openLearnScreen(){
     el.classList.add('show');
     el.style.display = 'block';
     el.style.zIndex = '900';
+    // Always show main module list (resume previous section hide)
+    try{
+      const mb = document.getElementById('learnMainButtons');
+      if(mb){ mb.style.display = 'block'; mb.style.visibility = 'visible'; }
+      ['learnMetTrainView','learnComingSoonView','learnSupSkillView','learnMetCostView','learnMRSkillView','learnExcelExpertView','learnMSAIView','learnMRMPresView','learnKPIDashboardView'].forEach(function(id){
+        var v = document.getElementById(id);
+        if(v){ v.style.display = 'none'; }
+      });
+    }catch(e0){}
     try{ document.body.classList.add('learn-open'); }catch(e){}
     try{ renderLearnScreen(); }catch(e){ console.error('[learn] renderLearnScreen', e); }
+    try{ if(typeof injectLearnModuleButtons==='function') injectLearnModuleButtons(); }catch(e1){}
+    try{ if(typeof renderLearnCustomButtons==='function') renderLearnCustomButtons(); }catch(e2){}
   }catch(e){
     console.error('[learn] openLearnScreen', e);
     try{ toast(L("Could not open Learn & Grow","Could not open Learn & Grow")); }catch(x){}
@@ -2415,6 +2426,7 @@ function _learnModuleUrls(){
 }
 
 function injectLearnModuleButtons(){
+  // Resume Builder + Mentor cards into #learnModuleSlot
   try{
     var slot = document.getElementById('learnModuleSlot')
       || document.getElementById('learnMainButtons')
@@ -2494,6 +2506,8 @@ function injectLearnModuleButtons(){
   }catch(e){ console.warn('[learn modules]', e); }
 }
 
+
+window.injectLearnModuleButtons = injectLearnModuleButtons;
 
 // Hook renderLearnScreen
 (function(){

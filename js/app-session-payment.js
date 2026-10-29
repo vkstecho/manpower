@@ -428,7 +428,7 @@ async function openPaymentSettingsAdmin(){
   </div>
 
   <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
-  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · discount '+ (s.annualDiscountPct||0) +'% · refund '+ (s.refundDays||0) +'d');}else{toast('⚠️ Publish failed — deploy database rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
+  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · discount '+ (s.annualDiscountPct||0) +'% · refund '+ (s.refundDays||0) +'d');try{closeModal();}catch(e){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');}catch(e2){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
 
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
   <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set amount + paid-until for one user</div>
@@ -575,22 +575,25 @@ function payAmountListRemove(i){
 async function publishPublicOfferSnapshot() {
   try {
     if (typeof fbSet !== 'function' && typeof fbUpdate !== 'function') return;
-    const pay = window._paymentSettingsCache || (typeof _loadPaymentSettings === 'function' ? await _loadPaymentSettings(true) : null) || {};
-    // Refresh license + customer care if missing so trialDays/refundDays are real
-    let lic = window._appLicenseCache || {};
+    // ALWAYS force-refresh from Firebase so Publish uses latest trial/discount/refund (not stale cache)
+    let pay = {};
     try {
-      if ((!lic || !lic.freeTrialDays) && typeof fbGet === 'function') {
-        const remoteLic = await fbGet('settings/appLicense');
-        if (remoteLic) { lic = remoteLic; window._appLicenseCache = remoteLic; }
-      }
-    } catch (e1) {}
-    let cc = window._customerCareCache || (typeof _defaultCustomerCare === 'function' ? _defaultCustomerCare() : {}) || {};
+      if (typeof _loadPaymentSettings === 'function') pay = (await _loadPaymentSettings(true)) || {};
+      else if (typeof fbGet === 'function') pay = (await fbGet('settings/payment')) || {};
+    } catch (e0) { pay = window._paymentSettingsCache || {}; }
+    window._paymentSettingsCache = pay;
+    let lic = {};
     try {
-      if ((!cc || !cc.refundDays) && typeof fbGet === 'function') {
-        const remoteCc = await fbGet('settings/customerCare');
-        if (remoteCc) { cc = remoteCc; window._customerCareCache = remoteCc; }
-      }
-    } catch (e2) {}
+      if (typeof fbGet === 'function') lic = (await fbGet('settings/appLicense')) || {};
+    } catch (e1) { lic = window._appLicenseCache || {}; }
+    window._appLicenseCache = lic;
+    let cc = {};
+    try {
+      if (typeof fbGet === 'function') cc = (await fbGet('settings/customerCare')) || {};
+    } catch (e2) {
+      cc = window._customerCareCache || (typeof _defaultCustomerCare === 'function' ? _defaultCustomerCare() : {}) || {};
+    }
+    window._customerCareCache = cc;
     const amounts = (typeof _getPaymentAmountOptions === 'function')
       ? _getPaymentAmountOptions(pay)
       : (pay.amountOptions || pay.amounts || []);

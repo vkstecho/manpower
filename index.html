@@ -84,13 +84,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300028"></script>
+<script type="module" src="js/firebase-init.js?v=300031"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300028">
+<link rel="stylesheet" href="css/app.css?v=300031">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -118,6 +118,21 @@ window.addEventListener('appinstalled', function () {
 
 body.learn-module-open{overflow:hidden !important}
 #learnModuleLayer{position:fixed;inset:0;z-index:10050}
+
+
+#loginSecondaryRow a, #loginSecondaryRow button { color: #f1f5f9 !important; }
+#loginOutcomeHeadline { color: #f8fafc !important; text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+#loginNeutralLine { color: #cbd5e1 !important; }
+.mp-plan-more { opacity: .85; font-size: 11px !important; }
+@media (max-width:480px){
+  #loginStickyBar { display: none; } /* JS enables after scroll */
+  .mp-login-logo-wrap { width: 84px; height: 84px; margin-bottom: 6px; }
+  .mp-login-logo-img { width: 64px; height: 64px; }
+  #loginBrandTitle { font-size: 24px !important; }
+  #loginOutcomeHeadline { font-size: 14px !important; }
+  #loginSecondaryRow { margin-bottom: 8px; }
+  .learn-top-btn-login { margin-bottom: 8px !important; }
+}
 
 /* v3.2.7 landing conversion + premium polish */
 .mp-login-logo-wrap{
@@ -191,12 +206,158 @@ body.learn-module-open{overflow:hidden !important}
 #loginStickyCta{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff}
 #loginStickyFocus{background:rgba(30,41,59,.95);color:#e2e8f0;border:1px solid rgba(148,163,184,.4)!important}
 @media (max-width:480px){
-  #loginScreen.show #loginStickyBar{display:block}
-  #loginStep1{padding-bottom:72px}
+  /* sticky controlled by mpLoginSticky JS */
+  #loginStep1{padding-bottom:16px}
   #loginScreen.otp-step #loginStickyBar{display:none}
 }
 @media (min-width:900px){
   #loginStickyBar{display:none!important}
+}
+
+
+/* === v3.2.9 landing layout === */
+.mp-login-logo-wrap{
+  width:80px;height:80px;margin:2px 0 8px;padding:6px;box-sizing:border-box;
+  border-radius:20px;background:linear-gradient(145deg,rgba(249,115,22,.2),rgba(168,85,247,.12));
+  border:1px solid rgba(251,146,60,.4);
+  box-shadow:0 8px 24px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;overflow:visible;flex-shrink:0;
+}
+.mp-login-logo-img{width:64px;height:64px;object-fit:contain;display:block;border-radius:14px}
+.mp-login-brand{
+  font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;text-align:center;
+  background:linear-gradient(135deg,#fb923c,#c084fc,#38bdf8);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  letter-spacing:3px;margin:0 0 4px;line-height:1.15;
+}
+.mp-login-headline{
+  text-align:center;font-size:15px;font-weight:800;color:#f8fafc !important;
+  margin:0 0 8px;line-height:1.35;letter-spacing:.2px;
+  text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.mp-login-offer{display:flex;flex-direction:column;align-items:center;gap:6px;margin:0 0 8px;width:100%}
+.mp-offer-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.mp-offer-chip{
+  display:inline-flex;align-items:center;padding:6px 11px;border-radius:999px;
+  font-size:12px;font-weight:800;letter-spacing:.15px;
+  background:linear-gradient(135deg,rgba(249,115,22,.32),rgba(234,88,12,.2));
+  border:1px solid rgba(251,146,60,.55);color:#fff7ed !important;
+  box-shadow:0 2px 10px rgba(249,115,22,.18);
+}
+.mp-offer-muted{
+  background:linear-gradient(135deg,rgba(56,189,248,.14),rgba(15,23,42,.5));
+  border-color:rgba(125,211,252,.4);color:#e0f2fe !important;box-shadow:none;
+}
+.mp-plan-row{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;width:100%}
+.mp-plan-chip{
+  padding:5px 10px;border-radius:9px;font-size:11px;font-weight:800;
+  background:rgba(15,23,42,.75);border:1px solid rgba(167,139,250,.4);color:#e9d5ff !important;
+}
+.mp-plan-more{opacity:.9;font-size:10px !important;color:#cbd5e1 !important;border-color:rgba(148,163,184,.35)}
+.mp-login-neutral{
+  display:none;text-align:center;font-size:13px;font-weight:700;
+  color:#e2e8f0 !important;margin:0 0 10px;
+}
+.mp-login-lang{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:6px 14px;margin:0 0 12px;border-radius:999px;cursor:pointer;
+  background:rgba(30,41,59,.7);border:1px solid rgba(148,163,184,.3);
+  font-size:12px;font-weight:700;color:#e2e8f0 !important;
+}
+.mp-login-card.login-card,
+#loginStep1 .login-card.mp-login-card{
+  background:linear-gradient(180deg,rgba(30,41,59,.95),rgba(15,23,42,.98)) !important;
+  border:1px solid rgba(148,163,184,.28) !important;
+  border-radius:18px !important;
+  box-shadow:0 12px 40px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  padding:16px 14px 14px !important;
+}
+.mp-login-field-label{font-size:14px;font-weight:800;color:#f8fafc !important;margin-bottom:2px}
+.mp-login-field-sub{font-size:11px;color:#94a3b8 !important;margin-bottom:8px;font-weight:600}
+.mp-login-phone-row{display:flex;gap:8px;margin-bottom:12px}
+.mp-login-cc{
+  background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;
+  padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap;
+}
+#loginStep1 #loginMobile{
+  flex:1;font-size:17px;letter-spacing:1.5px;color:#f8fafc !important;
+  background:#1e3251 !important;-webkit-text-fill-color:#f8fafc !important;
+  border-radius:10px;
+}
+#loginStep1 #sendOtpBtn.big-btn{
+  background:linear-gradient(135deg,#f97316,#ea580c) !important;
+  box-shadow:0 8px 22px rgba(234,88,12,.4) !important;
+  font-size:15px !important;letter-spacing:.3px;min-height:50px !important;
+}
+.mp-login-trust{
+  text-align:center;font-size:11px;font-weight:600;color:#94a3b8 !important;
+  margin-top:10px;line-height:1.35;
+}
+.mp-login-refund{
+  text-align:center;font-size:11px;font-weight:700;color:#7dd3fc !important;
+  margin-top:4px;line-height:1.35;
+}
+/* Icon secondary row — one line */
+.mp-login-secondary{
+  display:flex;flex-wrap:nowrap;justify-content:space-between;align-items:stretch;
+  gap:6px;width:100%;max-width:360px;margin-top:14px;
+}
+.mp-login-secondary a,
+.mp-login-secondary button{
+  flex:1 1 0;min-width:0;padding:8px 2px;border-radius:12px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  font-size:10px;font-weight:800;text-decoration:none;cursor:pointer;
+  border:1px solid rgba(148,163,184,.28);background:rgba(30,41,59,.8);
+  color:#f1f5f9 !important;line-height:1.2;
+}
+.mp-login-secondary .mp-sec-ic{font-size:14px;line-height:1;opacity:.95}
+.mp-login-secondary .mp-sec-lb{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.mp-login-secondary a:hover,
+.mp-login-secondary button:hover{border-color:rgba(251,146,60,.5);background:rgba(30,41,59,.98)}
+.mp-login-learn{
+  width:100%;max-width:360px;margin-top:12px;padding:10px 12px;border:none;border-radius:12px;
+  cursor:pointer;font-weight:800;font-size:13px;color:#fff;
+  background:linear-gradient(135deg,#7c3aed,#4f46e5);
+}
+.mp-login-faq{width:100%;max-width:360px;margin-top:14px}
+.mp-faq-item{
+  background:rgba(15,23,42,.55);border:1px solid rgba(148,163,184,.22);
+  border-radius:10px;margin:6px 0;padding:8px 10px;font-size:12px;color:#cbd5e1;
+}
+.mp-faq-item summary{font-weight:800;cursor:pointer;color:#f1f5f9 !important}
+.mp-faq-item p{margin:6px 0 0;line-height:1.45;color:#94a3b8 !important}
+#loginStickyBar{
+  display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;
+  padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+  background:rgba(10,15,26,.94);backdrop-filter:blur(10px);
+  border-top:1px solid rgba(148,163,184,.25);
+}
+#loginStickyBar .sticky-inner{max-width:360px;margin:0 auto;display:flex;gap:8px}
+#loginStickyBar button{flex:1;padding:12px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer}
+#loginStickyCta{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff}
+#loginStickyFocus{background:rgba(30,41,59,.95);color:#e2e8f0;border:1px solid rgba(148,163,184,.4)!important}
+@media (max-width:480px){
+  #loginStep1{padding-bottom:16px}
+  .mp-login-logo-wrap{width:72px;height:72px}
+  .mp-login-logo-img{width:58px;height:58px}
+  .mp-login-brand{font-size:24px}
+  .mp-login-headline{font-size:14px}
+  #loginScreen.otp-step #loginStickyBar,
+  #loginScreen.otp-step .mp-login-secondary,
+  #loginScreen.otp-step .mp-login-learn,
+  #loginScreen.otp-step .mp-login-faq,
+  #loginScreen.otp-step .mp-login-lang{display:none !important}
+}
+@media (min-width:960px){
+  #loginStickyBar{display:none !important}
+  #loginStep1{
+    flex:0 0 380px;width:380px;max-width:380px;
+    background:linear-gradient(165deg,rgba(22,32,50,.97),rgba(11,18,32,.99)) !important;
+    border:1px solid rgba(148,163,184,.28) !important;
+    border-radius:24px;padding:28px 22px 24px !important;
+    box-shadow:0 28px 64px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset;
+    box-sizing:border-box;overflow:visible;
+  }
 }
 
 </style>
@@ -401,53 +562,54 @@ body.login-open{overflow:auto}
   </div>
 
 
-  <!-- STEP 1 - MOBILE NUMBER (v3.2.7 conversion layout) -->
+  <!-- STEP 1 - MOBILE NUMBER (v3.2.9 conversion layout) -->
   <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
-        <div class="mp-login-logo-wrap" aria-hidden="true">
-      <img src="icon-192.png" alt="" width="88" height="88" class="mp-login-logo-img" decoding="async">
+    <div class="mp-login-logo-wrap" aria-hidden="true">
+      <img src="icon-192.png" alt="" width="72" height="72" class="mp-login-logo-img" decoding="async">
     </div>
-    <div style="font-family:'Barlow Condensed'<div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:2px">MAN POWER</div>
-    <div id="loginOutcomeHeadline" style="text-align:center;font-size:15px;font-weight:800;color:#e2e8f0;margin:0 0 8px;line-height:1.35">Full team shift roster in minutes</div>
-    <div id="loginOfferSnapshot" aria-live="polite"></div>
-    <div id="loginNeutralLine">Login with OTP to get started</div>
-    <button type="button" id="loginLangBtn" onclick="openLocalePicker()"
-      style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
-             padding:8px 14px;margin-bottom:10px;border-radius:12px;cursor:pointer;
-             background:rgba(30,41,59,.85);border:1.5px solid rgba(148,163,184,.35);
-             font-size:13px;font-weight:700;color:#e2e8f0">
-      🌐 <span id="loginLangBtnLabel">Language / भाषा</span>
+    <div id="loginBrandTitle" class="mp-login-brand">MAN POWER</div>
+    <div id="loginOutcomeHeadline" class="mp-login-headline">Full team shift roster in minutes</div>
+    <div id="loginOfferSnapshot" class="mp-login-offer" aria-live="polite"></div>
+    <div id="loginNeutralLine" class="mp-login-neutral">Login with OTP to get started</div>
+
+    <button type="button" id="loginLangBtn" class="mp-login-lang" onclick="openLocalePicker()">
+      🌐 <span id="loginLangBtnLabel">English</span>
     </button>
-    <div class="login-card" style="width:100%">
+
+    <div class="login-card mp-login-card" style="width:100%">
       <div class="err-msg" id="loginErr"></div>
-      <div id="loginMobileTitle" style="font-size:15px;font-weight:800;color:#f8fafc;margin-bottom:4px">📱 Mobile Number</div>
-      <div id="loginMobileTitleHi" style="font-size:12px;color:#94a3b8;margin-bottom:8px;font-weight:600">Mobile Number</div>
+      <div id="loginMobileTitle" class="mp-login-field-label">📱 Mobile Number</div>
+      <div id="loginMobileTitleHi" class="mp-login-field-sub">10-digit Indian mobile</div>
       <div id="loginMobileHint" style="display:none"></div>
-      <div style="display:flex;gap:8px;margin-bottom:14px">
-        <div style="background:#1e293b;border:1.5px solid rgba(148,163,184,.45);border-radius:10px;padding:12px 10px;font-size:15px;font-weight:700;color:#e2e8f0;white-space:nowrap">+91</div>
+      <div class="mp-login-phone-row">
+        <div class="mp-login-cc">+91</div>
         <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
-          inputmode="numeric" maxlength="10" autocomplete="tel-national"
+          maxlength="10" autocomplete="tel-national"
           oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
           onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
           onchange="this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
           onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'},10)"
-          onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()"
-          style="flex:1;font-size:18px;letter-spacing:2px;color:#f8fafc;background:#1e3251;-webkit-text-fill-color:#f8fafc">
+          onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
       <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Continue &#128172;</button>
+      <div id="loginTrustLine" class="mp-login-trust">OTP on this number · no password</div>
+      <div id="loginRefundLine" class="mp-login-refund" style="display:none"></div>
     </div>
-    <div id="loginSecondaryRow">
-      <button type="button" onclick="openHowToVideo()" id="loginHowToBtn">▶ How to use</button>
-      <a id="loginWaSupport" href="https://wa.me/918929394920" target="_blank" rel="noopener">WhatsApp</a>
-      <a id="loginEmailSupport" href="mailto:CareMP@vkstech.com">Email</a>
-      <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower" target="_blank" rel="noopener">Play Store</a>
-      <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()">Install App</button>
+
+    <div id="loginSecondaryRow" class="mp-login-secondary" role="navigation" aria-label="Support and install">
+      <button type="button" onclick="openHowToVideo()" id="loginHowToBtn" title="How to use"><span class="mp-sec-ic">▶</span><span class="mp-sec-lb">How to</span></button>
+      <a id="loginWaSupport" href="https://wa.me/918929394920" target="_blank" rel="noopener" title="WhatsApp"><span class="mp-sec-ic">💬</span><span class="mp-sec-lb">WhatsApp</span></a>
+      <a id="loginEmailSupport" href="mailto:CareMP@vkstech.com" title="Email"><span class="mp-sec-ic">✉</span><span class="mp-sec-lb">Email</span></a>
+      <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower" target="_blank" rel="noopener" title="Play Store"><span class="mp-sec-ic">▶</span><span class="mp-sec-lb">Play</span></a>
+      <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()" title="Install app"><span class="mp-sec-ic">⬇</span><span class="mp-sec-lb">Install</span></button>
     </div>
     <div id="loginInstallRow" style="display:none" aria-hidden="true"></div>
-    <div id="loginFaq"></div>
-    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-top:10px;padding:10px;font-size:13px">
+
+    <button type="button" class="mp-login-learn" onclick="openLearnScreen()">
       &#127891; <span id="loginLearnTitle">Learn Now</span>
     </button>
+    <div id="loginFaq" class="mp-login-faq"></div>
   </div>
 
   <div id="loginStickyBar" role="region" aria-label="Quick login">
@@ -458,6 +620,7 @@ body.login-open{overflow:auto}
   </div>
 
   <!-- STEP 2 - OTP -->
+
 
   <div id="loginStep2" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;margin-bottom:16px">MAN POWER</div>
@@ -1571,37 +1734,37 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/public-offer.js?v=300028"></script>
+<script src="js/public-offer.js?v=300031"></script>
 <script src="js/i18n_locale.js"></script>
-<script src="js/app-core.js?v=300028"></script>
-<script src="js/app-login.js?v=300028"></script>
-<script src="js/app-login-device.js?v=300028"></script>
-<script src="js/app-session-auth.js?v=300028"></script>
-<script src="js/app-session-nav.js?v=300028"></script>
-<script src="js/app-session-settings.js?v=300028"></script>
-<script src="js/app-session-home.js?v=300028"></script>
-<script src="js/app-session-payment.js?v=300028"></script>
-<script src="js/app-login-session.js?v=300028"></script>
-<script src="js/app.js?v=300028"></script>
-<script src="js/mp-commercial.js?v=300028"></script>
-<script src="js/a11y.js?v=300028"></script>
+<script src="js/app-core.js?v=300031"></script>
+<script src="js/app-login.js?v=300031"></script>
+<script src="js/app-login-device.js?v=300031"></script>
+<script src="js/app-session-auth.js?v=300031"></script>
+<script src="js/app-session-nav.js?v=300031"></script>
+<script src="js/app-session-settings.js?v=300031"></script>
+<script src="js/app-session-home.js?v=300031"></script>
+<script src="js/app-session-payment.js?v=300031"></script>
+<script src="js/app-login-session.js?v=300031"></script>
+<script src="js/app.js?v=300031"></script>
+<script src="js/app-team-print-learn.js?v=300031"></script>
+<script src="js/mp-commercial.js?v=300031"></script>
+<script src="js/a11y.js?v=300031"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
 (function(){
   var heavy = [
-    'js/i18n_ml.js?v=300028',
-    'js/app-schedule.js?v=300028',
-    'js/app-team.js?v=300028',
-    'js/app-team-import-core.js?v=300028',
-    'js/app-team-emp-forms.js?v=300028',
-    'js/app-team-excel-ops.js?v=300028',
-    'js/app-sched-builder.js?v=300028',
-    'js/app-team-import.js?v=300028',
-    'js/app-team-print-learn.js?v=300028',
-    'js/sched-offline-queue.js?v=300028',
-    'js/sched-clipboard.js?v=300028',
-    'js/sched-undo.js?v=300028',
-    'js/sched-cell-keys.js?v=300028'
+    'js/i18n_ml.js?v=300031',
+    'js/app-schedule.js?v=300031',
+    'js/app-team.js?v=300031',
+    'js/app-team-import-core.js?v=300031',
+    'js/app-team-emp-forms.js?v=300031',
+    'js/app-team-excel-ops.js?v=300031',
+    'js/app-sched-builder.js?v=300031',
+    'js/app-team-import.js?v=300031',
+    'js/sched-offline-queue.js?v=300031',
+    'js/sched-clipboard.js?v=300031',
+    'js/sched-undo.js?v=300031',
+    'js/sched-cell-keys.js?v=300031'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;
@@ -1623,6 +1786,51 @@ window.__sectionsReady = (async function loadSections(){
 </script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
+
+
+<script>
+(function(){
+  function updSticky(){
+    var bar = document.getElementById('loginStickyBar');
+    var scr = document.getElementById('loginScreen');
+    if(!bar || !scr) return;
+    var y = scr.scrollTop || window.scrollY || 0;
+    if(window.innerWidth > 480){ bar.style.display = 'none'; return; }
+    if(!scr.classList.contains('show') || scr.classList.contains('otp-step')){ bar.style.display = 'none'; return; }
+    bar.style.display = y > 100 ? 'block' : 'none';
+  }
+  document.addEventListener('scroll', updSticky, true);
+  window.addEventListener('resize', updSticky);
+  setTimeout(updSticky, 300);
+})();
+</script>
+
+
+<script>
+(function(){
+  window.mpLoginSticky = function(){
+    var bar = document.getElementById('loginStickyBar');
+    var scr = document.getElementById('loginScreen');
+    if(!bar) return;
+    if(window.innerWidth > 480){ bar.style.display = 'none'; return; }
+    if(!scr || !scr.classList.contains('show') || scr.classList.contains('otp-step')){
+      bar.style.display = 'none'; return;
+    }
+    var y = (scr.scrollTop || 0);
+    // Show sticky only when primary CTA scrolled out of view
+    var btn = document.getElementById('sendOtpBtn');
+    var hide = true;
+    if(btn){
+      var r = btn.getBoundingClientRect();
+      hide = r.bottom > 0 && r.top < window.innerHeight - 40;
+    }
+    bar.style.display = hide ? 'none' : 'block';
+  };
+  document.addEventListener('scroll', window.mpLoginSticky, true);
+  window.addEventListener('resize', window.mpLoginSticky);
+  setInterval(window.mpLoginSticky, 800);
+})();
+</script>
 
 </body>
 </html>
