@@ -53,7 +53,18 @@ window.addEventListener('appinstalled', function () {
   <meta name="translate" content="no">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1a">
-<title>Man Power</title>
+<title>Man Power — Automatic Shift Schedule for Indian Teams</title>
+<meta name="description" content="Man Power is a team and shift management PWA for Indian factories and supervisors — build rosters, manage leave, and train your team in one place.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Man Power">
+<meta property="og:title" content="Man Power — Automatic Shift Schedule for Indian Teams">
+<meta property="og:description" content="Team and shift management for Indian workplaces. Schedule, leave, learning — one app.">
+<meta property="og:url" content="https://manpower.vkstech.com/">
+<meta property="og:image" content="https://manpower.vkstech.com/icon-512.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Man Power — Automatic Shift Schedule">
+<meta name="twitter:description" content="Team and shift management for Indian workplaces.">
+<meta name="twitter:image" content="https://manpower.vkstech.com/icon-512.png">
 
 <!-- PWA -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -68,19 +79,18 @@ window.addEventListener('appinstalled', function () {
 <meta name="application-name" content="Man Power">
 <meta name="msapplication-TileColor" content="#0a0f1a">
 <meta name="msapplication-TileImage" content="icon-192.png">
-<meta name="description" content="Man Power — A Team Management and Training Application">
 
 <link rel="icon" type="image/svg+xml" href="MP-logo.svg">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300026"></script>
+<script type="module" src="js/firebase-init.js?v=300027"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300026">
+<link rel="stylesheet" href="css/app.css?v=300027">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -108,6 +118,35 @@ window.addEventListener('appinstalled', function () {
 
 body.learn-module-open{overflow:hidden !important}
 #learnModuleLayer{position:fixed;inset:0;z-index:10050}
+
+/* v3.2.7 landing conversion */
+#loginOfferSnapshot{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 12px;min-height:0}
+.mp-offer-chip{display:inline-block;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4);color:#fdba74}
+.mp-offer-muted{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#cbd5e1}
+.mp-plan-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
+.mp-plan-chip{padding:4px 9px;border-radius:8px;font-size:11px;font-weight:800;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);color:#7dd3fc}
+#loginNeutralLine{display:none;text-align:center;font-size:12px;font-weight:700;color:#94a3b8;margin:0 0 10px}
+#loginOutcomeHeadline{text-align:center;font-size:15px;font-weight:800;color:#e2e8f0;margin:0 0 10px;line-height:1.35}
+#loginSecondaryRow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%;max-width:360px;margin-top:14px}
+#loginSecondaryRow a,#loginSecondaryRow button{flex:1 1 auto;min-width:calc(50% - 6px);padding:8px 6px;border-radius:10px;font-size:11px;font-weight:800;text-align:center;text-decoration:none;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.7);color:#cbd5e1;cursor:pointer}
+#loginFaq{width:100%;max-width:360px;margin-top:12px}
+.mp-faq-item{background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.2);border-radius:10px;margin:6px 0;padding:8px 10px;font-size:12px;color:#cbd5e1}
+.mp-faq-item summary{font-weight:800;cursor:pointer;color:#e2e8f0}
+.mp-faq-item p{margin:6px 0 0;line-height:1.45;color:#94a3b8}
+#loginStickyBar{display:none;position:fixed;left:0;right:0;bottom:0;z-index:50;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(10,15,26,.92);backdrop-filter:blur(10px);border-top:1px solid rgba(148,163,184,.25)}
+#loginStickyBar .sticky-inner{max-width:360px;margin:0 auto;display:flex;gap:8px}
+#loginStickyBar button{flex:1;padding:12px;border-radius:12px;border:none;font-weight:900;font-size:14px;cursor:pointer}
+#loginStickyCta{background:linear-gradient(135deg,#f97316,#ea580c);color:#fff}
+#loginStickyFocus{background:rgba(30,41,59,.95);color:#e2e8f0;border:1px solid rgba(148,163,184,.4)!important}
+@media (max-width:480px){
+  #loginScreen.show #loginStickyBar{display:block}
+  #loginStep1{padding-bottom:72px}
+  #loginScreen.otp-step #loginStickyBar{display:none}
+}
+@media (min-width:900px){
+  #loginStickyBar{display:none!important}
+}
+
 </style>
 
 <style id="mrSkillHubThemeCss">
@@ -308,44 +347,12 @@ body.login-open{overflow:auto}
   </div>
 
 
-  <!-- STEP 1 - MOBILE NUMBER -->
+  <!-- STEP 1 - MOBILE NUMBER (v3.2.7 conversion layout) -->
   <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
-    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-bottom:10px">
-      &#127891; <span id="loginLearnTitle">Learn Now</span>
-      <span id="loginLearnSub" style="font-size:12px;opacity:1;display:block;font-weight:700;margin-top:3px;color:rgba(255,255,255,.92)">Audio &amp; Video Courses</span>
-    </button>
-    <button type="button" id="loginHowToBtn" onclick="openHowToVideo()"
-      style="width:100%;max-width:360px;margin-bottom:10px;padding:12px 14px;border-radius:12px;cursor:pointer;
-             background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;color:#fff;font-weight:800;font-size:14px;
-             display:flex;align-items:center;justify-content:center;gap:8px">
-      ▶ <span id="loginHowToLabel">How to use — Shift Management</span>
-    </button>
-    <div style="width:100%;max-width:360px;margin-bottom:12px;display:flex;gap:8px">
-      <a id="loginWaSupport" href="https://wa.me/918929394920" target="_blank" rel="noopener"
-         style="flex:1;padding:11px;border-radius:12px;text-align:center;text-decoration:none;font-weight:800;font-size:13px;
-                background:rgba(37,211,102,.15);border:1px solid rgba(37,211,102,.45);color:#16a34a">WhatsApp Support</a>
-      <a id="loginEmailSupport" href="mailto:CareMP@vkstech.com"
-         style="flex:1;padding:11px;border-radius:12px;text-align:center;text-decoration:none;font-weight:800;font-size:13px;
-                background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.4);color:#2563eb">Email Support</a>
-    </div>
-    <div id="loginInstallRow" style="width:100%;max-width:360px;margin-bottom:16px;display:flex;flex-direction:column;gap:12px;position:relative;z-index:2">
-      <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower"
-         target="_blank" rel="noopener"
-         style="display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;border-radius:12px;text-decoration:none;
-                background:#01875f;color:#fff;font-weight:800;font-size:14px;width:100%;box-sizing:border-box">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.18 23.04c-.34-.17-.55-.5-.55-.89V1.85c0-.39.21-.72.55-.89l11.4 11.04L3.18 23.04zM14.53 13.3l2.73 2.64-9.9 5.55 7.17-8.19zM14.53 10.7L7.36 2.51l9.9 5.55-2.73 2.64zM17.86 9.66l2.85 1.6c.9.5.9 1.8 0 2.3l-2.85 1.6-3.12-3.02 3.12-2.48z"/></svg>
-        Get it on Google Play
-      </a>
-      <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()"
-        style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:12px;cursor:pointer;box-sizing:border-box;
-               background:rgba(249,115,22,.12);border:2px solid rgba(249,115,22,.55);font-size:14px;font-weight:800;color:#fdba74;margin:0">
-        📲 <span id="loginPwaLabel">Install on iPhone / Desktop (PWA)</span>
-      </button>
-    </div>
-    <div style="display:flex;justify-content:center;margin-bottom:8px">
-      <svg width="80" height="80" viewBox="0 0 110 110" xmlns="http://www.w3.org/2000/svg">
+    <div style="width:110px;height:110px;margin-bottom:6px" aria-hidden="true">
+      <svg viewBox="0 0 110 110" width="110" height="110" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <linearGradient id="llg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="50%" stop-color="#a855f7"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
+          <linearGradient id="llg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
           <linearGradient id="llg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
           <linearGradient id="llg3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
         </defs>
@@ -356,12 +363,13 @@ body.login-open{overflow:auto}
         <circle cx="55" cy="57" r="4" fill="#f97316" opacity="0.9"/>
       </svg>
     </div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:4px">MAN POWER</div>
-    <div style="font-size:13px;color:#cbd5e1;margin-bottom:18px;font-weight:600">Team Management Platform</div>
-    <!-- Language on login — preference carries into app via mp_lang -->
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:2px">MAN POWER</div>
+    <div id="loginOutcomeHeadline" style="text-align:center;font-size:15px;font-weight:800;color:#e2e8f0;margin:0 0 8px;line-height:1.35">Full team shift roster in minutes</div>
+    <div id="loginOfferSnapshot" aria-live="polite"></div>
+    <div id="loginNeutralLine">Login with OTP to get started</div>
     <button type="button" id="loginLangBtn" onclick="openLocalePicker()"
       style="display:flex;align-items:center;justify-content:center;gap:8px;width:100%;max-width:360px;
-             padding:10px 14px;margin-bottom:14px;border-radius:12px;cursor:pointer;
+             padding:8px 14px;margin-bottom:10px;border-radius:12px;cursor:pointer;
              background:rgba(30,41,59,.85);border:1.5px solid rgba(148,163,184,.35);
              font-size:13px;font-weight:700;color:#e2e8f0">
       🌐 <span id="loginLangBtnLabel">Language / भाषा</span>
@@ -383,11 +391,31 @@ body.login-open{overflow:auto}
           style="flex:1;font-size:18px;letter-spacing:2px;color:#f8fafc;background:#1e3251;-webkit-text-fill-color:#f8fafc">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
-      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Send OTP &#128172;</button>
+      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Continue &#128172;</button>
+    </div>
+    <div id="loginSecondaryRow">
+      <button type="button" onclick="openHowToVideo()" id="loginHowToBtn">▶ How to use</button>
+      <a id="loginWaSupport" href="https://wa.me/918929394920" target="_blank" rel="noopener">WhatsApp</a>
+      <a id="loginEmailSupport" href="mailto:CareMP@vkstech.com">Email</a>
+      <a id="loginAndroidStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower" target="_blank" rel="noopener">Play Store</a>
+      <button type="button" id="loginPwaBtn" onclick="triggerPWAInstall()">Install App</button>
+    </div>
+    <div id="loginInstallRow" style="display:none" aria-hidden="true"></div>
+    <div id="loginFaq"></div>
+    <button class="learn-top-btn-login" onclick="openLearnScreen()" style="width:100%;max-width:360px;margin-top:10px;padding:10px;font-size:13px">
+      &#127891; <span id="loginLearnTitle">Learn Now</span>
+    </button>
+  </div>
+
+  <div id="loginStickyBar" role="region" aria-label="Quick login">
+    <div class="sticky-inner">
+      <button type="button" id="loginStickyFocus" onclick="document.getElementById('loginMobile')&&document.getElementById('loginMobile').focus()">Mobile</button>
+      <button type="button" id="loginStickyCta" onclick="var b=document.getElementById('sendOtpBtn');if(b&&!b.disabled)b.click();else{var m=document.getElementById('loginMobile');if(m)m.focus();}">Continue</button>
     </div>
   </div>
 
   <!-- STEP 2 - OTP -->
+
   <div id="loginStep2" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;margin-bottom:16px">MAN POWER</div>
     <div class="login-card" style="width:100%">
@@ -1500,32 +1528,56 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
+<script src="js/public-offer.js?v=300027"></script>
 <script src="js/i18n_locale.js"></script>
-<script src="js/i18n_ml.js"></script>
-<script src="js/app-core.js?v=300026"></script>
-<script src="js/app-login.js?v=300026"></script>
-<script src="js/app-login-device.js?v=300026"></script>
-<script src="js/app-session-auth.js?v=300026"></script>
-<script src="js/app-session-nav.js?v=300026"></script>
-<script src="js/app-session-settings.js?v=300026"></script>
-<script src="js/app-session-home.js?v=300026"></script>
-<script src="js/app-session-payment.js?v=300026"></script>
-<script src="js/app-login-session.js?v=300026"></script>
-<script src="js/app-schedule.js?v=300026"></script>
-<script src="js/app-team.js?v=300026"></script>
-<script src="js/app-team-import-core.js?v=300026"></script>
-<script src="js/app-team-emp-forms.js?v=300026"></script>
-<script src="js/app-team-excel-ops.js?v=300026"></script>
-<script src="js/app-sched-builder.js?v=300026"></script>
-<script src="js/app-team-import.js?v=300026"></script>
-<script src="js/app-team-print-learn.js?v=300026"></script>
-<script src="js/sched-offline-queue.js?v=300026"></script>
-<script src="js/app.js?v=300026"></script>
-<script src="js/mp-commercial.js?v=300026"></script>
-<script src="js/a11y.js?v=300026"></script>
-<script src="js/sched-clipboard.js?v=300026"></script>
-<script src="js/sched-undo.js?v=300026"></script>
-<script src="js/sched-cell-keys.js?v=300026"></script>
+<script src="js/app-core.js?v=300027"></script>
+<script src="js/app-login.js?v=300027"></script>
+<script src="js/app-login-device.js?v=300027"></script>
+<script src="js/app-session-auth.js?v=300027"></script>
+<script src="js/app-session-nav.js?v=300027"></script>
+<script src="js/app-session-settings.js?v=300027"></script>
+<script src="js/app-session-home.js?v=300027"></script>
+<script src="js/app-session-payment.js?v=300027"></script>
+<script src="js/app-login-session.js?v=300027"></script>
+<script src="js/app.js?v=300027"></script>
+<script src="js/mp-commercial.js?v=300027"></script>
+<script src="js/a11y.js?v=300027"></script>
+<!-- Deferred until after first paint / login interactive (v3.2.7) -->
+<script>
+(function(){
+  var heavy = [
+    'js/i18n_ml.js?v=300027',
+    'js/app-schedule.js?v=300027',
+    'js/app-team.js?v=300027',
+    'js/app-team-import-core.js?v=300027',
+    'js/app-team-emp-forms.js?v=300027',
+    'js/app-team-excel-ops.js?v=300027',
+    'js/app-sched-builder.js?v=300027',
+    'js/app-team-import.js?v=300027',
+    'js/app-team-print-learn.js?v=300027',
+    'js/sched-offline-queue.js?v=300027',
+    'js/sched-clipboard.js?v=300027',
+    'js/sched-undo.js?v=300027',
+    'js/sched-cell-keys.js?v=300027'
+  ];
+  function loadHeavy(){
+    if(window.__mpHeavyLoaded) return;
+    window.__mpHeavyLoaded = true;
+    heavy.forEach(function(src){
+      var s = document.createElement('script');
+      s.src = src;
+      s.async = false;
+      document.body.appendChild(s);
+    });
+  }
+  if(document.readyState === 'complete') setTimeout(loadHeavy, 1);
+  else window.addEventListener('load', function(){ setTimeout(loadHeavy, 50); });
+  // Also kick off when user focuses mobile (login intent)
+  document.addEventListener('focusin', function(e){
+    if(e.target && e.target.id === 'loginMobile') loadHeavy();
+  }, true);
+})();
+</script>
 
 <!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
 

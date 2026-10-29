@@ -282,6 +282,7 @@ async function saveCustomerCareAdmin(){
       window._howToVideoUrl = howToVideoUrl;
     }
     toast('✅ Customer Care saved');
+    try{ await publishPublicOfferSnapshot(); }catch(e){}
     closeModal();
   }catch(e){
     toast('❌ '+(e && e.message || 'Save failed'));
@@ -427,6 +428,7 @@ async function openPaymentSettingsAdmin(){
   </div>
 
   <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
+  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){toast(s?'✅ Landing offer published':'⚠️ Publish failed')})">📣 Publish to landing page</button>
 
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
   <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set amount + paid-until for one user</div>
@@ -568,6 +570,44 @@ function payAmountListRemove(i){
   payAmountListRender();
 }
 
+
+/** Build + write publicOffer snapshot for anonymous landing (v3.2.7). */
+async function publishPublicOfferSnapshot() {
+  try {
+    if (typeof fbSet !== 'function' && typeof fbUpdate !== 'function') return;
+    const pay = window._paymentSettingsCache || (typeof _loadPaymentSettings === 'function' ? await _loadPaymentSettings(true) : null) || {};
+    const lic = window._appLicenseCache || {};
+    const cc = window._customerCareCache || (typeof _defaultCustomerCare === 'function' ? _defaultCustomerCare() : {}) || {};
+    const amounts = (typeof _getPaymentAmountOptions === 'function')
+      ? _getPaymentAmountOptions(pay)
+      : (pay.amountOptions || pay.amounts || []);
+    const plans = (Array.isArray(amounts) ? amounts : []).map(function (a) {
+      const n = parseInt(a, 10);
+      if (!(n > 0)) return null;
+      return { name: '₹' + n, monthly: n };
+    }).filter(Boolean);
+    const waRaw = String(cc.whatsapp || '').replace(/\D/g, '');
+    const snapshot = {
+      paymentEnabled: pay.enabled !== false,
+      trialDays: Math.max(0, parseInt(lic.freeTrialDays, 10) || 0),
+      plans: plans,
+      annualDiscountPct: Math.max(0, Math.min(90, parseInt(pay.defaultDiscountPct, 10) || 0)),
+      refundDays: Math.max(0, parseInt(cc.refundDays, 10) || 0),
+      supportWhatsApp: waRaw || '',
+      supportEmail: String(cc.email || '').trim().slice(0, 120),
+      updatedAt: new Date().toISOString()
+    };
+    if (typeof fbSet === 'function') await fbSet('publicOffer', snapshot);
+    else await fbUpdate('publicOffer', snapshot);
+    window._publicOfferCache = snapshot;
+    return snapshot;
+  } catch (e) {
+    console.warn('[publicOffer] publish failed', e && e.message);
+    return null;
+  }
+}
+window.publishPublicOfferSnapshot = publishPublicOfferSnapshot;
+
 async function savePaymentSettingsAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
   const enabled = (document.getElementById('pay_enabled')||{}).value === '1';
@@ -604,6 +644,7 @@ async function savePaymentSettingsAdmin(){
     window._paymentSettingsAt = Date.now();
     try{ localStorage.setItem('mp_payment_enabled', payload.enabled ? '1' : '0'); }catch(e){}
     toast('✅ Payment settings saved');
+    try{ await publishPublicOfferSnapshot(); }catch(e){}
     try{ closeModal(); }catch(e){}
     try{
       if(typeof goTab==='function') goTab('home');
@@ -794,6 +835,7 @@ async function saveAppLicenseAdmin(){
     await fbSet('settings/appLicense', payload);
     window._appLicenseCache = payload;
     toast('✅ License settings saved · trial '+freeTrialDays+' days');
+    try{ await publishPublicOfferSnapshot(); }catch(e){}
     closeModal();
   }catch(e){ toast('❌ '+(e.message||e)); }
 }
