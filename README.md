@@ -1,6 +1,16 @@
-# Man Power — Multi-Industry Team & Shift Management (v2.4.97)
+# Man Power — Multi-Industry Team & Shift Management (v3.2.6)
 
-## What's new in 2.4.97 (hardening)
+## What's new in 3.2.6 (quality & a11y)
+
+See `Improvements/VERSION_3.2.6.md` for full notes.
+
+- Accessibility: skip link, live region, schedule arrow keys, modal roles
+- Resume Builder: JSON export/import/clear + keyboard save
+- Version / SW / cache-bust aligned to 3.2.6
+
+---
+
+## Earlier: 2.4.97 (hardening)
 
 - **Single version source:** `js/config.js` → `MP_CFG.APP_VERSION` (`2.4.97`); app-core, SW, and cache-bust query aligned.
 - **Shared utils:** `normMobileKey`, `escAttr`, `isHardAdminPhone`, `isValidMobile10` in `js/utils.js`.

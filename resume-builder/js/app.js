@@ -817,6 +817,282 @@
     });
   }
 
+
+
+  // ========== v3.2.6: Export / Import JSON + keyboard ==========
+  function exportResumeJSON() {
+    collectFormData();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (data.fullName || 'resume').replace(/\s+/g, '_') + '_resume.json';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('Resume data exported');
+  }
+
+  function importResumeJSON(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        data = { ...structuredClone(defaultData), ...parsed };
+        saveData();
+        populateForm();
+        renderExperienceList();
+        renderEducationList();
+        renderCertificationList();
+        renderProjectList();
+        renderResume();
+        showToast('Resume data imported');
+      } catch (e) {
+        showToast('Invalid JSON file', true);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function clearAllData() {
+    if (!confirm('Clear all resume data? This cannot be undone.')) return;
+    data = structuredClone(defaultData);
+    localStorage.removeItem(STORAGE_KEY);
+    populateForm();
+    renderExperienceList();
+    renderEducationList();
+    renderCertificationList();
+    renderProjectList();
+    renderResume();
+    showStep(1);
+    showToast('All data cleared');
+  }
+
+  // Wire export/import if toolbar buttons exist
+  document.addEventListener('DOMContentLoaded', function () {
+    const expBtn = document.getElementById('exportJsonBtn');
+    if (expBtn) expBtn.addEventListener('click', exportResumeJSON);
+    const impInput = document.getElementById('importJsonInput');
+    if (impInput) {
+      impInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files[0]) importResumeJSON(e.target.files[0]);
+        e.target.value = '';
+      });
+    }
+    const clearBtn = document.getElementById('clearAllBtn');
+    if (clearBtn) clearBtn.addEventListener('click', clearAllData);
+
+    // Keyboard: Ctrl/Cmd+S save, Ctrl/Cmd+P print
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveData();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        // allow native print — collect first
+        collectFormData();
+        renderResume();
+      }
+    });
+  });
+
   // Boot
-  document.addEventListener('DOMContentLoaded', init);
+  
+
+  // ========== Firebase mobile login + cloud resume (Man Power project) ==========
+  let rbMobileLoggedIn = null;
+
+  function rbSetLoggedIn(mobile10) {
+    rbMobileLoggedIn = mobile10;
+    try {
+      localStorage.setItem('rb_cloud_mobile', mobile10);
+      localStorage.setItem('vks_site_phone', mobile10);
+      localStorage.setItem('vks_site_verified', '1');
+      localStorage.setItem('vks_mentor_verified_' + mobile10, '1');
+      localStorage.setItem('mp_user_phone', mobile10);
+    } catch (e) {}
+    const st = document.getElementById('rbLoginStatus');
+    if (st) st.textContent = 'Logged in +91 ' + mobile10 + ' — cloud save enabled';
+    ['rbCloudSave', 'rbCloudLoad'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    });
+    const formBits = ['rbMobile', 'rbSendOtp', 'rbOtp', 'rbVerifyOtp'];
+    formBits.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+    const lo = document.getElementById('rbLogoutBtn');
+    if (lo) lo.classList.remove('hidden');
+  }
+
+  function rbLogout() {
+    try {
+      const mob = localStorage.getItem('vks_site_phone') || rbMobileLoggedIn || '';
+      localStorage.removeItem('vks_site_phone');
+      localStorage.removeItem('vks_site_verified');
+      localStorage.removeItem('rb_cloud_mobile');
+      if (mob) localStorage.removeItem('vks_mentor_verified_' + mob);
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf('vks_mentor_verified_') === 0) keys.push(k);
+      }
+      keys.forEach((k) => localStorage.removeItem(k));
+    } catch (e) {}
+    rbMobileLoggedIn = null;
+    showToast('Logged out');
+    setTimeout(() => location.reload(), 400);
+  }
+
+  function rbParentManPowerMobile() {
+    try {
+      if (!window.parent || window.parent === window) return null;
+      if (!(window.parent.MP_CFG || window.parent.SESSION || window.parent._fbAccess)) return null;
+      let ph = window.parent.localStorage && (
+        window.parent.localStorage.getItem('mp_user_phone') ||
+        window.parent.localStorage.getItem('mp_device_phone')
+      );
+      if (ph) {
+        const d = String(ph).replace(/\D/g, '').slice(-10);
+        if (/^[6-9]\d{9}$/.test(d)) return d;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function rbGetSharedMobile() {
+    // 1) Inside Man Power — use parent session (no OTP)
+    const pm = rbParentManPowerMobile();
+    if (pm) return pm;
+    // 2) Website shared OTP (Mentor or Resume)
+    try {
+      if (localStorage.getItem('vks_site_verified') === '1') {
+        const m = (localStorage.getItem('vks_site_phone') || '').replace(/\D/g, '').slice(-10);
+        if (/^[6-9]\d{9}$/.test(m)) return m;
+      }
+      const saved = (localStorage.getItem('rb_cloud_mobile') || '').replace(/\D/g, '').slice(-10);
+      if (/^[6-9]\d{9}$/.test(saved) && localStorage.getItem('vks_mentor_verified_' + saved) === '1') return saved;
+    } catch (e) {}
+    return null;
+  }
+
+  async function rbSendOtp() {
+    const m = (document.getElementById('rbMobile')?.value || '').replace(/\D/g, '').slice(-10);
+    if (!/^[6-9]\d{9}$/.test(m)) {
+      showToast('Enter valid 10-digit mobile', true);
+      return;
+    }
+    if (!window.ResumeFB || !window.ResumeFB.sendOtp) {
+      showToast('Firebase not ready — try again', true);
+      return;
+    }
+    try {
+      showToast('Sending OTP…');
+      await window.ResumeFB.sendOtp(m);
+      document.getElementById('rbOtp')?.classList.remove('hidden');
+      document.getElementById('rbVerifyOtp')?.classList.remove('hidden');
+      showToast('OTP sent');
+    } catch (e) {
+      showToast((e && e.message) || 'OTP failed', true);
+    }
+  }
+
+  async function rbVerifyOtp() {
+    const m = (document.getElementById('rbMobile')?.value || '').replace(/\D/g, '').slice(-10);
+    const code = (document.getElementById('rbOtp')?.value || '').trim();
+    if (!code) return showToast('Enter OTP', true);
+    try {
+      await window.ResumeFB.verifyOtp(code);
+      rbSetLoggedIn(m);
+      // Try load existing cloud resume
+      try {
+        const remote = await window.ResumeFB.loadResume(m);
+        if (remote && remote.fullName !== undefined) {
+          if (confirm('Cloud resume found. Load it?')) {
+            data = { ...structuredClone(defaultData), ...remote };
+            delete data.mobile;
+            delete data.updatedAt;
+            populateForm();
+            renderExperienceList();
+            renderEducationList();
+            renderCertificationList();
+            renderProjectList();
+            renderResume();
+            saveData();
+            showToast('Loaded from cloud');
+          }
+        }
+      } catch (e) {}
+      showToast('Logged in');
+    } catch (e) {
+      showToast((e && e.message) || 'Verify failed', true);
+    }
+  }
+
+  async function rbCloudSave() {
+    if (!rbMobileLoggedIn) return showToast('Login with mobile first', true);
+    collectFormData();
+    try {
+      await window.ResumeFB.saveResume(rbMobileLoggedIn, data);
+      showToast('Saved to cloud');
+    } catch (e) {
+      showToast((e && e.message) || 'Cloud save failed', true);
+    }
+  }
+
+  async function rbCloudLoad() {
+    if (!rbMobileLoggedIn) return showToast('Login with mobile first', true);
+    try {
+      const remote = await window.ResumeFB.loadResume(rbMobileLoggedIn);
+      if (!remote) return showToast('No cloud resume found', true);
+      data = { ...structuredClone(defaultData), ...remote };
+      delete data.mobile;
+      delete data.updatedAt;
+      populateForm();
+      renderExperienceList();
+      renderEducationList();
+      renderCertificationList();
+      renderProjectList();
+      renderResume();
+      saveData();
+      showToast('Loaded from cloud');
+    } catch (e) {
+      showToast((e && e.message) || 'Load failed', true);
+    }
+  }
+
+  function bindCloudAuth() {
+    document.getElementById('rbSendOtp')?.addEventListener('click', rbSendOtp);
+    document.getElementById('rbVerifyOtp')?.addEventListener('click', rbVerifyOtp);
+    document.getElementById('rbCloudSave')?.addEventListener('click', rbCloudSave);
+    document.getElementById('rbCloudLoad')?.addEventListener('click', rbCloudLoad);
+    document.getElementById('rbLogoutBtn')?.addEventListener('click', rbLogout);
+
+    // Shared / Man Power session → no OTP
+    const shared = rbGetSharedMobile();
+    if (shared) {
+      rbSetLoggedIn(shared);
+      const st = document.getElementById('rbLoginStatus');
+      if (st && rbParentManPowerMobile()) {
+        st.textContent = 'Man Power session +91 ' + shared + ' — cloud save ready';
+      }
+      // Hide OTP form when already verified
+      ['rbMobile', 'rbSendOtp', 'rbOtp', 'rbVerifyOtp'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+      return;
+    }
+    try {
+      const saved = localStorage.getItem('rb_cloud_mobile');
+      if (saved && /^[6-9]\d{9}$/.test(saved)) {
+        const st = document.getElementById('rbLoginStatus');
+        if (st) st.textContent = 'Previously +91 ' + saved + ' — send OTP to unlock cloud';
+        const mob = document.getElementById('rbMobile');
+        if (mob) mob.value = saved;
+      }
+    } catch (e) {}
+  }
+
+  document.addEventListener('DOMContentLoaded', () => { init(); bindCloudAuth(); });
 })();

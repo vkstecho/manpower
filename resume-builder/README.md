@@ -22,6 +22,9 @@ A complete, production-ready, modular single-page web application for building p
 - Compact / expanded spacing toggle
 - Perfect A4 print / Save-as-PDF support (`window.print()`)
 - Full LocalStorage persistence – never lose progress on refresh
+- **Export / Import JSON** backup (toolbar icons)
+- **Clear all** with confirmation
+- Keyboard: Ctrl/Cmd+S to save
 - Modern responsive UI with Tailwind CSS + vanilla JavaScript
 - Progress bar, step indicators, validation helpers
 

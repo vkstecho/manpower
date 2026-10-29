@@ -204,6 +204,9 @@
 
   // ========== State ==========
   let mobile = null;
+  let _chatUnsub = null;
+  let _dataUnsub = null;
+  let _lastLocalChatWrite = 0;
   let isMentor = false;
   let viewingAs = null;          // when mentor views a student
   let currentTopicId = null;
@@ -306,6 +309,94 @@
     });
   }
 
+
+  // ========== Shared website auth (Mentor ↔ Resume Builder) ==========
+  var SITE_PHONE_KEY = 'vks_site_phone';
+  var SITE_VERIFIED_KEY = 'vks_site_verified';
+
+  function setSiteAuth(mob) {
+    if (!mob) return;
+    try {
+      localStorage.setItem(SITE_PHONE_KEY, mob);
+      localStorage.setItem(SITE_VERIFIED_KEY, '1');
+      localStorage.setItem('vks_mentor_verified_' + mob, '1');
+      localStorage.setItem('mp_user_phone', mob);
+      localStorage.setItem('rb_cloud_mobile', mob);
+    } catch (e) {}
+  }
+
+  function clearSiteAuth() {
+    try {
+      var mob = localStorage.getItem(SITE_PHONE_KEY) || '';
+      localStorage.removeItem(SITE_PHONE_KEY);
+      localStorage.removeItem(SITE_VERIFIED_KEY);
+      localStorage.removeItem('rb_cloud_mobile');
+      if (mob) localStorage.removeItem('vks_mentor_verified_' + mob);
+      // clear any vks_mentor_verified_* keys
+      var toRemove = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf('vks_mentor_verified_') === 0) toRemove.push(k);
+      }
+      toRemove.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) {}
+  }
+
+  function getSiteAuthMobile() {
+    try {
+      if (localStorage.getItem(SITE_VERIFIED_KEY) === '1') {
+        var m = (localStorage.getItem(SITE_PHONE_KEY) || '').replace(/\D/g, '').slice(-10);
+        if (/^[6-9]\d{9}$/.test(m)) return m;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function isInsideManPower() {
+    try {
+      if (window.parent && window.parent !== window) {
+        if (window.parent.MP_CFG || window.parent.SESSION || window.parent._fbAccess) return true;
+        var sess = window.parent.localStorage && window.parent.localStorage.getItem('mp_session');
+        if (sess) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function parentManPowerMobile() {
+    try {
+      if (!window.parent || window.parent === window) return null;
+      var ph = window.parent.localStorage && (
+        window.parent.localStorage.getItem('mp_user_phone') ||
+        window.parent.localStorage.getItem('mp_device_phone')
+      );
+      if (ph) {
+        var d = String(ph).replace(/\D/g, '').slice(-10);
+        if (/^[6-9]\d{9}$/.test(d)) return d;
+      }
+      var sess = window.parent.localStorage && window.parent.localStorage.getItem('mp_session');
+      if (sess) {
+        try {
+          var o = JSON.parse(sess);
+          var m = String(o.mobile || o.phone || o.userPhone || '').replace(/\D/g, '').slice(-10);
+          if (/^[6-9]\d{9}$/.test(m)) return m;
+        } catch (e2) {}
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function doSiteLogout() {
+    clearSiteAuth();
+    try {
+      if (window.MentorFB && window.MentorFB.auth && window.MentorFB.auth.signOut) {
+        window.MentorFB.auth.signOut();
+      }
+    } catch (e) {}
+    showToast('Logged out');
+    setTimeout(function () { location.reload(); }, 400);
+  }
+
   // ========== Data Layer (Firebase primary + localStorage cache) ==========
   const FB_ROOT = 'mentor_guidance';
   const FB_INDEX = 'mentor_guidance_index';
@@ -356,6 +447,7 @@
   function saveUserData(mob, userData) {
     userData.updatedAt = Date.now();
     userData.mobile = mob;
+    _lastLocalChatWrite = userData.updatedAt;
     try {
       localStorage.setItem(storageKey(mob), JSON.stringify(userData));
     } catch {}
@@ -376,6 +468,72 @@
         console.warn('[Mentor] Firebase save failed', e.message || e);
       }
     })();
+  }
+
+  /** Merge remote chats into local without dropping messages either side just wrote. */
+  function mergeChatMaps(localChats, remoteChats) {
+    const out = Object.assign({}, localChats || {});
+    const remote = remoteChats || {};
+    Object.keys(remote).forEach((topicId) => {
+      const rem = Array.isArray(remote[topicId]) ? remote[topicId] : [];
+      const loc = Array.isArray(out[topicId]) ? out[topicId] : [];
+      const byId = new Map();
+      loc.forEach((m) => { if (m && m.id) byId.set(m.id, m); });
+      rem.forEach((m) => { if (m && m.id) byId.set(m.id, m); });
+      const merged = Array.from(byId.values());
+      merged.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      out[topicId] = merged;
+    });
+    return out;
+  }
+
+  function stopRealtime() {
+    try { if (typeof _dataUnsub === 'function') _dataUnsub(); } catch (e) {}
+    _dataUnsub = null;
+  }
+
+  /**
+   * Realtime: listen to student's guidance node so mentor <-> student
+   * messages appear without refresh.
+   */
+  function startRealtimeFor(mob) {
+    stopRealtime();
+    if (!mob || !window.MentorFB || typeof window.MentorFB.listen !== 'function') {
+      console.warn('[Mentor] Realtime unavailable — messages need refresh');
+      return;
+    }
+    const path = FB_ROOT + '/' + mob;
+    _dataUnsub = window.MentorFB.listen(path, (remote) => {
+      if (!remote || typeof remote !== 'object') return;
+      // Ignore echo of our own very recent write (avoid UI flicker)
+      if (remote.updatedAt && _lastLocalChatWrite && Math.abs(remote.updatedAt - _lastLocalChatWrite) < 400) {
+        return;
+      }
+      const target = viewingAs || mobile;
+      if (String(mob) !== String(target) && String(mob) !== String(mobile)) return;
+
+      // Merge chats so concurrent mentor/student writes don't wipe each other
+      const prevChats = (data && data.chats) || {};
+      const mergedChats = mergeChatMaps(prevChats, remote.chats);
+      const prevLen = JSON.stringify(prevChats);
+      const nextLen = JSON.stringify(mergedChats);
+
+      data = { ...emptyUserData(mob), ...remote, mobile: mob, chats: mergedChats };
+      try {
+        localStorage.setItem(storageKey(mob), JSON.stringify(data));
+      } catch (e) {}
+
+      if (prevLen !== nextLen && currentTopicId) {
+        renderChat();
+        try {
+          const box = document.getElementById('chatMessages');
+          if (box) box.scrollTop = box.scrollHeight;
+        } catch (e) {}
+      }
+      // Refresh recordings if mentor added one
+      try { if (currentTopicId) renderRecordings(); } catch (e) {}
+    });
+    console.info('[Mentor] Realtime listening', path);
   }
 
   function getAllStudentMobiles() {
@@ -902,6 +1060,7 @@
     viewingAs = mob || null;
     const target = viewingAs || mobile;
     data = await loadUserDataAsync(target);
+    startRealtimeFor(target);
     $('#mobileDisplay').textContent = '+91 ' + target + (viewingAs ? ' (viewing)' : '');
     if (currentTopicId) {
       if (data.unlocked[currentTopicId] || isMentor) {
@@ -941,19 +1100,22 @@
       if (localStorage.getItem('vks_mentor_verified_' + mob) === '1') return true;
     } catch {}
     try {
+      if (localStorage.getItem(SITE_VERIFIED_KEY) === '1' && localStorage.getItem(SITE_PHONE_KEY) === mob) return true;
+    } catch {}
+    try {
       const u = window.MentorFB && window.MentorFB.auth && window.MentorFB.auth.currentUser;
       if (u && u.phoneNumber) {
         const digits = String(u.phoneNumber).replace(/\D/g, '').slice(-10);
         if (digits === mob) return true;
       }
     } catch {}
-    // Parent Man Power session with same phone counts as verified
+    // Inside Man Power app: parent session = verified (no extra OTP)
     try {
+      const pm = parentManPowerMobile();
+      if (pm && pm === mob) return true;
       if (window.parent && window.parent !== window) {
         const sess = window.parent.localStorage && window.parent.localStorage.getItem('mp_session');
         if (sess && sess.includes(mob)) return true;
-        const ph = window.parent.localStorage && (window.parent.localStorage.getItem('mp_user_phone') || window.parent.localStorage.getItem('mp_device_phone'));
-        if (ph && String(ph).replace(/\D/g, '').slice(-10) === mob) return true;
       }
     } catch {}
     return false;
@@ -964,15 +1126,32 @@
     applyTheme(localStorage.getItem(THEME_KEY) || 'light');
     bindEvents();
 
+    // Site logout (website only — hidden inside Man Power iframe)
+    try {
+      var lo = document.getElementById('siteLogoutBtn');
+      if (lo) {
+        if (isInsideManPower()) lo.style.display = 'none';
+        else lo.addEventListener('click', function () { doSiteLogout(); });
+      }
+    } catch (e) {}
+
+
     // Wait a moment for Firebase module
     for (let i = 0; i < 15 && !(window.MentorFB && window.MentorFB.ready); i++) {
       await new Promise(r => setTimeout(r, 100));
     }
 
-    // Detect mobile from URL / parent / storage
-    let detected = detectMobile();
+    // Detect mobile: Man Power parent first (no OTP), then site shared auth, then URL/storage
+    let detected = parentManPowerMobile() || getSiteAuthMobile() || detectMobile();
     if (!detected) {
       detected = await requestMobileFromParent();
+    }
+    // Inside Man Power: always trust parent phone if present
+    if (isInsideManPower() && parentManPowerMobile()) {
+      detected = parentManPowerMobile();
+      setSiteAuth(detected);
+      startApp(detected);
+      return;
     }
 
     // Only auto-enter if this mobile was OTP-verified (or Man Power parent session)
@@ -1003,6 +1182,7 @@
     // Then refresh from Firebase
     try {
       data = await loadUserDataAsync(mobile);
+      startRealtimeFor(mobile);
       renderCatalog();
     } catch (e) {}
   }
@@ -1078,8 +1258,7 @@
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1.5"></i> Verifying…'; }
       try {
         await window.MentorFB.verifyPhoneOtp(code);
-        try { localStorage.setItem('mp_user_phone', _pendingMobile); } catch {}
-        try { localStorage.setItem('vks_mentor_verified_' + _pendingMobile, '1'); } catch {}
+        setSiteAuth(_pendingMobile);
         showToast('Login verified');
         startApp(_pendingMobile);
       } catch (e) {

@@ -247,6 +247,14 @@
         ".read": "auth != null",
         ".write": "auth != null"
       }
+    },
+    "resume_builder": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$mobile": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     }
   }
 }
