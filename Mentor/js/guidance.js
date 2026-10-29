@@ -13,6 +13,9 @@
   const RATE_PER_HOUR = 699;
   const OTP_STORAGE_KEY = 'vks_mentor_otp';
   const OTP_EXPIRY_MS = 5 * 60 * 1000;       // 5 minutes
+  /** Device remembers mentor-mode unlock after one successful OTP (no Firebase rules change). */
+  const MENTOR_MODE_DEVICE_KEY = 'vks_mentor_mode_device_';
+  const MENTOR_MODE_DEVICE_TTL_MS = 180 * 24 * 60 * 60 * 1000; // 180 days
 
   // ========== Topics Catalog (15 Tracks) ==========
   // icons: array of {icon: 'fa class or text', bg: 'brand color', title: 'tooltip'}
@@ -977,65 +980,126 @@
     return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
   }
 
-  function requestMentorOTP() {
-    // Only allow if current logged-in mobile is the mentor number
-    if (mobile !== MENTOR_MOBILE) {
-      showToast('Mentor OTP can only be requested from admin number +91 ' + MENTOR_MOBILE);
+  async function requestMentorOTP() {
+    // Only allow if current logged-in mobile is the mentor/admin number
+    if (String(mobile || '') !== MENTOR_MOBILE) {
+      showToast('Mentor mode only for admin +91 ' + MENTOR_MOBILE);
       return;
     }
-    const otp = generateOTP();
-    const payload = { otp, expires: Date.now() + OTP_EXPIRY_MS };
-    localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(payload));
-
-    // In real production you would send SMS here.
-    // For now we open WhatsApp to the same number with the OTP (mentor receives it).
-    const msg = encodeURIComponent(`Your One-to-One Guidance Mentor OTP is: ${otp}\nValid for 5 minutes.`);
-    window.open(`https://wa.me/91${MENTOR_MOBILE}?text=${msg}`, '_blank');
-
-    showToast('OTP sent to +91 ' + MENTOR_MOBILE + ' (via WhatsApp)');
-    // Show OTP input UI
-    $('#pinModal').classList.remove('hidden');
-    $('#pinModal').classList.add('flex');
-    $('#mentorPinInput').value = '';
-    $('#mentorPinInput').placeholder = 'Enter 6-digit OTP';
-    $('#mentorPinInput').focus();
-  }
-
-  function verifyMentorOTP() {
-    const entered = ($('#mentorPinInput').value || '').trim();
-    let stored = null;
     try {
-      stored = JSON.parse(localStorage.getItem(OTP_STORAGE_KEY) || 'null');
-    } catch {}
-
-    if (!stored || !stored.otp) {
-      showToast('No OTP requested. Click the key icon again.');
-      return;
+      if (!window.MentorFB || typeof window.MentorFB.sendOtp !== 'function') {
+        showToast('Firebase not ready — try again in a moment');
+        return;
+      }
+      showToast('Sending OTP SMS to +91 ' + MENTOR_MOBILE + '…');
+      await window.MentorFB.sendOtp('+91' + MENTOR_MOBILE);
+      window._mentorUnlockOtpPending = true;
+      $('#pinModal').classList.remove('hidden');
+      $('#pinModal').classList.add('flex');
+      $('#mentorPinInput').value = '';
+      $('#mentorPinInput').placeholder = 'Enter 6-digit OTP';
+      $('#mentorPinInput').focus();
+      showToast('OTP sent by SMS to +91 ' + MENTOR_MOBILE);
+    } catch (e) {
+      console.warn('[mentor] requestMentorOTP', e);
+      showToast((e && e.message) ? e.message : 'Failed to send OTP SMS');
     }
-    if (Date.now() > stored.expires) {
-      localStorage.removeItem(OTP_STORAGE_KEY);
-      showToast('OTP expired. Please request a new one.');
-      return;
-    }
-    if (entered !== stored.otp) {
-      showToast('Incorrect OTP');
-      return;
-    }
-
-    // Success
-    localStorage.removeItem(OTP_STORAGE_KEY);
-    $('#pinModal').classList.add('hidden');
-    $('#pinModal').classList.remove('flex');
-    enableMentorMode();
   }
 
-  function enableMentorMode() {
+  async function verifyMentorOTP() {
+    const entered = ($('#mentorPinInput').value || '').trim();
+    if (!/^[0-9]{6}$/.test(entered)) {
+      showToast('Enter the 6-digit OTP from SMS');
+      return;
+    }
+    try {
+      if (!window.MentorFB || typeof window.MentorFB.confirmOtp !== 'function') {
+        showToast('Firebase not ready');
+        return;
+      }
+      await window.MentorFB.confirmOtp(entered);
+      window._mentorUnlockOtpPending = false;
+      try { localStorage.removeItem(OTP_STORAGE_KEY); } catch (e) {}
+      $('#pinModal').classList.add('hidden');
+      $('#pinModal').classList.remove('flex');
+      enableMentorMode();
+    } catch (e) {
+      console.warn('[mentor] verifyMentorOTP', e);
+      showToast((e && e.message) ? e.message : 'Incorrect or expired OTP');
+    }
+  }
+
+
+  function mentorModeDeviceKey(mob) {
+    return MENTOR_MODE_DEVICE_KEY + String(mob || MENTOR_MOBILE);
+  }
+
+  function rememberMentorModeOnDevice(mob) {
+    try {
+      var payload = {
+        mobile: String(mob || MENTOR_MOBILE),
+        at: Date.now(),
+        expires: Date.now() + MENTOR_MODE_DEVICE_TTL_MS
+      };
+      localStorage.setItem(mentorModeDeviceKey(mob), JSON.stringify(payload));
+      // Also mirror on parent Man Power origin when embedded (same device)
+      try {
+        if (window.parent && window.parent !== window && window.parent.localStorage) {
+          window.parent.localStorage.setItem(mentorModeDeviceKey(mob), JSON.stringify(payload));
+        }
+      } catch (e2) {}
+    } catch (e) {}
+  }
+
+  function isMentorModeRememberedOnDevice(mob) {
+    mob = String(mob || '');
+    if (mob !== MENTOR_MOBILE) return false;
+    function read(store) {
+      try {
+        var raw = store.getItem(mentorModeDeviceKey(mob));
+        if (!raw) return false;
+        var o = JSON.parse(raw);
+        if (!o || String(o.mobile) !== mob) return false;
+        if (o.expires && Date.now() > o.expires) {
+          try { store.removeItem(mentorModeDeviceKey(mob)); } catch (e) {}
+          return false;
+        }
+        return true;
+      } catch (e) { return false; }
+    }
+    if (read(localStorage)) return true;
+    try {
+      if (window.parent && window.parent !== window && window.parent.localStorage) {
+        if (read(window.parent.localStorage)) {
+          // copy into iframe storage for next time
+          rememberMentorModeOnDevice(mob);
+          return true;
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function clearMentorModeOnDevice(mob) {
+    try { localStorage.removeItem(mentorModeDeviceKey(mob || MENTOR_MOBILE)); } catch (e) {}
+    try {
+      if (window.parent && window.parent !== window && window.parent.localStorage) {
+        window.parent.localStorage.removeItem(mentorModeDeviceKey(mob || MENTOR_MOBILE));
+      }
+    } catch (e) {}
+  }
+
+  function enableMentorMode(opts) {
+    opts = opts || {};
     isMentor = true;
-    $('#mentorBadge').classList.remove('hidden');
-    $('#mentorStudentBar').classList.remove('hidden');
-    refreshStudentList();
-    renderCatalog(); // so Approve buttons appear
-    showToast('Mentor mode enabled');
+    rememberMentorModeOnDevice(mobile || MENTOR_MOBILE);
+    try {
+      $('#mentorBadge').classList.remove('hidden');
+      $('#mentorStudentBar').classList.remove('hidden');
+    } catch (e) {}
+    try { refreshStudentList(); } catch (e) {}
+    try { renderCatalog(); } catch (e) {}
+    if (!opts.silent) showToast('Mentor mode enabled · remembered on this device');
   }
 
   async function refreshStudentList() {
@@ -1170,11 +1234,30 @@
 
   async function startApp(mob) {
     mobile = mob;
-    isMentor = false; // Never auto-enable. Always require OTP even for mentor number.
+    isMentor = false;
     data = loadUserData(mobile); // instant from cache
     $('#mobileDisplay').textContent = '+91 ' + mobile;
     $('#mentorBadge')?.classList.add('hidden');
     $('#mentorStudentBar')?.classList.add('hidden');
+    // Mentor unlock control: only admin number
+    try {
+      var pinBtn = document.getElementById('mentorPinBtn');
+      if (pinBtn) {
+        if (String(mob) === MENTOR_MOBILE) {
+          pinBtn.style.display = '';
+          pinBtn.removeAttribute('hidden');
+        } else {
+          pinBtn.style.display = 'none';
+          pinBtn.setAttribute('hidden', 'true');
+        }
+      }
+    } catch (e) {}
+    // Remembered mentor mode on this device → no OTP again
+    try {
+      if (String(mob) === MENTOR_MOBILE && isMentorModeRememberedOnDevice(mob)) {
+        enableMentorMode({ silent: true });
+      }
+    } catch (e) {}
     $('#mobilePrompt').classList.add('hidden');
     $('#mobilePrompt').classList.remove('flex');
     $('#app').classList.remove('hidden');
