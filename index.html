@@ -84,13 +84,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300027"></script>
+<script type="module" src="js/firebase-init.js?v=300028"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300027">
+<link rel="stylesheet" href="css/app.css?v=300028">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -119,16 +119,68 @@ window.addEventListener('appinstalled', function () {
 body.learn-module-open{overflow:hidden !important}
 #learnModuleLayer{position:fixed;inset:0;z-index:10050}
 
-/* v3.2.7 landing conversion */
-#loginOfferSnapshot{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:0 0 12px;min-height:0}
-.mp-offer-chip{display:inline-block;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4);color:#fdba74}
-.mp-offer-muted{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.35);color:#cbd5e1}
+/* v3.2.7 landing conversion + premium polish */
+.mp-login-logo-wrap{
+  width:96px;height:96px;margin:4px 0 10px;padding:8px;box-sizing:border-box;
+  border-radius:22px;background:linear-gradient(145deg,rgba(249,115,22,.18),rgba(168,85,247,.12));
+  border:1px solid rgba(251,146,60,.35);
+  box-shadow:0 8px 28px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.08);
+  display:flex;align-items:center;justify-content:center;overflow:visible;
+}
+.mp-login-logo-img{width:72px;height:72px;object-fit:contain;display:block;border-radius:16px}
+#loginStep1 .login-card{
+  background:linear-gradient(180deg,rgba(30,41,59,.92),rgba(15,23,42,.96)) !important;
+  border:1px solid rgba(148,163,184,.22) !important;
+  border-radius:18px !important;
+  box-shadow:0 12px 40px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.03) inset !important;
+  padding:18px 16px 16px !important;
+}
+#loginOfferSnapshot{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:4px 0 12px;min-height:0}
+.mp-offer-chip{
+  display:inline-flex;align-items:center;gap:4px;padding:7px 12px;border-radius:999px;
+  font-size:12px;font-weight:800;letter-spacing:.2px;
+  background:linear-gradient(135deg,rgba(249,115,22,.28),rgba(234,88,12,.18));
+  border:1px solid rgba(251,146,60,.55);color:#ffedd5;
+  box-shadow:0 2px 10px rgba(249,115,22,.15);
+}
+.mp-offer-muted{
+  background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(15,23,42,.5));
+  border-color:rgba(125,211,252,.35);color:#e0f2fe;
+  box-shadow:none;
+}
 .mp-plan-row{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%}
-.mp-plan-chip{padding:4px 9px;border-radius:8px;font-size:11px;font-weight:800;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);color:#7dd3fc}
+.mp-plan-chip{
+  padding:6px 11px;border-radius:10px;font-size:12px;font-weight:800;
+  background:rgba(15,23,42,.7);border:1px solid rgba(167,139,250,.4);color:#e9d5ff;
+}
 #loginNeutralLine{display:none;text-align:center;font-size:12px;font-weight:700;color:#94a3b8;margin:0 0 10px}
-#loginOutcomeHeadline{text-align:center;font-size:15px;font-weight:800;color:#e2e8f0;margin:0 0 10px;line-height:1.35}
-#loginSecondaryRow{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;width:100%;max-width:360px;margin-top:14px}
-#loginSecondaryRow a,#loginSecondaryRow button{flex:1 1 auto;min-width:calc(50% - 6px);padding:8px 6px;border-radius:10px;font-size:11px;font-weight:800;text-align:center;text-decoration:none;border:1px solid rgba(148,163,184,.3);background:rgba(30,41,59,.7);color:#cbd5e1;cursor:pointer}
+#loginOutcomeHeadline{
+  text-align:center;font-size:16px;font-weight:800;color:#f1f5f9;margin:0 0 10px;line-height:1.4;
+  letter-spacing:.2px;
+}
+#loginSecondaryRow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;width:100%;max-width:360px;margin-top:16px}
+#loginSecondaryRow a,#loginSecondaryRow button{
+  flex:1 1 auto;min-width:calc(50% - 8px);padding:10px 8px;border-radius:12px;
+  font-size:12px;font-weight:800;text-align:center;text-decoration:none;
+  border:1px solid rgba(148,163,184,.28);background:rgba(30,41,59,.75);color:#e2e8f0;cursor:pointer;
+  transition:border-color .15s, background .15s;
+}
+#loginSecondaryRow a:hover,#loginSecondaryRow button:hover{border-color:rgba(251,146,60,.45);background:rgba(30,41,59,.95)}
+#loginStep1 #sendOtpBtn.big-btn{
+  background:linear-gradient(135deg,#f97316,#ea580c) !important;
+  box-shadow:0 8px 24px rgba(234,88,12,.35) !important;
+  font-size:15px !important;letter-spacing:.3px;
+}
+#loginMobileTitle{color:#f8fafc !important}
+#loginMobileTitleHi{color:#94a3b8 !important}
+@media (min-width:960px){
+  #loginStep1{
+    padding-top:28px !important;
+    background:linear-gradient(165deg,rgba(22,32,50,.95),rgba(11,18,32,.98)) !important;
+    border:1px solid rgba(148,163,184,.25) !important;
+    box-shadow:0 28px 64px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.04) inset !important;
+  }
+}
 #loginFaq{width:100%;max-width:360px;margin-top:12px}
 .mp-faq-item{background:rgba(15,23,42,.5);border:1px solid rgba(148,163,184,.2);border-radius:10px;margin:6px 0;padding:8px 10px;font-size:12px;color:#cbd5e1}
 .mp-faq-item summary{font-weight:800;cursor:pointer;color:#e2e8f0}
@@ -232,9 +284,11 @@ body.login-open{overflow:auto}
   #mpDesktopPitch li strong{color:#f8fafc}
   #loginStep1{
     flex:0 0 400px;width:400px;max-width:400px;
-    background:rgba(15,23,42,.85);border:1px solid rgba(148,163,184,.2);
-    border-radius:24px;padding:22px 22px 28px;
-    box-shadow:0 24px 60px rgba(0,0,0,.45);box-sizing:border-box;
+    background:linear-gradient(165deg,rgba(22,32,50,.96),rgba(11,18,32,.98));
+    border:1px solid rgba(148,163,184,.25);
+    border-radius:24px;padding:28px 22px 28px;
+    box-shadow:0 28px 64px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset;
+    box-sizing:border-box;overflow:visible;
   }
   #loginLearnFullWidth{display:none !important}
 }
@@ -349,21 +403,10 @@ body.login-open{overflow:auto}
 
   <!-- STEP 1 - MOBILE NUMBER (v3.2.7 conversion layout) -->
   <div id="loginStep1" style="width:100%;max-width:360px;display:flex;flex-direction:column;align-items:center">
-    <div style="width:110px;height:110px;margin-bottom:6px" aria-hidden="true">
-      <svg viewBox="0 0 110 110" width="110" height="110" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="llg1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#a855f7"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
-          <linearGradient id="llg2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#f97316"/><stop offset="100%" stop-color="#ea580c"/></linearGradient>
-          <linearGradient id="llg3" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#0369a1"/></linearGradient>
-        </defs>
-        <polygon points="55,4 100,28 100,82 55,106 10,82 10,28" fill="none" stroke="url(#llg1)" stroke-width="2" opacity="0.5"/>
-        <polygon points="55,10 95,32 95,78 55,100 15,78 15,32" fill="#111d2e" stroke="url(#llg1)" stroke-width="1.5"/>
-        <text x="36" y="72" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="44" fill="url(#llg2)">M</text>
-        <text x="76" y="72" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="44" fill="url(#llg3)">P</text>
-        <circle cx="55" cy="57" r="4" fill="#f97316" opacity="0.9"/>
-      </svg>
+        <div class="mp-login-logo-wrap" aria-hidden="true">
+      <img src="icon-192.png" alt="" width="88" height="88" class="mp-login-logo-img" decoding="async">
     </div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:2px">MAN POWER</div>
+    <div style="font-family:'Barlow Condensed'<div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:4px;margin-bottom:2px">MAN POWER</div>
     <div id="loginOutcomeHeadline" style="text-align:center;font-size:15px;font-weight:800;color:#e2e8f0;margin:0 0 8px;line-height:1.35">Full team shift roster in minutes</div>
     <div id="loginOfferSnapshot" aria-live="polite"></div>
     <div id="loginNeutralLine">Login with OTP to get started</div>
@@ -1528,37 +1571,37 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/public-offer.js?v=300027"></script>
+<script src="js/public-offer.js?v=300028"></script>
 <script src="js/i18n_locale.js"></script>
-<script src="js/app-core.js?v=300027"></script>
-<script src="js/app-login.js?v=300027"></script>
-<script src="js/app-login-device.js?v=300027"></script>
-<script src="js/app-session-auth.js?v=300027"></script>
-<script src="js/app-session-nav.js?v=300027"></script>
-<script src="js/app-session-settings.js?v=300027"></script>
-<script src="js/app-session-home.js?v=300027"></script>
-<script src="js/app-session-payment.js?v=300027"></script>
-<script src="js/app-login-session.js?v=300027"></script>
-<script src="js/app.js?v=300027"></script>
-<script src="js/mp-commercial.js?v=300027"></script>
-<script src="js/a11y.js?v=300027"></script>
+<script src="js/app-core.js?v=300028"></script>
+<script src="js/app-login.js?v=300028"></script>
+<script src="js/app-login-device.js?v=300028"></script>
+<script src="js/app-session-auth.js?v=300028"></script>
+<script src="js/app-session-nav.js?v=300028"></script>
+<script src="js/app-session-settings.js?v=300028"></script>
+<script src="js/app-session-home.js?v=300028"></script>
+<script src="js/app-session-payment.js?v=300028"></script>
+<script src="js/app-login-session.js?v=300028"></script>
+<script src="js/app.js?v=300028"></script>
+<script src="js/mp-commercial.js?v=300028"></script>
+<script src="js/a11y.js?v=300028"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
 (function(){
   var heavy = [
-    'js/i18n_ml.js?v=300027',
-    'js/app-schedule.js?v=300027',
-    'js/app-team.js?v=300027',
-    'js/app-team-import-core.js?v=300027',
-    'js/app-team-emp-forms.js?v=300027',
-    'js/app-team-excel-ops.js?v=300027',
-    'js/app-sched-builder.js?v=300027',
-    'js/app-team-import.js?v=300027',
-    'js/app-team-print-learn.js?v=300027',
-    'js/sched-offline-queue.js?v=300027',
-    'js/sched-clipboard.js?v=300027',
-    'js/sched-undo.js?v=300027',
-    'js/sched-cell-keys.js?v=300027'
+    'js/i18n_ml.js?v=300028',
+    'js/app-schedule.js?v=300028',
+    'js/app-team.js?v=300028',
+    'js/app-team-import-core.js?v=300028',
+    'js/app-team-emp-forms.js?v=300028',
+    'js/app-team-excel-ops.js?v=300028',
+    'js/app-sched-builder.js?v=300028',
+    'js/app-team-import.js?v=300028',
+    'js/app-team-print-learn.js?v=300028',
+    'js/sched-offline-queue.js?v=300028',
+    'js/sched-clipboard.js?v=300028',
+    'js/sched-undo.js?v=300028',
+    'js/sched-cell-keys.js?v=300028'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;
