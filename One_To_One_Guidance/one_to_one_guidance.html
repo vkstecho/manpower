@@ -259,10 +259,10 @@
           <input type="text" id="utrInput" class="form-input text-sm" placeholder="Enter UTR / Payment ID from Razorpay" />
         </div>
         <button id="confirmPaidBtn" class="w-full py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow transition">
-          <i class="fas fa-check-circle mr-1.5"></i> I Have Paid – Unlock & Notify Mentor
+          <i class="fas fa-paper-plane mr-1.5"></i> I Have Paid – Submit for Mentor Approval
         </button>
         <p class="text-[11px] text-center text-slate-400">
-          Mentor will be notified on WhatsApp (+91-8929394920). Session unlocks immediately after confirmation.
+          Mentor will be notified on WhatsApp (+91-8929397949). Workspace unlocks only after Mentor approves the payment.
         </p>
       </div>
     </div>
@@ -286,12 +286,13 @@
     </div>
   </div>
 
-  <!-- ===== Mentor PIN Modal ===== -->
+  <!-- ===== Mentor OTP Modal ===== -->
   <div id="pinModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-xs w-full p-5 space-y-4">
-      <h3 class="font-bold text-center">Mentor Access</h3>
-      <input type="password" id="mentorPinInput" class="form-input text-center tracking-widest" placeholder="Enter PIN" maxlength="12" />
-      <button id="pinSubmit" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold">Unlock Mentor Mode</button>
+      <h3 class="font-bold text-center">Mentor OTP Verification</h3>
+      <p class="text-xs text-center text-slate-500">OTP will be sent to +91 8929397949 via WhatsApp. Valid 5 minutes.</p>
+      <input type="text" inputmode="numeric" id="mentorPinInput" class="form-input text-center tracking-widest text-lg" placeholder="Enter 6-digit OTP" maxlength="6" />
+      <button id="pinSubmit" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold">Verify OTP & Unlock</button>
       <button id="pinCancel" class="w-full py-2 text-sm text-slate-500">Cancel</button>
     </div>
   </div>

@@ -5,24 +5,31 @@
 (() => {
   'use strict';
 
-  const MENTOR_MOBILE = '8929394920';
-  const MENTOR_PIN = 'vksmentor';
+  const MENTOR_MOBILE = '8929397949';          // Admin / Mentor number
   const RAZORPAY_LINK = 'https://rzp.io/rzp/RWnisIr';
-  const WHATSAPP_NUMBER = '918929394920';
+  const WHATSAPP_NUMBER = '918929397949';
   const STORAGE_PREFIX = 'vks_guidance_';
   const THEME_KEY = 'vks_guidance_theme';
   const RATE_PER_HOUR = 699;
+  const OTP_STORAGE_KEY = 'vks_mentor_otp';
+  const OTP_EXPIRY_MS = 5 * 60 * 1000;       // 5 minutes
 
   // ========== Topics Catalog (15 Tracks) ==========
+  // icons: array of {icon: 'fa class or text', bg: 'brand color', title: 'tooltip'}
   const TOPICS = [
-    // ===== Original 7 =====
     {
       id: 'ai_models',
       title: 'Learn Gemini, Cloud, Grok, DeepSeek & ChatGPT',
       hook: 'Master the World\'s Most Powerful AI Models 1-on-1 — From Prompt Engineering to Cloud Deployment.',
       tags: ['Gemini', 'Google Cloud', 'Grok', 'DeepSeek', 'ChatGPT', 'Prompt Eng'],
       gradient: 'linear-gradient(135deg, #4285F4 0%, #34A853 40%, #FBBC05 70%, #EA4335 100%)',
-      icons: ['G', '☁', 'X', 'DS', 'GPT']
+      icons: [
+        { icon: 'fa-solid fa-wand-magic-sparkles', bg: '#4285F4', title: 'Gemini' },
+        { icon: 'fa-brands fa-google', bg: '#4285F4', title: 'Google Cloud' },
+        { icon: 'fa-solid fa-brain', bg: '#000000', title: 'Grok' },
+        { icon: 'DS', bg: '#1E88E5', title: 'DeepSeek' },
+        { icon: 'fa-solid fa-robot', bg: '#10A37F', title: 'ChatGPT' }
+      ]
     },
     {
       id: 'career_ai',
@@ -30,7 +37,11 @@
       hook: '10x Your Industrial & Corporate Career Growth with Practical Daily AI Workflows.',
       tags: ['Email Writing', 'Excel', 'Soft Skills', 'English Fluency', 'Career Guidance', 'SOPs', 'Data Analytics', 'Tools'],
       gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
-      icons: ['💼', '📈', '🧠']
+      icons: [
+        { icon: 'fa-solid fa-briefcase', bg: '#4F46E5', title: 'Career' },
+        { icon: 'fa-solid fa-chart-line', bg: '#7C3AED', title: 'Growth' },
+        { icon: 'fa-solid fa-brain', bg: '#9333EA', title: 'AI Skills' }
+      ]
     },
     {
       id: 'excel_ai',
@@ -38,7 +49,11 @@
       hook: 'Turn Hours of Spreadsheets, Formulas, Dashboards & Macros into Seconds Using AI.',
       tags: ['Formulas', 'Pivot', 'Dashboards', 'Macros', 'Power Query', 'VBA'],
       gradient: 'linear-gradient(135deg, #059669 0%, #10b981 50%, #34d399 100%)',
-      icons: ['📊', 'Σ', 'AI']
+      icons: [
+        { icon: 'fa-solid fa-file-excel', bg: '#217346', title: 'Excel' },
+        { icon: 'fa-solid fa-square-root-variable', bg: '#0D9488', title: 'Formulas' },
+        { icon: 'fa-solid fa-robot', bg: '#059669', title: 'AI' }
+      ]
     },
     {
       id: 'songs_ai',
@@ -46,7 +61,11 @@
       hook: 'Compose Studio-Quality Songs, Lyrics, Vocals & Regional Music Tracks with Generative AI.',
       tags: ['Lyrics', 'Vocals', 'Melody', 'Regional', 'Suno', 'Udio'],
       gradient: 'linear-gradient(135deg, #db2777 0%, #e11d48 50%, #f43f5e 100%)',
-      icons: ['🎵', '🎤', '🎧']
+      icons: [
+        { icon: 'fa-solid fa-music', bg: '#DB2777', title: 'Music' },
+        { icon: 'fa-solid fa-microphone', bg: '#E11D48', title: 'Vocals' },
+        { icon: 'fa-solid fa-headphones', bg: '#F43F5E', title: 'Studio' }
+      ]
     },
     {
       id: 'video_ai',
@@ -54,7 +73,11 @@
       hook: 'Create Viral 3D Animations, Lip-Synced Storytelling & Professional AI Videos Step-by-Step.',
       tags: ['3D Animation', 'Lip Sync', 'Storytelling', 'Runway', 'Pika', 'CapCut'],
       gradient: 'linear-gradient(135deg, #7c3aed 0%, #a21caf 50%, #c026d3 100%)',
-      icons: ['🎬', '📹', '✨']
+      icons: [
+        { icon: 'fa-solid fa-film', bg: '#7C3AED', title: 'Video' },
+        { icon: 'fa-solid fa-video', bg: '#A21CAF', title: 'Camera' },
+        { icon: 'fa-solid fa-wand-magic-sparkles', bg: '#C026D3', title: 'AI Effects' }
+      ]
     },
     {
       id: 'adsense_ai',
@@ -62,7 +85,11 @@
       hook: 'Launch High-ROI Google & YouTube Ad Campaigns and Maximize AdSense Revenue with AI.',
       tags: ['Google Ads', 'YouTube Ads', 'AdSense', 'ROI', 'Campaigns'],
       gradient: 'linear-gradient(135deg, #ea580c 0%, #f97316 50%, #fb923c 100%)',
-      icons: ['📢', '▶', '₹']
+      icons: [
+        { icon: 'fa-brands fa-google', bg: '#EA4335', title: 'Google Ads' },
+        { icon: 'fa-brands fa-youtube', bg: '#FF0000', title: 'YouTube' },
+        { icon: 'fa-solid fa-indian-rupee-sign', bg: '#F97316', title: 'Revenue' }
+      ]
     },
     {
       id: 'cctv_home',
@@ -70,17 +97,23 @@
       hook: 'Learn How to Setup CCTV Surveillance, Light Automation, Cameras, Smart Switches & Energy-Saving Systems at Home.',
       tags: ['CCTV', 'Cameras', 'Smart Switches', 'Fans', 'Energy Saving', 'Home Automation'],
       gradient: 'linear-gradient(135deg, #0f766e 0%, #0d9488 50%, #14b8a6 100%)',
-      icons: ['📷', '🏠', '⚡']
+      icons: [
+        { icon: 'fa-solid fa-video', bg: '#0F766E', title: 'CCTV' },
+        { icon: 'fa-solid fa-house', bg: '#0D9488', title: 'Home' },
+        { icon: 'fa-solid fa-bolt', bg: '#14B8A6', title: 'Automation' }
+      ]
     },
-
-    // ===== New 8 Tracks (User requested + 7 high-demand) =====
     {
       id: 'buy_smart',
       title: 'Guide to Buy Correctly & Economically',
       hook: 'Learn How to Buy Any Product Smartly, Avoid Traps, Compare Prices & Get Maximum Value for Money.',
       tags: ['Smart Buying', 'Price Comparison', 'Avoid Scams', 'Warranty', 'Online vs Offline', 'Value for Money'],
       gradient: 'linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%)',
-      icons: ['🛒', '💰', '✓']
+      icons: [
+        { icon: 'fa-solid fa-cart-shopping', bg: '#B45309', title: 'Shopping' },
+        { icon: 'fa-solid fa-tags', bg: '#D97706', title: 'Best Price' },
+        { icon: 'fa-solid fa-shield-halved', bg: '#F59E0B', title: 'Safe Buy' }
+      ]
     },
     {
       id: 'itr_tax',
@@ -88,7 +121,11 @@
       hook: 'Step-by-step guidance to file ITR correctly, claim deductions, avoid notices and maximize refunds.',
       tags: ['ITR Filing', 'Tax Saving', 'Deductions', 'Form 16', 'Refund', 'AIS'],
       gradient: 'linear-gradient(135deg, #1e40af 0%, #2563eb 50%, #3b82f6 100%)',
-      icons: ['📄', '₹', '🏛️']
+      icons: [
+        { icon: 'fa-solid fa-file-invoice-dollar', bg: '#1E40AF', title: 'ITR' },
+        { icon: 'fa-solid fa-landmark', bg: '#2563EB', title: 'Income Tax' },
+        { icon: 'fa-solid fa-indian-rupee-sign', bg: '#3B82F6', title: 'Refund' }
+      ]
     },
     {
       id: 'freelancing',
@@ -96,7 +133,11 @@
       hook: 'Build your freelance profile, get high-paying clients on Upwork, Fiverr, LinkedIn and grow sustainable income.',
       tags: ['Upwork', 'Fiverr', 'LinkedIn', 'Client Hunting', 'Pricing', 'Portfolio'],
       gradient: 'linear-gradient(135deg, #047857 0%, #059669 50%, #10b981 100%)',
-      icons: ['💻', '🌐', '💵']
+      icons: [
+        { icon: 'fa-solid fa-laptop-code', bg: '#047857', title: 'Freelance' },
+        { icon: 'fa-brands fa-linkedin', bg: '#0A66C2', title: 'LinkedIn' },
+        { icon: 'fa-solid fa-handshake', bg: '#10B981', title: 'Clients' }
+      ]
     },
     {
       id: 'local_customers',
@@ -104,7 +145,11 @@
       hook: 'Setup Google Business Profile, WhatsApp Business & simple strategies to get more local customers every month.',
       tags: ['Google Business', 'WhatsApp Business', 'Local SEO', 'Reviews', 'Offers', 'Leads'],
       gradient: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 50%, #ef4444 100%)',
-      icons: ['📍', '📱', '👥']
+      icons: [
+        { icon: 'fa-brands fa-google', bg: '#EA4335', title: 'Google Business' },
+        { icon: 'fa-brands fa-whatsapp', bg: '#25D366', title: 'WhatsApp' },
+        { icon: 'fa-solid fa-location-dot', bg: '#DC2626', title: 'Local' }
+      ]
     },
     {
       id: 'computer_fix',
@@ -112,7 +157,11 @@
       hook: 'Solve common computer & laptop problems yourself — slow system, WiFi, virus, software errors, hardware issues.',
       tags: ['Slow PC', 'WiFi Issues', 'Virus', 'Windows', 'Hardware', 'Backup'],
       gradient: 'linear-gradient(135deg, #4338ca 0%, #4f46e5 50%, #6366f1 100%)',
-      icons: ['🖥️', '🔧', '⚡']
+      icons: [
+        { icon: 'fa-solid fa-computer', bg: '#4338CA', title: 'Computer' },
+        { icon: 'fa-solid fa-screwdriver-wrench', bg: '#4F46E5', title: 'Repair' },
+        { icon: 'fa-brands fa-windows', bg: '#0078D4', title: 'Windows' }
+      ]
     },
     {
       id: 'resume_interview',
@@ -120,7 +169,11 @@
       hook: 'Build a strong ATS-friendly resume and learn proven techniques to crack interviews with confidence.',
       tags: ['Resume Building', 'ATS', 'Interview Tips', 'HR Questions', 'Salary Negotiation'],
       gradient: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 50%, #8b5cf6 100%)',
-      icons: ['📝', '🎯', '🤝']
+      icons: [
+        { icon: 'fa-solid fa-file-lines', bg: '#6D28D9', title: 'Resume' },
+        { icon: 'fa-solid fa-user-tie', bg: '#7C3AED', title: 'Interview' },
+        { icon: 'fa-solid fa-comments', bg: '#8B5CF6', title: 'HR Round' }
+      ]
     },
     {
       id: 'govt_schemes',
@@ -128,7 +181,11 @@
       hook: 'Find and correctly apply for relevant government schemes, subsidies, mudra loans and benefits you are eligible for.',
       tags: ['Mudra Loan', 'Subsidies', 'PM Schemes', 'Eligibility', 'Documents', 'Application'],
       gradient: 'linear-gradient(135deg, #0e7490 0%, #0891b2 50%, #06b6d4 100%)',
-      icons: ['🏛️', '📋', '🎁']
+      icons: [
+        { icon: 'fa-solid fa-landmark', bg: '#0E7490', title: 'Government' },
+        { icon: 'fa-solid fa-hand-holding-dollar', bg: '#0891B2', title: 'Subsidy' },
+        { icon: 'fa-solid fa-file-circle-check', bg: '#06B6D4', title: 'Apply' }
+      ]
     },
     {
       id: 'personal_finance',
@@ -136,7 +193,11 @@
       hook: 'Learn practical money management, budgeting, SIP, mutual funds and how to start investing safely.',
       tags: ['SIP', 'Mutual Funds', 'Budgeting', 'Emergency Fund', 'Goal Planning', 'Risk'],
       gradient: 'linear-gradient(135deg, #15803d 0%, #16a34a 50%, #22c55e 100%)',
-      icons: ['📈', '🏦', '🪙']
+      icons: [
+        { icon: 'fa-solid fa-chart-pie', bg: '#15803D', title: 'Mutual Fund' },
+        { icon: 'fa-solid fa-piggy-bank', bg: '#16A34A', title: 'Savings' },
+        { icon: 'fa-solid fa-coins', bg: '#22C55E', title: 'SIP' }
+      ]
     }
   ];
 
@@ -332,9 +393,15 @@
       card.className = 'topic-card';
       card.dataset.id = topic.id;
 
-      const iconsHtml = (topic.icons || []).map(ic =>
-        `<span class="logo-badge">${ic}</span>`
-      ).join('');
+      const iconsHtml = (topic.icons || []).map(ic => {
+        const isFa = typeof ic === 'object' && ic.icon && ic.icon.startsWith('fa-');
+        const title = (typeof ic === 'object' && ic.title) ? ic.title : '';
+        const bg = (typeof ic === 'object' && ic.bg) ? ic.bg : '#ffffff';
+        const content = (typeof ic === 'object')
+          ? (isFa ? `<i class="${ic.icon}"></i>` : ic.icon)
+          : ic;
+        return `<span class="logo-badge" title="${title}" style="background:${bg};color:#fff;">${content}</span>`;
+      }).join('');
 
       card.innerHTML = `
         <div class="card-banner" style="background:${topic.gradient}">
@@ -414,34 +481,36 @@
     const targetMobile = viewingAs || mobile;
     const userData = loadUserData(targetMobile);
 
+    // SECURITY: Student can only create a PENDING request.
+    // Only Mentor can approve & unlock the topic.
     const payment = {
       id: 'pay_' + Date.now(),
       topicId: currentTopicId,
       topicTitle: topic.title,
       hours: selectedHours,
       amount: selectedHours * RATE_PER_HOUR,
-      utr: utr || 'SELF_CONFIRM_' + Date.now(),
-      status: 'confirmed',
+      utr: utr || ('PENDING_' + Date.now()),
+      status: 'pending',               // ← was 'confirmed'
       ts: Date.now()
     };
     userData.payments.unshift(payment);
-    userData.unlocked[currentTopicId] = true;
+    // DO NOT unlock here
+    // userData.unlocked[currentTopicId] = true;
     saveUserData(targetMobile, userData);
 
-    // refresh current data if same user
     if (targetMobile === (viewingAs || mobile)) {
       data = userData;
     }
 
-    // WhatsApp notify mentor
+    // Notify mentor on WhatsApp
     const msg = encodeURIComponent(
-      `✅ New 1-on-1 Booking\nMobile: +91${targetMobile}\nTopic: ${topic.title}\nHours: ${selectedHours}\nAmount: ₹${payment.amount}\nUTR: ${payment.utr}`
+      `🔔 New Payment Claim (PENDING APPROVAL)\nMobile: +91${targetMobile}\nTopic: ${topic.title}\nHours: ${selectedHours}\nAmount: ₹${payment.amount}\nUTR: ${payment.utr}\n\nPlease open Mentor Mode and Approve to unlock.`
     );
     window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${msg}`, '_blank');
 
     closeBooking();
     renderCatalog();
-    showToast('Session unlocked! Mentor notified.');
+    showToast('Payment submitted. Waiting for Mentor approval.');
   }
 
   function closeBooking() {
@@ -451,6 +520,13 @@
 
   // ========== Workspace ==========
   function openWorkspace(topicId) {
+    // SECURITY: Only allow entry if topic is unlocked OR user is mentor
+    const isUnlocked = !!(data && data.unlocked && data.unlocked[topicId]);
+    if (!isUnlocked && !isMentor) {
+      showToast('This topic is locked. Please pay & wait for Mentor approval.');
+      return;
+    }
+
     currentTopicId = topicId;
     const topic = TOPICS.find(t => t.id === topicId);
     $('#wsTopicTitle').textContent = topic.title;
@@ -458,7 +534,7 @@
     $('#workspaceView').classList.remove('hidden');
 
     // show add-recording form for mentor or if unlocked
-    const canAdd = isMentor || data.unlocked[topicId];
+    const canAdd = isMentor || isUnlocked;
     $('#addRecordingForm').classList.toggle('hidden', !canAdd);
 
     renderRecordings();
@@ -587,12 +663,22 @@
 
   // ========== Payment History ==========
   function openHistory() {
+    const targetMobile = viewingAs || mobile;
     const payments = data.payments || [];
     const container = $('#historyContent');
     if (!payments.length) {
       container.innerHTML = `<p class="text-center text-slate-400 py-10">No payments yet for this mobile number.</p>`;
     } else {
-      container.innerHTML = payments.map(p => `
+      container.innerHTML = payments.map(p => {
+        const statusClass = p.status === 'confirmed'
+          ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300'
+          : 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300';
+        const approveBtn = (isMentor && p.status === 'pending')
+          ? `<button class="approve-btn mt-2 w-full py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold" data-payid="${p.id}" data-mobile="${targetMobile}">
+               <i class="fas fa-check mr-1"></i> Approve & Unlock Topic
+             </button>`
+          : '';
+        return `
         <div class="hist-card">
           <div class="flex items-start justify-between gap-2">
             <div>
@@ -601,12 +687,20 @@
             </div>
             <div class="text-right shrink-0">
               <p class="font-bold text-brand-600">₹${p.amount.toLocaleString('en-IN')}</p>
-              <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 font-medium">${p.status}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium ${statusClass}">${p.status}</span>
             </div>
           </div>
           <p class="text-[11px] text-slate-400 mt-1.5 font-mono truncate">UTR: ${esc(p.utr)}</p>
-        </div>
-      `).join('');
+          ${approveBtn}
+        </div>`;
+      }).join('');
+
+      // Bind approve buttons
+      container.querySelectorAll('.approve-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          approvePayment(btn.dataset.payid, btn.dataset.mobile);
+        });
+      });
     }
     $('#historyModal').classList.remove('hidden');
     $('#historyModal').classList.add('flex');
@@ -630,12 +724,69 @@
     showToast('CSV downloaded');
   }
 
-  // ========== Mentor Mode ==========
+  // ========== Mentor Mode (OTP Protected) ==========
+  function generateOTP() {
+    return String(Math.floor(100000 + Math.random() * 900000)); // 6-digit
+  }
+
+  function requestMentorOTP() {
+    // Only allow if current logged-in mobile is the mentor number
+    if (mobile !== MENTOR_MOBILE) {
+      showToast('Mentor OTP can only be requested from admin number +91 ' + MENTOR_MOBILE);
+      return;
+    }
+    const otp = generateOTP();
+    const payload = { otp, expires: Date.now() + OTP_EXPIRY_MS };
+    localStorage.setItem(OTP_STORAGE_KEY, JSON.stringify(payload));
+
+    // In real production you would send SMS here.
+    // For now we open WhatsApp to the same number with the OTP (mentor receives it).
+    const msg = encodeURIComponent(`Your One-to-One Guidance Mentor OTP is: ${otp}\nValid for 5 minutes.`);
+    window.open(`https://wa.me/91${MENTOR_MOBILE}?text=${msg}`, '_blank');
+
+    showToast('OTP sent to +91 ' + MENTOR_MOBILE + ' (via WhatsApp)');
+    // Show OTP input UI
+    $('#pinModal').classList.remove('hidden');
+    $('#pinModal').classList.add('flex');
+    $('#mentorPinInput').value = '';
+    $('#mentorPinInput').placeholder = 'Enter 6-digit OTP';
+    $('#mentorPinInput').focus();
+  }
+
+  function verifyMentorOTP() {
+    const entered = ($('#mentorPinInput').value || '').trim();
+    let stored = null;
+    try {
+      stored = JSON.parse(localStorage.getItem(OTP_STORAGE_KEY) || 'null');
+    } catch {}
+
+    if (!stored || !stored.otp) {
+      showToast('No OTP requested. Click the key icon again.');
+      return;
+    }
+    if (Date.now() > stored.expires) {
+      localStorage.removeItem(OTP_STORAGE_KEY);
+      showToast('OTP expired. Please request a new one.');
+      return;
+    }
+    if (entered !== stored.otp) {
+      showToast('Incorrect OTP');
+      return;
+    }
+
+    // Success
+    localStorage.removeItem(OTP_STORAGE_KEY);
+    $('#pinModal').classList.add('hidden');
+    $('#pinModal').classList.remove('flex');
+    enableMentorMode();
+  }
+
   function enableMentorMode() {
     isMentor = true;
     $('#mentorBadge').classList.remove('hidden');
     $('#mentorStudentBar').classList.remove('hidden');
     refreshStudentList();
+    renderCatalog(); // so Approve buttons appear
     showToast('Mentor mode enabled');
   }
 
@@ -653,10 +804,35 @@
     data = loadUserData(target);
     $('#mobileDisplay').textContent = '+91 ' + target + (viewingAs ? ' (viewing)' : '');
     if (currentTopicId) {
-      openWorkspace(currentTopicId);
+      // only open if allowed
+      if (data.unlocked[currentTopicId] || isMentor) {
+        openWorkspace(currentTopicId);
+      } else {
+        backToCatalog();
+      }
     } else {
       renderCatalog();
     }
+  }
+
+  // Mentor approves a pending payment → unlocks the topic
+  function approvePayment(paymentId, studentMobile) {
+    if (!isMentor) return;
+    const userData = loadUserData(studentMobile);
+    const pay = (userData.payments || []).find(p => p.id === paymentId);
+    if (!pay) return;
+
+    pay.status = 'confirmed';
+    userData.unlocked[pay.topicId] = true;
+    saveUserData(studentMobile, userData);
+
+    // If currently viewing this student, refresh
+    if ((viewingAs || mobile) === studentMobile) {
+      data = userData;
+    }
+    renderCatalog();
+    openHistory(); // refresh history view
+    showToast('Payment approved & topic unlocked for +91' + studentMobile);
   }
 
   // ========== Init Flow ==========
@@ -684,9 +860,12 @@
 
   function startApp(mob) {
     mobile = mob;
-    isMentor = (mobile === MENTOR_MOBILE);
+    isMentor = false; // Never auto-enable. Always require OTP even for mentor number.
     data = loadUserData(mobile);
     $('#mobileDisplay').textContent = '+91 ' + mobile;
+    // Hide mentor UI by default
+    $('#mentorBadge')?.classList.add('hidden');
+    $('#mentorStudentBar')?.classList.add('hidden');
     $('#mobilePrompt').classList.add('hidden');
     $('#mobilePrompt').classList.remove('flex');
     $('#app').classList.remove('hidden');
@@ -736,25 +915,24 @@
     });
     $('#exportCsvBtn').addEventListener('click', exportCsv);
 
-    // Mentor PIN
+    // Mentor OTP (protected)
     $('#mentorPinBtn').addEventListener('click', () => {
       if (isMentor) {
         showToast('Already in Mentor mode');
         return;
       }
-      $('#pinModal').classList.remove('hidden');
-      $('#pinModal').classList.add('flex');
-      $('#mentorPinInput').value = '';
-      $('#mentorPinInput').focus();
+      // Must be logged in as the mentor number
+      if (mobile !== MENTOR_MOBILE) {
+        showToast('Switch to admin number +91 ' + MENTOR_MOBILE + ' to request OTP');
+        return;
+      }
+      requestMentorOTP();
     });
     $('#pinSubmit').addEventListener('click', () => {
-      if (($('#mentorPinInput').value || '') === MENTOR_PIN) {
-        $('#pinModal').classList.add('hidden');
-        $('#pinModal').classList.remove('flex');
-        enableMentorMode();
-      } else {
-        showToast('Incorrect PIN');
-      }
+      verifyMentorOTP();
+    });
+    $('#mentorPinInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyMentorOTP();
     });
     $('#pinCancel').addEventListener('click', () => {
       $('#pinModal').classList.add('hidden');
