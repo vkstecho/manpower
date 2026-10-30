@@ -2373,6 +2373,7 @@ window.deleteLearnButton = deleteLearnButton;
 function openLearnModuleIntro(title, url){
   var isResume = /resume/i.test(String(title||'')) || /resume-builder/i.test(String(url||''));
   var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||''));
+  var imgSrc = isResume ? 'assets/learn/resume-hero.svg' : 'assets/learn/mentor-hero.svg';
   var headline = isResume ? 'AI Resume Builder' : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module'));
   var points = isResume ? [
     '100% free — build a professional resume',
@@ -2400,7 +2401,7 @@ function openLearnModuleIntro(title, url){
     '</div>'+
     '<div style="flex:1;padding:28px 20px 40px;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box">'+
       '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px">'+(isResume?'FREE TOOL':'GUIDANCE')+'</div>'+
-      '<h1 style="font-size:1.65rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em">'+headline+'</h1>'+
+      '<div style="border-radius:18px;overflow:hidden;margin:0 0 18px;border:1px solid rgba(255,255,255,.1);box-shadow:0 16px 40px rgba(0,0,0,.35)"><img src="'+imgSrc+'" alt="" style="width:100%;height:auto;display:block;max-height:200px;object-fit:cover"/></div>'+'<h1 style="font-size:1.65rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em">'+headline+'</h1>'+
       '<p style="color:#94a3b8;margin:0 0 20px;line-height:1.5">'+(isResume
         ? 'Create an ATS-friendly resume, export PDF, and share it — at no cost. Built by VKS Tech and available inside Man Power.'
         : 'Practical one-to-one mentorship for AI tools and career growth. Built by VKS Tech for professionals.')+'</p>'+

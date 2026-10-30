@@ -252,8 +252,8 @@
       ".read": "auth != null",
       ".write": "auth != null",
       "$mobile": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && (auth.token.phone_number === '+91'+$mobile || auth.token.phone_number === $mobile || auth.token.admin === true || auth.token.phone_number === '+918929397949')",
+        ".write": "auth != null && (auth.token.phone_number === '+91'+$mobile || auth.token.phone_number === $mobile || auth.token.admin === true || auth.token.phone_number === '+918929397949')"
       }
     },
     "publicOffer": {

@@ -984,6 +984,26 @@
       showToast('Mentor mode only for admin +91 ' + MENTOR_MOBILE);
       return;
     }
+    // Already signed in with Firebase as this admin number → unlock without new SMS
+    try {
+      var u = window.MentorFB && window.MentorFB.auth && window.MentorFB.auth.currentUser;
+      var digits = u && u.phoneNumber ? String(u.phoneNumber).replace(/\D/g,'').slice(-10) : '';
+      if (digits === MENTOR_MOBILE) {
+        enableMentorMode();
+        showToast('Mentor unlocked (already verified on this device)');
+        return;
+      }
+      // Parent Man Power Firebase user
+      if (window.parent && window.parent !== window && window.parent._fbAuth && window.parent._fbAuth.currentUser) {
+        var pu = window.parent._fbAuth.currentUser;
+        var pd = pu.phoneNumber ? String(pu.phoneNumber).replace(/\D/g,'').slice(-10) : '';
+        if (pd === MENTOR_MOBILE) {
+          enableMentorMode();
+          showToast('Mentor unlocked via Man Power session');
+          return;
+        }
+      }
+    } catch (e) {}
     // Show OTP panel immediately so user always has an input UI
     try {
       var modal = document.getElementById('pinModal');

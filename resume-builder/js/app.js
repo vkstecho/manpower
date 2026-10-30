@@ -870,7 +870,9 @@
   // Wire export/import if toolbar buttons exist
   document.addEventListener('DOMContentLoaded', function () {
     const expBtn = document.getElementById('exportJsonBtn');
-    if (expBtn) expBtn.addEventListener('click', exportResumeJSON);
+    const pdfBtn = document.getElementById('downloadPdfBtn') || document.getElementById('exportJsonBtn');
+    if (pdfBtn) pdfBtn.addEventListener('click', downloadResumePdf);
+    if (expBtn) expBtn.addEventListener('click', downloadResumePdf);
     const impInput = document.getElementById('importJsonInput');
     if (impInput) {
       impInput.addEventListener('change', function (e) {
@@ -907,6 +909,7 @@
       localStorage.setItem('rb_cloud_mobile', mobile10);
       localStorage.setItem('vks_site_phone', mobile10);
       localStorage.setItem('vks_site_verified', '1');
+      try { rbApplyLoginLock(); } catch (e) {}
       localStorage.setItem('vks_mentor_verified_' + mobile10, '1');
       localStorage.setItem('mp_user_phone', mobile10);
     } catch (e) {}
@@ -1094,9 +1097,51 @@
     } catch (e) {}
   }
 
-  document.addEventListener('DOMContentLoaded', () => { init(); bindCloudAuth(); });
+  document.addEventListener('DOMContentLoaded', () => { init(); bindCloudAuth(); setTimeout(rbApplyLoginLock, 100); setTimeout(rbApplyLoginLock, 800); });
 })();
 
+
+
+function rbIsLoggedIn(){
+  try {
+    var v = localStorage.getItem('vks_site_verified') === '1';
+    var p = (localStorage.getItem('vks_site_phone') || '').replace(/\D/g,'').slice(-10);
+    if (v && /^[6-9]\d{9}$/.test(p)) return p;
+    // Man Power parent session
+    if (window.parent && window.parent !== window) {
+      try {
+        var ph = window.parent.localStorage && (window.parent.localStorage.getItem('mp_user_phone') || window.parent.localStorage.getItem('mp_device_phone') || '');
+        ph = String(ph).replace(/\D/g,'').slice(-10);
+        if (/^[6-9]\d{9}$/.test(ph)) {
+          localStorage.setItem('vks_site_phone', ph);
+          localStorage.setItem('vks_site_verified', '1');
+      try { rbApplyLoginLock(); } catch (e) {}
+          return ph;
+        }
+      } catch (e) {}
+    }
+  } catch (e) {}
+  return '';
+}
+function rbApplyLoginLock(){
+  var phone = rbIsLoggedIn();
+  var main = document.querySelector('main');
+  var lock = document.getElementById('rbLoginLock');
+  if (phone) {
+    if (lock) lock.remove();
+    if (main) { main.style.opacity = '1'; main.style.pointerEvents = ''; }
+    return;
+  }
+  if (!lock) {
+    lock = document.createElement('div');
+    lock.id = 'rbLoginLock';
+    lock.style.cssText = 'position:sticky;top:64px;z-index:40;margin:0 0 12px;padding:14px 16px;border-radius:16px;background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1px solid #fdba74;box-shadow:0 8px 24px rgba(249,115,22,.15)';
+    lock.innerHTML = '<div style="font-weight:800;color:#9a3412;margin-bottom:6px">Login required</div><div style="font-size:13px;color:#c2410c;line-height:1.45">Enter your 10-digit mobile and OTP above to use Resume Builder. Your resume syncs to the same Firebase account as Man Power &amp; Mentor.</div>';
+    var auth = document.getElementById('rbAuthBar') || document.body.firstElementChild;
+    if (auth && auth.parentNode) auth.parentNode.insertBefore(lock, auth.nextSibling);
+  }
+  if (main) { main.style.opacity = '0.45'; main.style.pointerEvents = 'none'; }
+}
 
 function rbForceLoginGate(){
   try{
@@ -1145,3 +1190,30 @@ function rbForceLoginGate(){
   document.addEventListener('DOMContentLoaded', wrap);
   setTimeout(wrap, 800);
 })();
+
+function updateTplPreview(name){
+  var frame = document.getElementById('tplPreviewFrame');
+  if(!frame) return;
+  var styles = {
+    executive: 'border-left:4px solid #1e3a8a;padding-left:10px',
+    minimalist: 'text-align:center',
+    creative: 'background:linear-gradient(180deg,#fff,#faf5ff);border:1px solid #e9d5ff',
+    'twocolumn': 'display:grid;grid-template-columns:1fr 2fr;gap:8px'
+  };
+  frame.setAttribute('style', 'background:#fff;border-radius:8px;padding:12px;font-size:9px;line-height:1.35;min-height:120px;' + (styles[name]||styles.executive));
+  if(name==='twocolumn'){
+    frame.innerHTML = '<div style="background:#1e293b;color:#fff;padding:8px;border-radius:6px"><b>Your Name</b><br/>Title</div><div><b>Experience</b><br/>Company · Role<br/><span style="color:#64748b">Sample bullet for two-column layout</span></div>';
+  } else if(name==='minimalist'){
+    frame.innerHTML = '<div style="font-size:14px;font-weight:700;letter-spacing:0.05em">YOUR NAME</div><div style="color:#94a3b8;margin:4px 0 10px">Job Title</div><div style="height:1px;background:#e2e8f0;margin:8px 0"></div><div>Clean minimal experience section</div>';
+  } else if(name==='creative'){
+    frame.innerHTML = '<div style="font-weight:800;color:#7c3aed;font-size:13px">Your Name</div><div style="color:#a78bfa">Creative Role</div><div style="margin-top:8px;padding:6px;border-radius:8px;background:#f5f3ff">Highlighted skills block</div>';
+  } else {
+    frame.innerHTML = '<div class="font-bold text-sm mb-1" style="font-weight:700;font-size:12px">Your Name</div><div style="color:#94a3b8;margin-bottom:6px">Job Title · City</div><div style="height:2px;background:#1d4ed8;margin-bottom:8px"></div><div style="font-weight:600">Experience</div><div>Company · Role</div><div style="color:#64748b">Brief achievement line for executive style…</div>';
+  }
+}
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('.template-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ updateTplPreview(btn.getAttribute('data-template')); });
+  });
+  updateTplPreview('executive');
+});
