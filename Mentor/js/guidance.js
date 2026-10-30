@@ -980,35 +980,49 @@
   }
 
   async function requestMentorOTP() {
-    // Only allow if current logged-in mobile is the mentor/admin number
     if (String(mobile || '') !== MENTOR_MOBILE) {
       showToast('Mentor mode only for admin +91 ' + MENTOR_MOBILE);
       return;
     }
+    // Show OTP panel immediately so user always has an input UI
     try {
-      // Wait briefly for Firebase module (iframe / slow network)
-      for (let w = 0; w < 25 && !(window.MentorFB && (window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp)); w++) {
+      var modal = document.getElementById('pinModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.style.zIndex = '9999';
+      }
+      var status = document.getElementById('mentorOtpStatus');
+      if (status) status.textContent = 'Preparing secure OTP… complete captcha if shown, then wait for SMS.';
+      var pin = document.getElementById('mentorPinInput');
+      if (pin) { pin.value = ''; pin.placeholder = 'Enter 6-digit OTP'; }
+    } catch (e) {}
+
+    try {
+      for (let w = 0; w < 30 && !(window.MentorFB && (window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp)); w++) {
         await new Promise(r => setTimeout(r, 100));
       }
       if (!window.MentorFB || !(window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp)) {
-        showToast('Firebase not ready — open Mentor again or check network');
+        showToast('Firebase not ready — close Mentor and open again');
+        var st = document.getElementById('mentorOtpStatus');
+        if (st) st.textContent = 'Firebase not ready. Close and reopen Mentor, then try again.';
         return;
       }
       showToast('Sending OTP SMS to +91 ' + MENTOR_MOBILE + '…');
-      {
-        const send = window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp;
-        await send.call(window.MentorFB, '+91' + MENTOR_MOBILE);
-      }
+      var st2 = document.getElementById('mentorOtpStatus');
+      if (st2) st2.textContent = 'Sending SMS… If a captcha appears below, complete it. OTP will arrive on +91 ' + MENTOR_MOBILE;
+      const send = window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp;
+      await send.call(window.MentorFB, MENTOR_MOBILE);
       window._mentorUnlockOtpPending = true;
-      $('#pinModal').classList.remove('hidden');
-      $('#pinModal').classList.add('flex');
-      $('#mentorPinInput').value = '';
-      $('#mentorPinInput').placeholder = 'Enter 6-digit OTP';
-      $('#mentorPinInput').focus();
+      if (st2) st2.textContent = 'OTP sent. Enter the 6-digit code from SMS.';
       showToast('OTP sent by SMS to +91 ' + MENTOR_MOBILE);
+      try { document.getElementById('mentorPinInput')?.focus(); } catch (e) {}
     } catch (e) {
       console.warn('[mentor] requestMentorOTP', e);
-      showToast((e && e.message) ? e.message : 'Failed to send OTP SMS');
+      var msg = (e && e.message) ? e.message : 'Failed to send OTP SMS';
+      showToast(msg);
+      var st3 = document.getElementById('mentorOtpStatus');
+      if (st3) st3.textContent = msg + ' — try again in a few seconds.';
     }
   }
 

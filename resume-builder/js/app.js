@@ -1096,3 +1096,52 @@
 
   document.addEventListener('DOMContentLoaded', () => { init(); bindCloudAuth(); });
 })();
+
+
+function rbForceLoginGate(){
+  try{
+    var verified = localStorage.getItem('vks_site_verified') === '1';
+    var phone = (localStorage.getItem('vks_site_phone') || '').replace(/\D/g,'').slice(-10);
+    if(verified && /^[6-9]\d{9}$/.test(phone)){
+      if(typeof rbMobileLoggedIn !== 'undefined') rbMobileLoggedIn = phone;
+      return true;
+    }
+    // Highlight login strip; scroll into view
+    var strip = document.getElementById('rbAuthBar') || document.getElementById('rbMobile')?.closest('div');
+    if(strip){
+      strip.style.outline = '2px solid #f97316';
+      strip.style.outlineOffset = '4px';
+      try{ strip.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
+    }
+    var tip = document.getElementById('rbLoginTip');
+    if(!tip){
+      tip = document.createElement('div');
+      tip.id = 'rbLoginTip';
+      tip.style.cssText = 'margin:8px 0;padding:10px 12px;border-radius:12px;background:#fff7ed;color:#9a3412;font-size:13px;font-weight:600;border:1px solid #fdba74';
+      tip.textContent = 'Login with mobile OTP to save & sync your resume on Firebase (same account as Man Power / Mentor).';
+      var host = document.getElementById('rbMobile') && document.getElementById('rbMobile').parentElement;
+      if(host) host.parentElement.insertBefore(tip, host);
+    }
+    return false;
+  }catch(e){ return true; }
+}
+
+
+(function(){
+  function wrap(){
+    ['mobilePrintBtn','btnDownloadPdf','downloadPdfBtn','btnSaveCloud'].forEach(function(id){
+      var el = document.getElementById(id);
+      if(!el || el._rbGate) return;
+      el._rbGate = true;
+      el.addEventListener('click', function(ev){
+        if(typeof rbForceLoginGate === 'function' && !rbForceLoginGate()){
+          ev.preventDefault();
+          ev.stopPropagation();
+          alert('Please login with mobile OTP first to save / download with cloud sync.');
+        }
+      }, true);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', wrap);
+  setTimeout(wrap, 800);
+})();

@@ -2369,7 +2369,56 @@ async function deleteLearnButton(idx){
 window.deleteLearnButton = deleteLearnButton;
 
 /* v3.2.1 — Resume Builder + One-to-One Guidance as iframe modules in Learn & Grow */
+
+function openLearnModuleIntro(title, url){
+  var isResume = /resume/i.test(String(title||'')) || /resume-builder/i.test(String(url||''));
+  var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||''));
+  var headline = isResume ? 'AI Resume Builder' : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module'));
+  var points = isResume ? [
+    '100% free — build a professional resume',
+    'Download & share as PDF with recruiters',
+    'Multiple templates · live preview · mobile friendly',
+    'Saved with your mobile login when online'
+  ] : [
+    'One-to-one guidance on AI tools & career skills',
+    'Tracks for Gemini, Claude, ChatGPT, Grok & more',
+    'Book sessions, workspace notes & doubt chat',
+    'Also on vkstech.com and FP Job'
+  ];
+  var layer = document.getElementById('learnModuleIntro');
+  if(!layer){
+    layer = document.createElement('div');
+    layer.id = 'learnModuleIntro';
+    document.body.appendChild(layer);
+  }
+  layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:linear-gradient(165deg,#0f172a,#1e293b);color:#f8fafc;display:flex;flex-direction:column;overflow:auto;-webkit-overflow-scrolling:touch';
+  var lis = points.map(function(x){ return '<li style="margin:0 0 10px;display:flex;gap:10px;align-items:flex-start"><span style="color:#fb923c;font-weight:800">✓</span><span style="line-height:1.45">'+x+'</span></li>'; }).join('');
+  layer.innerHTML = ''+
+    '<div style="padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.08)">'+
+      '<button type="button" id="learnIntroBack" style="border:0;background:rgba(255,255,255,.1);color:#fff;border-radius:12px;padding:8px 12px;font-weight:700;cursor:pointer">← Back</button>'+
+      '<div style="font-weight:800;font-size:15px">Learn &amp; Grow</div>'+
+    '</div>'+
+    '<div style="flex:1;padding:28px 20px 40px;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box">'+
+      '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px">'+(isResume?'FREE TOOL':'GUIDANCE')+'</div>'+
+      '<h1 style="font-size:1.65rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em">'+headline+'</h1>'+
+      '<p style="color:#94a3b8;margin:0 0 20px;line-height:1.5">'+(isResume
+        ? 'Create an ATS-friendly resume, export PDF, and share it — at no cost. Built by VKS Tech and available inside Man Power.'
+        : 'Practical one-to-one mentorship for AI tools and career growth. Built by VKS Tech for professionals.')+'</p>'+
+      '<ul style="list-style:none;padding:0;margin:0 0 28px;font-size:14px">'+lis+'</ul>'+
+      '<button type="button" id="learnIntroContinue" style="width:100%;border:0;border-radius:14px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer;background:linear-gradient(90deg,#f97316,#ea580c);color:#fff;box-shadow:0 12px 28px rgba(249,115,22,.35)">Continue → Open '+headline+'</button>'+
+      '<p style="text-align:center;margin-top:14px;font-size:11px;color:#64748b">Also on <b style="color:#cbd5e1">vkstech.com</b> · <b style="color:#cbd5e1">fpjob.vkstech.com</b></p>'+
+    '</div>';
+  document.getElementById('learnIntroBack').onclick = function(){ layer.style.display='none'; layer.innerHTML=''; };
+  document.getElementById('learnIntroContinue').onclick = function(){
+    layer.style.display='none'; layer.innerHTML='';
+    openLearnIframeModuleDirect(title, url);
+  };
+}
 function openLearnIframeModule(title, url){
+  openLearnModuleIntro(title, url);
+}
+function openLearnIframeModuleDirect(title, url){
+
   try{
     const safeTitle = String(title||'Module').replace(/</g,'');
     const safeUrl = String(url||'').trim();
@@ -2411,6 +2460,8 @@ function closeLearnModuleLayer(){
   try{
     const layer = document.getElementById('learnModuleLayer');
     if(layer){ layer.style.display='none'; layer.innerHTML=''; }
+    const intro = document.getElementById('learnModuleIntro');
+    if(intro){ intro.style.display='none'; intro.innerHTML=''; }
     document.body.classList.remove('learn-module-open');
   }catch(e){}
 }
