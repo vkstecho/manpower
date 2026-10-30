@@ -232,6 +232,14 @@
       ".read": "auth != null",
       ".write": "((auth != null && (auth.token.admin === true || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true || (auth.token.phone_number != null && (root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'admin' || root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'admin')))) || (auth != null && (auth.token.manager === true || root.child('managers').child(auth.uid).val() === true || (auth.token.phone_number != null && ((root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('status').val() === 'approved') || (root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'manager' && root.child('mobileUsers').child(auth.token.phone_number).child('status').val() === 'approved'))))))"
     },
+        "mentor_settings": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.phone_number === '+918929397949' || auth.token.admin === true)",
+      "tracks": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.token.phone_number === '+918929397949' || auth.token.admin === true)"
+      }
+    },
     "mentor_guidance": {
       ".read": "auth != null",
       ".write": "auth != null",

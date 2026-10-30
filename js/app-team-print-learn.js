@@ -535,7 +535,7 @@ function openLearnSection(section){
     if(fr){
       fr.style.display='none';
       if(loader) loader.style.display='flex';
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='Met_Train_Pro/met_train_pro.html'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='https://mentor.vkstech.com/Met_Train_Pro/met_train_pro.html'; },100); },50);
     }
   } else if(section === 'supskill'){
     supSkillView.style.display='flex';
@@ -560,7 +560,7 @@ function openLearnSection(section){
       if(loader) loader.style.display='flex';
       try{ window._generateManpowerForMetCost(); }catch(e){ console.warn('Manpower gen error:', e); }
       // Load iframe immediately — MetCost Pro fetches its own data via REST API
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='MR_Skill/mr_skill.html?mode=metcost'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='https://mentor.vkstech.com/MR_Skill/mr_skill.html?mode=metcost'; },100); },50);
     }
   } else if(section === 'kpiDashboard'){
     if(!isAdminOrMgr()){ toast('⚠️ Manager access only'); document.getElementById('learnMainButtons').style.display='block'; return; }
@@ -573,7 +573,7 @@ function openLearnSection(section){
       if(loader) loader.style.display='flex';
       // Pre-generate manpower data so it's ready when iframe requests it
       try{ window._generateManpowerForMetCost(); }catch(e){ console.warn('Manpower gen error:', e); }
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='kpi_dashboard.html'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='https://mentor.vkstech.com/kpi_dashboard.html'; },100); },50);
     }
   } else if(section === 'timeStudy'){
     if(!isAdminOrMgr()){ toast('⚠️ Manager access only'); document.getElementById('learnMainButtons').style.display='block'; return; }
@@ -596,7 +596,7 @@ function openLearnSection(section){
     if(fr){
       fr.style.display='none';
       if(loader) loader.style.display='flex';
-      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='MR_Skill/mr_skill.html?mode=mrm'; },100); },50);
+      setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='https://mentor.vkstech.com/MR_Skill/mr_skill.html?mode=mrm'; },100); },50);
     }
   } else if(section === 'excelexpert'){
     excelView.style.display='flex';
@@ -2373,7 +2373,7 @@ window.deleteLearnButton = deleteLearnButton;
 function openLearnModuleIntro(title, url){
   var isResume = /resume/i.test(String(title||'')) || /resume-builder/i.test(String(url||''));
   var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||''));
-  var imgSrc = isResume ? 'assets/learn/resume-hero.svg' : 'assets/learn/mentor-hero.svg';
+  var imgSrc = isResume ? 'resume-builder/icons/resume-icon.jpg' : 'https://mentor.vkstech.com/icons/mentor-icon.jpg';
   var headline = isResume ? 'AI Resume Builder' : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module'));
   var points = isResume ? [
     '100% free — build a professional resume',
@@ -2473,7 +2473,7 @@ function _learnModuleUrls(){
   const origin = (typeof location!=='undefined' && location.origin) ? location.origin : '';
   return {
     resume: origin + '/resume-builder/index.html',
-    guidance: origin + '/Mentor/mentor.html'
+    guidance: 'https://mentor.vkstech.com/mentor.html'
   };
 }
 

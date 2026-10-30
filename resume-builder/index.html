@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Top-Class Resume Builder</title>
+  <link rel="icon" href="icons/resume-icon.jpg" type="image/jpeg" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -94,16 +95,13 @@
   <!-- Mobile OTP login (same Firebase as Man Power) -->
   <div id="rbLoginBar" class="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-3 py-2">
     <div class="max-w-6xl mx-auto flex flex-wrap items-center gap-2 text-sm">
-      <span class="font-semibold text-slate-700 dark:text-slate-200"><i class="fas fa-cloud mr-1"></i>Cloud save</span>
-      <span id="rbLoginStatus" class="text-slate-500">Not logged in — resume only on this device</span>
+      <span id="rbLoginStatus" class="text-slate-500 text-xs">Sign in with mobile for auto-sync</span>
       <div id="rbLoginForm" class="flex flex-wrap items-center gap-2 ml-auto">
         <input id="rbMobile" type="tel" maxlength="10" inputmode="numeric" placeholder="10-digit mobile"
           class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm w-36" />
         <button type="button" id="rbSendOtp" class="px-3 py-1.5 rounded-lg bg-primary-600 text-white text-xs font-semibold">Send OTP</button>
         <input id="rbOtp" type="tel" maxlength="6" inputmode="numeric" placeholder="OTP" class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-sm w-24 hidden" />
         <button type="button" id="rbVerifyOtp" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hidden">Verify</button>
-        <button type="button" id="rbCloudSave" class="px-3 py-1.5 rounded-lg bg-slate-700 text-white text-xs font-semibold hidden">Save to Cloud</button>
-        <button type="button" id="rbCloudLoad" class="px-3 py-1.5 rounded-lg bg-slate-600 text-white text-xs font-semibold hidden">Load from Cloud</button>
         <button type="button" id="rbLogoutBtn" class="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-600 text-xs font-semibold text-slate-500 hidden" title="Logout">Logout</button>
       </div>
     </div>
@@ -115,7 +113,7 @@
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-slate-900 flex items-center justify-center text-white shadow text-[10px] font-extrabold tracking-tight">VKS</div>
+          <img src="icons/resume-icon.jpg" alt="Resume" class="w-9 h-9 rounded-lg shadow object-cover" width="36" height="36" />
           <div>
             <h1 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white">VKS<span class="text-red-600 font-medium">Tech</span> <span class="text-slate-400 font-normal text-sm">·</span> Resume Builder</h1>
             <p class="text-xs text-slate-500 dark:text-slate-400 -mt-0.5">Professional • ATS-Friendly</p>
@@ -375,10 +373,26 @@
             <i class="fas fa-palette text-primary-500"></i> Template & Layout
           </h3>
           <div class="grid grid-cols-2 gap-2">
-            <button type="button" data-template="executive" class="template-btn active-template">Executive</button>
-            <button type="button" data-template="minimalist" class="template-btn">Minimalist</button>
-            <button type="button" data-template="creative" class="template-btn">Creative</button>
-            <button type="button" data-template="twocolumn" class="template-btn">Two-Column</button>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mb-1">ATS-safe · single page</div>
+            <button type="button" data-template="ats" data-pack="ats" class="template-btn active-template">ATS Clean</button>
+            <button type="button" data-template="executive" data-pack="pro" class="template-btn">Executive</button>
+            <button type="button" data-template="minimalist" data-pack="ats" class="template-btn">Minimalist</button>
+            <button type="button" data-template="classic" data-pack="pro" class="template-btn">Classic Pro</button>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Role packs</div>
+            <button type="button" data-template="fresher" data-pack="fresher" class="template-btn">Fresher</button>
+            <button type="button" data-template="technical" data-pack="plant" class="template-btn">Technical / Plant</button>
+            <button type="button" data-template="manager" data-pack="manager" class="template-btn">Manager</button>
+            <button type="button" data-template="academic" data-pack="academic" class="template-btn">Academic</button>
+            <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Premium layouts</div>
+            <button type="button" data-template="modern" data-pack="pro" class="template-btn">Modern Bold</button>
+            <button type="button" data-template="elegant" data-pack="pro" class="template-btn">Elegant Serif</button>
+            <button type="button" data-template="creative" data-pack="creative" class="template-btn">Creative</button>
+            <button type="button" data-template="twocolumn" data-pack="pro" class="template-btn">Two-Column</button>
+            <button type="button" data-template="sidebar" data-pack="pro" class="template-btn">Sidebar Pro</button>
+            <button type="button" data-template="compact" data-pack="ats" class="template-btn">Compact 1-Page</button>
+            <button type="button" data-template="navy" data-pack="pro" class="template-btn">Navy Professional</button>
+            <button type="button" data-template="timeline" data-pack="pro" class="template-btn">Timeline</button>
+            <p class="col-span-full text-[11px] text-slate-500 mt-2 leading-relaxed">All 16 layouts target <b>one A4 page</b>. Prefer <b>ATS Clean / Minimalist / Compact</b> when applying through online portals (simple text, clear headings).</p>
           <div id="templatePreviewMini" class="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 col-span-full">
             <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Layout preview (sample)</div>
             <div id="tplPreviewFrame" class="bg-white dark:bg-slate-800 rounded-lg shadow-inner p-3 text-[9px] leading-tight text-slate-700 dark:text-slate-200 min-h-[120px] border border-slate-100 dark:border-slate-700">
@@ -417,7 +431,7 @@
             </div>
           </div>
           <div class="resume-preview-wrapper overflow-auto max-h-[calc(100vh-8rem)] min-h-[60vh] xl:min-h-0 rounded-xl bg-slate-200/50 dark:bg-slate-950/50 p-4 shadow-inner">
-            <div id="resumePaper" class="resume-paper template-executive">
+            <div id="resumePaper" class="resume-paper template-ats">
               <!-- Dynamically rendered by JS -->
             </div>
           </div>

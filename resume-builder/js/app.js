@@ -28,7 +28,7 @@
     softSkills: '',
     languages: '',
     projects: [],
-    template: 'executive',
+    template: 'ats',
     compact: false
   };
 
@@ -84,6 +84,7 @@
   function saveData() {
     collectFormData();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    try { rbScheduleAutoSync(); } catch (e) {}
     showToast('Progress saved');
   }
 
@@ -131,7 +132,7 @@
 
     // Template buttons
     $$('.template-btn').forEach(btn => {
-      btn.classList.toggle('active-template', btn.dataset.template === data.template);
+      btn.classList.toggle('active-template', btn.dataset.template === (data.template||'ats'));
     });
 
     updateSummaryCount();
@@ -449,12 +450,16 @@
     // Reset classes
     paper.className = `resume-paper template-${tpl}`;
     if (data.includePhoto && data.photoData) paper.classList.add('with-photo');
-    if (data.compact) paper.classList.add('compact');
+    if (data.compact || tpl === 'compact' || tpl === 'ats') paper.classList.add('compact');
 
-    if (tpl === 'twocolumn') {
+    // Force one-page polish class
+    paper.classList.add('one-page');
+    if (tpl === 'twocolumn' || tpl === 'sidebar' || tpl === 'technical') {
       paper.innerHTML = renderTwoColumn();
-    } else if (tpl === 'creative') {
+    } else if (tpl === 'creative' || tpl === 'modern') {
       paper.innerHTML = renderCreative();
+    } else if (tpl === 'timeline') {
+      paper.innerHTML = renderTimeline();
     } else {
       paper.innerHTML = renderSingleColumn(tpl);
     }
@@ -591,6 +596,39 @@
           </div>
         `).join('')}
       </div>`;
+  }
+
+
+  function renderTimeline() {
+    const name = esc(data.fullName || 'Your Name');
+    const title = esc(data.jobTitle || '');
+    const contact = contactItems();
+    const exp = (data.experiences || []).filter(e => e.title || e.company);
+    const expHtml = exp.map(e => `
+      <div class="tl-item">
+        <div class="tl-dot"></div>
+        <div class="tl-body">
+          <div class="item-header">
+            <div class="item-title">${esc(e.title || '')}${e.company ? ' · ' + esc(e.company) : ''}</div>
+            <div class="item-date">${esc(e.start || '')}${e.end ? ' – ' + esc(e.end) : ''}</div>
+          </div>
+          <div class="item-desc">${esc(e.description || '').replace(/\n/g, '<br>')}</div>
+        </div>
+      </div>`).join('');
+    return `
+      <div class="header">
+        <div class="header-text">
+          <div class="header-name">${name}</div>
+          <div class="header-title">${title}</div>
+          <div class="header-contact">${contact}</div>
+        </div>
+        ${photoHTML()}
+      </div>
+      ${summarySection()}
+      <div class="section"><div class="section-title">Experience</div><div class="tl-track">${expHtml || '<div class="item-desc">Add experience</div>'}</div></div>
+      ${educationSection()}
+      ${skillsSection()}
+    `;
   }
 
   function renderSingleColumn(tpl) {
@@ -819,6 +857,43 @@
 
 
 
+
+  let _rbCloudTimer = null;
+  async function rbAutoSyncToCloud() {
+    try {
+      const phone = (typeof rbIsLoggedIn === 'function' && rbIsLoggedIn()) || (window.rbMobileLoggedIn) || '';
+      const p = String(phone || '').replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(p)) return;
+      if (!window.ResumeFB || typeof window.ResumeFB.saveResume !== 'function') return;
+      collectFormData();
+      await window.ResumeFB.saveResume(p, data);
+      const st = document.getElementById('rbLoginStatus');
+      if (st) st.textContent = 'Synced · +91 ' + p;
+    } catch (e) {
+      console.warn('[rb auto-sync]', e);
+    }
+  }
+  function rbScheduleAutoSync() {
+    clearTimeout(_rbCloudTimer);
+    _rbCloudTimer = setTimeout(rbAutoSyncToCloud, 1200);
+  }
+  async function rbAutoLoadFromCloud() {
+    try {
+      const phone = (typeof rbIsLoggedIn === 'function' && rbIsLoggedIn()) || '';
+      const p = String(phone || '').replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(p)) return;
+      if (!window.ResumeFB || typeof window.ResumeFB.loadResume !== 'function') return;
+      const remote = await window.ResumeFB.loadResume(p);
+      if (remote && typeof remote === 'object') {
+        Object.assign(data, remote);
+        try { fillForm(); } catch (e) {}
+        try { renderResume(); } catch (e) {}
+        const st = document.getElementById('rbLoginStatus');
+        if (st) st.textContent = 'Loaded · +91 ' + p;
+      }
+    } catch (e) { console.warn('[rb auto-load]', e); }
+  }
+
   // ========== v3.2.6: Export / Import JSON + keyboard ==========
   function exportResumeJSON() {
     collectFormData();
@@ -910,11 +985,12 @@
       localStorage.setItem('vks_site_phone', mobile10);
       localStorage.setItem('vks_site_verified', '1');
       try { rbApplyLoginLock(); } catch (e) {}
+      try { rbAutoLoadFromCloud(); } catch (e) {}
       localStorage.setItem('vks_mentor_verified_' + mobile10, '1');
       localStorage.setItem('mp_user_phone', mobile10);
     } catch (e) {}
     const st = document.getElementById('rbLoginStatus');
-    if (st) st.textContent = 'Logged in +91 ' + mobile10 + ' — cloud save enabled';
+    if (st) st.textContent = 'Auto-sync · +91 ' + mobile10;
     ['rbCloudSave', 'rbCloudLoad'].forEach((id) => {
       const el = document.getElementById(id);
       if (el) el.classList.remove('hidden');
@@ -1077,7 +1153,8 @@
       rbSetLoggedIn(shared);
       const st = document.getElementById('rbLoginStatus');
       if (st && rbParentManPowerMobile()) {
-        st.textContent = 'Man Power session +91 ' + shared + ' — cloud save ready';
+        st.textContent = 'Auto-sync · +91 ' + shared;
+        try { rbAutoLoadFromCloud(); } catch (e) {}
       }
       // Hide OTP form when already verified
       ['rbMobile', 'rbSendOtp', 'rbOtp', 'rbVerifyOtp'].forEach((id) => {
@@ -1116,6 +1193,7 @@ function rbIsLoggedIn(){
           localStorage.setItem('vks_site_phone', ph);
           localStorage.setItem('vks_site_verified', '1');
       try { rbApplyLoginLock(); } catch (e) {}
+      try { rbAutoLoadFromCloud(); } catch (e) {}
           return ph;
         }
       } catch (e) {}
@@ -1198,7 +1276,11 @@ function updateTplPreview(name){
     executive: 'border-left:4px solid #1e3a8a;padding-left:10px',
     minimalist: 'text-align:center',
     creative: 'background:linear-gradient(180deg,#fff,#faf5ff);border:1px solid #e9d5ff',
-    'twocolumn': 'display:grid;grid-template-columns:1fr 2fr;gap:8px'
+    twocolumn: 'display:grid;grid-template-columns:1fr 2fr;gap:8px',
+    classic: 'border-top:3px solid #111;font-family:Georgia,serif',
+    modern: 'background:linear-gradient(135deg,#0f172a 0%,#0f172a 28%,#fff 28%);color:#0f172a;padding:0',
+    elegant: 'font-family:Georgia,serif;text-align:center;border:1px solid #d4af37',
+    sidebar: 'display:grid;grid-template-columns:1fr 2fr;gap:8px;background:#f8fafc'
   };
   frame.setAttribute('style', 'background:#fff;border-radius:8px;padding:12px;font-size:9px;line-height:1.35;min-height:120px;' + (styles[name]||styles.executive));
   if(name==='twocolumn'){
@@ -1215,5 +1297,5 @@ document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.template-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ updateTplPreview(btn.getAttribute('data-template')); });
   });
-  updateTplPreview('executive');
+  updateTplPreview('ats');
 });

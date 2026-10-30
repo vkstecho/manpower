@@ -27,6 +27,9 @@
 }
 
 .template-btn {
+  font-size: 11px;
+  padding: 8px 10px;
+
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
@@ -38,6 +41,9 @@
   cursor: pointer;
 }
 .dark .template-btn {
+  font-size: 11px;
+  padding: 8px 10px;
+
   border-color: #475569;
   background-color: rgba(51, 65, 85, 0.5);
   color: #cbd5e1;
@@ -703,4 +709,83 @@
   #toast {
     display: none !important;
   }
+}
+
+/* —— Extra premium templates —— */
+.template-classic { font-family: Georgia, 'Times New Roman', serif; color: #111; }
+.template-classic .header { border-bottom: 2px solid #111; padding-bottom: 10px; margin-bottom: 12px; }
+.template-classic .header-name { font-size: 22pt; letter-spacing: 0.02em; }
+.template-classic .header-title { font-style: italic; color: #444; }
+.template-classic .section-title { font-size: 11pt; text-transform: uppercase; letter-spacing: 0.12em; border-bottom: 1px solid #ccc; margin-bottom: 6px; }
+
+.template-modern { }
+.template-modern .header { background: #0f172a; color: #fff; padding: 18px 16px; margin: -16px -16px 14px; }
+.template-modern .header-name { color: #fff; font-size: 20pt; font-weight: 800; }
+.template-modern .header-title { color: #94a3b8; }
+.template-modern .header-contact { color: #cbd5e1; }
+.template-modern .section-title { color: #0f172a; border-left: 3px solid #f97316; padding-left: 8px; text-transform: uppercase; font-size: 10pt; letter-spacing: 0.08em; }
+
+.template-elegant { font-family: Georgia, serif; }
+.template-elegant .header { text-align: center; border-bottom: 1px solid #d4af37; padding-bottom: 12px; margin-bottom: 14px; }
+.template-elegant .header-name { font-size: 24pt; font-weight: 400; letter-spacing: 0.08em; color: #1c1917; }
+.template-elegant .header-title { color: #a16207; font-style: italic; }
+.template-elegant .section-title { text-align: center; color: #a16207; font-size: 10pt; letter-spacing: 0.15em; text-transform: uppercase; margin: 12px 0 6px; }
+
+.template-sidebar .tc-sidebar { background: #0f172a; color: #e2e8f0; padding: 14px; min-height: 100%; }
+.template-sidebar .tc-main { padding: 8px 12px; }
+.template-sidebar .header-name { color: #fff; }
+
+/* —— 16-template system: ATS + role packs + one-page print —— */
+.resume-paper.one-page {
+  max-height: 297mm;
+  overflow: hidden;
+}
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body * { visibility: hidden; }
+  #resumePaper, #resumePaper * { visibility: visible; }
+  #resumePaper {
+    position: absolute; left: 0; top: 0; width: 100%;
+    box-shadow: none !important; border: none !important;
+    max-height: none; overflow: visible;
+  }
+  .no-print, header, #rbLoginLock, #rbAuthBar, .template-btn {
+  font-size: 11px;
+  padding: 8px 10px;
+ display: none !important; }
+}
+
+.template-ats { font-family: Arial, Helvetica, sans-serif; color: #111; font-size: 10.5pt; }
+.template-ats .header-name { font-size: 18pt; font-weight: 700; color: #000; }
+.template-ats .header-title { color: #333; font-size: 11pt; }
+.template-ats .section-title {
+  font-size: 11pt; font-weight: 700; text-transform: uppercase;
+  border-bottom: 1px solid #333; margin: 10px 0 6px; letter-spacing: 0.04em;
+}
+.template-ats .skill-tag { border: 1px solid #ccc; background: #fff; color: #111; }
+
+.template-fresher .header-name { color: #1d4ed8; }
+.template-fresher .section-title { color: #1d4ed8; border-bottom-color: #93c5fd; }
+
+.template-technical .tc-sidebar { background: #0f766e; }
+.template-manager .header { border-bottom: 3px solid #1e3a8a; }
+.template-manager .section-title { color: #1e3a8a; }
+
+.template-academic { font-family: Georgia, serif; }
+.template-academic .section-title { text-align: left; border-bottom: 1px solid #78716c; }
+
+.template-navy .header { background: #1e3a8a; color: #fff; padding: 16px; margin: -16px -16px 12px; }
+.template-navy .header-name, .template-navy .header-title { color: #fff; }
+.template-navy .header-contact { color: #bfdbfe; }
+.template-navy .section-title { color: #1e3a8a; }
+
+.template-compact { font-size: 9.5pt; }
+.template-compact .section { margin-bottom: 6px; }
+.template-compact .header-name { font-size: 16pt; }
+
+.template-timeline .tl-track { border-left: 2px solid #cbd5e1; margin-left: 8px; padding-left: 14px; }
+.template-timeline .tl-item { position: relative; margin-bottom: 10px; }
+.template-timeline .tl-dot {
+  position: absolute; left: -19px; top: 4px; width: 10px; height: 10px;
+  border-radius: 50%; background: #f97316; border: 2px solid #fff; box-shadow: 0 0 0 1px #f97316;
 }
