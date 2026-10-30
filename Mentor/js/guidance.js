@@ -22,17 +22,16 @@
   const TOPICS = [
     {
       id: 'ai_models',
-      title: 'Learn Gemini, Cloud, Grok, DeepSeek & ChatGPT',
-      hook: 'Master the World\'s Most Powerful AI Models One-to-One — From Prompt Engineering to Cloud Deployment.',
-      tags: ['Gemini', 'Google Cloud', 'Grok', 'DeepSeek', 'ChatGPT', 'Prompt Eng'],
+      title: 'Learn Gemini, Claude, Grok, DeepSeek & ChatGPT',
+      hook: 'Master the World\'s Most Powerful AI Models One-to-One — From Prompt Engineering to Claude (Anthropic).',
+      tags: ['Gemini', 'Claude', 'Grok', 'DeepSeek', 'ChatGPT', 'Prompt Eng'],
       gradient: 'linear-gradient(135deg, #4285F4 0%, #34A853 40%, #FBBC05 70%, #EA4335 100%)',
       icons: [
         { img: 'icons/gemini.svg', title: 'Gemini' },
-        { img: 'icons/google.svg', title: 'Google Cloud' },
+        { img: 'icons/claude.svg', title: 'Claude' },
         { img: 'icons/grok.svg', title: 'Grok' },
         { img: 'icons/deepseek.svg', title: 'DeepSeek' },
-        { img: 'icons/chatgpt.svg', title: 'ChatGPT' },
-        { img: 'icons/claude.svg', title: 'Claude' }
+        { img: 'icons/chatgpt.svg', title: 'ChatGPT' }
       ]
     },
     {
@@ -987,12 +986,19 @@
       return;
     }
     try {
-      if (!window.MentorFB || typeof window.MentorFB.sendOtp !== 'function') {
-        showToast('Firebase not ready — try again in a moment');
+      // Wait briefly for Firebase module (iframe / slow network)
+      for (let w = 0; w < 25 && !(window.MentorFB && (window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp)); w++) {
+        await new Promise(r => setTimeout(r, 100));
+      }
+      if (!window.MentorFB || !(window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp)) {
+        showToast('Firebase not ready — open Mentor again or check network');
         return;
       }
       showToast('Sending OTP SMS to +91 ' + MENTOR_MOBILE + '…');
-      await window.MentorFB.sendOtp('+91' + MENTOR_MOBILE);
+      {
+        const send = window.MentorFB.sendOtp || window.MentorFB.sendPhoneOtp;
+        await send.call(window.MentorFB, '+91' + MENTOR_MOBILE);
+      }
       window._mentorUnlockOtpPending = true;
       $('#pinModal').classList.remove('hidden');
       $('#pinModal').classList.add('flex');
@@ -1013,11 +1019,12 @@
       return;
     }
     try {
-      if (!window.MentorFB || typeof window.MentorFB.confirmOtp !== 'function') {
+      if (!window.MentorFB || !(window.MentorFB.confirmOtp || window.MentorFB.verifyPhoneOtp)) {
         showToast('Firebase not ready');
         return;
       }
-      await window.MentorFB.confirmOtp(entered);
+      const conf = window.MentorFB.confirmOtp || window.MentorFB.verifyPhoneOtp;
+      await conf.call(window.MentorFB, entered);
       window._mentorUnlockOtpPending = false;
       try { localStorage.removeItem(OTP_STORAGE_KEY); } catch (e) {}
       $('#pinModal').classList.add('hidden');

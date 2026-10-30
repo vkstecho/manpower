@@ -285,23 +285,28 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   </div>`);
 }
 
+
+// Global so inline oninput/onblur on shift time fields can update _shiftDraft
+window._mpNormTime24 = function(v){
+  v = String(v||'').trim();
+  if(!v) return '';
+  var m = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+  if(!m) return v;
+  return (m[1].length===1?'0':'')+m[1]+':'+m[2];
+};
+window._mpOnTime24Input = function(el){
+  var v = String(el.value||'').replace(/[^0-9:]/g,'').slice(0,5);
+  if(v.length===2 && v.indexOf(':')<0) v = v+':';
+  el.value = v;
+  return v;
+};
+
 function _renderShiftTimingRows(){
   const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase())
   const isTimedCode = (code)=>['D','N','A','B','C','G'].includes(String(code||'').toUpperCase())
 
-  function _normTime24(v){
-    v = String(v||'').trim();
-    if(!v) return '';
-    var m = v.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
-    if(!m) return v;
-    return (m[1].length===1?'0':'')+m[1]+':'+m[2];
-  }
-  function _onTime24Input(el){
-    var v = String(el.value||'').replace(/[^0-9:]/g,'').slice(0,5);
-    if(v.length===2 && v.indexOf(':')<0) v = v+':';
-    el.value = v;
-    return v;
-  }
+  var _normTime24 = window._mpNormTime24;
+  var _onTime24Input = window._mpOnTime24Input;
   let html = '';
   html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C/G)</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
@@ -316,9 +321,9 @@ function _renderShiftTimingRows(){
         <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
       </div>
       <div style="display:flex;align-items:center;gap:8px;width:100%">
-        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="Start 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].start=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="Start 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].start=_mpOnTime24Input(this)" onblur="var v=_mpNormTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
         <span style="color:#64748b;font-size:12px;font-weight:700;flex-shrink:0">to</span>
-        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="End 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].end=_onTime24Input(this)" onblur="var v=_normTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
+        <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.end||''}" title="End 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].end=_mpOnTime24Input(this)" onblur="var v=_mpNormTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].end=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
       </div>
     </div>`;
   });
@@ -510,6 +515,28 @@ async function _saveShiftSettings(){
       }
     }catch(e){ console.warn('[waAppLink] save', e); }
   }
+  // Sync start/end from visible inputs (fixes draft not updating if oninput failed)
+  try{
+    var wrap = document.getElementById('ss_shiftTimings');
+    if(wrap){
+      var blocks = wrap.querySelectorAll('[data-shift-idx]');
+      // fallback: pair time inputs in order of timed shifts
+      var timedIdx = [];
+      (_shiftDraft.shifts||[]).forEach(function(s,i){
+        if(['D','N','A','B','C','G'].includes(String(s.code||'').toUpperCase())) timedIdx.push(i);
+      });
+      var timeInputs = wrap.querySelectorAll('input[placeholder="HH:MM"]');
+      for(var ti=0; ti<timeInputs.length; ti+=2){
+        var si = timedIdx[ti/2];
+        if(si==null || !_shiftDraft.shifts[si]) continue;
+        var st = window._mpNormTime24 ? window._mpNormTime24(timeInputs[ti].value) : String(timeInputs[ti].value||'').trim();
+        var en = window._mpNormTime24 ? window._mpNormTime24(timeInputs[ti+1].value) : String(timeInputs[ti+1].value||'').trim();
+        if(st) { _shiftDraft.shifts[si].start = st; _shiftDraft.shifts[si].startTime = st; }
+        if(en) { _shiftDraft.shifts[si].end = en; _shiftDraft.shifts[si].endTime = en; }
+      }
+    }
+  }catch(e){ console.warn('[shift times] DOM sync', e); }
+
   // Ensure G keeps user label+times in draft before save
   try{
     (_shiftDraft.shifts||[]).forEach(function(s){

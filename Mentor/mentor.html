@@ -55,6 +55,15 @@
       window.MentorFB = {
         ready: false,
         db, ref, set, get, update, onValue, auth,
+        async sendOtp(phoneE164Or10) {
+          // Alias for mentor unlock + login
+          const p = String(phoneE164Or10||'').replace(/\D/g,'');
+          const ten = p.length>=10 ? p.slice(-10) : p;
+          return this.sendPhoneOtp(ten);
+        },
+        async confirmOtp(code) {
+          return this.verifyPhoneOtp(code);
+        },
         async sendPhoneOtp(phone10) {
           const phone = '+91' + phone10;
           try { if (window._mentorRecaptcha) { window._mentorRecaptcha.clear(); } } catch(e) {}
