@@ -435,3 +435,10 @@ PWA `start_url` is `/app.html`.
 
 ## Assets
 All icons, logos, and images live in **`assets/`** (e.g. `assets/icon-192.png`, `assets/mp-logo-transparent.png`). Do not place duplicates at the project root.
+
+
+## Login vs marketing (session)
+
+- `/` marketing landing — if `localStorage.mp_session` exists, auto-redirects to `app.html`.
+- To force marketing while logged in: open `/?stay=1`.
+- `/app.html` — always the app (login or home).

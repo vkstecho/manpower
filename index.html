@@ -351,6 +351,28 @@
       font-size: 13px; color: var(--slate);
     }
   </style>
+
+<script>
+(function () {
+  try {
+    var params = new URLSearchParams(location.search || '');
+    if (params.get('stay') === '1' || params.get('marketing') === '1') return;
+    var raw = localStorage.getItem('mp_session') || sessionStorage.getItem('mp_session_bak');
+    if (!raw) return;
+    var ok = false;
+    try {
+      var o = JSON.parse(raw);
+      ok = !!(o && (o.mobile || o.phone || o.uid || o.role));
+    } catch (e) {
+      ok = String(raw).length > 8;
+    }
+    if (ok) {
+      location.replace('app.html');
+    }
+  } catch (e) {}
+})();
+</script>
+
 </head>
 <body>
   <!-- NAV -->
@@ -364,6 +386,7 @@
         <a href="#how">How it works</a>
         <a href="#compare">Why Man Power</a>
         <a href="#pricing">Pricing</a>
+          <a href="#contact">Contact</a>
           <a href="#faq">FAQ</a>
       </nav>
       <div class="nav-cta">
@@ -686,17 +709,22 @@
 
   <!-- FAQ -->
   
-  <section id="pricing" class="bg">
+    <section id="pricing" class="bg">
     <div class="wrap">
       <h2>Simple plans for plant teams</h2>
-      <p class="lead">Amounts follow what Admin publishes from the Man Power app (mobile admin). Trial and annual savings update automatically when published.</p>
+      <p class="lead">Published prices and trial days come from Admin in the Man Power app. Custom plans with special features are available on request.</p>
       <div class="price-hero card" style="margin-top:20px;text-align:center;padding:28px 20px">
         <div style="font-size:13px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em">Plan starts from</div>
         <div id="lpMinPrice" style="font-size:clamp(2rem,5vw,2.75rem);font-weight:800;color:var(--orange);margin:8px 0">₹99</div>
-        <p id="lpPriceNote" style="color:var(--slate);font-size:14px;max-width:32rem;margin:0 auto">Minimum published plan for your team size. Higher headcount plans available after login.</p>
-        <p id="lpTrialNote" style="margin-top:12px;font-size:14px;font-weight:600;color:var(--green)">21-day free trial · then continue if it works for you</p>
-        <p id="lpRefundNote" style="margin-top:6px;font-size:13px;color:var(--slate)">7-day cancel &amp; refund via Customer Care after you start a paid plan (as published by admin).</p>
-        <div id="lpPlanChips" class="grid grid-3" style="margin-top:22px;text-align:left"></div>
+        <p id="lpPriceNote" style="color:var(--slate);font-size:14px;max-width:32rem;margin:0 auto">Choose a published headcount band, or ask for a custom plan (extra sections, multi-plant, special features).</p>
+        <p id="lpTrialNote" style="margin-top:12px;font-size:14px;font-weight:600;color:var(--green)">Free trial · days set by admin</p>
+        <p id="lpRefundNote" style="margin-top:6px;font-size:13px;color:var(--slate)">Cancel &amp; refund window via Customer Care (days set by admin).</p>
+        <div id="lpPlanChips" style="margin-top:22px;text-align:left;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px"></div>
+        <div style="margin-top:20px;padding:16px;border-radius:14px;background:var(--orange-soft);border:1px solid rgba(234,88,12,.25);text-align:left">
+          <div style="font-weight:800;color:var(--navy);margin-bottom:6px">Custom plan / special features</div>
+          <p style="font-size:14px;color:var(--slate);margin:0 0 10px;line-height:1.5">Need a different amount, multi-plant setup, or features not in standard plans? We can set a custom plan and Razorpay link for your team.</p>
+          <a class="btn btn-orange" href="#contact">Talk to us for custom pricing</a>
+        </div>
         <div style="margin-top:22px">
           <a class="btn btn-orange btn-lg" href="app.html">Start free trial</a>
         </div>
@@ -704,7 +732,38 @@
     </div>
   </section>
 
-  <section id="faq">
+  <section id="contact" class="bg">
+    <div class="wrap" style="text-align:center">
+      <span class="section-label">Contact</span>
+      <h2>Customer care &amp; sales</h2>
+      <p class="lead" style="margin:0 auto 24px;max-width:36rem">WhatsApp, call, or email for demos, custom plans, cancel / refund, and support.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;text-align:left;max-width:720px;margin:0 auto">
+        <a href="https://wa.me/918929394920" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
+          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#25D366;margin-bottom:10px">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-1.99.491.511-1.93-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+</span>
+          <div style="font-weight:800">WhatsApp / Call</div>
+          <div style="color:var(--orange);font-weight:700;margin-top:4px">+91-8929394920</div>
+        </a>
+        <a href="mailto:CareMP@vkstech.com" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
+          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#2563eb;margin-bottom:10px">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z" stroke="#fff" stroke-width="1.6"/><path d="M5.5 7.5L12 12.2 18.5 7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</span>
+          <div style="font-weight:800">Email</div>
+          <div style="color:var(--blue);font-weight:700;margin-top:4px">CareMP@vkstech.com</div>
+        </a>
+        <a href="https://vkstech.com" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
+          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#0f172a;margin-bottom:10px">
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="1.6"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9s1.3-6.2 3.8-9z" stroke="#fff" stroke-width="1.6"/></svg>
+</span>
+          <div style="font-weight:800">VKS Tech</div>
+          <div style="color:var(--slate);font-weight:700;margin-top:4px">vkstech.com</div>
+        </a>
+      </div>
+    </div>
+  </section>
+
+<section id="faq">
     <div class="wrap" style="text-align:center;">
       <span class="section-label">FAQ</span>
       <h2>Questions buyers ask</h2>
@@ -771,7 +830,10 @@
         </div>
         <div class="foot-col">
           <h4>Contact</h4>
+          <a href="https://wa.me/918929394920"><svg width="14" height="14" viewBox="0 0 24 24" fill="#25D366" style="vertical-align:-2px;margin-right:4px"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-1.99.491.511-1.93-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>WhatsApp +91-8929394920</a>
+          <a href="mailto:CareMP@vkstech.com"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:-2px;margin-right:4px"><path d="M4 7l8 5 8-5" stroke="#93c5fd" stroke-width="1.8"/><rect x="3" y="5" width="18" height="14" rx="2" stroke="#93c5fd" stroke-width="1.8"/></svg>CareMP@vkstech.com</a>
           <a href="https://vkstech.com">vkstech.com</a>
+          <a href="#contact">Contact section</a>
         </div>
       </div>
       <div class="foot-bottom">
@@ -781,16 +843,18 @@
     </div>
   </footer>
 
+
 <script>
 (function(){
   var URL = 'https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json';
+  function inr(n){ try { return '₹' + Number(n).toLocaleString('en-IN'); } catch(e){ return '₹'+n; } }
   function ytEmbed(u){
     if(!u) return '';
     var m = String(u).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/i);
     if(m) return 'https://www.youtube.com/embed/' + m[1] + '?rel=0';
     return '';
   }
-  function fill(sel, url, title){
+  function fillVideo(sel, url, title){
     var card = document.querySelector(sel);
     if(!card || !url) return;
     var frame = card.querySelector('.video-frame');
@@ -799,16 +863,47 @@
     if(emb){
       frame.innerHTML = '<iframe src="'+emb+'" title="'+(title||'Man Power video')+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>';
     } else {
-      // non-youtube: show open link
-      frame.innerHTML = '<div class="video-placeholder"><div class="play">▶</div><strong>'+(title||'Watch')+'</strong><span><a style="color:#fdba74" href="'+url.replace(/"/g,'')+'" target="_blank" rel="noopener">Open video</a></span></div>';
+      frame.innerHTML = '<div class="video-placeholder"><div class="play">▶</div><strong>'+(title||'Watch')+'</strong><span><a style="color:#fdba74" href="'+String(url).replace(/"/g,'')+'" target="_blank" rel="noopener">Open video</a></span></div>';
     }
-    var h = card.querySelector('.video-body h3');
-    if(h && title) h.textContent = title;
   }
   fetch(URL).then(function(r){ return r.json(); }).then(function(o){
     if(!o) return;
-    fill('.video-grid .video-card:nth-child(1)', o.videoShortUrl, o.videoShortTitle || 'Auto Schedule · one click');
-    fill('.video-grid .video-card:nth-child(2)', o.videoLongUrl, o.videoLongTitle || 'Setup + free 15-day trial');
+    fillVideo('.video-grid .video-card:nth-child(1)', o.videoShortUrl, o.videoShortTitle || 'Auto Schedule · one click');
+    fillVideo('.video-grid .video-card:nth-child(2)', o.videoLongUrl, o.videoLongTitle || 'Setup + free trial');
+    var plans = Array.isArray(o.plans) ? o.plans : [];
+    var amounts = plans.map(function(p){ return Number(p.amount != null ? p.amount : p.price); }).filter(function(n){ return n > 0; });
+    if(!amounts.length && Array.isArray(o.amounts)) amounts = o.amounts.map(Number).filter(function(n){ return n > 0; });
+    if(!plans.length && amounts.length) plans = amounts.map(function(a){ return { amount: a, label: 'Plan' }; });
+    if(!plans.length){
+      plans = [{amount:99,label:'Individual'},{amount:499,label:'Up to 25'},{amount:999,label:'Up to 50'},{amount:1499,label:'Up to 200'}];
+      amounts = [99,499,999,1499];
+    }
+    var min = amounts.length ? Math.min.apply(null, amounts) : 99;
+    var el = document.getElementById('lpMinPrice');
+    if(el) el.textContent = inr(min);
+    var trial = document.getElementById('lpTrialNote');
+    if(trial){
+      var td = parseInt(o.trialDays,10);
+      if(td > 0) trial.textContent = td + '-day free trial · then continue if it works for you';
+      else trial.textContent = 'Free trial available after login (days set by admin)';
+    }
+    var ref = document.getElementById('lpRefundNote');
+    if(ref){
+      var rd = parseInt(o.refundDays,10);
+      if(rd > 0) ref.textContent = rd + '-day cancel & refund via Customer Care after you start a paid plan.';
+    }
+    var chips = document.getElementById('lpPlanChips');
+    if(chips){
+      chips.innerHTML = plans.slice(0,8).map(function(p){
+        var amt = p.amount != null ? p.amount : p.price;
+        var label = p.label || p.name || (p.maxMembers ? ('Up to ' + p.maxMembers) : 'Plan');
+        return '<div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px">'+label+'</div><div style="color:var(--orange);font-weight:800;font-size:1.25rem;margin-top:4px">'+inr(amt)+'</div></div>';
+      }).join('') + '<div class="card" style="padding:14px;border-style:dashed"><div style="font-weight:700;font-size:13px">Custom</div><div style="color:var(--slate);font-size:13px;margin-top:6px">Special features · talk to us</div></div>';
+    }
+    if(o.annualDiscountPct){
+      var note = document.getElementById('lpPriceNote');
+      if(note) note.textContent = (note.textContent||'') + ' Save up to ' + o.annualDiscountPct + '% on annual when enabled.';
+    }
   }).catch(function(){});
 })();
 </script>

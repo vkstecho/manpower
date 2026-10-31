@@ -188,14 +188,14 @@ function _customerCareHtml(cc, opts){
     <div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Contact</div>
     <div style="font-size:15px;font-weight:900;color:var(--text);margin-bottom:10px">${escHtml(name)}</div>
     <a href="${mailLink}" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
-      <span style="font-size:18px">✉️</span>
+      <span style="display:inline-flex;width:32px;height:32px;border-radius:8px;background:#2563eb;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 7l8 5 8-5" stroke="#fff" stroke-width="1.8"/><rect x="3" y="5" width="18" height="14" rx="2" stroke="#fff" stroke-width="1.8"/></svg></span>
       <div>
         <div style="font-size:11px;color:var(--muted2)">Email</div>
         <div style="font-size:13px;font-weight:800;color:#38bdf8">${escHtml(email)}</div>
       </div>
     </a>
     <a href="${waLink}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
-      <span style="font-size:18px">💬</span>
+      <span style="display:inline-flex;width:32px;height:32px;border-radius:8px;background:#25D366;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-1.99.491.511-1.93-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></span>
       <div>
         <div style="font-size:11px;color:var(--muted2)">WhatsApp</div>
         <div style="font-size:13px;font-weight:800;color:#22c55e">${escHtml(wa)}</div>
@@ -213,7 +213,25 @@ function _customerCareHtml(cc, opts){
   } else {
     body += `<button type="button" class="cancel-btn" style="display:block;width:100%;text-align:center;margin:12px 0 4px;padding:12px" onclick="typeof openHowToVideo==='function'&&openHowToVideo()">▶ ${typeof L==='function'?L('How to use video','How to use video'):'How to use video'}</button>`;
   }
-  if(opts.showRequestBtn){
+  // Pricing table (admin amounts)
+  try {
+    var planRows = opts.plansHtml || '';
+    if (!planRows && opts.plans && opts.plans.length) {
+      planRows = opts.plans.map(function(p){
+        var a = p.amount != null ? p.amount : p;
+        var lab = (p && p.label) ? p.label : '';
+        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)"><span style="font-weight:700">'+ (lab || ('Plan')) +'</span><span style="font-weight:900;color:#ea580c">₹'+a+'</span></div>';
+      }).join('');
+    }
+    if (planRows) {
+      body += '<div style="padding:14px;border-radius:14px;border:1px solid var(--border2);background:var(--card);margin-bottom:12px;text-align:left">'
+        + '<div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Plans (from Admin)</div>'
+        + planRows
+        + '<div style="font-size:11px;color:var(--muted2);margin-top:10px;line-height:1.4">Need a custom amount or special features? WhatsApp / Email Customer Care.</div></div>';
+    }
+  } catch (ePl) {}
+
+    if(opts.showRequestBtn){
     body += `<a href="${waLink}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:900;padding:14px;border-radius:12px">💬 ${typeof L==='function'?L('WhatsApp पर Cancel / Refund माँगें','Request Cancel / Refund on WhatsApp'):'Request Cancel / Refund on WhatsApp'}</a>
     <a href="${mailLink}" class="cancel-btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px">✉️ ${typeof L==='function'?L('Email भेजें','Send Email'):'Send Email'}</a>`;
   }
@@ -223,9 +241,31 @@ function _customerCareHtml(cc, opts){
 async function openCustomerCarePage(){
   try{ if(typeof closeNavMoreSheet==='function') closeNavMoreSheet(); }catch(e){}
   const cc = await _loadCustomerCare(true);
+  var plans = [];
+  try {
+    var po = await fetch('https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json').then(function(r){ return r.json(); });
+    if (po) {
+      if (Array.isArray(po.plans) && po.plans.length) plans = po.plans;
+      if (po.refundDays) cc.refundDays = po.refundDays;
+    }
+  } catch (e0) {}
+  if (!plans.length) {
+    try {
+      var pay = window._paymentSettingsCache;
+      if (!pay && typeof fbGet === 'function') {
+        try { pay = await fbGet('settings/payment'); window._paymentSettingsCache = pay; } catch (e1) {}
+      }
+      var amounts = (pay && (pay.amountOptions || pay.amounts)) || [99,499,999,1499];
+      plans = (Array.isArray(amounts) ? amounts : [99,499,999,1499]).map(function(a){
+        return { amount: a, label: 'Plan' };
+      });
+    } catch (e2) {
+      plans = [{amount:99,label:'Individual'},{amount:499,label:'Up to 25'},{amount:999,label:'Up to 50'},{amount:1499,label:'Up to 200'}];
+    }
+  }
   openModal(`<div class="modal-handle"></div>
     <div class="modal-scroll-body" style="padding:8px 0 4px">
-      ${_customerCareHtml(cc, { showRequestBtn: true })}
+      ${_customerCareHtml(cc, { showRequestBtn: true, plans: plans })}
       <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal()">${typeof L==='function'?L('बंद करें','Close'):'Close'}</button>
     </div>`);
 }
@@ -487,13 +527,29 @@ function payAmountListRender(){
     el.innerHTML = '<span style="font-size:12px;color:var(--muted)">No amounts — add one</span>';
     return;
   }
+  function planLabel(a){
+    const n = Number(a)||0;
+    // Rough bands matching product copy
+    if(n===99 || n===199) return 'Monthly · Individual';
+    if(n===499) return 'Monthly · up to 25';
+    if(n===999) return 'Monthly · up to 50';
+    if(n===1499 || n===2499) return 'Monthly · up to 200';
+    if(n>=900 && n<2000 && n!==999 && n!==1499) return 'Annual / special';
+    if(n>=4000) return 'Annual plan';
+    return 'Plan';
+  }
   el.innerHTML = opts.map((a,i)=>{
     const url = String(links[String(a)] || links[a] || '').replace(/"/g,'&quot;');
+    const short = url ? (url.length>28 ? url.slice(0,28)+'…' : url) : '';
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px;border-radius:10px;background:#fff;border:1px solid #cbd5e1">
-      <div style="font-weight:900;font-size:14px;min-width:64px;color:#0f172a">₹${a}</div>
-      <input type="url" class="inp-field" style="flex:1;min-width:160px;margin:0;font-size:12px" placeholder="https://rzp.io/i/... for ₹${a}"
+      <div style="min-width:72px">
+        <div style="font-weight:900;font-size:14px;color:#0f172a">₹${a}</div>
+        <div style="font-size:10px;font-weight:700;color:#64748b">${planLabel(a)}</div>
+      </div>
+      <input type="url" class="inp-field" style="flex:1;min-width:160px;margin:0;font-size:12px" placeholder="https://rzp.io/… for ₹${a}"
         value="${url}"
         oninput="if(!window._payLinksByAmountEdit)window._payLinksByAmountEdit={};window._payLinksByAmountEdit['${a}']=this.value.trim()">
+      <button type="button" onclick="var u=window._payLinksByAmountEdit&&window._payLinksByAmountEdit['${a}'];if(u)window.open(u,'_blank')" title="Open link" style="border:none;background:rgba(16,185,129,.12);color:#059669;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">↗</button>
       <button type="button" onclick="payAmountListEdit(${i})" title="Edit amount" style="border:none;background:rgba(59,130,246,.12);color:#2563eb;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">✎</button>
       <button type="button" onclick="payAmountListRemove(${i})" title="Remove" style="border:none;background:rgba(239,68,68,.12);color:#dc2626;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">✕</button>
     </div>`;

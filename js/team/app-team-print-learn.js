@@ -1934,9 +1934,9 @@ async function openLearnButtonsAdmin(){
   const cfg = await _loadLearnConfig();
   const hidden = new Set(cfg.hiddenModules || []);
   const modules = [
-    {id:'met_train', name:'Met Train PRO'},
-    {id:'supskill', name:'SupSkill'},
-    {id:'mr_skill', name:'MR Skill'},
+    
+    
+    
     {id:'ms_ai', name:'MS & AI — Fast Growth'}
   ];
   const modRows = modules.map(m=>`
@@ -1986,14 +1986,11 @@ async function toggleLearnModuleVisibility(modId, visible){
 function applyLearnModuleVisibility(){
   const cfg = window._learnConfigCache || {};
   const hidden = new Set(cfg.hiddenModules || []);
-  const allow = cfg.moduleAllowMobiles || {}; // { met_train: ['98765...'], ... }
+  const allow = cfg.moduleAllowMobiles || {}; // { ... }
   const myMob = String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
   const isAdm = (typeof isAdmin==='function' && isAdmin());
   // Map admin keys → openLearnSection ids
   const keyToSection = {
-    met_train: ['metrain'],
-    supskill: ['supskill'],
-    mr_skill: ['mrskill','metcost','mrmpres'],
     ms_ai: ['excelexpert']
   };
   const sectionToKey = {};
@@ -2141,9 +2138,9 @@ async function openLearnButtonsAdmin(){
   const hidden = new Set(cfg.hiddenModules || []);
   const allow = cfg.moduleAllowMobiles || {};
   const modules = [
-    {id:'met_train', name:'Met Train PRO'},
-    {id:'supskill', name:'SupSkill'},
-    {id:'mr_skill', name:'MR Skill'},
+    
+    
+    
     {id:'ms_ai', name:'MS & AI — Fast Growth'}
   ];
   const modRows = modules.map(m=>{
@@ -2178,7 +2175,7 @@ async function openLearnButtonsAdmin(){
 
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">Learn & Grow — Admin</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Show/hide modules, limit by mobile, add custom buttons with video/audio/link subs.</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Met Train / SupSkill / MR Skill live on Mentor app only. Here: custom Learn buttons + optional modules. Limit by mobile if needed.</div>
     <div style="font-weight:800;margin-bottom:8px">Built-in modules</div>
     ${modRows}
     <div style="font-weight:800;margin:16px 0 8px">Custom buttons</div>
