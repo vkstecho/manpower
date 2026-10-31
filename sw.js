@@ -13,6 +13,7 @@ const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 const PRECACHE = [
   './',
   './index.html',
+  './app.html',
   './MR_Skill/mr_skill.html',
   './css/app.css',
   './js/core/train-data.js',
@@ -190,7 +191,8 @@ async function networkFirstHtml(request) {
   } catch (e) {
     const cached =
       (await caches.match(request)) ||
-      (await caches.match('./index.html')) ||
+      (await caches.match('./index.html',
+  './app.html')) ||
       (await caches.match('/index.html')) ||
       (await caches.match('./'));
     if (cached) return cached;

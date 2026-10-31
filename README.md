@@ -420,3 +420,14 @@ Configure admin phones and manager invite code via Firebase `settings` or `js/co
 - To **change the marketing story page**, edit `landing/index.html` then deploy. Open `/landing/` to verify.
 - To **change the login homepage**, edit the hero/login block in root `index.html`.
 - Do not rename marketing file to root `index.html` unless you also move the app shell — root must stay the PWA login app.
+
+
+## Site entry (updated)
+
+| URL | File |
+|-----|------|
+| `/` or `index.html` | **Marketing landing** (product tour) |
+| `/app.html` | **Man Power app** (login OTP + PWA) |
+| `/landing/` | Redirects to `/` |
+
+PWA `start_url` is `/app.html`.

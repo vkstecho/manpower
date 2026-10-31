@@ -9,7 +9,7 @@ const vm = require('vm');
 const crypto = require('crypto');
 
 const root = path.join(__dirname, '..');
-const utilsCode = fs.readFileSync(path.join(root, 'js/utils.js'), 'utf8');
+const utilsCode = fs.readFileSync(path.join(root, 'js/core/utils.js'), 'utf8');
 
 const documentStub = {
   querySelector() { return null; },

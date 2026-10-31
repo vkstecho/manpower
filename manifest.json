@@ -3,7 +3,7 @@
   "name": "Man Power",
   "short_name": "Man Power",
   "description": "Man Power — A Team Management and Training Application",
-  "start_url": "/",
+  "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",
