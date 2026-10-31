@@ -431,3 +431,7 @@ Configure admin phones and manager invite code via Firebase `settings` or `js/co
 | `/landing/` | Redirects to `/` |
 
 PWA `start_url` is `/app.html`.
+
+
+## Assets
+All icons, logos, and images live in **`assets/`** (e.g. `assets/icon-192.png`, `assets/mp-logo-transparent.png`). Do not place duplicates at the project root.

@@ -60,11 +60,11 @@ window.addEventListener('appinstalled', function () {
 <meta property="og:title" content="Man Power — Automatic Shift Schedule for Indian Teams">
 <meta property="og:description" content="Team and shift management for Indian workplaces. Schedule, leave, learning — one app.">
 <meta property="og:url" content="https://manpower.vkstech.com/">
-<meta property="og:image" content="https://manpower.vkstech.com/icon-512.png">
+<meta property="og:image" content="https://manpower.vkstech.com/assets/icon-512.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Man Power — Automatic Shift Schedule">
 <meta name="twitter:description" content="Team and shift management for Indian workplaces.">
-<meta name="twitter:image" content="https://manpower.vkstech.com/icon-512.png">
+<meta name="twitter:image" content="https://manpower.vkstech.com/assets/icon-512.png">
 
 <!-- PWA -->
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -78,7 +78,7 @@ window.addEventListener('appinstalled', function () {
 <meta name="apple-mobile-web-app-title" content="Man Power">
 <meta name="application-name" content="Man Power">
 <meta name="msapplication-TileColor" content="#0a0f1a">
-<meta name="msapplication-TileImage" content="icon-192.png">
+<meta name="msapplication-TileImage" content="assets/icon-192.png">
 
 <link rel="icon" type="image/svg+xml" href="assets/mp-logo-transparent.png">
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
@@ -457,16 +457,22 @@ body.login-open #loginScreen.show{
 .mp-vid-chip.mp-vid-long{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4);color:#93c5fd}
 
 
-/* App login simplified: no pricing chips, no care/how-to clutter */
-#loginOfferSnapshot, #loginVideos, .mp-plan-row, #loginRefundLine, #loginLearnFullWidth,
-#loginHowToBtn, #loginWaSupport, #loginEmailSupport, .mp-login-learn, .mp-login-faq {
+/* App login simplified — scoped to login screen only */
+#loginScreen #loginOfferSnapshot,
+#loginScreen #loginVideos,
+#loginScreen .mp-plan-row,
+#loginScreen #loginRefundLine,
+#loginScreen #loginLearnFullWidth,
+#loginScreen #loginHowToBtn,
+#loginScreen #loginWaSupport,
+#loginScreen #loginEmailSupport,
+#loginScreen .mp-login-learn,
+#loginScreen .mp-login-faq {
   display: none !important;
 }
-#loginSecondaryRow { justify-content: center; gap: 10px; margin-top: 12px; }
-#loginSecondaryRow .mp-sec-install,
-#loginSecondaryRow a, #loginSecondaryRow button {
-  min-width: 88px;
-}
+#loginScreen #loginSecondaryRow { justify-content: center; gap: 10px; margin-top: 12px; }
+#loginScreen #loginSecondaryRow a,
+#loginScreen #loginSecondaryRow button { min-width: 88px; }
 </style>
 
 <style id="mrSkillHubThemeCss">
@@ -856,12 +862,13 @@ html.mp-login-active, body.mp-login-active {
       <div id="loginRefundLine" class="mp-login-refund" style="display:none !important" hidden></div>
     </div>
 
-        <div id="loginSecondaryRow" class="mp-login-secondary" role="navigation" aria-label="Install app">
+    <div id="loginSecondaryRow" class="mp-login-secondary" role="navigation" aria-label="Install app">
       <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install app" onclick="try{triggerPWAInstall()}catch(e){try{_mpShowInstallHelp()}catch(e2){}}"><span class="mp-sec-ic">⬇</span><span class="mp-sec-lb">Install</span></button>
       <a id="loginAndroidStoreBtn" href="#" target="_blank" rel="noopener" title="Play Store" style="display:none"><span class="mp-sec-ic">▶</span><span class="mp-sec-lb">Play</span></a>
     </div>
+  </div><!-- /loginStep1 -->
 
-<div id="loginStickyBar" role="region" aria-label="Quick login">
+  <div id="loginStickyBar" role="region" aria-label="Quick login">
     <div class="sticky-inner">
       <button type="button" id="loginStickyFocus" onclick="document.getElementById('loginMobile')&&document.getElementById('loginMobile').focus()">Mobile</button>
       <button type="button" id="loginStickyCta" onclick="var b=document.getElementById('sendOtpBtn');if(b&&!b.disabled)b.click();else{var m=document.getElementById('loginMobile');if(m)m.focus();}">Continue</button>
