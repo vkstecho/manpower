@@ -2369,8 +2369,16 @@ window.deleteLearnButton = deleteLearnButton;
 
 function openLearnModuleIntro(title, url){
   var isResume = /resume/i.test(String(title||'')) || /resume-builder/i.test(String(url||''));
-  var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||''));
-  var imgSrc = isResume ? 'resume-builder/icons/resume-icon.jpg' : 'https://mentor.vkstech.com/icons/mentor-icon.jpg';
+  var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||'')) || /mentor\.vkstech/i.test(String(url||''));
+  // Prefer local real icons shipped with the app
+  var imgSrc = isResume
+    ? (document.querySelector('link[rel="icon"]') ? 'assets/resume-icon.jpg' : 'assets/resume-icon.jpg')
+    : 'assets/mentor-icon.jpg';
+  if (isResume) {
+    imgSrc = 'assets/resume-icon.jpg';
+  } else if (isMentor) {
+    imgSrc = 'assets/mentor-icon.jpg';
+  }
   var headline = isResume ? 'AI Resume Builder' : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module'));
   var points = isResume ? [
     '100% free — build a professional resume',
@@ -2379,9 +2387,9 @@ function openLearnModuleIntro(title, url){
     'Saved with your mobile login when online'
   ] : [
     'One-to-one guidance on AI tools & career skills',
+    'Flexible Packaging expert sessions + free plant modules',
     'Tracks for Gemini, Claude, ChatGPT, Grok & more',
-    'Book sessions, workspace notes & doubt chat',
-    'Also on vkstech.com and FP Job'
+    'Book sessions, workspace notes & doubt chat'
   ];
   var layer = document.getElementById('learnModuleIntro');
   if(!layer){
@@ -2398,10 +2406,11 @@ function openLearnModuleIntro(title, url){
     '</div>'+
     '<div style="flex:1;padding:28px 20px 40px;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box">'+
       '<div style="font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;margin-bottom:10px">'+(isResume?'FREE TOOL':'GUIDANCE')+'</div>'+
-      '<div style="border-radius:18px;overflow:hidden;margin:0 0 18px;border:1px solid rgba(255,255,255,.1);box-shadow:0 16px 40px rgba(0,0,0,.35)"><img src="'+imgSrc+'" alt="" style="width:100%;height:auto;display:block;max-height:200px;object-fit:cover"/></div>'+'<h1 style="font-size:1.65rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em">'+headline+'</h1>'+
+      '<div style="border-radius:18px;overflow:hidden;margin:0 0 18px;border:1px solid rgba(255,255,255,.1);box-shadow:0 16px 40px rgba(0,0,0,.35);background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:140px"><img src="'+imgSrc+'" alt="" style="width:120px;height:120px;object-fit:contain;border-radius:24px" onerror="this.style.display=\'none\'"/></div>'+
+      '<h1 style="font-size:1.65rem;line-height:1.15;margin:0 0 12px;letter-spacing:-.02em">'+headline+'</h1>'+
       '<p style="color:#94a3b8;margin:0 0 20px;line-height:1.5">'+(isResume
         ? 'Create an ATS-friendly resume, export PDF, and share it — at no cost. Built by VKS Tech and available inside Man Power.'
-        : 'Practical one-to-one mentorship for AI tools and career growth. Built by VKS Tech for professionals.')+'</p>'+
+        : 'Practical one-to-one mentorship for AI tools, career growth, and Flexible Packaging. Built by VKS Tech.')+'</p>'+
       '<ul style="list-style:none;padding:0;margin:0 0 28px;font-size:14px">'+lis+'</ul>'+
       '<button type="button" id="learnIntroContinue" style="width:100%;border:0;border-radius:14px;padding:14px 16px;font-weight:800;font-size:15px;cursor:pointer;background:linear-gradient(90deg,#f97316,#ea580c);color:#fff;box-shadow:0 12px 28px rgba(249,115,22,.35)">Continue → Open '+headline+'</button>'+
       '<p style="text-align:center;margin-top:14px;font-size:11px;color:#64748b">Also on <b style="color:#cbd5e1">vkstech.com</b> · <b style="color:#cbd5e1">fpjob.vkstech.com</b></p>'+
@@ -2416,39 +2425,51 @@ function openLearnIframeModule(title, url){
   openLearnModuleIntro(title, url);
 }
 function openLearnIframeModuleDirect(title, url){
-
   try{
     const safeTitle = String(title||'Module').replace(/</g,'');
     const safeUrl = String(url||'').trim();
     if(!safeUrl){ toast('Link not configured'); return; }
-    // Full-screen layer so it feels like the same app (not a tiny modal)
+    var isMentor = /mentor|guidance|one-to-one/i.test(safeTitle) || /mentor\.vkstech/i.test(safeUrl);
+    // Mentor: true full-screen (no top chrome) so mentor.vkstech.com fills the display
     let layer = document.getElementById('learnModuleLayer');
     if(!layer){
       layer = document.createElement('div');
       layer.id = 'learnModuleLayer';
       document.body.appendChild(layer);
     }
-    layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:#f8fafc;display:flex;flex-direction:column;';
+    layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:#fff;display:flex;flex-direction:column;';
     layer.innerHTML = '';
-    const bar = document.createElement('div');
-    bar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)';
-    const back = document.createElement('button');
-    back.type = 'button';
-    back.textContent = '←';
-    back.setAttribute('aria-label','Back');
-    back.style.cssText = 'width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;font-weight:900;cursor:pointer';
-    back.onclick = function(){ closeLearnModuleLayer(); };
-    const tit = document.createElement('div');
-    tit.textContent = safeTitle;
-    tit.style.cssText = 'flex:1;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-    bar.appendChild(back);
-    bar.appendChild(tit);
+    if (!isMentor) {
+      // Resume / other modules keep a slim back bar
+      const bar = document.createElement('div');
+      bar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)';
+      const back = document.createElement('button');
+      back.type = 'button';
+      back.textContent = '←';
+      back.setAttribute('aria-label','Back');
+      back.style.cssText = 'width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;font-weight:900;cursor:pointer';
+      back.onclick = function(){ closeLearnModuleLayer(); };
+      const tit = document.createElement('div');
+      tit.textContent = safeTitle;
+      tit.style.cssText = 'flex:1;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+      bar.appendChild(back);
+      bar.appendChild(tit);
+      layer.appendChild(bar);
+    } else {
+      // Floating back chip only (full screen Mentor)
+      const fab = document.createElement('button');
+      fab.type = 'button';
+      fab.textContent = '← Back to Man Power';
+      fab.setAttribute('aria-label','Back to Man Power');
+      fab.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10060;border:0;border-radius:999px;padding:8px 14px;font-weight:800;font-size:13px;background:rgba(15,23,42,.88);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer';
+      fab.onclick = function(){ closeLearnModuleLayer(); };
+      layer.appendChild(fab);
+    }
     const frame = document.createElement('iframe');
     frame.src = safeUrl;
     frame.title = safeTitle;
     frame.setAttribute('allow', 'clipboard-read; clipboard-write; fullscreen');
     frame.style.cssText = 'flex:1;width:100%;border:0;background:#fff;min-height:0';
-    layer.appendChild(bar);
     layer.appendChild(frame);
     try{ document.body.classList.add('learn-module-open'); }catch(e){}
     try{ history.pushState({ learnModule: true }, ''); }catch(e){}
@@ -2526,7 +2547,7 @@ function injectLearnModuleButtons(){
       }catch(e){}
     }
 
-    function ensureBtn(id, label, bg, border, url, title){
+    function ensureBtn(id, label, bg, border, url, title, iconSrc){
       var b = document.getElementById(id);
       if(!b){
         b = document.createElement('button');
@@ -2535,14 +2556,17 @@ function injectLearnModuleButtons(){
       } else if(b.parentNode !== wrap){
         wrap.appendChild(b);
       }
-      b.innerHTML = '<span style="font-size:28px;line-height:1">'+label.split('  ')[0]+'</span><span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:18px">'+label.replace(/^📄\s*|^🎯\s*|^✨\s*|^🎓\s*/,'')+'</span><span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      var iconHtml = iconSrc
+        ? '<img src="'+iconSrc+'" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:12px;object-fit:cover;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.12)" onerror="this.style.display=\'none\'">'
+        : '<span style="font-size:28px;line-height:1">'+label.split('  ')[0]+'</span>';
+      b.innerHTML = iconHtml+'<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:18px">'+label.replace(/^📄\s*|^🎯\s*|^✨\s*|^🎓\s*/,'')+'</span><span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, bg, border);
       b.onclick = function(){ openLearnIframeModule(title, url); };
       return b;
     }
 
-    ensureBtn('learnBtnResumeBuilder', '✨  AI Resume Builder', '#fef3c7', '#d97706', urls.resume, 'AI Resume Builder');
-    ensureBtn('learnBtnOneToOne', '🎓  Mentor — One-to-One Guidance', '#dbeafe', '#2563eb', urls.guidance, 'Mentor — One-to-One Guidance');
+    ensureBtn('learnBtnResumeBuilder', 'AI Resume Builder', '#fef3c7', '#d97706', urls.resume, 'AI Resume Builder', 'assets/resume-icon.jpg');
+    ensureBtn('learnBtnOneToOne', 'Mentor — One-to-One Guidance', '#d1fae5', '#059669', urls.guidance, 'Mentor — One-to-One Guidance', 'assets/mentor-icon.jpg');
 
     // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
     try{
