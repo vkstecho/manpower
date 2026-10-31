@@ -12,8 +12,8 @@ See `Improvements/VERSION_3.2.6.md` for full notes.
 
 ## Earlier: 2.4.97 (hardening)
 
-- **Single version source:** `js/config.js` → `MP_CFG.APP_VERSION` (`2.4.97`); app-core, SW, and cache-bust query aligned.
-- **Shared utils:** `normMobileKey`, `escAttr`, `isHardAdminPhone`, `isValidMobile10` in `js/utils.js`.
+- **Single version source:** `js/config/config.js` → `MP_CFG.APP_VERSION` (`2.4.97`); app-core, SW, and cache-bust query aligned.
+- **Shared utils:** `normMobileKey`, `escAttr`, `isHardAdminPhone`, `isValidMobile10` in `js/core/utils.js`.
 - **Hard-admin phones:** bootstrap list kept for OTP→Admin flow; optional Firebase `settings/hardAdminPhones` merged at runtime. Write restricted to admin in RTDB rules.
 - **Security docs:** `SECURITY.md` sections 5–6 for hard-admin phones and manager invite code.
 - **Login flow unchanged** (mobile OTP, roster auto-link, manager self-reg auto-approve, member pending until manager approve, device password skip OTP).
@@ -344,13 +344,13 @@ Sections, machines, and staffing rules are driven by the **Manager’s Excel upl
 - Legacy fixed keys (M1/M2/S1/S2…) kept only as migration fallbacks.
 
 ### P0 clean-up
-- Single source of truth for utilities (`js/utils.js`).
+- Single source of truth for utilities (`js/core/utils.js`).
 - Version strings aligned to **2.4.0**.
 - Service Worker cache bumped; integrity cache renamed to `mp-integrity`.
 - README & SECURITY updated for multi-tenant use.
 
 ### Architecture notes
-- Modules: `js/config.js`, `js/utils.js`, `js/firebase-init.js`, `js/app.js`.
+- Modules: `js/config/config.js`, `js/core/utils.js`, `js/config/firebase-init.js`, `js/core/app.js`.
 - Further feature-by-feature split of `app.js` is ongoing.
 - SW precaches tab partials for offline viewing.
 
@@ -408,4 +408,4 @@ Do **not** open as `file://`.
 
 ## License / contact
 
-Configure admin phones and manager invite code via Firebase `settings` or `js/config.js` (non-secret values only).
+Configure admin phones and manager invite code via Firebase `settings` or `js/config/config.js` (non-secret values only).

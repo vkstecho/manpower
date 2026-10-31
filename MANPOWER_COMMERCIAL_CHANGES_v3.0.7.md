@@ -154,7 +154,7 @@ Wire Customer Care WhatsApp/Email from existing Admin `settings/customerCare` (y
 
 ---
 
-## B. Share App modal (`js/app-core.js` — function `shareApp`)
+## B. Share App modal (`js/core/app-core.js` — function `shareApp`)
 
 Replace the modal HTML inside `shareApp()` so Android subtext is the real Play URL and icons are clearer:
 
@@ -437,7 +437,7 @@ Wherever Customer Support / Care is rendered after login:
 
 ## F. Version bump
 
-1. `js/config.js` → `APP_VERSION: "3.0.7"`
+1. `js/config/config.js` → `APP_VERSION: "3.0.7"`
 2. `sw.js` → `SW_VERSION = '3.0.7'`
 3. Cache-bust query on script tags in `index.html` (`?v=300007`)
 4. Commit + push to `main` → Vercel production
@@ -470,4 +470,4 @@ Wherever Customer Support / Care is rendered after login:
 
 ---
 
-If you want the next step as **actual patched files** (e.g. a modified `index.html` + a small `js/mp-commercial.js` you can include), say so and I will generate those files under `/home/workdir/artifacts` for you to copy into the GitHub repo.
+If you want the next step as **actual patched files** (e.g. a modified `index.html` + a small `js/commercial/mp-commercial.js` you can include), say so and I will generate those files under `/home/workdir/artifacts` for you to copy into the GitHub repo.

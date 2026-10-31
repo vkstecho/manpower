@@ -84,7 +84,7 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
 
-<script type="module" src="js/firebase-init.js?v=300035"></script>
+<script type="module" src="js/config/firebase-init.js?v=300035"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -449,6 +449,12 @@ body.login-open #loginScreen.show{
   .mp-login-learn{margin-top:8px!important;padding:8px!important;font-size:12px!important}
   #loginStep1{padding:10px 14px 12px!important}
 }
+
+
+.mp-login-videos-wrap{margin:8px 0 12px;display:flex;justify-content:center}
+.mp-login-videos{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.mp-vid-chip{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:999px;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.45);color:#fdba74;font-size:12px;font-weight:700;text-decoration:none}
+.mp-vid-chip.mp-vid-long{background:rgba(59,130,246,.12);border-color:rgba(59,130,246,.4);color:#93c5fd}
 
 </style>
 
@@ -817,6 +823,7 @@ html.mp-login-active, body.mp-login-active {
       </div>
     </div>
     <div id="loginOfferSnapshot" class="mp-login-offer" aria-live="polite"></div>
+    <div id="loginVideos" class="mp-login-videos-wrap" aria-live="polite"></div>
     <div id="loginNeutralLine" class="mp-login-neutral">Login with OTP to get started</div>
 
     <button type="button" id="loginLangBtn" class="mp-login-lang" onclick="openLocalePicker()">
@@ -1957,9 +1964,9 @@ html.mp-login-active, body.mp-login-active {
 
 <div class="toast" id="toast"></div>
 
-<script src="js/polyfill.js"></script>
-<script src="js/config.js"></script>
-<script src="js/utils.js"></script>
+<script src="js/core/polyfill.js"></script>
+<script src="js/config/config.js"></script>
+<script src="js/core/utils.js"></script>
 
 <script>
 window.__sectionsReady = (async function loadSections(){
@@ -1981,37 +1988,37 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/public-offer.js?v=300035"></script>
-<script src="js/i18n_locale.js"></script>
-<script src="js/app-core.js?v=300035"></script>
-<script src="js/app-login.js?v=300035"></script>
-<script src="js/app-login-device.js?v=300035"></script>
-<script src="js/app-session-auth.js?v=300035"></script>
-<script src="js/app-session-nav.js?v=300035"></script>
-<script src="js/app-session-settings.js?v=300035"></script>
-<script src="js/app-session-home.js?v=300035"></script>
-<script src="js/app-session-payment.js?v=300035"></script>
-<script src="js/app-login-session.js?v=300035"></script>
-<script src="js/app.js?v=300035"></script>
-<script src="js/app-team-print-learn.js?v=300035"></script>
-<script src="js/mp-commercial.js?v=300035"></script>
-<script src="js/a11y.js?v=300035"></script>
+<script src="js/commercial/public-offer.js?v=300035"></script>
+<script src="js/i18n/i18n_locale.js"></script>
+<script src="js/core/app-core.js?v=300035"></script>
+<script src="js/auth/app-login.js?v=300035"></script>
+<script src="js/auth/app-login-device.js?v=300035"></script>
+<script src="js/auth/app-session-auth.js?v=300035"></script>
+<script src="js/session/app-session-nav.js?v=300035"></script>
+<script src="js/session/app-session-settings.js?v=300035"></script>
+<script src="js/session/app-session-home.js?v=300035"></script>
+<script src="js/session/app-session-payment.js?v=300035"></script>
+<script src="js/auth/app-login-session.js?v=300035"></script>
+<script src="js/core/app.js?v=300035"></script>
+<script src="js/team/app-team-print-learn.js?v=300035"></script>
+<script src="js/commercial/mp-commercial.js?v=300035"></script>
+<script src="js/core/a11y.js?v=300035"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
 (function(){
   var heavy = [
-    'js/i18n_ml.js?v=300035',
-    'js/app-schedule.js?v=300035',
-    'js/app-team.js?v=300035',
-    'js/app-team-import-core.js?v=300035',
-    'js/app-team-emp-forms.js?v=300035',
-    'js/app-team-excel-ops.js?v=300035',
-    'js/app-sched-builder.js?v=300035',
-    'js/app-team-import.js?v=300035',
-    'js/sched-offline-queue.js?v=300035',
-    'js/sched-clipboard.js?v=300035',
-    'js/sched-undo.js?v=300035',
-    'js/sched-cell-keys.js?v=300035'
+    'js/i18n/i18n_ml.js?v=300035',
+    'js/schedule/app-schedule.js?v=300035',
+    'js/team/app-team.js?v=300035',
+    'js/team/app-team-import-core.js?v=300035',
+    'js/team/app-team-emp-forms.js?v=300035',
+    'js/team/app-team-excel-ops.js?v=300035',
+    'js/schedule/app-sched-builder.js?v=300035',
+    'js/team/app-team-import.js?v=300035',
+    'js/schedule/sched-offline-queue.js?v=300035',
+    'js/schedule/sched-clipboard.js?v=300035',
+    'js/schedule/sched-undo.js?v=300035',
+    'js/schedule/sched-cell-keys.js?v=300035'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;
@@ -2032,7 +2039,7 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<!-- SW registered once in js/app.js initPWA() to avoid double-register update loop -->
+<!-- SW registered once in js/core/app.js initPWA() to avoid double-register update loop -->
 
 
 <script>

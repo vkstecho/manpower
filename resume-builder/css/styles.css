@@ -789,3 +789,19 @@
   position: absolute; left: -19px; top: 4px; width: 10px; height: 10px;
   border-radius: 50%; background: #f97316; border: 2px solid #fff; box-shadow: 0 0 0 1px #f97316;
 }
+
+
+/* —— Stronger visual differences when content is sparse —— */
+.template-executive .header { border-left: 4px solid #1e3a8a; padding-left: 12px; }
+.template-minimalist .header { text-align: center; }
+.template-minimalist .header-contact { justify-content: center; }
+.template-classic .header-name { font-variant: small-caps; }
+.template-fresher .header { background: #eff6ff; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+.template-manager .header-name { color: #1e3a8a; }
+.template-academic .header { text-align: center; border-bottom: 1px solid #a8a29e; padding-bottom: 10px; }
+.template-elegant .header { text-align: center; border: 1px solid #d4af37; padding: 14px; border-radius: 4px; }
+.template-elegant .header-name { color: #92400e; }
+.template-elegant .section-title { color: #b45309; text-align: center; border: none; letter-spacing: 0.14em; }
+.template-navy .section-title { border-bottom: 2px solid #1e3a8a; }
+.template-creative .header-name { color: #7c3aed; }
+.template-creative .section-title { color: #7c3aed; border-bottom-color: #e9d5ff; }

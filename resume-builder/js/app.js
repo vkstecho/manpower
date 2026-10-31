@@ -806,6 +806,7 @@
     $$('.template-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         data.template = btn.dataset.template;
+        if (typeof updateTplPreview === 'function') updateTplPreview(data.template);
         $$('.template-btn').forEach(b => b.classList.remove('active-template'));
         btn.classList.add('active-template');
         saveData();
@@ -1272,27 +1273,79 @@ function rbForceLoginGate(){
 function updateTplPreview(name){
   var frame = document.getElementById('tplPreviewFrame');
   if(!frame) return;
-  var styles = {
-    executive: 'border-left:4px solid #1e3a8a;padding-left:10px',
-    minimalist: 'text-align:center',
-    creative: 'background:linear-gradient(180deg,#fff,#faf5ff);border:1px solid #e9d5ff',
-    twocolumn: 'display:grid;grid-template-columns:1fr 2fr;gap:8px',
-    classic: 'border-top:3px solid #111;font-family:Georgia,serif',
-    modern: 'background:linear-gradient(135deg,#0f172a 0%,#0f172a 28%,#fff 28%);color:#0f172a;padding:0',
-    elegant: 'font-family:Georgia,serif;text-align:center;border:1px solid #d4af37',
-    sidebar: 'display:grid;grid-template-columns:1fr 2fr;gap:8px;background:#f8fafc'
+  name = String(name || 'ats');
+  var base = 'background:#fff;border-radius:10px;padding:0;font-size:9px;line-height:1.35;min-height:128px;overflow:hidden;border:1px solid #e2e8f0;';
+  var map = {
+    ats: {
+      style: base,
+      html: '<div style="padding:12px;font-family:Arial,sans-serif"><div style="font-weight:800;font-size:13px;color:#000">Your Name</div><div style="color:#333;margin:2px 0 6px">Job Title · City · email@mail.com</div><div style="border-bottom:1px solid #333;font-weight:700;text-transform:uppercase;font-size:9px;padding-bottom:2px">Experience</div><div style="margin-top:4px"><b>Company</b> — Role<br/><span style="color:#555">ATS-safe single column, plain text</span></div></div>'
+    },
+    executive: {
+      style: base,
+      html: '<div style="padding:12px;border-left:5px solid #1e3a8a"><div style="font-weight:800;font-size:13px;color:#0f172a">Your Name</div><div style="color:#64748b;margin-bottom:6px">Senior Leader · City</div><div style="height:2px;background:#1e3a8a;margin-bottom:8px"></div><div style="font-weight:700;color:#1e3a8a;font-size:9px;letter-spacing:.08em">EXPERIENCE</div><div>Company · Role<br/><span style="color:#64748b">Executive achievement line…</span></div></div>'
+    },
+    minimalist: {
+      style: base + 'text-align:center',
+      html: '<div style="padding:14px"><div style="font-size:14px;font-weight:700;letter-spacing:.12em">YOUR NAME</div><div style="color:#94a3b8;margin:4px 0 10px">Job Title</div><div style="height:1px;background:#e2e8f0;margin:0 auto 10px;width:60%"></div><div style="color:#64748b">Clean centered sections · no clutter</div></div>'
+    },
+    classic: {
+      style: base + 'font-family:Georgia,serif',
+      html: '<div style="padding:12px"><div style="border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:8px"><div style="font-size:14px;font-weight:700">Your Name</div><div style="font-style:italic;color:#444">Classic Professional</div></div><div style="text-transform:uppercase;letter-spacing:.12em;font-size:9px;border-bottom:1px solid #ccc;margin-bottom:6px">Experience</div><div>Company — Role · serif traditional CV</div></div>'
+    },
+    fresher: {
+      style: base,
+      html: '<div style="padding:12px"><div style="font-weight:800;font-size:13px;color:#1d4ed8">Your Name</div><div style="color:#3b82f6;margin-bottom:6px">Fresher · Seeking opportunity</div><div style="border-bottom:2px solid #93c5fd;font-weight:700;color:#1d4ed8;font-size:9px">EDUCATION & PROJECTS</div><div style="margin-top:4px">College · Project highlight (role pack focus)</div></div>'
+    },
+    technical: {
+      style: base + 'display:grid;grid-template-columns:34% 66%',
+      html: '<div style="background:#0f766e;color:#ecfdf5;padding:10px"><b>Your Name</b><br/><span style="opacity:.85">Engineer</span><br/><br/><span style="font-size:8px">Skills · Tools · Stack</span></div><div style="padding:10px"><b style="color:#0f766e">Experience</b><br/>Plant / Tech role<br/><span style="color:#64748b">Teal sidebar · technical pack</span></div>'
+    },
+    manager: {
+      style: base,
+      html: '<div style="padding:12px;border-bottom:3px solid #1e3a8a"><div style="font-weight:800;font-size:13px">Your Name</div><div style="color:#1e3a8a;font-weight:600">Operations Manager</div></div><div style="padding:10px 12px"><div style="color:#1e3a8a;font-weight:700;font-size:9px;letter-spacing:.06em">LEADERSHIP</div><div>Team size · KPIs · process wins</div></div>'
+    },
+    academic: {
+      style: base + 'font-family:Georgia,serif',
+      html: '<div style="padding:12px"><div style="text-align:center;margin-bottom:8px"><div style="font-size:13px;font-weight:700">Your Name, PhD</div><div style="color:#78716c;font-size:9px">Research · Publications</div></div><div style="border-bottom:1px solid #78716c;font-weight:700;font-size:9px">EDUCATION</div><div style="margin-top:4px">University · Thesis line (academic pack)</div></div>'
+    },
+    modern: {
+      style: base,
+      html: '<div style="background:#0f172a;color:#fff;padding:12px 12px 10px"><div style="font-weight:800;font-size:13px">Your Name</div><div style="color:#94a3b8">Modern Role</div></div><div style="padding:10px 12px"><b>Experience</b><br/><span style="color:#64748b">Dark header band · contemporary</span></div>'
+    },
+    elegant: {
+      style: base + 'font-family:Georgia,serif;text-align:center;border-color:#d4af37',
+      html: '<div style="padding:14px"><div style="font-size:14px;font-weight:700;color:#92400e">Your Name</div><div style="color:#b45309;letter-spacing:.08em;font-size:9px;margin:4px 0 8px">ELEGANT SERIF</div><div style="height:1px;background:#d4af37;margin:0 auto 8px;width:40%"></div><div style="color:#78716c">Gold accent · formal centered</div></div>'
+    },
+    creative: {
+      style: base + 'background:linear-gradient(180deg,#fff,#faf5ff)',
+      html: '<div style="padding:12px"><div style="font-weight:800;color:#7c3aed;font-size:13px">Your Name</div><div style="color:#a78bfa">Creative Role</div><div style="margin-top:8px;padding:8px;border-radius:8px;background:#f5f3ff;border:1px solid #e9d5ff">Highlighted skills / portfolio block</div></div>'
+    },
+    twocolumn: {
+      style: base + 'display:grid;grid-template-columns:36% 64%',
+      html: '<div style="background:#1e293b;color:#fff;padding:10px"><b>Your Name</b><br/>Title<br/><br/><span style="font-size:8px;opacity:.8">Contact<br/>Skills</span></div><div style="padding:10px"><b>Experience</b><br/>Company · Role<br/><span style="color:#64748b">Two-column main content</span></div>'
+    },
+    sidebar: {
+      style: base + 'display:grid;grid-template-columns:32% 68%',
+      html: '<div style="background:#0f172a;color:#e2e8f0;padding:10px"><b style="color:#fff">Your Name</b><br/><span style="font-size:8px">Contact<br/>Skills chips</span></div><div style="padding:10px;background:#f8fafc"><b>Experience</b><br/>Sidebar Pro layout</div>'
+    },
+    compact: {
+      style: base,
+      html: '<div style="padding:8px 10px;font-size:8px"><div style="font-weight:800;font-size:12px">Your Name · Title · City</div><div style="border-bottom:1px solid #cbd5e1;margin:4px 0;font-weight:700">EXP · EDU · SKILLS</div><div style="color:#64748b">Dense 1-page spacing · smaller type</div><div style="margin-top:4px">• Bullet · Bullet · Bullet</div></div>'
+    },
+    navy: {
+      style: base,
+      html: '<div style="background:#1e3a8a;color:#fff;padding:12px"><div style="font-weight:800;font-size:13px">Your Name</div><div style="color:#bfdbfe">Navy Professional</div></div><div style="padding:10px 12px"><div style="color:#1e3a8a;font-weight:700;border-bottom:1px solid #93c5fd;margin-bottom:4px">Experience</div>Company · Role</div>'
+    },
+    timeline: {
+      style: base,
+      html: '<div style="padding:12px"><div style="font-weight:800;font-size:12px;margin-bottom:8px">Your Name</div><div style="border-left:2px solid #cbd5e1;margin-left:6px;padding-left:12px"><div style="position:relative;margin-bottom:8px"><span style="position:absolute;left:-17px;top:2px;width:8px;height:8px;border-radius:50%;background:#f97316"></span><b>2022 – Present</b><br/>Company · Role</div><div style="position:relative"><span style="position:absolute;left:-17px;top:2px;width:8px;height:8px;border-radius:50%;background:#f97316"></span><b>2019 – 2022</b><br/>Earlier role</div></div></div>'
+    }
   };
-  frame.setAttribute('style', 'background:#fff;border-radius:8px;padding:12px;font-size:9px;line-height:1.35;min-height:120px;' + (styles[name]||styles.executive));
-  if(name==='twocolumn'){
-    frame.innerHTML = '<div style="background:#1e293b;color:#fff;padding:8px;border-radius:6px"><b>Your Name</b><br/>Title</div><div><b>Experience</b><br/>Company · Role<br/><span style="color:#64748b">Sample bullet for two-column layout</span></div>';
-  } else if(name==='minimalist'){
-    frame.innerHTML = '<div style="font-size:14px;font-weight:700;letter-spacing:0.05em">YOUR NAME</div><div style="color:#94a3b8;margin:4px 0 10px">Job Title</div><div style="height:1px;background:#e2e8f0;margin:8px 0"></div><div>Clean minimal experience section</div>';
-  } else if(name==='creative'){
-    frame.innerHTML = '<div style="font-weight:800;color:#7c3aed;font-size:13px">Your Name</div><div style="color:#a78bfa">Creative Role</div><div style="margin-top:8px;padding:6px;border-radius:8px;background:#f5f3ff">Highlighted skills block</div>';
-  } else {
-    frame.innerHTML = '<div class="font-bold text-sm mb-1" style="font-weight:700;font-size:12px">Your Name</div><div style="color:#94a3b8;margin-bottom:6px">Job Title · City</div><div style="height:2px;background:#1d4ed8;margin-bottom:8px"></div><div style="font-weight:600">Experience</div><div>Company · Role</div><div style="color:#64748b">Brief achievement line for executive style…</div>';
-  }
+  var conf = map[name] || map.ats;
+  frame.setAttribute('style', conf.style);
+  frame.innerHTML = conf.html;
 }
+
 document.addEventListener('DOMContentLoaded', function(){
   document.querySelectorAll('.template-btn').forEach(function(btn){
     btn.addEventListener('click', function(){ updateTplPreview(btn.getAttribute('data-template')); });

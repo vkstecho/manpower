@@ -53,7 +53,7 @@ Unlock key entered in the app is SHA-256 hashed and compared to `unlockHashes` o
 
 ## 5. Hard-admin phones (OTP → Admin)
 
-Bootstrap list may exist in `js/config.js` / `CFG.hardAdminPhones` so known admin mobiles can OTP straight into Admin.
+Bootstrap list may exist in `js/config/config.js` / `CFG.hardAdminPhones` so known admin mobiles can OTP straight into Admin.
 
 **Preferred (v2.4.97+):** also set in Firebase RTDB:
 

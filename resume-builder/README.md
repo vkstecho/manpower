@@ -1,3 +1,5 @@
+> For AI / precise layout map: see **AI_INDEX.md** and **AI_README.md** (16 templates). This README may list older template counts.
+
 # Top-Class Resume Builder
 
 A complete, production-ready, modular single-page web application for building professional, ATS-friendly resumes.
