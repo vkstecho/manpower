@@ -95,3 +95,9 @@ Largest files: `js/team/app-team-excel-ops.js`, `js/session/app-session-settings
 ### Resume Builder AI docs
 - `resume-builder/AI_INDEX.md` — feature map for layouts/wizard
 - `resume-builder/AI_README.md` — purpose + edit rules
+
+
+### Landing vs app entry
+- **App login (domain root):** `index.html`
+- **Marketing tour:** `landing/index.html` → URL `/landing/`
+- CTAs on marketing page point to `../` (app)

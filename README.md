@@ -409,3 +409,14 @@ Do **not** open as `file://`.
 ## License / contact
 
 Configure admin phones and manager invite code via Firebase `settings` or `js/config/config.js` (non-secret values only).
+
+## Public pages (landing vs app)
+
+| URL | File | Purpose |
+|-----|------|---------|
+| `https://manpower.vkstech.com/` | `index.html` | **App + login** (OTP, offer chips, install) |
+| `https://manpower.vkstech.com/landing/` | `landing/index.html` | **Marketing / product tour** (features, FAQ, videos) |
+
+- To **change the marketing story page**, edit `landing/index.html` then deploy. Open `/landing/` to verify.
+- To **change the login homepage**, edit the hero/login block in root `index.html`.
+- Do not rename marketing file to root `index.html` unless you also move the app shell — root must stay the PWA login app.
