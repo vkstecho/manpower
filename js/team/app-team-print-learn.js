@@ -2430,7 +2430,45 @@ function openLearnIframeModuleDirect(title, url){
     const safeUrl = String(url||'').trim();
     if(!safeUrl){ toast('Link not configured'); return; }
     var isMentor = /mentor|guidance|one-to-one/i.test(safeTitle) || /mentor\.vkstech/i.test(safeUrl);
-    // Mentor: true full-screen (no top chrome) so mentor.vkstech.com fills the display
+
+    // Mentor is cross-origin (mentor.vkstech.com). Mobile browsers + X-Frame-Options
+    // often show a blank white iframe. Navigate top window to the marketing landing
+    // (same look as mentor.vkstech.com home) instead of embedding in iframe.
+    if (isMentor) {
+      var mobile = '';
+      try {
+        // Prefer live session phone so Mentor can skip OTP
+        if (typeof SESSION !== 'undefined' && SESSION && SESSION.mobile) mobile = String(SESSION.mobile).replace(/\D/g,'').slice(-10);
+        if (!mobile && typeof window._mpMobile === 'string') mobile = String(window._mpMobile).replace(/\D/g,'').slice(-10);
+        if (!mobile) {
+          var sess = localStorage.getItem('mp_session');
+          if (sess) {
+            var j = JSON.parse(sess);
+            mobile = String(j.mobile || j.phone || '').replace(/\D/g,'').slice(-10);
+          }
+        }
+      } catch (e0) {}
+      // Marketing landing first (user-requested). Open Mentor app from there.
+      // Pass mobile + from=mp so mentor.html can auto-login when user taps Open app.
+      var dest = 'https://mentor.vkstech.com/';
+      try {
+        var u = new URL(dest);
+        if (mobile && mobile.length === 10) {
+          u.searchParams.set('mobile', mobile);
+          u.searchParams.set('from', 'mp');
+          // Also stash for mentor.html when user continues from landing
+          try { localStorage.setItem('vks_guidance_mobile', mobile); localStorage.setItem('vks_site_auth_mobile', mobile); } catch (e1) {}
+        }
+        u.searchParams.set('return', (location.origin || 'https://manpower.vkstech.com') + '/app.html');
+        dest = u.toString();
+      } catch (e2) {}
+      try { toast('Opening Mentor…'); } catch (e3) {}
+      // Full navigation — no blank iframe
+      window.location.href = dest;
+      return;
+    }
+
+    // Resume / same-origin modules: keep in-app iframe
     let layer = document.getElementById('learnModuleLayer');
     if(!layer){
       layer = document.createElement('div');
@@ -2439,32 +2477,20 @@ function openLearnIframeModuleDirect(title, url){
     }
     layer.style.cssText = 'position:fixed;inset:0;z-index:10050;background:#fff;display:flex;flex-direction:column;';
     layer.innerHTML = '';
-    if (!isMentor) {
-      // Resume / other modules keep a slim back bar
-      const bar = document.createElement('div');
-      bar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)';
-      const back = document.createElement('button');
-      back.type = 'button';
-      back.textContent = '←';
-      back.setAttribute('aria-label','Back');
-      back.style.cssText = 'width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;font-weight:900;cursor:pointer';
-      back.onclick = function(){ closeLearnModuleLayer(); };
-      const tit = document.createElement('div');
-      tit.textContent = safeTitle;
-      tit.style.cssText = 'flex:1;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
-      bar.appendChild(back);
-      bar.appendChild(tit);
-      layer.appendChild(bar);
-    } else {
-      // Floating back chip only (full screen Mentor)
-      const fab = document.createElement('button');
-      fab.type = 'button';
-      fab.textContent = '← Back to Man Power';
-      fab.setAttribute('aria-label','Back to Man Power');
-      fab.style.cssText = 'position:fixed;top:10px;left:10px;z-index:10060;border:0;border-radius:999px;padding:8px 14px;font-weight:800;font-size:13px;background:rgba(15,23,42,.88);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.35);cursor:pointer';
-      fab.onclick = function(){ closeLearnModuleLayer(); };
-      layer.appendChild(fab);
-    }
+    const bar = document.createElement('div');
+    bar.style.cssText = 'flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;background:#0f172a;color:#fff;box-shadow:0 2px 12px rgba(0,0,0,.25)';
+    const back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '←';
+    back.setAttribute('aria-label','Back');
+    back.style.cssText = 'width:40px;height:40px;border-radius:12px;border:none;background:rgba(255,255,255,.12);color:#fff;font-size:20px;font-weight:900;cursor:pointer';
+    back.onclick = function(){ closeLearnModuleLayer(); };
+    const tit = document.createElement('div');
+    tit.textContent = safeTitle;
+    tit.style.cssText = 'flex:1;font-weight:900;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    bar.appendChild(back);
+    bar.appendChild(tit);
+    layer.appendChild(bar);
     const frame = document.createElement('iframe');
     frame.src = safeUrl;
     frame.title = safeTitle;
@@ -2491,7 +2517,8 @@ function _learnModuleUrls(){
   const origin = (typeof location!=='undefined' && location.origin) ? location.origin : '';
   return {
     resume: origin + '/resume-builder/index.html',
-    guidance: 'https://mentor.vkstech.com/mentor.html'
+    // Marketing landing (not mentor.html in iframe — avoids blank white screen on mobile)
+    guidance: 'https://mentor.vkstech.com/'
   };
 }
 
