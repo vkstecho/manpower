@@ -529,12 +529,14 @@ function payAmountListRender(){
   }
   function planLabel(a){
     const n = Number(a)||0;
-    // Rough bands matching product copy
-    if(n===99 || n===199) return 'Monthly · Individual';
+    if(n===99 || n===199) return 'Monthly · Individual (1)';
     if(n===499) return 'Monthly · up to 25';
     if(n===999) return 'Monthly · up to 50';
     if(n===1499 || n===2499) return 'Monthly · up to 200';
-    if(n>=900 && n<2000 && n!==999 && n!==1499) return 'Annual / special';
+    if(n===1045 || (n>900 && n<1200 && n!==999)) return 'Annual · Individual (1)';
+    if(n===5269 || (n>=4800 && n<6000)) return 'Annual · up to 25';
+    if(n===10549 || (n>=9000 && n<12000)) return 'Annual · up to 50';
+    if(n===15829 || (n>=14000 && n<20000)) return 'Annual · up to 200';
     if(n>=4000) return 'Annual plan';
     return 'Plan';
   }
@@ -714,10 +716,37 @@ async function publishPublicOfferSnapshot() {
     const amounts = (typeof _getPaymentAmountOptions === 'function')
       ? _getPaymentAmountOptions(pay)
       : (pay.amountOptions || pay.amounts || []);
+    function _planMeta(n) {
+      n = parseInt(n, 10) || 0;
+      // Standard monthly bands
+      if (n === 99 || n === 199) return { band: 'Individual (1)', period: 'monthly', maxMembers: 1 };
+      if (n === 499) return { band: 'Up to 25', period: 'monthly', maxMembers: 25 };
+      if (n === 999) return { band: 'Up to 50', period: 'monthly', maxMembers: 50 };
+      if (n === 1499 || n === 2499) return { band: 'Up to 200', period: 'monthly', maxMembers: 200 };
+      // Annual ≈ monthly × 12 × (1 - discount). Match common published annuals
+      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return { band: 'Individual (1)', period: 'annual', maxMembers: 1 };
+      if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to 25', period: 'annual', maxMembers: 25 };
+      if (n === 10549 || (n >= 9000 && n < 12000)) return { band: 'Up to 50', period: 'annual', maxMembers: 50 };
+      if (n === 15829 || (n >= 14000 && n < 20000)) return { band: 'Up to 200', period: 'annual', maxMembers: 200 };
+      if (n >= 4000) return { band: 'Team', period: 'annual', maxMembers: 0 };
+      return { band: 'Plan', period: 'monthly', maxMembers: 0 };
+    }
     const plans = (Array.isArray(amounts) ? amounts : []).map(function (a) {
       const n = parseInt(a, 10);
       if (!(n > 0)) return null;
-      return { name: '₹' + n, monthly: n };
+      const meta = _planMeta(n);
+      const periodLabel = meta.period === 'annual' ? 'Annual' : 'Monthly';
+      return {
+        amount: n,
+        price: n,
+        monthly: meta.period === 'monthly' ? n : null,
+        annual: meta.period === 'annual' ? n : null,
+        period: meta.period,
+        maxMembers: meta.maxMembers,
+        band: meta.band,
+        label: periodLabel + ' · ' + meta.band,
+        name: periodLabel + ' · ' + meta.band
+      };
     }).filter(Boolean);
     const waRaw = String(cc.whatsapp || '').replace(/\D/g, '');
     let vids = {};
@@ -746,7 +775,7 @@ async function publishPublicOfferSnapshot() {
     } catch (eForm) {}
     const snapshot = {
       paymentEnabled: pay.enabled !== false,
-      trialDays: Math.max(0, parseInt(lic.freeTrialDays, 10) || 0),
+      trialDays: Math.max(0, parseInt(lic.freeTrialDays != null ? lic.freeTrialDays : (lic.trialDays != null ? lic.trialDays : (lic.freeDays != null ? lic.freeDays : 0)), 10) || 0),
       plans: plans,
       annualDiscountPct: Math.max(0, Math.min(90, parseInt(pay.defaultDiscountPct, 10) || 0)),
       refundDays: Math.max(0, parseInt(cc.refundDays, 10) || 0),

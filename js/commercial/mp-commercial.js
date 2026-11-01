@@ -63,6 +63,16 @@
     }
   }
 
+  
+  // Ensure Play Store link always points to official listing
+  try {
+    var _ps = document.getElementById('loginAndroidStoreBtn');
+    if (_ps) {
+      _ps.href = PLAY_STORE;
+      _ps.setAttribute('href', PLAY_STORE);
+    }
+  } catch (e) {}
+
   window._mpHideInstallButtons = hideInstallButtons;
   window.addEventListener('appinstalled', function () {
     window.__pwaInstalled = true;

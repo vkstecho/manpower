@@ -870,12 +870,41 @@
     if(!o) return;
     fillVideo('.video-grid .video-card:nth-child(1)', o.videoShortUrl, o.videoShortTitle || 'Auto Schedule · one click');
     fillVideo('.video-grid .video-card:nth-child(2)', o.videoLongUrl, o.videoLongTitle || 'Setup + free trial');
-    var plans = Array.isArray(o.plans) ? o.plans : [];
-    var amounts = plans.map(function(p){ return Number(p.amount != null ? p.amount : p.price); }).filter(function(n){ return n > 0; });
-    if(!amounts.length && Array.isArray(o.amounts)) amounts = o.amounts.map(Number).filter(function(n){ return n > 0; });
-    if(!plans.length && amounts.length) plans = amounts.map(function(a){ return { amount: a, label: 'Plan' }; });
+    function planAmount(p){
+      if (p == null) return NaN;
+      if (typeof p === 'number') return p;
+      var raw = p.amount != null ? p.amount : (p.price != null ? p.price : (p.monthly != null ? p.monthly : (p.annual != null ? p.annual : null)));
+      if (raw == null && p.name) {
+        var m = String(p.name).replace(/[^0-9]/g, '');
+        raw = m ? parseInt(m, 10) : null;
+      }
+      var n = Number(raw);
+      return n > 0 ? n : NaN;
+    }
+    function planLabel(p, amt){
+      if (p && (p.label || p.name) && !/^₹\d+$/.test(String(p.label || p.name))) {
+        return String(p.label || p.name);
+      }
+      var n = amt;
+      if (n === 99 || n === 199) return 'Monthly · Individual (1)';
+      if (n === 499) return 'Monthly · Up to 25';
+      if (n === 999) return 'Monthly · Up to 50';
+      if (n === 1499 || n === 2499) return 'Monthly · Up to 200';
+      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return 'Annual · Individual (1)';
+      if (n === 5269 || (n >= 4800 && n < 6000)) return 'Annual · Up to 25';
+      if (n === 10549 || (n >= 9000 && n < 12000)) return 'Annual · Up to 50';
+      if (n === 15829 || (n >= 14000 && n < 20000)) return 'Annual · Up to 200';
+      if (n >= 4000) return 'Annual plan';
+      return 'Plan';
+    }
+    var plans = Array.isArray(o.plans) ? o.plans.slice() : [];
+    var amounts = plans.map(planAmount).filter(function(n){ return n > 0; });
+    if(!amounts.length && Array.isArray(o.amounts)) {
+      amounts = o.amounts.map(Number).filter(function(n){ return n > 0; });
+      plans = amounts.map(function(a){ return { amount: a }; });
+    }
     if(!plans.length){
-      plans = [{amount:99,label:'Individual'},{amount:499,label:'Up to 25'},{amount:999,label:'Up to 50'},{amount:1499,label:'Up to 200'}];
+      plans = [{amount:99},{amount:499},{amount:999},{amount:1499}];
       amounts = [99,499,999,1499];
     }
     var min = amounts.length ? Math.min.apply(null, amounts) : 99;
@@ -894,10 +923,12 @@
     }
     var chips = document.getElementById('lpPlanChips');
     if(chips){
-      chips.innerHTML = plans.slice(0,8).map(function(p){
-        var amt = p.amount != null ? p.amount : p.price;
-        var label = p.label || p.name || (p.maxMembers ? ('Up to ' + p.maxMembers) : 'Plan');
-        return '<div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px">'+label+'</div><div style="color:var(--orange);font-weight:800;font-size:1.25rem;margin-top:4px">'+inr(amt)+'</div></div>';
+      chips.innerHTML = plans.slice(0,12).map(function(p){
+        var amt = planAmount(p);
+        if (!(amt > 0)) return '';
+        var label = planLabel(p, amt);
+        var sub = (p.period === 'annual' || /Annual/i.test(label)) ? 'Billed yearly' : 'Billed monthly';
+        return '<div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px">'+label+'</div><div style="color:var(--orange);font-weight:800;font-size:1.25rem;margin-top:4px">'+inr(amt)+'</div><div style="font-size:11px;color:var(--slate);margin-top:4px">'+sub+'</div></div>';
       }).join('') + '<div class="card" style="padding:14px;border-style:dashed"><div style="font-weight:700;font-size:13px">Custom</div><div style="color:var(--slate);font-size:13px;margin-top:6px">Special features · talk to us</div></div>';
     }
     if(o.annualDiscountPct){

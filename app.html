@@ -901,8 +901,8 @@ html.mp-login-active, body.mp-login-active {
     </div>
 
     <div id="loginSecondaryRow" class="mp-login-secondary" role="navigation" aria-label="Install app">
-      <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install app" onclick="try{triggerPWAInstall()}catch(e){try{_mpShowInstallHelp()}catch(e2){}}"><span class="mp-sec-ic">⬇</span><span class="mp-sec-lb">Install</span></button>
-      <a id="loginAndroidStoreBtn" href="#" target="_blank" rel="noopener" title="Play Store" style="display:none"><span class="mp-sec-ic">▶</span><span class="mp-sec-lb">Play</span></a>
+      <a id="loginAndroidStoreBtn" class="mp-sec-install" href="https://play.google.com/store/apps/details?id=com.vkstech.manpower" target="_blank" rel="noopener" title="Download from Play Store"><span class="mp-sec-ic">▶</span><span class="mp-sec-lb">Play Store</span></a>
+      <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install for iOS / Windows (PWA)" onclick="try{triggerPWAInstall()}catch(e){try{_mpShowInstallHelp()}catch(e2){}}"><span class="mp-sec-ic">⬇</span><span class="mp-sec-lb">Install · iOS / Windows</span></button>
     </div>
   </div><!-- /loginStep1 -->
 
