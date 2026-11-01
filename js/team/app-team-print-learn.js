@@ -2422,6 +2422,12 @@ function openLearnModuleIntro(title, url){
   };
 }
 function openLearnIframeModule(title, url){
+  // Mentor: skip dark intro — open mentor.vkstech.com immediately (no intermediate page)
+  var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /mentor\.vkstech/i.test(String(url||''));
+  if (isMentor) {
+    openLearnIframeModuleDirect(title, url);
+    return;
+  }
   openLearnModuleIntro(title, url);
 }
 function openLearnIframeModuleDirect(title, url){
@@ -2450,7 +2456,7 @@ function openLearnIframeModuleDirect(title, url){
       } catch (e0) {}
       // Marketing landing first (user-requested). Open Mentor app from there.
       // Pass mobile + from=mp so mentor.html can auto-login when user taps Open app.
-      var dest = 'https://mentor.vkstech.com/';
+      var dest = 'https://mentor.vkstech.com/mentor.html';
       try {
         var u = new URL(dest);
         if (mobile && mobile.length === 10) {
