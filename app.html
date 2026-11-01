@@ -18,13 +18,23 @@ window.addEventListener('appinstalled', function () {
   window.__pwaDeferredPrompt = null;
   window.__pwaInstallReady = false;
   window.__pwaInstalled = true;
+  try { localStorage.setItem('mp_pwa_installed', '1'); } catch (e0) {}
   try { if (typeof window._mpHideInstallButtons === 'function') window._mpHideInstallButtons(); } catch (e) {}
 });
 (function(){
   function isStandalone(){
     try{
-      if(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+      if(window.matchMedia && (
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: minimal-ui)').matches ||
+        window.matchMedia('(display-mode: window-controls-overlay)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches
+      )) return true;
       if(navigator.standalone === true) return true;
+      // Edge/Chrome app window often sets this
+      if(window.outerHeight - window.innerHeight < 80 && window.matchMedia('(display-mode: browser)').matches === false) {
+        /* keep conservative — rely on display-mode above */
+      }
     }catch(e){}
     return false;
   }
@@ -35,15 +45,38 @@ window.addEventListener('appinstalled', function () {
     }catch(e){}
     return false;
   }
+  function wasInstalledFlag(){
+    try{ return localStorage.getItem('mp_pwa_installed') === '1'; }catch(e){ return false; }
+  }
   window._mpHideInstallButtons = window._mpHideInstallButtons || function(){
-    var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true;
-    ['loginPwaBtn','loginAndroidStoreBtn','loginInstallRow','pwaInstallBtn','pwaBanner'].forEach(function(id){
+    var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true || wasInstalledFlag();
+    if(hide){
+      try{ localStorage.setItem('mp_pwa_installed','1'); }catch(e){}
+    }
+    ['loginPwaBtn','loginAndroidStoreBtn','loginInstallRow','loginSecondaryRow','pwaInstallBtn','pwaBanner'].forEach(function(id){
       var el=document.getElementById(id); if(el) el.style.display = hide ? 'none' : '';
     });
   };
+  window.addEventListener('appinstalled', function(){
+    try{ localStorage.setItem('mp_pwa_installed','1'); }catch(e){}
+    window.__pwaInstalled = true;
+    try{ window._mpHideInstallButtons(); }catch(e){}
+  });
   document.addEventListener('DOMContentLoaded', function(){
     window._mpHideInstallButtons();
     setTimeout(window._mpHideInstallButtons, 500);
+    setTimeout(window._mpHideInstallButtons, 2000);
+    // Chromium: related apps API
+    try{
+      if(navigator.getInstalledRelatedApps){
+        navigator.getInstalledRelatedApps().then(function(apps){
+          if(apps && apps.length){
+            try{ localStorage.setItem('mp_pwa_installed','1'); }catch(e){}
+            window._mpHideInstallButtons();
+          }
+        }).catch(function(){});
+      }
+    }catch(e){}
   });
 })();
 </script>
@@ -1105,7 +1138,7 @@ html.mp-login-active, body.mp-login-active {
       -webkit-text-fill-color:transparent;margin-bottom:10px">Waiting for approval</div>
     <div style="background:rgba(17,29,46,0.9);border:1.5px solid rgba(251,191,36,.35);
       border-radius:16px;padding:20px;margin-bottom:16px">
-      <div style="font-size:14px;color:rgba(255,255,255,.7);line-height:1.9">
+      <div style="font-size:14px;color:#e2e8f0;line-height:1.9">
         Your registration was sent to Admin.<br>
         <b style="color:#fff">After approval</b> you can login.<br>
         <span style="color:#22c55e">Please try again later.</span>
@@ -1118,7 +1151,7 @@ html.mp-login-active, body.mp-login-active {
     <button onclick="hidePendingBox()"
       style="width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,.15);
       background:rgba(255,255,255,.07);color:rgba(255,255,255,.7);font-size:15px;font-weight:700;
-      cursor:pointer;font-family:inherit">← Back जाएं</button>
+      cursor:pointer;font-family:inherit">← Back</button>
   </div>
 </div>
 

@@ -122,13 +122,13 @@ function showPendingBox(msgHtml){
     pb.innerHTML = `
       <div style="font-size:48px;margin-bottom:12px">⏳</div>
       <div style="font-size:18px;font-weight:800;color:#fff;margin-bottom:10px">Approval Pending</div>
-      <div data-pending-msg style="font-size:13px;color:#94a3b8;line-height:1.7;max-width:320px;margin-bottom:20px">${escHtml(defaultMsg)}</div>
+      <div data-pending-msg style="font-size:13px;color:#cbd5e1;line-height:1.7;max-width:320px;margin-bottom:20px">${escHtml(defaultMsg)}</div>
       <button type="button" onclick="hidePendingBox();showStep(2);"
         style="width:min(280px,90%);padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.5);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
         ← वापस जाएं / Retry Login
       </button>
       <button type="button" onclick="location.reload()"
-        style="width:min(280px,90%);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:transparent;color:#94a3b8;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
+        style="width:min(280px,90%);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:transparent;color:#cbd5e1;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
         🔄 Page Refresh
       </button>`;
     pb.style.display = 'flex';
@@ -452,18 +452,18 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     <div style="width:100%;max-width:400px;text-align:center">
       <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP blocked</div>
-      <div style="font-size:13px;color:#94a3b8;line-height:1.55;margin-bottom:14px">
+      <div style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:14px">
         Firebase rate-limit / quota reached for this number.<br>
         ${hasReq
           ? ('A <b style="color:#f97316">login request</b> was sent to <b style="color:#fff">Admin</b>'+(otherDeviceActive?' and your other device':'')+'.')
           : 'Could not write request — enable <b>Anonymous Auth</b> in Firebase, then retry.'}
       </div>
       <div style="background:#1e293b;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;color:#64748b;font-weight:800">ACCOUNT</div>
+        <div style="font-size:11px;color:#cbd5e1;font-weight:800;letter-spacing:.04em">ACCOUNT</div>
         <div style="font-size:16px;font-weight:900;color:#f97316">${String(empName).replace(/</g,'')}</div>
-        <div style="font-size:12px;color:#94a3b8">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
+        <div style="font-size:12px;color:#cbd5e1">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
       </div>
-      <div id="odlStatus" style="font-size:13px;color:#94a3b8;margin-bottom:12px;line-height:1.55;min-height:40px">
+      <div id="odlStatus" style="font-size:14px;color:#e2e8f0;margin-bottom:12px;line-height:1.6;min-height:40px">
         ${hasReq
           ? '⏳ Waiting for approval…<br>On the other device / Admin app → <b style="color:#4ade80">Pending</b> → <b style="color:#4ade80">Approve</b>.'
           : '⚠️ Fix Firebase Anonymous Auth, then tap Retry below.'}
@@ -473,7 +473,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
         🔄 Retry OTP
       </button>
       <button type="button" onclick="closeOtherDeviceLogin()"
-        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
     </div>`;
   ov.style.display='flex';
 

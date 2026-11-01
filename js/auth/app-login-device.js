@@ -386,17 +386,21 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
         Device Password
       </div>
-      <div style="font-size:13px;color:#94a3b8;margin-bottom:18px;line-height:1.55">
-        <b style="color:#f97316">${escHtml((emp&&emp.name)||'User')}</b> के लिए इस device पर password सेट करें।<br>
-        अगली बार <b style="color:#fff">OTP की जरूरत नहीं</b> — सिर्फ password।
+      <div style="font-size:14px;color:#e2e8f0;margin-bottom:18px;line-height:1.6">
+        ${typeof L==='function'
+          ? L(
+              '<b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b> के लिए इस device पर password सेट करें।<br>अगली बार <b style="color:#4ade80">OTP की जरूरत नहीं</b> — सिर्फ password।',
+              'Set a password on this device for <b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.'
+            )
+          : ('Set a password on this device for <b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.')}
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:1px;margin-bottom:8px">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
         <input id="spw1" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
           oninput="_spwValidate()">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin:12px 0 8px">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:1px;margin:12px 0 8px">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
         <input id="spw2" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
@@ -411,7 +415,7 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
       </button>
       <button onclick="_skipSetPassword()"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#64748b;font-size:13px;cursor:pointer;font-family:inherit">
+               color:#cbd5e1;font-size:13px;cursor:pointer;font-family:inherit">
         ${L('अभी नहीं → ','Not now → ')}${afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')}
       </button>
     </div>`;
@@ -423,8 +427,8 @@ function _spwValidate(){
   const p2=(document.getElementById('spw2')?.value||'');
   const btn=document.getElementById('spwBtn');
   const err=document.getElementById('spwErr');
-  if(p1.length<5){ if(err) err.textContent='Password कम से कम 5 characters होना चाहिए'; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
-  if(p2.length>0 && p1!==p2){ if(err) err.textContent='Passwords match नहीं हो रहे'; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
+  if(p1.length<5){ if(err) err.textContent=(typeof L==='function'?L('Password कम से कम 5 characters होना चाहिए','Password must be at least 5 characters'):'Password must be at least 5 characters'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
+  if(p2.length>0 && p1!==p2){ if(err) err.textContent=(typeof L==='function'?L('Passwords match नहीं हो रहे','Passwords do not match'):'Passwords do not match'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
   if(p1!==p2){ if(err) err.textContent=''; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
   if(err) err.textContent='';
   if(btn){ btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
@@ -1239,7 +1243,7 @@ function showNewEmpRegistrationForm(code){
       </div>
       <!-- Mobile -->
       <div style="background:#1e293b;border:1.5px solid #334155;border-radius:14px;padding:16px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">MOBILE NUMBER *</div>
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:1px;margin-bottom:8px">MOBILE NUMBER *</div>
         <input id="nrPhone" type="tel" inputmode="numeric" placeholder="10 digit number" maxlength="10"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;
                  border-radius:10px;padding:13px 12px;color:#fff;font-size:18px;font-weight:700;outline:none;font-family:inherit"
@@ -1247,7 +1251,7 @@ function showNewEmpRegistrationForm(code){
       </div>
       <!-- Department -->
       <div style="background:#1e293b;border:1.5px solid #334155;border-radius:14px;padding:16px;margin-bottom:12px;position:relative">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:8px">DEPARTMENT *</div>
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;letter-spacing:1px;margin-bottom:8px">DEPARTMENT *</div>
         <select id="nrDept" onchange="_nrValidate()"
           style="width:100%;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:13px 12px;color:#fff;font-size:15px;font-weight:700;outline:none;

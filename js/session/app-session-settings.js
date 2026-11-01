@@ -1,3 +1,5 @@
+/* ensure refund days label */
+async function _mpEnsureCareCache(){try{if(!window._customerCareCache&&typeof _loadCustomerCare==='function')window._customerCareCache=await _loadCustomerCare(false);}catch(e){}}
 /**
  * Man Power — extracted module (v3.2.6+)
  * Split from app-login-session.js for maintainability.
@@ -1561,7 +1563,7 @@ async function showProfile(){
       </button>
       <button class="profile-action" onclick="closeModal();openCustomerCareAdmin()">
         <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Name · Email · WhatsApp · 7-day refund text','Name · Email · WhatsApp · 7-day refund text'):'Name · Email · WhatsApp · 7-day refund text'}</div></div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Name · Email · WhatsApp · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund text','Name · Email · WhatsApp · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund text'):'Name · Email · WhatsApp · 7-day refund text'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
@@ -1734,7 +1736,7 @@ async function showProfile(){
       </button>`:''}
       <button class="profile-action" onclick="closeModal();openCustomerCarePage()">
         <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · 7-day refund','Help · Cancel · 7-day refund'):'Help · Cancel · 7-day refund'}</div></div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund','Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund'):'Help · Cancel · 7-day refund'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action danger" onclick="doLogout()">
