@@ -1,39 +1,95 @@
 {
-  "id": "/",
-  "name": "Man Power",
-  "short_name": "Man Power",
-  "description": "Man Power — A Team Management and Training Application",
-  "start_url": "/app.html",
-  "scope": "/",
-  "display": "standalone",
-  "orientation": "any",
-  "background_color": "#0a0f1a",
-  "theme_color": "#f97316",
+  "id": "/mentor.html",
+  "name": "Mentor \u2014 One-to-One Guidance",
+  "short_name": "Mentor",
+  "description": "Career & AI and Flexible Packaging mentorship by VKS Tech. Book one-to-one sessions, free plant modules, recordings and doubt chat.",
   "lang": "en",
   "dir": "ltr",
+  "start_url": "/mentor.html",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui",
+    "browser"
+  ],
+  "background_color": "#0f172a",
+  "theme_color": "#1e3a8a",
+  "orientation": "any",
   "categories": [
+    "education",
     "business",
     "productivity"
   ],
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/assets/icon-192.png",
+      "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/icon-512.png",
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/icon-512.png",
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-mobile.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mentor guidance paths on mobile"
+    },
+    {
+      "src": "/icons/screenshot-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Mentor on desktop"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Career & AI Guidance",
+      "short_name": "Career & AI",
+      "description": "Open Career and AI mentorship sessions",
+      "url": "/mentor.html?track=career_ai",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Flexible Packaging",
+      "short_name": "Packaging",
+      "description": "Open Flexible Packaging mentorship",
+      "url": "/mentor.html?track=packaging",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
     }
   ]
 }

@@ -1,287 +1,68 @@
-/* Man Power — Service Worker v3.2.11
-   Strategies:
-   - Precache app shell + JS/CSS/icons/partials on install
-   - HTML / navigation: network-first → cache fallback (fresh when online)
-   - Static assets (js/css/img/fonts/manifest): stale-while-revalidate
-   - Firebase / Google / external APIs: never intercept (live data)
-   - Keeps mp-integrity cache (session token) across version bumps
-*/
-const SW_VERSION = '3.2.24';
-const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '');
-const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
-
+const CACHE = 'mentor-pwa-v9-desktop-install';
 const PRECACHE = [
-  './',
-  './index.html',
-  './app.html',
-  './MR_Skill/mr_skill.html',
-  './css/app.css',
-  './js/core/train-data.js',
-  './js/core/app.js',
-  './js/core/app-core.js',
-  './js/auth/app-login.js',
-  './js/auth/app-login-device.js',
-  './js/auth/app-session-auth.js',
-  './js/session/app-session-nav.js',
-  './js/session/app-session-settings.js',
-  './js/session/app-session-home.js',
-  './js/session/app-session-payment.js',
-  './js/auth/app-login-session.js',
-  './js/schedule/app-schedule.js',
-  './js/team/app-team.js',
-  './js/team/app-team-import-core.js',
-  './js/team/app-team-emp-forms.js',
-  './js/team/app-team-excel-ops.js',
-  './js/schedule/app-sched-builder.js',
-  './js/team/app-team-import.js',
-  './js/team/app-team-print-learn.js',
-  './js/schedule/sched-offline-queue.js',
-  './js/config/firebase-init.js',
-  './js/commercial/mp-commercial.js',
-  './js/core/polyfill.js',
-  './js/config/config.js',
-  './js/core/utils.js',
-  './js/commercial/public-offer.js',
-  './js/core/a11y.js',
-  './js/schedule/sched-clipboard.js',
-  './js/schedule/sched-undo.js',
-  './js/schedule/sched-cell-keys.js',
-  './js/i18n/i18n_locale.js',
-  './js/i18n/i18n_ml.js',
-  './manifest.json',
-  './vkslogo512.png',
-  './icon-180.png',
-  './assets/icon-192.png',
-  './assets/icon-512.png',
-  './mp-logo-transparent.png',
-  './myshift.html',
-  './schedule.html',
-  './leave.html',
-  './reports.html',
-  './pending.html',
-  './team.html',
-  './instructions.html',
-  './todo.html',
-  './privacy.html'
+  '/',
+  '/mentor.html',
+  '/manifest.json',
+  '/css/guidance.css',
+  '/assets/mentor-icon.jpg',
+  '/icons/icon-512-maskable.png',
+  '/icons/icon-192-maskable.png',
+  '/icons/icon-512.png',
+  '/icons/icon-192.png',
+  '/icons/screenshot-wide.png',
+  '/icons/screenshot-mobile.png',
+  '/js/mg-config.js',
+  '/js/mg-state.js',
+  '/js/mg-auth.js',
+  '/js/mg-data.js',
+  '/js/mg-ui.js',
+  '/js/mg-pwa.js',
+  '/js/mg-tracks.js',
+  '/js/mg-workspace.js',
+  '/js/mg-mentor.js',
+  '/js/mg-profile.js',
+  '/js/mg-app.js'
 ];
-
-function isBypassHost(hostname) {
-  return (
-    hostname.includes('firebase') ||
-    hostname.includes('googleapis') ||
-    hostname.includes('gstatic') ||
-    hostname.includes('google.com') ||
-    hostname.includes('nager.at') ||
-    hostname.includes('cloudfunctions') ||
-    hostname.includes('firebasestorage')
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE)
+      .then((c) => Promise.all(PRECACHE.map((u) => c.add(u).catch(() => null))))
+      .then(() => self.skipWaiting())
   );
-}
-
-function isNavigationRequest(req) {
-  return (
-    req.mode === 'navigate' ||
-    (req.method === 'GET' &&
-      req.headers.get('accept') &&
-      req.headers.get('accept').includes('text/html'))
-  );
-}
-
-function isStaticAsset(url) {
-  const p = url.pathname;
-  return (
-    p.endsWith('.js') ||
-    p.endsWith('.css') ||
-    p.endsWith('.png') ||
-    p.endsWith('.jpg') ||
-    p.endsWith('.jpeg') ||
-    p.endsWith('.webp') ||
-    p.endsWith('.svg') ||
-    p.endsWith('.ico') ||
-    p.endsWith('.woff') ||
-    p.endsWith('.woff2') ||
-    p.endsWith('.ttf') ||
-    p.endsWith('.json') ||
-    p.endsWith('.map')
-  );
-}
-
-function isHtmlPath(url) {
-  const p = url.pathname;
-  return (
-    p === '/' ||
-    p.endsWith('.html') ||
-    p.endsWith('/') ||
-    (!p.includes('.') && url.origin === self.location.origin)
-  );
-}
-
-/** Cache a successful response (clone once). */
-function putInCache(request, response) {
-  if (!response || !response.ok) return;
-  // Only cache basic/cors same-origin style responses
-  if (response.type === 'opaque') return;
-  const copy = response.clone();
-  caches.open(CACHE).then((c) => c.put(request, copy)).catch(() => {});
-}
-
-/** Precache list — tolerate individual failures so one missing file doesn't kill install. */
-async function precacheAll() {
-  const cache = await caches.open(CACHE);
-  await Promise.all(
-    PRECACHE.map(async (url) => {
-      try {
-        const res = await fetch(url, { cache: 'reload' });
-        if (res && res.ok) await cache.put(url, res);
-      } catch (e) {
-        // ignore missing asset during install
-      }
-    })
-  );
-}
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(precacheAll().then(() => self.skipWaiting()));
 });
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((k) => !KEEP_CACHES.has(k))
-            .map((k) => caches.delete(k))
-        )
-      )
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
-
-self.addEventListener('message', (event) => {
-  const data = event.data;
-  if (data === 'SKIP_WAITING' || (data && data.type === 'SKIP_WAITING')) {
-    self.skipWaiting();
-  }
-  if (data && data.type === 'GET_VERSION') {
-    event.ports &&
-      event.ports[0] &&
-      event.ports[0].postMessage({ version: SW_VERSION, cache: CACHE });
-  }
-  if (data && data.type === 'CLEAR_RUNTIME_CACHE') {
-    event.waitUntil(
-      caches.open(CACHE).then(async (c) => {
-        const keys = await c.keys();
-        await Promise.all(keys.map((k) => c.delete(k)));
-        await precacheAll();
-      })
+self.addEventListener('fetch', (e) => {
+  if (e.request.method !== 'GET') return;
+  const url = e.request.url || '';
+  const netFirst = /\.(html|js)(\?|$)/i.test(url) || url.endsWith('/') || url.includes('mentor.html') || url.includes('manifest.json');
+  if (netFirst) {
+    e.respondWith(
+      fetch(e.request).then((res) => {
+        try {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        } catch (err) {}
+        return res;
+      }).catch(() => caches.match(e.request))
     );
+    return;
   }
-});
-
-/**
- * Network-first for HTML/navigation — prefer fresh shell when online,
- * fall back to cache (and finally index.html) when offline.
- */
-async function networkFirstHtml(request) {
-  try {
-    const res = await fetch(request);
-    if (res && res.ok) putInCache(request, res);
-    return res;
-  } catch (e) {
-    const cached =
-      (await caches.match(request)) ||
-      (await caches.match('./index.html',
-  './app.html')) ||
-      (await caches.match('/index.html')) ||
-      (await caches.match('./'));
-    if (cached) return cached;
-    return new Response(
-      '<!DOCTYPE html><html><body style="font-family:sans-serif;background:#0a0f1a;color:#e2e8f0;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><div style="text-align:center"><h1>Offline</h1><p>Man Power — reconnect to load the app.</p></div></body></html>',
-      { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-    );
-  }
-}
-
-/**
- * Stale-while-revalidate for static assets — instant from cache,
- * update in background for next visit.
- */
-async function staleWhileRevalidate(request) {
-  const cached = await caches.match(request);
-  const networkPromise = fetch(request)
-    .then((res) => {
-      if (res && res.ok) putInCache(request, res);
-      return res;
+  e.respondWith(
+    caches.match(e.request).then((hit) => {
+      if (hit) return hit;
+      return fetch(e.request).then((res) => {
+        try {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+        } catch (err) {}
+        return res;
+      }).catch(() => hit);
     })
-    .catch(() => null);
-
-  if (cached) {
-    // Kick off background refresh; return cache immediately
-    networkPromise.catch(() => {});
-    return cached;
-  }
-
-  const networkRes = await networkPromise;
-  if (networkRes) return networkRes;
-
-  // Last resort: nothing
-  return new Response('', { status: 504, statusText: 'Offline' });
-}
-
-/**
- * Cache-first for already-precached shell assets when offline is critical.
- * Falls through to SWR behavior when not in cache.
- */
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) {
-    // Background refresh
-    fetch(request)
-      .then((res) => {
-        if (res && res.ok) putInCache(request, res);
-      })
-      .catch(() => {});
-    return cached;
-  }
-  try {
-    const res = await fetch(request);
-    if (res && res.ok) putInCache(request, res);
-    return res;
-  } catch (e) {
-    return new Response('', { status: 504, statusText: 'Offline' });
-  }
-}
-
-self.addEventListener('fetch', (event) => {
-  const req = event.request;
-  if (req.method !== 'GET') return;
-
-  let url;
-  try {
-    url = new URL(req.url);
-  } catch (e) {
-    return;
-  }
-
-  // Never touch Firebase / Google / external APIs
-  if (isBypassHost(url.hostname)) return;
-
-  // Only handle same-origin app traffic
-  if (url.origin !== self.location.origin) return;
-
-  // HTML / navigation → network-first
-  if (isNavigationRequest(req) || isHtmlPath(url)) {
-    event.respondWith(networkFirstHtml(req));
-    return;
-  }
-
-  // JS / CSS / images / manifest → stale-while-revalidate (fast + fresh)
-  if (isStaticAsset(url)) {
-    event.respondWith(staleWhileRevalidate(req));
-    return;
-  }
-
-  // Everything else same-origin: cache-first with network fallback
-  event.respondWith(cacheFirst(req));
+  );
 });
