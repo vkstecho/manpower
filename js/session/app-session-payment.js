@@ -218,10 +218,21 @@ function _customerCareHtml(cc, opts){
     var planRows = opts.plansHtml || '';
     if (!planRows && opts.plans && opts.plans.length) {
       planRows = opts.plans.map(function(p){
-        var a = p.amount != null ? p.amount : p;
-        var lab = (p && p.label) ? p.label : '';
-        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)"><span style="font-weight:700">'+ (lab || ('Plan')) +'</span><span style="font-weight:900;color:#ea580c">₹'+a+'</span></div>';
-      }).join('');
+        var a = null, lab = '';
+        if (p != null && typeof p === 'object') {
+          a = p.amount != null ? p.amount : (p.price != null ? p.price : (p.monthly != null ? p.monthly : null));
+          if (a != null && typeof a === 'object') a = a.amount != null ? a.amount : (a.price != null ? a.price : null);
+          lab = p.label || p.name || p.band || '';
+          if (lab && typeof lab === 'object') lab = lab.label || lab.name || '';
+          if (p.period) lab = (lab ? lab + ' · ' : '') + String(p.period);
+        } else {
+          a = p;
+        }
+        a = Number(a);
+        if (!(a > 0)) return '';
+        lab = String(lab || ('Plan')).replace(/</g,'');
+        return '<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border2)"><span style="font-weight:700">'+ lab +'</span><span style="font-weight:900;color:#ea580c">₹'+a+'</span></div>';
+      }).filter(Boolean).join('');
     }
     if (planRows) {
       body += '<div style="padding:14px;border-radius:14px;border:1px solid var(--border2);background:var(--card);margin-bottom:12px;text-align:left">'
@@ -245,7 +256,16 @@ async function openCustomerCarePage(){
   try {
     var po = await fetch('https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json').then(function(r){ return r.json(); });
     if (po) {
-      if (Array.isArray(po.plans) && po.plans.length) plans = po.plans;
+      if (Array.isArray(po.plans) && po.plans.length) {
+        plans = po.plans.map(function(p){
+          if (p != null && typeof p === 'object') {
+            var a = p.amount != null ? p.amount : (p.price != null ? p.price : p.monthly);
+            if (a != null && typeof a === 'object') a = a.amount || a.price || a.monthly;
+            return { amount: Number(a)||0, label: p.label || p.name || p.band || 'Plan', period: p.period||'' };
+          }
+          return { amount: Number(p)||0, label: 'Plan' };
+        }).filter(function(x){ return x.amount > 0; });
+      }
       if (po.refundDays) cc.refundDays = po.refundDays;
     }
   } catch (e0) {}
@@ -321,7 +341,7 @@ async function saveCustomerCareAdmin(){
       try{ await fbSet('settings/howToVideoUrl', {url: howToVideoUrl, updatedAt: payload.updatedAt}); }catch(e2){}
       window._howToVideoUrl = howToVideoUrl;
     }
-    toast('✅ Customer Care saved');
+    try{window._customerCareCache={name,email,whatsapp,howToVideoUrl,refundDays,refundPolicy};}catch(eC){} toast('✅ Customer Care saved');
     try{ await publishPublicOfferSnapshot(); }catch(e){}
     closeModal();
   }catch(e){
@@ -484,7 +504,7 @@ async function openPaymentSettingsAdmin(){
       <input id="pay_video_long_title" class="inp-field" style="margin-top:6px" placeholder="Setup + free 15-day trial" value="">
     </div>
   </div>
-  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · videos '+ ((s.videoShortUrl||s.videoLongUrl)?'set':'none') +' · discount '+ (s.annualDiscountPct||0) +'%');try{closeModal();}catch(e){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');}catch(e2){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
+  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · videos '+ ((s.videoShortUrl||s.videoLongUrl)?'set':'none') +' · discount '+ (s.annualDiscountPct||0) +'%');try{if(typeof closeModal==='function'){closeModal();closeModal();}}catch(e){}try{document.querySelectorAll('.modal-overlay,.modal-bg,#modalRoot .modal').forEach(function(el){el.style.display='none';el.classList&&el.classList.add('hidden');});}catch(e3){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');else if(typeof showTab==='function')showTab('home');}catch(e2){}try{window.scrollTo(0,0);}catch(e4){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
 
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
   <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set amount + paid-until for one user</div>

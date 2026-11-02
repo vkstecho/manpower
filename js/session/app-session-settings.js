@@ -1274,6 +1274,24 @@ async function openAdminAnalytics(){
     const tb = b.lastAt ? new Date(b.lastAt).getTime() : 0;
     return tb - ta;
   });
+  window._mpLastDeviceRows = deviceRows;
+  window._mpDownloadDeviceExcel = function(){
+    var rows = window._mpLastDeviceRows || [];
+    if(!rows.length){ toast('No device rows'); return; }
+    function csvEsc(v){ v=String(v==null?'':v).replace(/"/g,'""'); return '"'+v+'"'; }
+    var header = ['Date','Name','Mobile','Company','Role','Device','EmpCode','Valid'];
+    var lines = [header.join(',')];
+    rows.forEach(function(r){
+      var when = r.lastAt || '';
+      try{ if(when) when = new Date(when).toISOString(); }catch(e){}
+      lines.push([csvEsc(when),csvEsc(r.name),csvEsc(r.mobile),csvEsc(r.company),csvEsc(r.role),csvEsc(r.deviceName),csvEsc(r.empCode),csvEsc(r.valid?'yes':'no')].join(','));
+    });
+    var blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='manpower_logged_in_devices_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+    toast('✅ Excel/CSV downloaded');
+  };
 
   const fmtWhen = (iso)=>{
     if(!iso) return '—';
@@ -1344,9 +1362,33 @@ async function openAdminAnalytics(){
       </div>
     </div>
 
-    <div style="font-size:13px;font-weight:900;color:var(--text);margin:6px 0 8px">📱 Logged-in devices</div>
-    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Name · Mobile · Company · Device · last activity (from RTDB)</div>
-    <div style="max-height:42vh;overflow-y:auto;margin-bottom:12px;padding-right:2px">${rowsHtml}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:900;color:var(--text)">📱 Logged-in devices (${deviceRows.length})</div>
+      <button type="button" onclick="window._mpDownloadDeviceExcel&&window._mpDownloadDeviceExcel()"
+        style="padding:8px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--panel);font-size:12px;font-weight:800;cursor:pointer;color:var(--text)">⬇ Excel</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Date · Name · Mobile · Company · Role · Device · Last activity</div>
+    <div style="max-height:55vh;min-height:180px;overflow:auto;margin-bottom:12px;border:1px solid var(--border2);border-radius:12px;background:var(--card)">
+      <table style="width:100%;border-collapse:collapse;min-width:640px;font-size:12px">
+        <thead><tr style="background:var(--panel);position:sticky;top:0;z-index:1">
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Date</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Name</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Mobile</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Company</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Role</th>
+          <th style="text-align:left;padding:10px 8px;border-bottom:1px solid var(--border2)">Device</th>
+        </tr></thead>
+        <tbody>${deviceRows.length ? deviceRows.map(r=>`<tr>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2);white-space:nowrap">${fmtWhen(r.lastAt)}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2);font-weight:700">${escHtml(r.name||'—')}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2);font-family:monospace">${r.mobile||'—'}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2)">${escHtml(r.company||'—')}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2)">${escHtml(String(r.role||'—'))}</td>
+          <td style="padding:10px 8px;border-bottom:1px solid var(--border2)">${escHtml(r.deviceName||'—')}</td>
+        </tr>`).join('') : '<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--muted2)">No devices yet</td></tr>'}
+        </tbody>
+      </table>
+    </div>
 
     <div style="font-size:11px;color:var(--muted2);line-height:1.5;margin-bottom:12px">
       Live counts from Firebase RTDB. Measurement ID <b>G-DK6JFY33ED</b>.
@@ -1576,14 +1618,9 @@ async function showProfile(){
         <div><div class="pa-label">Security Status</div><div class="pa-sub">Device & session info</div></div>
         <div class="pa-arrow">›</div>
       </button>
-      <button class="profile-action" onclick="closeModal();openAdminAnalytics()">
+      <button class="profile-action" onclick="closeModal();setTimeout(function(){openAdminAnalytics()},50)">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">📊</div>
         <div><div class="pa-label">App Analytics</div><div class="pa-sub">Users, active logins, Managers</div></div>
-        <div class="pa-arrow">›</div>
-      </button>
-      <button class="profile-action" onclick="closeModal();openDeviceLoginList()">
-        <div class="pa-icon" style="background:rgba(56,189,248,.12)">📱</div>
-        <div><div class="pa-label">Device / Mobile Logins</div><div class="pa-sub">Date · Time · Name · Mobile · Company</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
