@@ -1,38 +1,28 @@
-# Man Power — Feature list (short)
+# Mentor — Feature list (short)
 
-Use with `AI_INDEX.md` for file paths.
+Use with `AI_INDEX.md` for file paths. Logic lives in `js/mg-*.js` modules.
 
 ## User-facing
 
-- Phone OTP login + device password skip
-- Manager self-reg / member pending approve
-- Excel team import (section, machine, responsibility, designation, weekly off)
-- Team search, archive/left members
-- Schedule grid + filters (multi-select chips)
-- Auto Schedule + coverage validation (section/machine/resp/designation)
-- Shift codes: D, N, O, L, G, C/O, OD
-- Leave + OD records synced with schedule
-- Reports + full-size photo viewer
-- My Shift (member view)
-- Resume builder (sub-app)
-- Hindi / English
-- Offline queue for schedule writes
-- PWA install
+- Landing: free modules vs paid 1:1 tracks
+- Tracks: Career & AI, Flexible Packaging Expert (rates in `mg-config.js`)
+- Package discounts, Razorpay links
+- Topic catalog, chat, recordings
+- Free modules: Met Train Pro, MR Skill, SupSkill, Time Study, Excel Expert, KPI, Met Cost
+- Theme toggle, PWA install
+- Shared auth bridge with website / Resume / Man Power
 
-## Admin / commercial
+## Mentor (admin) mode — `mg-mentor.js`
 
-- Hard-admin phones (config + optional RTDB)
-- License expiry / paywall
-- Public offer snapshot (trial, prices, discount) on login
-- Payment settings publish to Firebase
-- Manager invite code
+- OTP unlock, device remember
+- Student list, approve payments, realtime guidance data
 
 ## Platform
 
-- Firebase Phone Auth + RTDB + Storage
-- Service worker cache tied to APP_VERSION
-- Accessibility (skip link, live region, modal roles)
+- Firebase Auth + RTDB
+- Modules: config, state, auth, data, ui, pwa, tracks, workspace, mentor, app
 
-## Landing videos (Admin)
-- Admin 8929397949 sets short + long video URLs in Payment settings
-- Publish to `publicOffer` for login + `/landing/` page
+## Booking & payments (updated)
+- Preferred time window on book
+- UTR / Payment ID **required** before submit
+- Mentor: Approve, Reject, WhatsApp remind (includes slot + UTR)

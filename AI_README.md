@@ -15,7 +15,7 @@
 |-----|--------|-------|--------|
 | Man Power | `manpower/` | `index.html` + `js/` | [manpower/AI_INDEX.md](manpower/AI_INDEX.md) |
 | Mentor | `mentor/` | `mentor.html` + `js/guidance.js` | [mentor/AI_INDEX.md](mentor/AI_INDEX.md) |
-| VKS Tech website | `website/` | `index.html` + `js/core/app.js` | [website/AI_INDEX.md](website/AI_INDEX.md) |
+| VKS Tech website | `website/` | `index.html` + `js/app.js` | [website/AI_INDEX.md](website/AI_INDEX.md) |
 
 ## Token-saving rules (for AI tools)
 
@@ -33,7 +33,7 @@ See `_shared/RECOMMENDED_FOLDERS.md`. Applying it requires updating HTML script 
 | Concept | Man Power | Mentor | Website |
 |---------|-----------|--------|---------|
 | Mobile OTP login | `js/app-login*.js` | `guidance.js` OTP section | N/A (links out) |
-| Hard-admin phones | `js/config/config.js` | `MENTOR_MOBILE` in guidance.js | — |
-| Pricing / offer | `js/commercial/public-offer.js` + RTDB | tracks in guidance.js | marketing copy only |
+| Hard-admin phones | `js/config.js` | `MENTOR_MOBILE` in guidance.js | — |
+| Pricing / offer | `js/public-offer.js` + RTDB | tracks in guidance.js | marketing copy only |
 | Firebase project | metpowervks (typical) | mentor-vkstech (or shared) | hosting only |
 | PWA / SW | `sw.js` | `sw.js` | optional |

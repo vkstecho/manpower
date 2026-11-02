@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Excel Expert — Plant & Office | Mentor · VKS Tech</title>
+  <link rel="icon" href="../icons/mentor-icon.jpg" />
+  <style>
+    :root { --navy:#0f172a; --blue:#1e3a8a; --orange:#e85d26; --bg:#f8fafc; --card:#fff; --text:#0f172a; --muted:#64748b; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; background:var(--bg); color:var(--text); }
+    header { background:linear-gradient(135deg,var(--navy),var(--blue)); color:#fff; padding:16px 18px; display:flex; align-items:center; gap:12px; }
+    header a { color:#fff; text-decoration:none; font-weight:600; font-size:14px; }
+    main { max-width:720px; margin:0 auto; padding:20px 16px 48px; }
+    .badge { display:inline-block; background:#dcfce7; color:#166534; font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px; }
+    h1 { font-size:1.35rem; margin:12px 0 8px; }
+    p { color:var(--muted); line-height:1.55; }
+    .card { background:var(--card); border-radius:16px; padding:16px; margin:14px 0; box-shadow:0 1px 3px rgba(0,0,0,.06); border:1px solid #e2e8f0; }
+    ul { margin:8px 0 0; padding-left:18px; color:var(--text); }
+    li { margin:6px 0; }
+    .cta { display:inline-flex; margin-top:16px; padding:12px 18px; background:var(--orange); color:#fff; border-radius:12px; font-weight:700; text-decoration:none; }
+    .cta2 { display:inline-flex; margin-top:12px; margin-left:8px; padding:12px 18px; background:var(--blue); color:#fff; border-radius:12px; font-weight:700; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="../mentor.html">← Mentor</a>
+    <strong style="flex:1;text-align:center;font-size:14px">Flexible Packaging · Free module</strong>
+    <span style="width:48px"></span>
+  </header>
+  <main>
+    <span class="badge">FREE · Self-study</span>
+    <h1>Excel Expert — Plant & Office</h1>
+    <p>Free Excel skills for packaging plants: production logs, yield sheets, manpower rosters, and dashboards with practical formulas.</p>
+    <div class="card">
+      <strong>What you will cover</strong>
+      <ul>
+        <li>VLOOKUP / XLOOKUP for codes</li>
+<li>Pivot tables for production</li>
+<li>Yield & waste formulas</li>
+<li>Shift roster sheets</li>
+<li>Conditional formatting</li>
+<li>Charts for KPIs</li>
+      </ul>
+    </div>
+    <div class="card">
+      <strong>Want deeper plant-specific help?</strong>
+      <p style="margin:8px 0 0">Book a paid <b>Flexible Packaging Expert</b> one-to-one session (capacity, yield, metalliser, 5S, cost/sqm) from the Mentor home.</p>
+      <a class="cta" href="../mentor.html">Back to Mentor home</a>
+      <a class="cta2" href="../mentor.html#book-packaging">Book 1:1 Packaging</a>
+    </div>
+  
+    <div class="card">
+      <strong>Quick lesson 1 — Yield %</strong>
+      <p style="margin:8px 0;color:var(--muted);font-size:14px">In a production log, if <b>B2</b> = good output (kg) and <b>C2</b> = input (kg):</p>
+      <pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;font-size:13px;overflow:auto">=IF(C2=0,"",B2/C2)</pre>
+      <p style="margin:8px 0;color:var(--muted);font-size:14px">Format as <b>Percentage</b>. Copy down the column for each shift/day.</p>
+    </div>
+    <div class="card">
+      <strong>Quick lesson 2 — Waste kg</strong>
+      <pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;font-size:13px;overflow:auto">=C2-B2</pre>
+      <p style="margin:8px 0;color:var(--muted);font-size:14px">Then pivot by machine or shift to find the biggest loss area.</p>
+    </div>
+    <div class="card">
+      <strong>Quick lesson 3 — Shift roster count</strong>
+      <p style="margin:8px 0;color:var(--muted);font-size:14px">If codes D/N/O are in row of a person, count day shift heads for Monday (column C):</p>
+      <pre style="background:#0f172a;color:#e2e8f0;padding:12px;border-radius:10px;font-size:13px;overflow:auto">=COUNTIF(C:C,"D")</pre>
+      <p style="margin:8px 0;color:var(--muted);font-size:14px">Use the same for <code>N</code>. Compare to required manpower for coverage.</p>
+    </div>
+    <div class="card">
+      <strong>Next step</strong>
+      <p style="color:var(--muted);font-size:14px;margin:8px 0">Want this applied on <em>your</em> plant sheet (metalliser, lami, slit)? Book a <b>Flexible Packaging Expert</b> 1:1 from Mentor.</p>
+    </div>
+
+  </main>
+</body>
+</html>

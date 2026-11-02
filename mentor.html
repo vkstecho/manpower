@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Mentor | One-to-One Guidance</title>
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192" />
+  <link rel="icon" href="icons/icon-512.png" type="image/png" sizes="512x512" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="icons/icon-512.png" sizes="512x512" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#1e3a8a" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Mentor" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { 50:'#eff6ff',100:'#dbeafe',200:'#bfdbfe',300:'#93c5fd',400:'#60a5fa',500:'#3b82f6',600:'#2563eb',700:'#1d4ed8',800:'#1e40af',900:'#1e3a8a' },
+            accent: { 500:'#8b5cf6',600:'#7c3aed' }
+          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/guidance.css" />
+  <script>
+  window.__mentorDeferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__mentorDeferredPrompt = e;
+  });
+  </script>
+  <!-- Firebase (standalone project: mentor-vkstech) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+    import { getDatabase, ref, set, get, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAp2DZm-h7QbxzS8rO4a0omhBzMlAKy2rs",
+      authDomain: "mentor-vkstech.firebaseapp.com",
+      databaseURL: "https://mentor-vkstech-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "mentor-vkstech",
+      storageBucket: "mentor-vkstech.firebasestorage.app",
+      messagingSenderId: "616868925574",
+      appId: "1:616868925574:web:1fed20cf4d2bb844a8c107",
+      measurementId: "G-KLP6X7SVTS"
+    };
+
+    try {
+      // Use DEFAULT app name (named apps often break Phone Auth + reCAPTCHA)
+      let app;
+      try {
+        const { getApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+        app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+      } catch (e) {
+        app = initializeApp(firebaseConfig);
+      }
+      const db = getDatabase(app);
+      const auth = getAuth(app);
+
+      // Expose simple API for guidance.js
+      window.MentorFB = {
+        ready: false,
+        db, ref, set, get, update, onValue, auth,
+        async sendOtp(phoneE164Or10) {
+          // Alias for mentor unlock + login
+          const p = String(phoneE164Or10||'').replace(/\D/g,'');
+          const ten = p.length>=10 ? p.slice(-10) : p;
+          return this.sendPhoneOtp(ten);
+        },
+        async confirmOtp(code) {
+          return this.verifyPhoneOtp(code);
+        },
+        async sendPhoneOtp(phone10) {
+          const phone = '+91' + phone10;
+          try { if (window._mentorRecaptcha) { window._mentorRecaptcha.clear(); } } catch(e) {}
+          window._mentorRecaptcha = null;
+          // Prefer login prompt container; fall back to mentor-mode container
+          let host = document.getElementById('recaptcha-container');
+          let hostId = 'recaptcha-container';
+          const loginPrompt = document.getElementById('mobilePrompt');
+          const loginVisible = loginPrompt && !loginPrompt.classList.contains('hidden');
+          if (!loginVisible) {
+            const mHost = document.getElementById('recaptcha-container-mentor');
+            if (mHost) { host = mHost; hostId = 'recaptcha-container-mentor'; }
+          }
+          if (host) {
+            host.innerHTML = '';
+            host.style.minHeight = '78px';
+            host.style.display = 'flex';
+            host.style.justifyContent = 'center';
+            host.style.alignItems = 'center';
+            host.style.marginTop = '8px';
+            host.style.overflow = 'visible';
+            host.style.visibility = 'visible';
+            host.style.opacity = '1';
+            host.style.position = 'relative';
+            host.style.zIndex = '10001';
+            try {
+              if (window.innerWidth < 640) {
+                host.style.position = 'fixed';
+                host.style.left = '50%';
+                host.style.bottom = '24px';
+                host.style.transform = 'translateX(-50%)';
+                host.style.background = '#fff';
+                host.style.padding = '10px';
+                host.style.borderRadius = '12px';
+                host.style.boxShadow = '0 12px 40px rgba(0,0,0,.25)';
+                host.style.width = 'auto';
+                host.style.maxWidth = '95vw';
+              }
+            } catch (e0) {}
+          }
+          // Visible reCAPTCHA is more reliable on mobile (checkbox must be tappable)
+          window._mentorRecaptcha = new RecaptchaVerifier(auth, hostId, {
+            size: 'normal',
+            callback: () => {},
+            'expired-callback': () => { window._mentorRecaptcha = null; }
+          });
+          await window._mentorRecaptcha.render();
+          const conf = await signInWithPhoneNumber(auth, phone, window._mentorRecaptcha);
+          window._mentorConfirmOtp = (code) => conf.confirm(code);
+          return true;
+        },
+        async verifyPhoneOtp(code) {
+          if (!window._mentorConfirmOtp) throw new Error('Request OTP first');
+          const cred = await window._mentorConfirmOtp(code);
+          return cred?.user || null;
+        },
+        async ensureAuth() {
+          if (auth.currentUser) return auth.currentUser;
+          try {
+            // Prefer parent Man Power auth if iframed
+            if (window.parent && window.parent !== window && window.parent._fbAuth?.currentUser) {
+              return window.parent._fbAuth.currentUser;
+            }
+            await signInAnonymously(auth);
+            return auth.currentUser;
+          } catch (e) {
+            console.warn("[MentorFB] auth failed", e.message);
+            return null;
+          }
+        },
+        async get(path) {
+          await this.ensureAuth();
+          // Prefer parent _fbAccess when inside Man Power (respects security wrapper)
+          if (window.parent && window.parent !== window && typeof window.parent._fbAccess === "function") {
+            try {
+              const snap = await window.parent._fbAccess("get", path);
+              return snap && snap.val ? snap.val() : (snap?.val?.() ?? null);
+            } catch (e) { /* fall through */ }
+          }
+          const snap = await get(ref(db, path));
+          return snap.exists() ? snap.val() : null;
+        },
+        async set(path, val) {
+          await this.ensureAuth();
+          if (window.parent && window.parent !== window && typeof window.parent._fbAccess === "function") {
+            try {
+              await window.parent._fbAccess("set", path, val);
+              return;
+            } catch (e) { /* fall through */ }
+          }
+          await set(ref(db, path), val);
+        },
+        async update(path, val) {
+          await this.ensureAuth();
+          if (window.parent && window.parent !== window && typeof window.parent._fbAccess === "function") {
+            try {
+              await window.parent._fbAccess("update", path, val);
+              return;
+            } catch (e) { /* fall through */ }
+          }
+          await update(ref(db, path), val);
+        },
+        /** Realtime listener. Returns unsubscribe function. */
+        listen(path, callback) {
+          try {
+            if (window.parent && window.parent !== window && typeof window.parent._fbAccess === "function") {
+              // Parent wrapper may not support onValue; fall through to direct
+            }
+            const r = ref(db, path);
+            const unsub = onValue(r, (snap) => {
+              try { callback(snap.exists() ? snap.val() : null); } catch (e) { console.warn('[MentorFB] listen cb', e); }
+            }, (err) => console.warn('[MentorFB] listen error', err && err.message));
+            return typeof unsub === 'function' ? unsub : () => {};
+          } catch (e) {
+            console.warn('[MentorFB] listen failed', e);
+            return () => {};
+          }
+        }
+      };
+
+      onAuthStateChanged(auth, () => { window.MentorFB.ready = true; });
+      // Mark ready even before auth for faster UI
+      window.MentorFB.ready = true;
+      window.dispatchEvent(new Event("mentor-fb-ready"));
+      console.info("[MentorFB] Connected to Mentor Firebase (mentor-vkstech)");
+    } catch (e) {
+      console.warn("[MentorFB] init failed – localStorage only", e);
+      window.MentorFB = null;
+    }
+  </script>
+</head>
+<body class="h-full bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 transition-colors duration-300 font-sans">
+
+  <!-- ===== Mobile Capture Overlay (fallback) ===== -->
+  <div id="mobilePrompt" class="fixed inset-0 z-[100] hidden items-center justify-center bg-gradient-to-br from-slate-900 via-brand-900/80 to-slate-900 backdrop-blur-md p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5">
+      <div class="text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center mb-3">
+          <img src="assets/mentor-icon.jpg" alt="Mentor" class="w-14 h-14 rounded-2xl object-cover shadow" />
+        </div>
+        <h2 id="loginTitle" class="text-xl font-bold text-center text-slate-900 dark:text-white">Login with Mobile OTP</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1" id="loginSub">Enter mobile number to continue</p>
+      </div>
+
+      <!-- Step 1: Phone -->
+      <div id="otpStepPhone">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">10-digit Mobile Number</label>
+        <div class="flex gap-2">
+          <span class="inline-flex items-center px-3 rounded-lg bg-slate-100 dark:bg-slate-700 text-sm font-medium">+91</span>
+          <input type="tel" id="mobileInput" maxlength="10" pattern="[6-9][0-9]{9}"
+            class="form-input flex-1 text-base" placeholder="9876543210" autocomplete="tel" />
+        </div>
+        <p id="mobileError" class="text-xs text-red-500 mt-1.5 hidden">Enter a valid 10-digit Indian mobile number</p>
+        <button id="mobileSubmit" class="w-full mt-4 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow transition">
+          <i class="fas fa-paper-plane mr-1.5"></i> Send OTP
+        </button>
+      </div>
+
+      <!-- Step 2: OTP -->
+      <div id="otpStepCode" class="hidden">
+        <label class="block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Enter 6-digit OTP</label>
+        <input type="text" id="otpInput" maxlength="6" inputmode="numeric" pattern="[0-9]{6}"
+          class="form-input w-full text-center text-2xl tracking-[0.4em] font-bold" placeholder="••••••" autocomplete="one-time-code" />
+        <p id="otpError" class="text-xs text-red-500 mt-1.5 hidden">Invalid OTP. Please try again.</p>
+        <button id="otpVerifyBtn" class="w-full mt-4 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow transition">
+          <i class="fas fa-check mr-1.5"></i> Verify &amp; Continue
+        </button>
+        <button id="otpResendBtn" type="button" class="w-full mt-2 py-2 text-sm text-brand-600 hover:underline">
+          Resend OTP
+        </button>
+        <button id="otpChangeNumBtn" type="button" class="w-full py-1 text-xs text-slate-500 hover:underline">
+          Change number
+        </button>
+      </div>
+
+      <div id="recaptcha-container" class="flex justify-center items-center w-full mt-3 mb-1" style="min-height:78px;overflow:visible;"></div>
+      <p class="text-[10px] text-center text-slate-400 mt-2">OTP via SMS · Complete the reCAPTCHA checkbox if shown · Firebase Auth</p>
+    </div>
+  </div>
+
+  <!-- ===== App Shell ===== -->
+  <div id="app" class="min-h-full flex flex-col hidden">
+    <!-- Header -->
+    <header class="sticky top-0 z-50 bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 shadow-sm">
+      <div class="max-w-7xl mx-auto px-3 sm:px-6">
+        <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
+          <!-- Left -->
+          <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button id="backBtn" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition shrink-0" title="Back to Learn & Grow">
+              <i class="fas fa-arrow-left text-slate-600 dark:text-slate-300"></i>
+            </button>
+            <img src="assets/mentor-icon.jpg" alt="Logo" class="h-8 w-8 sm:h-9 sm:w-9 rounded-lg object-contain shrink-0"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+            <div class="hidden h-8 w-8 sm:h-9 sm:w-9 rounded-lg bg-gradient-to-br from-brand-500 to-accent-600 items-center justify-center text-white text-sm font-bold shrink-0">
+              VKS
+            </div>
+            <div class="min-w-0 hidden sm:block">
+              <h1 class="text-sm sm:text-base font-bold tracking-tight truncate">Mentor</h1>
+              <p class="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 -mt-0.5">One-to-One Guidance</p>
+            </div>
+          </div>
+
+          <!-- Center / Badge -->
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <span id="mobileBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold border border-emerald-200 dark:border-emerald-700">
+              <i class="fas fa-check-circle text-[10px]"></i>
+              <button type="button" id="profileAvatarBtn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-brand-600 text-white text-sm font-bold flex items-center justify-center overflow-hidden shrink-0 border-2 border-white dark:border-slate-600 shadow" title="Profile">U</button>
+              <span id="mobileDisplay" class="hidden sm:inline">••••••••••</span>
+              <button type="button" id="siteLogoutBtn" class="ml-1 text-[10px] sm:text-xs font-bold text-slate-500 hover:text-red-600 underline-offset-2 hover:underline px-1" title="Logout">Logout</button>
+            </span>
+            <span id="mentorBadge" class="hidden inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[10px] font-bold border border-amber-200 dark:border-amber-700">
+              <i class="fas fa-user-shield"></i> MENTOR
+            </span>
+          </div>
+
+          <!-- Right actions -->
+          <div class="flex items-center gap-1 sm:gap-2 shrink-0">
+            <button id="pricingAdminBtn" class="hidden p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 hover:bg-amber-200 transition flex items-center gap-1.5" title="Edit track rates"><i class="fas fa-rupee-sign"></i><span class="hidden sm:inline">Rates</span></button>
+          <button id="paymentHistoryBtn" class="p-2 sm:px-3 sm:py-1.5 rounded-lg text-xs sm:text-sm font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition flex items-center gap-1.5" title="Payment History">
+              <i class="fas fa-receipt"></i>
+              <span class="hidden sm:inline">Payments</span>
+            </button>
+            <button id="themeToggle" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition" title="Toggle theme">
+              <i class="fas fa-moon text-slate-600 dark:hidden"></i>
+              <i class="fas fa-sun text-amber-400 hidden dark:inline"></i>
+            </button>
+
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto w-full px-3 sm:px-6 py-5 sm:py-8">
+      <!-- Catalog View -->
+      
+            <!-- PWA Install + Share (home) -->
+      <div id="mentorInstallBar" class="px-3 sm:px-4 py-3 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-800 dark:to-slate-900">
+        <div id="mentorInstallButtonsRow" class="flex flex-wrap items-center gap-2">
+          <a id="mentorPlayStoreBtn" href="https://play.google.com/store/apps/details?id=com.vkstech.mentor" target="_blank" rel="noopener"
+            class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-bold shadow-sm">
+            <i class="fab fa-google-play"></i>
+            <span>Play Store · Android</span>
+          </a>
+          <button type="button" id="mentorInstallDesktopBtn" class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 text-xs sm:text-sm font-bold shadow-sm">
+            <i class="fab fa-apple"></i>
+            <i class="fab fa-windows"></i>
+            <span>Install · iOS / Windows</span>
+          </button>
+          <button type="button" id="mentorShareBtn" class="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-100">
+            <i class="fas fa-share-nodes"></i> Share
+          </button>
+          <button type="button" id="mentorInstallAndroidBtn" class="hidden" aria-hidden="true"></button>
+          <button type="button" id="mentorInstallBtn" class="hidden" aria-hidden="true"></button>
+        </div>
+        <p id="mentorInstallHint" class="text-[11px] text-slate-500 dark:text-slate-400 mt-2 leading-snug">Android: Play Store · iPhone/Windows: Install for home screen / desktop app</p>
+      </div>
+
+      <section id="catalogView">
+        <div class="mb-6 sm:mb-8">
+          <h2 class="text-xl sm:text-2xl font-bold tracking-tight">Choose Your Guidance Path</h2>
+          <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Free plant modules + paid one-to-one sessions • Recordings &amp; doubt chat</p>
+        </div>
+
+        <!-- Mentor Student Selector (Mentor Mode only) -->
+        <div id="mentorStudentBar" class="hidden mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-3">
+            <label class="text-sm font-semibold text-amber-800 dark:text-amber-200 shrink-0">
+              <i class="fas fa-users mr-1.5"></i>View as Student:
+            </label>
+            <select id="studentSelect" class="form-input flex-1 max-w-xs text-sm">
+              <option value="">— Select student mobile —</option>
+            </select>
+            <button id="refreshStudentsBtn" class="px-3 py-2 rounded-lg bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 text-xs font-medium hover:opacity-90">
+              <i class="fas fa-sync-alt mr-1"></i> Refresh List
+            </button>
+          </div>
+        </div>
+
+        <!-- Two big category buttons -->
+        <div id="categoryPicker" class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <button type="button" id="catBtnPackaging" class="cat-btn text-left p-5 rounded-2xl border-2 border-orange-300 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/20 dark:border-orange-700 hover:shadow-lg hover:border-orange-500 transition group">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="w-12 h-12 rounded-xl bg-orange-500 text-white flex items-center justify-center text-xl shadow"><i class="fas fa-industry"></i></span>
+              <div>
+                <div class="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white">Flexible Packaging</div>
+                <div class="text-[11px] font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide">Plant knowledge · Free + Paid · <span data-track-rate="packaging">₹799/hr</span></div>
+              </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Free modules &amp; calculators + paid one-to-one for real plant problems (capacity, yield, metalliser, 5S, cost/sqm…).</p>
+            <div class="mt-3 text-xs font-bold text-orange-600 group-hover:underline">Open Packaging → <span data-track-rate="packaging">₹799/hr</span></div>
+          </button>
+          <button type="button" id="catBtnCareer" class="cat-btn text-left p-5 rounded-2xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 to-violet-50 dark:from-indigo-900/30 dark:to-violet-900/20 dark:border-indigo-700 hover:shadow-lg hover:border-indigo-500 transition group">
+            <div class="flex items-center gap-3 mb-2">
+              <span class="w-12 h-12 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xl shadow"><i class="fas fa-graduation-cap"></i></span>
+              <div>
+                <div class="font-extrabold text-base sm:text-lg text-slate-900 dark:text-white">Career &amp; AI Guidance</div>
+                <div class="text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">15 sessions · ₹699/hr</div>
+              </div>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">Gemini, Claude, Grok, ChatGPT, Excel+AI, freelancing, ITR, resume, personal finance and more — one-to-one.</p>
+            <div class="mt-3 text-xs font-bold text-indigo-600 group-hover:underline">Open Career &amp; AI →</div>
+          </button>
+        </div>
+
+        <!-- Flexible Packaging section (hidden until picked) -->
+        <div id="sectionPackaging" class="hidden">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <button type="button" class="back-to-cats px-3 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"><i class="fas fa-arrow-left mr-1"></i> All paths</button>
+            <div class="text-right">
+              <div class="font-bold text-orange-700 dark:text-orange-300">Flexible Packaging</div>
+              <div class="text-[11px] text-slate-500">Free modules + paid expert sessions</div>
+            </div>
+          </div>
+
+          <div id="flexPackFreeSection" class="mb-6">
+            <div class="flex items-center gap-2 mb-1">
+              <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Free modules &amp; calculators</h2>
+              <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Free</span>
+            </div>
+            <p class="text-sm text-slate-500 mb-3">Self-study plant training (same knowledge style as vkstech.com). For deep, plant-specific help, book a paid session below.</p>
+            <div id="freePackModules" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          </div>
+
+          <div class="mb-2 flex items-center gap-2">
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">Paid one-to-one — Packaging Expert</h2>
+            <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-800" data-track-rate="packaging">₹1,299/hr</span>
+          </div>
+          <p class="text-sm text-slate-500 mb-4">Real shop-floor problems: capacity, yield, metalliser, manpower, cost/sqm, troubleshooting.</p>
+          <div id="topicsGridPackaging" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"></div>
+        </div>
+
+        <!-- Career & AI section (hidden until picked) -->
+        <div id="sectionCareer" class="hidden">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <button type="button" class="back-to-cats px-3 py-1.5 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600"><i class="fas fa-arrow-left mr-1"></i> All paths</button>
+            <div class="text-right">
+              <div class="font-bold text-indigo-700 dark:text-indigo-300">Career &amp; AI Guidance</div>
+              <div class="text-[11px] text-slate-500">15 programs · <span data-track-rate="career_ai">₹699 / hour</span></div>
+            </div>
+          </div>
+          <div id="topicsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            <!-- Career & AI cards injected by JS -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Workspace View (hidden initially) -->
+      <section id="workspaceView" class="hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div class="flex items-center gap-3">
+            <button id="backToCatalog" class="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition">
+              <i class="fas fa-arrow-left"></i>
+            </button>
+            <div>
+              <h2 id="wsTopicTitle" class="text-lg sm:text-xl font-bold"></h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Personal workspace • Mobile isolated</p>
+            </div>
+          </div>
+          <button id="bookMoreBtn" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold shadow transition">
+            <i class="fas fa-calendar-plus"></i> Book Another Hour (₹699)
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">
+          <!-- Left: YouTube Recordings -->
+          <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <h3 class="font-semibold text-sm flex items-center gap-2">
+                <i class="fab fa-youtube text-red-500"></i> What We Learned Together
+              </h3>
+              <span id="recordingCount" class="text-xs text-slate-400">0 recordings</span>
+            </div>
+            <div class="p-4 space-y-4">
+              <div id="videoPlayerWrap" class="aspect-video bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
+                <div class="text-center text-slate-400 p-6">
+                  <i class="fas fa-play-circle text-4xl mb-2 opacity-50"></i>
+                  <p class="text-sm">Select a recording below to watch</p>
+                </div>
+              </div>
+              <div id="sessionChecklist" class="mb-4"></div><div id="recordingsList" class="space-y-2 max-h-64 overflow-y-auto"></div>
+
+              <!-- Add Recording (Mentor or unlocked) -->
+              <div id="addRecordingForm" class="hidden pt-3 border-t border-slate-100 dark:border-slate-700 space-y-2">
+                <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Add Session Recording</p>
+                <input type="text" id="recTitle" class="form-input text-sm" placeholder="Session title (e.g. Prompt Engineering Basics)" />
+                <input type="url" id="recUrl" class="form-input text-sm" placeholder="YouTube URL (https://youtube.com/watch?v=...)" />
+                <textarea id="recNotes" class="form-input text-sm resize-none" rows="2" placeholder="Session notes (optional)"></textarea>
+                <button id="addRecBtn" class="w-full py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium">
+                  <i class="fas fa-plus mr-1"></i> Add Recording
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Chat / Doubt Tracker -->
+          <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col overflow-hidden" style="min-height:420px">
+            <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <h3 class="font-semibold text-sm flex items-center gap-2">
+                <i class="fas fa-comments text-brand-500"></i> Work & Doubt Tracker
+              </h3>
+              <label class="inline-flex items-center gap-1.5 text-[10px] sm:text-xs cursor-pointer">
+                <input type="checkbox" id="syncWhatsApp" class="rounded border-slate-300 text-brand-600 focus:ring-brand-500" checked />
+                Sync to Mentor WhatsApp
+              </label>
+            </div>
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50/50 dark:bg-slate-900/30"></div>
+            <div class="p-3 border-t border-slate-100 dark:border-slate-700">
+              <div class="flex gap-2">
+                <input type="text" id="chatInput" class="form-input text-sm flex-1" placeholder="Log progress, ask doubt, share homework..." />
+                <button id="sendChatBtn" class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white shrink-0">
+                  <i class="fas fa-paper-plane"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+    <!-- ===== Booking / Payment Modal ===== -->
+  <div id="bookingModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[92vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">Book One-to-One Session</h3>
+        <button id="closeBooking" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><i class="fas fa-times"></i></button>
+      </div>
+
+      <div>
+        <p class="text-xs font-semibold text-slate-500 mb-1">Program / Topic</p>
+        <p id="bookingTopicName" class="font-semibold text-brand-700 dark:text-brand-300 text-sm leading-snug"></p>
+      </div>
+      <div class="text-xs text-slate-500">Mobile: <span id="bookingMobile" class="font-mono font-semibold text-slate-800 dark:text-slate-200"></span></div>
+
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Choose track</p>
+        <div class="grid grid-cols-1 gap-2" id="trackSelectCards">
+          <button type="button" data-track="career_ai" class="track-card text-left p-3 rounded-xl border-2 border-brand-500 bg-brand-50 dark:bg-brand-900/20">
+            <div class="font-bold text-sm">Career &amp; AI Track</div>
+            <div class="text-xs text-slate-500 mt-0.5">AI tools, Excel, career, freelancing, soft skills…</div>
+            <div class="text-sm font-extrabold text-brand-600 mt-1" data-track-rate="career_ai">₹699 / hour</div>
+          </button>
+          <button type="button" data-track="packaging" class="track-card text-left p-3 rounded-xl border-2 border-slate-200 dark:border-slate-600">
+            <div class="font-bold text-sm">Flexible Packaging Expert</div>
+            <div class="text-xs text-slate-500 mt-0.5">Capacity, yield, metalliser, 5S, ₹/sqm, plant issues…</div>
+            <div class="text-sm font-extrabold text-orange-600 mt-1" data-track-rate="packaging">₹1,299 / hour</div>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <p class="text-xs font-bold uppercase tracking-wide text-slate-500 mb-2">Package</p>
+        <div class="flex gap-2" id="packageBtns">
+          <button type="button" data-hrs="1" data-disc="0" class="hrs-btn active-hrs flex-1 py-2.5 rounded-lg border text-sm font-semibold">1 Hour</button>
+          <button type="button" data-hrs="3" data-disc="5" class="hrs-btn flex-1 py-2.5 rounded-lg border text-sm font-semibold">3 Hours<br><span class="text-[10px] font-normal text-emerald-600">~5% off</span></button>
+          <button type="button" data-hrs="5" data-disc="10" class="hrs-btn flex-1 py-2.5 rounded-lg border text-sm font-semibold">5 Hours<br><span class="text-[10px] font-normal text-emerald-600">~10% off</span></button>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Session focus / topic</label>
+        <select id="bookingTopicFocus" class="form-input text-sm w-full"></select>
+        <input type="text" id="bookingTopicCustom" class="form-input text-sm w-full mt-2 hidden" placeholder="Or type your topic…" />
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-slate-500 mb-1">Preferred time window</label>
+        <select id="bookingSlotPref" class="form-input text-sm w-full"></select>
+        <p class="text-[10px] text-slate-400 mt-1">Not a fixed calendar slot yet — helps mentor plan. Confirm on WhatsApp.</p>
+      </div>
+
+      <div class="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 space-y-1 text-sm">
+        <div class="flex justify-between"><span class="text-slate-500">Track</span><span id="sumTrack" class="font-semibold">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Rate</span><span id="sumRate" class="font-semibold">—</span></div>
+        <div class="flex justify-between"><span class="text-slate-500">Hours</span><span id="sumHours" class="font-semibold">1</span></div>
+        <div class="flex justify-between items-center pt-1 border-t border-slate-200 dark:border-slate-700"><span class="font-medium">Total</span>
+          <span id="bookingTotal" class="text-xl font-bold text-brand-600">₹699</span></div>
+      </div>
+
+      <p class="text-[11px] text-slate-500 leading-relaxed">After paying, copy the <b>Payment ID</b> (e.g. pay_…) from Razorpay success screen and paste below. If the link says <b>Payment Completed</b>, ask mentor for a fresh link (or use a multi-payment link).</p>
+      <a id="payNowBtn" href="https://rzp.io/rzp/RWnisIr" target="_blank" rel="noopener"
+         class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow transition">
+        <i class="fas fa-lock"></i> Pay Now via Razorpay
+      </a>
+
+      <p class="text-[12px] text-center text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2.5">
+        <strong>Pay Now</strong> notifies the Mentor automatically.<br/>
+        <span class="text-slate-500">No UTR or Payment ID needed from you.</span><br/>
+        Session unlocks only after <strong>Mentor approves</strong>.
+      </p>
+      <div class="relative">
+        <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-200 dark:border-slate-600"></div></div>
+        <div class="relative flex justify-center text-xs"><span class="px-2 bg-white dark:bg-slate-800 text-slate-400">Optional</span></div>
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1.5">Payment ID / UTR <span class="text-slate-400 font-normal">(optional)</span></label>
+        <input type="text" id="utrInput" class="form-input text-sm" placeholder="Optional: paste Razorpay id if you have it" />
+        <p class="text-[10px] text-slate-400 mt-1">Not required. Mentor can unlock from Pay Now alone.</p>
+      </div>
+      <button id="confirmPaidBtn" class="w-full py-3 rounded-xl bg-slate-200 dark:bg-slate-600 hover:bg-slate-300 dark:hover:bg-slate-500 text-slate-800 dark:text-slate-100 font-semibold transition">
+        <i class="fas fa-paper-plane mr-1.5"></i> Attach Payment ID (optional)
+      </button>
+    </div>
+  </div>
+
+<!-- ===== Payment History Modal ===== -->
+  <div id="historyModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between shrink-0">
+        <h3 class="font-bold text-lg">Payment & Session History</h3>
+        <div class="flex items-center gap-2">
+          <button id="exportCsvBtn" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600">
+            <i class="fas fa-download mr-1"></i> CSV
+          </button>
+          <button id="closeHistory" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <div id="historyContent" class="flex-1 overflow-y-auto p-4 space-y-3">
+        <!-- Injected -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Mentor OTP Modal ===== -->
+  <div id="pinModal" class="fixed inset-0 z-[9999] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+      <h3 class="font-bold text-center">Mentor OTP Verification</h3>
+      <p id="mentorOtpStatus" class="text-xs text-center text-slate-500 leading-relaxed">OTP SMS to admin +91 8929397949. Complete captcha if asked, then enter the code.</p>
+      <div id="recaptcha-container-mentor" class="flex justify-center items-center w-full mt-2" style="min-height:78px;overflow:visible;"></div>
+      <input type="text" inputmode="numeric" id="mentorPinInput" class="form-input text-center tracking-widest text-lg" placeholder="Enter 6-digit OTP" maxlength="6" autocomplete="one-time-code" />
+      <button id="pinSubmit" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold">Verify OTP & Unlock</button>
+      <button id="pinCancel" class="w-full py-2 text-sm text-slate-500">Cancel</button>
+    </div>
+  </div>
+
+
+  <!-- ===== Admin Track Pricing (8929397949) ===== -->
+  <div id="pricingAdminModal" class="fixed inset-0 z-[9998] hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-bold text-lg">Rates &amp; Razorpay links</h3>
+        <button type="button" id="closePricingAdmin" class="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"><i class="fas fa-times"></i></button>
+      </div>
+      <p class="text-xs text-slate-500">Admin +91 8929397949 only. Edit ₹/hour, discounts, and paste Razorpay links. Save → live for all students.</p>
+      <div id="pricingAdminFields" class="space-y-4"></div>
+      <button type="button" id="savePricingAdmin" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold">Save to Firebase</button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-3 rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium shadow-2xl transform translate-y-24 opacity-0 transition-all duration-300 z-[99999] pointer-events-none max-w-[min(92vw,420px)] text-center leading-snug whitespace-normal" style="word-break:break-word;"></div>
+
+  <!-- Mentor feature modules (order matters). See AI_INDEX.md -->
+  <script src="js/mg-config.js"></script>
+  <script src="js/mg-state.js"></script>
+  <script src="js/mg-auth.js"></script>
+  <script src="js/mg-data.js"></script>
+  <script src="js/mg-ui.js"></script>
+  <script src="js/mg-pwa.js"></script>
+  <script src="js/mg-tracks.js"></script>
+  <script src="js/mg-workspace.js"></script>
+  <script src="js/mg-mentor.js"></script>
+  <script src="js/mg-profile.js"></script>
+  <script src="js/mg-app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(function (reg) { console.info('[Mentor SW] registered', reg.scope); })
+          .catch(function (err) { console.warn('[Mentor SW] register failed', err); });
+      });
+    });
+      });
+    }
+  </script>
+</body>
+</html>

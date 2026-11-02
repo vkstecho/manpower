@@ -1,57 +1,47 @@
-# Man Power — AI Feature Map (feature folders)
+# Mentor — AI Feature Map (modular)
 
-**Read this file first.** Open only the file under the listed folder.
+**Read this file first.** Then open **only** the file listed for the feature you are changing.
 
-App root: `ManPower-v3.2.6/`
+App root: `mentor-app/`
+
+Runtime is split into feature modules under `js/mg-*.js` (loaded in order from `mentor.html`). Shared namespace: `window.MG`. Shared state: `MG.state`.
 
 ---
 
 ## 1. What this app does
 
-Multi-industry **team & shift management PWA**. Excel-driven sections/machines, OTP login, Auto Schedule with coverage, leave/OD, reports, payments/license, resume builder, offline queue. Firebase + Hindi/English.
+**One-to-one mentorship** (Career & AI, Flexible Packaging Expert) with Razorpay booking, chat/recordings, mentor OTP mode, student payment approval, plus **free packaging training modules**. Firebase Auth + RTDB. PWA-capable.
 
 ---
 
 ## 2. Feature → file map
 
-| Feature | File |
-|---------|------|
-| **Version, shift labels, hard-admin phones, license dates** | `js/config/config.js` |
-| **Firebase project init** | `js/config/firebase-init.js` |
-| **Utils (phone norm, esc, loadScript)** | `js/core/utils.js` |
-| **Polyfill** | `js/core/polyfill.js` |
-| **App core / boot helpers** | `js/core/app-core.js` |
-| **Main app / PWA register** | `js/core/app.js` |
-| **Accessibility** | `js/core/a11y.js` |
-| **Train module data** | `js/core/train-data.js` |
-| **Login OTP** | `js/auth/app-login.js` |
-| **Device password / remember** | `js/auth/app-login-device.js` |
-| **Session restore** | `js/auth/app-login-session.js` |
-| **Auth gate / roles** | `js/auth/app-session-auth.js` |
-| **Home dashboard** | `js/session/app-session-home.js` |
-| **Navigation** | `js/session/app-session-nav.js` |
-| **Settings** | `js/session/app-session-settings.js` |
-| **Payment / license UI** | `js/session/app-session-payment.js` |
-| **Team roster** | `js/team/app-team.js` |
-| **Employee forms** | `js/team/app-team-emp-forms.js` |
-| **Excel import UI** | `js/team/app-team-import.js` |
-| **Excel import core** | `js/team/app-team-import-core.js` |
-| **Excel ops (large)** | `js/team/app-team-excel-ops.js` |
-| **Print / Learn links** | `js/team/app-team-print-learn.js` |
-| **Schedule page** | `js/schedule/app-schedule.js` |
-| **Auto Schedule / builder / coverage** | `js/schedule/app-sched-builder.js` |
-| **Cell keys** | `js/schedule/sched-cell-keys.js` |
-| **Clipboard** | `js/schedule/sched-clipboard.js` |
-| **Undo** | `js/schedule/sched-undo.js` |
-| **Offline queue** | `js/schedule/sched-offline-queue.js` |
-| **Commercial / paywall** | `js/commercial/mp-commercial.js` |
-| **Public offer (login prices)** | `js/commercial/public-offer.js` |
-| **i18n base** | `js/i18n/i18n_locale.js` |
-| **i18n multi-lang** | `js/i18n/i18n_ml.js` |
-| **HTML shells** | `index.html`, `team.html`, `schedule.html`, … |
-| **Resume builder (separate)** | `resume-builder/` |
-| **Service worker** | `sw.js` |
-| **RTDB rules** | `database.rules.json` |
+| Feature / section | File | Notes |
+|-------------------|------|-------|
+| **Rates, tracks, topics, free-module list** | `js/mg-config.js` | `DEFAULT_TRACKS`, `TOPICS`, `FREE_PACK_MODULES`, phones, Razorpay |
+| **Runtime state + DOM `$`/`$$`** | `js/mg-state.js` | `MG.state.*` |
+| **Mobile detect + site auth bridge** | `js/mg-auth.js` | Man Power parent, localStorage shared auth |
+| **Firebase data layer** | `js/mg-data.js` | `mentor_guidance`, load/save, realtime, chat merge |
+| **Theme, toast, catalog UI, free pack render** | `js/mg-ui.js` | `renderCatalog`, `renderFreePackSection` |
+| **PWA install / share / Play Store** | `js/mg-pwa.js` | |
+| **Track select, pricing override, booking modal** | `js/mg-tracks.js` | packages, confirm payment |
+| **Workspace, recordings, chat** | `js/mg-workspace.js` | |
+| **Payment history, mentor OTP, student admin** | `js/mg-mentor.js` | approve pay, student switch |
+| **Init, login OTP UI, events, boot** | `js/mg-app.js` | `init`, `bindEvents`, DOMContentLoaded |
+| **Legacy stub** | `js/guidance.js` | Info only — not used for logic |
+| **Styles** | `css/guidance.css` | |
+| **Shell HTML** | `mentor.html` | script order at bottom |
+| **Landing** | `index.html` | marketing cards |
+| **RTDB rules** | `database.rules.json` | |
+| **PWA** | `manifest.json`, `sw.js` | SW precaches all `mg-*.js` |
+
+### Free training modules (separate)
+
+| Module | Path |
+|--------|------|
+| Met Train Pro | `Met_Train_Pro/` |
+| MR Skill | `MR_Skill/mr_skill.html` |
+| Wrappers | `modules/*.html` |
 
 ---
 
@@ -59,45 +49,62 @@ Multi-industry **team & shift management PWA**. Excel-driven sections/machines, 
 
 | Goal | Open only |
 |------|-----------|
-| Version / admin phones / shift labels | `js/config/config.js` (+ SW version if needed) |
-| Login OTP | `js/auth/app-login.js` |
-| Auto Schedule / coverage | `js/schedule/app-sched-builder.js` |
-| Excel mapping | `js/team/app-team-excel-ops.js` + `app-team-import-core.js` |
-| Public login prices | Firebase `publicOffer` + `js/commercial/public-offer.js` |
-| Hindi strings | `js/i18n/i18n_ml.js` |
-| Home cards | `js/session/app-session-home.js` |
+| Hourly rates / track packages / Razorpay link | `js/mg-config.js` |
+| Topic catalog content | `js/mg-config.js` (`TOPICS`) |
+| Free module links | `js/mg-config.js` (`FREE_PACK_MODULES`) |
+| Chat / recordings behavior | `js/mg-workspace.js` |
+| Booking / payment confirm | `js/mg-tracks.js` |
+| Mentor OTP / student list / approve | `js/mg-mentor.js` |
+| Login OTP UI / boot | `js/mg-app.js` |
+| Firebase paths / merge logic | `js/mg-data.js` |
+| Styles | `css/guidance.css` |
 
 ---
 
-## 4. Folder map
+## 4. Script load order (do not reorder)
 
-```
-js/
-  config/      commercial/   core/
-  auth/        session/      team/
-  schedule/    i18n/
-```
-
-Script load order is fixed in `index.html` (eager + deferred heavy list). Do not reorder without checking dependencies.
+1. `mg-config.js`
+2. `mg-state.js`
+3. `mg-auth.js`
+4. `mg-data.js`
+5. `mg-ui.js`
+6. `mg-pwa.js`
+7. `mg-tracks.js`
+8. `mg-workspace.js`
+9. `mg-mentor.js`
+10. `mg-app.js`
 
 ---
 
 ## 5. Token tip
 
-Largest files: `js/team/app-team-excel-ops.js`, `js/session/app-session-settings.js`, `js/schedule/app-sched-builder.js`. Grep the function name, then read a small range.
-
-### Landing videos
-- Admin UI + publish: `js/session/app-session-payment.js` (`settings/landingVideos`, `publicOffer.video*`)
-- Login chips: `js/commercial/public-offer.js` + `#loginVideos` in `index.html`
-- Marketing: `landing/index.html`
-- Guide: `Improvements/LANDING_VIDEOS_ADMIN.md`
-
-### Resume Builder AI docs
-- `resume-builder/AI_INDEX.md` — feature map for layouts/wizard
-- `resume-builder/AI_README.md` — purpose + edit rules
+Do **not** load every `mg-*.js`. Use this map and open one module. Config + topics live only in `mg-config.js`.
 
 
-### Landing vs app entry
-- **App login (domain root):** `index.html`
-- **Marketing tour:** `landing/index.html` → URL `/landing/`
-- CTAs on marketing page point to `../` (app)
+## Recent improvements
+| Feature | File |
+|---------|------|
+| Required UTR / Payment ID | `js/mg-tracks.js` `confirmPayment`, `mentor.html` |
+| Preferred time window | `mg-config.js` `PREFERRED_SLOT_OPTIONS`, booking modal |
+| Reject payment + WhatsApp remind | `js/mg-mentor.js` |
+| Excel Expert mini-lessons | `modules/excel_expert.html` |
+| Monolith backup archived | `archive/guidance.monolith.bak.js` |
+
+
+## Admin rates & Razorpay (8929397949)
+| UI | `Rates` button → modal in `mentor.html` |
+| Save | `js/mg-workspace.js` `savePricingAdmin` → `mentor_settings/tracks` |
+| Fields per track | hourlyRate, paymentLink, packageDisc 3h/5h, topics |
+| Booking uses | `mg-tracks.js` `updatePayLink` + `calcBookingAmount` |
+
+## Session checklist
+| `renderSessionChecklist` | `js/mg-workspace.js` · host `#sessionChecklist` |
+
+## Marketing landing
+| `landing/index.html` | Public page; rates from Firebase if public read allowed |
+
+
+### Entry files
+- **Marketing home (domain root):** `index.html`
+- **App shell:** `mentor.html`
+- `landing/index.html` → redirect to `/` only
