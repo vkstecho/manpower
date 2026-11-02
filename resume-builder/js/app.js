@@ -1,3 +1,14 @@
+
+/* Resume section titles for printed/PDF output — always English */
+var RB_PRINT_EN = {
+  experience: 'Work Experience',
+  education: 'Education',
+  skills: 'Skills',
+  projects: 'Projects',
+  summary: 'Professional Summary',
+  languages: 'Languages',
+  certifications: 'Certifications'
+};
 /**
  * Top-Class Resume Builder
  * Modular, production-ready single-page application
@@ -1352,3 +1363,21 @@ document.addEventListener('DOMContentLoaded', function(){
   });
   updateTplPreview('ats');
 });
+
+try {
+  window.addEventListener('beforeprint', function () {
+    try {
+      var root = document.getElementById('resumePreview') || document.querySelector('.resume-sheet');
+      if (!root || !window.RB_PRINT_EN) return;
+      // Do not translate user content; only known section header nodes
+      root.querySelectorAll('h2, h3, .section-title').forEach(function (el) {
+        var tx = (el.textContent || '').trim().toLowerCase();
+        if (/experience|अनुभव/.test(tx)) el.textContent = RB_PRINT_EN.experience;
+        else if (/education|शिक्षा/.test(tx)) el.textContent = RB_PRINT_EN.education;
+        else if (/skill|कौशल/.test(tx)) el.textContent = RB_PRINT_EN.skills;
+        else if (/project|प्रोजेक्ट/.test(tx)) el.textContent = RB_PRINT_EN.projects;
+        else if (/summary|सारांश/.test(tx)) el.textContent = RB_PRINT_EN.summary;
+      });
+    } catch (e) {}
+  });
+} catch (e0) {}

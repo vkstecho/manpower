@@ -381,17 +381,18 @@
       <a class="logo" href="/"><img src="assets/mp-logo-transparent.png" alt="Man Power" width="36" height="36" style="width:36px;height:36px;border-radius:10px;object-fit:contain;background:#0f172a" /> Man Power
       </a>
       <nav class="nav-links">
-        <a href="#videos">Videos</a>
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#compare">Why Man Power</a>
-        <a href="#pricing">Pricing</a>
-          <a href="#contact">Contact</a>
-          <a href="#faq">FAQ</a>
+        <a href="#videos" data-i18n="navVideos">Videos</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+        <a href="#how" data-i18n="navHow">How it works</a>
+        <a href="#compare" data-i18n="navWhy">Why Man Power</a>
+        <a href="#pricing" data-i18n="navPricing">Pricing</a>
+          <a href="#contact" data-i18n="navContact">Contact</a>
+          <a href="#faq" data-i18n="navFaq">FAQ</a>
       </nav>
       <div class="nav-cta">
-        <a class="btn btn-ghost" href="app.html" rel="noopener">Login</a>
-        <a class="btn btn-primary" href="app.html" rel="noopener">Start free</a>
+        <button type="button" id="landingLangBtn" class="btn btn-ghost" style="min-width:44px;font-weight:800" title="Language" onclick="mpLandingToggleLang()">EN</button>
+        <a class="btn btn-ghost" href="app.html" rel="noopener" data-i18n="login">Login</a>
+        <a class="btn btn-primary" href="app.html" rel="noopener" data-i18n="startFree">Start free</a>
       </div>
     </div>
   </header>
@@ -400,15 +401,12 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <div class="badge">Plant-floor shift & manpower · by VKS Tech</div>
-        <h1>Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
-        <p class="hero-sub">
-          Upload your Excel. Auto-generate shifts. Check section, machine, and role coverage before the day starts.
-          Built for factories, converting plants, and multi-section teams.
-        </p>
+        <div class="badge" data-i18n="badge">Plant-floor shift & manpower · by VKS Tech</div>
+        <h1 data-i18n-html-key="heroTitleHtml">Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
+        <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts. Check department, machine, and role coverage before the day starts. Built for factories, converting plants, and multi-section teams.</p>
         <div class="hero-actions">
-          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener">Start free trial</a>
-          <a class="btn btn-white btn-lg" href="#how">See how it works</a>
+          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Start free trial</a>
+          <a class="btn btn-white btn-lg" href="#how" data-i18n="seeHow">See how it works</a>
         </div>
         <div class="hero-meta">
           <span><strong>Excel → roster</strong> in minutes</span>
@@ -426,7 +424,7 @@
           </div>
           <table class="ui-table">
             <thead>
-              <tr><th>Section</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
+              <tr><th data-i18n="department">Department</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
             </thead>
             <tbody>
               <tr><td>Print · M-1</td><td>D</td><td>D</td><td>N</td><td><span class="pill ok">OK</span></td></tr>
@@ -816,10 +814,10 @@
         </div>
         <div class="foot-col">
           <h4>Product</h4>
-          <a href="#videos">Videos</a>
-        <a href="#features">Features</a>
-          <a href="#how">How it works</a>
-          <a href="#compare">Why Man Power</a>
+          <a href="#videos" data-i18n="navVideos">Videos</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+          <a href="#how" data-i18n="navHow">How it works</a>
+          <a href="#compare" data-i18n="navWhy">Why Man Power</a>
           <a href="app.html">Open app</a>
         </div>
         <div class="foot-col">
@@ -939,5 +937,6 @@
 })();
 </script>
 
+<script src="js/landing-i18n.js"></script>
 </body>
 </html>
