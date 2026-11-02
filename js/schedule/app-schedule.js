@@ -20,7 +20,7 @@ if(_customRangeActive&&_customDateFrom&&_customDateTo)document.getElementById("c
     const lab=String(d.getDate()).padStart(2,"0")+"-"+d.toLocaleString("en",{month:"short"})+"-"+String(d.getFullYear()).slice(2);
     dates.push(lab);
   }
-  const headers=["Name","Emp ID","Designation","Weekly Off","Mobile","Section","Machine","Responsibility","Salary(₹/Month)","Joining Date","Date of Birth"].concat(dates);
+  const headers=["Name","Emp ID","Weekly Off","Mobile","Department","Machine","Designation","Responsibility","Salary(₹/Month)","Joining Date","Date of Birth"].concat(dates);
   const patterns=[["D","D","D","D","D","O","O"],["N","N","N","N","N","O","O"],["D","D","O","N","N","N","O"],["O","D","D","D","D","D","O"],["D","D","D","O","N","N","N"],["N","N","O","D","D","D","D"],["D","O","D","D","D","D","O"],["O","O","D","D","D","D","D"],["D","D","D","D","O","O","D"],["N","N","N","O","O","D","D"]];
   const people=[
     ["RAHUL MEHTA","41001201","Team Member","MON","9810011223","Production A","Line-1","Operation","32000","12-03-2024","15-08-1995"],

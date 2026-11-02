@@ -50,9 +50,9 @@ async function _downloadAoAAsXlsx(filename, rows, sheetName){
 }
 
 function downloadTeamExcelTemplate(){
-  // IMPORTANT: Section column is required for Home section-wise view & min staff
+  // IMPORTANT: Section column is required for Home department-wise view & min staff
   // Order matches Schedule Download Excel (uniform)
-  const headers = ['Name','Emp ID','Designation','Weekly Off','Mobile','Section','Machine','Responsibility','Salary(₹/Month)','Joining Date','Date of Birth'];
+  const headers = ['Name','Emp ID','Weekly Off','Mobile','Department','Machine','Designation','Responsibility','Salary(₹/Month)','Joining Date','Date of Birth'];
   const sample = [
     ['RAHUL MEHTA','41001201','Team Member','MON','9810011223','Production A','Line-1','Operation','32000','12-03-2024','15-08-1995'],
     ['PRIYA SHARMA','41001202','Sr. Team Member','WED','9823344556','Production A','Line-1','Setup','38500','01-06-2023','22-11-1992'],
@@ -147,7 +147,7 @@ async function handleTeamExcelFile(file){
       const salaryRaw=colMap.salary>=0?(r[colMap.salary]||'').toString().trim().replace(/[^0-9.]/g,''):'';
       const salary=salaryRaw?parseFloat(salaryRaw):null;
 
-      // Section: MUST use Excel "Section" column (Metalliser / Slitter / MetProd …).
+      // Section: MUST use Excel "Department" (or Section) column (Metalliser / Slitter / MetProd …).
       // Never map Designation (Manager→MGR, Engineer→SUP) into Section.
       let sec = sectionCol || '';
       if(!sec && matched){
@@ -1361,7 +1361,7 @@ const _i18n_HI_EN = {
   'सभी sessions साफ़ करें':                  'Clear all sessions',
   'सीखें & Grow करें':                       'Learn & Grow',
   'से तारीख':                                'From Date',
-  'सेक्शन':                                  'Section',
+  'सेक्शन':                                  'Department',
   'स्थिति':                                  'Status',
   'हो गया':                                   'Done',
   '⏳ Access Extend करें':                    '⏳ Extend Access',
@@ -1440,13 +1440,13 @@ const _i18n_HI_EN = {
   'मोबाइल नंबर (10 digits)':                 'Mobile number (10 digits)',
   'या कारण लिखें...':                         'Or write reason...',
   'सभी जरूरी details यहाँ लिखें...':          'Write all required details here...',
-  '📌 Section का नाम':                        '📌 Section Name',
+  '📌 Section का नाम':                        '📌 Department Name',
   // ── Schedule / Print / Shift settings (UI polish) ──
   '📋 Schedule बनाएं': '📋 Create Schedule',
   '🖨️ प्रिंट': '🖨️ Print',
   '🖨️ प्रिंट करें': '🖨️ Print',
   'प्रिंट करें': 'Print',
-  'Print — Section चुनें': 'Print — Choose Sections',
+  'Print — Section चुनें': 'Print — Choose Departments',
   'जो sections print करनी हों उन्हें tick करें': 'Tick the sections you want to print',
   '✅ सभी': '✅ All',
   '☐ कोई नहीं': '☐ None',
@@ -1506,10 +1506,10 @@ const _i18n_HI_EN = {
   'सभी codes (D/N/A/B/C) schedule पर manually select हो सकते हैं — timing यहाँ से आती है।': 'All codes (D/N/A/B/C) can still be selected manually on the schedule — timings come from here.',
   '📉 Minimum Staff (संख्या कम होने पर highlight)': '📉 Minimum Staff (highlight when count is low)',
   'दिन की गिनती इस संख्या से कम हो तो summary में लाल/⚠️ दिखेगा।': 'If the day count is below this number, the summary shows red / ⚠️.',
-  'Section min': 'Section min',
+  'Section min': 'Department min',
   'Slitter min': 'Slitter min',
   'Supervisor min': 'Supervisor min',
-  '🏭 Machines / Sections': '🏭 Machines / Sections',
+  '🏭 Machines / Sections': '🏭 Machines / Departments',
   '✂️ Slitter Machines': '✂️ Slitter Machines',
   '+ Section जोड़ें': '+ Add Metalliser',
   '+ SLitter जोड़ें': '+ Add Slitter',
@@ -1615,7 +1615,7 @@ const _i18n_HI_EN = {
   'Team': 'Team',
 
   // ── Schedule Builder / mixed labels (EN mode) ──
-  'सभी Section': 'All Sections',
+  'सभी Section': 'All Departments',
   'महीना चुनें': 'Select Month',
   'तारीख रेंज': 'Date Range',
   '📅 पूरा महीना': '📅 Full Month',

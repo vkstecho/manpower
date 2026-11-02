@@ -25,8 +25,8 @@ function openScheduleBuilder(){
   const lb = {
     title: (typeof L==='function')?L('📋 Schedule Builder','📋 Schedule Builder'):'📋 Schedule Builder',
     month: (typeof L==='function')?L('महीना चुनें','Select Month'):'Select Month',
-    section: (typeof L==='function')?L('Section','Section'):'Section',
-    allSec: (typeof L==='function')?L('सभी Section','All Sections'):'All Sections',
+    section: (typeof L==='function')?L('विभाग','Department'):'Section',
+    allSec: (typeof L==='function')?L('सभी विभाग','All Departments'):'All Sections',
     dateRange: (typeof L==='function')?L('तारीख रेंज','Date Range'):'Date Range',
     fullMonth: (typeof L==='function')?L('📅 पूरा महीना','📅 Full Month'):'📅 Full Month',
     customDates: (typeof L==='function')?L('🗓️ कस्टम तारीख','🗓️ Custom Dates'):'🗓️ Custom Dates',
@@ -329,9 +329,9 @@ async function loadScheduleBuilder(){
       </div>
       <div id="sbPrimaryFilterRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px">Filter</span>
-        <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Section</button>
+        <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Department</button>
+        <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machines</button>
         <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
-        <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machine</button>
         <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
       </div>
       <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px;min-height:28px"></div>
@@ -344,11 +344,12 @@ async function loadScheduleBuilder(){
           🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
         </button>
         <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
-          title="Auto Generate sequence: Section / Designation / Machine"
+          title="Auto Generate sequence: Department / Machine / Designation / Responsibility"
           style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:150px">
-          <option value="section">Sequence: Section</option>
-          <option value="designation">Sequence: Designation</option>
+          <option value="section">Sequence: Department</option>
           <option value="machine">Sequence: Machine</option>
+          <option value="designation">Sequence: Designation</option>
+          <option value="responsibility">Sequence: Responsibility</option>
         </select>
         <button type="button" onclick="autoGenSchedule('${monthKey}')"
           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
@@ -1290,10 +1291,24 @@ function autoGenSchedule(monthKey){
 
   // Active rotation codes from Shift Settings (e.g. D+N or A+B+C)
   const configShiftCodes = (typeof getActiveRotationCodes==='function') ? getActiveRotationCodes() : ['D','N'];
-  // 2-shift: D→N→D…  3-shift: 1st→3rd→2nd (A→C→B) as before
-  const rotationOrder = configShiftCodes.length===3
-    ? [configShiftCodes[0], configShiftCodes[2], configShiftCodes[1]]
-    : configShiftCodes.slice();
+  // Per-manager Auto rotation mode (Shift Settings):
+  //  sequential = A→B→C or A→B→C→D (natural tick order)
+  //  plant      = A→C→B (3) or A→D→C→B (4) — classic plant interleave (default)
+  const _rotMode = (function(){
+    try{
+      const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+      const m = String(cfg.autoRotationMode || cfg.rotationMode || 'plant').toLowerCase();
+      return (m === 'sequential' || m === 'abc' || m === 'order') ? 'sequential' : 'plant';
+    }catch(e){ return 'plant'; }
+  })();
+  const rotationOrder = (function(codes, mode){
+    const c = (codes || []).slice();
+    if(c.length <= 2 || mode === 'sequential') return c;
+    // plant: 1st → last → … → 2nd  e.g. A,B,C → A,C,B | A,B,C,D → A,D,C,B
+    const out = [c[0]];
+    for(let i = c.length - 1; i >= 1; i--) out.push(c[i]);
+    return out;
+  })(configShiftCodes, _rotMode);
   if(!rotationOrder.length){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
 
   const nextShiftAfter = (lastSh)=>{
@@ -1541,10 +1556,10 @@ function _buildCoverageReport(yr, mo, daysInMonth){
     : { section:true, machine:false, responsibility:false, designation:false };
   const kinds = [];
   const kindMeta = [
-    {kind:'section', title: L('सेक्शन','Section')},
+    {kind:'section', title: L('विभाग','Department')},
     {kind:'machine', title: L('मशीन','Machine')},
-    {kind:'responsibility', title: L('ज़िम्मेदारी','Responsibility')},
-    {kind:'designation', title: L('पद','Designation')}
+    {kind:'designation', title: L('पद','Designation')},
+    {kind:'responsibility', title: L('ज़िम्मेदारी','Responsibility')}
   ];
   kindMeta.forEach(meta=>{
     const on = fieldActive[meta.kind];

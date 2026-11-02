@@ -71,11 +71,11 @@ function _renderShiftSettingsModal(){
   if(d.minSup==null) d.minSup = 2;
   if(!d.minBySec || typeof d.minBySec !== 'object') d.minBySec = {};
   if(!d.minByField || typeof d.minByField !== 'object') d.minByField = { section:{}, machine:{}, responsibility:{}, designation:{} };
-  ['section','machine','responsibility','designation'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
+  ['section','machine','designation','responsibility'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
   if(!d.minFieldActive || typeof d.minFieldActive !== 'object'){
     d.minFieldActive = { section:true, machine:false, responsibility:false, designation:false };
   }
-  ['section','machine','responsibility','designation'].forEach(k=>{
+  ['section','machine','designation','responsibility'].forEach(k=>{
     if(d.minFieldActive[k] == null) d.minFieldActive[k] = (k === 'section');
   });
   // Ensure each machine has an entry (default from group min) — legacy
@@ -121,6 +121,23 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Unticked codes are hidden everywhere on Schedule.
   </div>
 
+  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:4px 0 6px">🔄 Auto Schedule — Rotation Order</div>
+  <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.5">
+    Your team only. After each Weekly Off, Auto moves to the next code in this order.
+  </div>
+  <div style="margin-bottom:14px">
+    <select id="ss_autoRotationMode" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700"
+      onchange="try{_shiftDraft.autoRotationMode=this.value}catch(e){}">
+      <option value="plant" ${(d.autoRotationMode||'plant')==='plant'?'selected':''}>Plant style — A→C→B · A→D→C→B (default)</option>
+      <option value="sequential" ${d.autoRotationMode==='sequential'?'selected':''}>Sequential — A→B→C · A→B→C→D</option>
+    </select>
+    <div style="font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.4">
+      2-shift (D/N): both modes are the same (D→N→D…).<br>
+      3-shift: Plant = A→C→B · Sequential = A→B→C.<br>
+      4-shift: Plant = A→D→C→B · Sequential = A→B→C→D.
+    </div>
+  </div>
+
   <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 6px">📉 Minimum Staff — Auto Schedule &amp; warnings</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
     Set min headcount per Excel value (e.g. Xsec, Yres). <b>0 = skip</b> that value.<br>
@@ -133,10 +150,10 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
     ${(()=>{
-      const labels={section:'Section',machine:'Machine',responsibility:'Responsibility',designation:'Designation'};
+      const labels={section:'Department',machine:'Machine',designation:'Designation',responsibility:'Responsibility'};
       const colors={section:'#f97316',machine:'#38bdf8',responsibility:'#a78bfa',designation:'#4ade80'};
       if(!_shiftDraft.minFieldActive) _shiftDraft.minFieldActive={section:true,machine:false,responsibility:false,designation:false};
-      return ['section','machine','responsibility','designation'].map(k=>{
+      return ['section','machine','designation','responsibility'].map(k=>{
         const checked = !!_shiftDraft.minFieldActive[k];
         const c = colors[k];
         return '<label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;border:1.5px solid '+(checked?c:'var(--border2)')+';background:'+(checked?c+'22':'var(--card)')+';cursor:pointer;font-size:12px;font-weight:800;color:'+(checked?c:'#94a3b8')+'">'+
@@ -145,7 +162,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
       }).join('');
     })()}
   </div>
-  <div style="font-size:11px;font-weight:800;color:#f97316;margin:8px 0 6px">Sections <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
+  <div style="font-size:11px;font-weight:800;color:#f97316;margin:8px 0 6px">Departments <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minSections" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('section')}</div>
   <div style="font-size:11px;font-weight:800;color:#38bdf8;margin:8px 0 6px">Machines <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minMachines" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('machine')}</div>
@@ -431,6 +448,10 @@ async function _saveShiftSettings(){
   const activeCount = (_shiftDraft.shifts||[]).filter(s=>s.active!==false).length;
   const workActive=(_shiftDraft.shifts||[]).filter(s=>s.active!==false&&['D','N','A','B','C'].includes(String(s.code||'').toUpperCase())).length; if(workActive < 1){ toast(L('⚠️ कम से कम 1 कार्य shift tick करें (D/N/A/B/C)','⚠️ Tick at least 1 work shift (D/N/A/B/C)')); return; }
   _shiftDraft.shiftCount = activeCount;
+  try{
+    const m = String(_shiftDraft.autoRotationMode||'plant').toLowerCase();
+    _shiftDraft.autoRotationMode = (m==='sequential'||m==='abc'||m==='order') ? 'sequential' : 'plant';
+  }catch(e){ _shiftDraft.autoRotationMode = 'plant'; }
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
@@ -440,7 +461,7 @@ async function _saveShiftSettings(){
   }
   if(_shiftDraft.minFieldActive.designation == null) _shiftDraft.minFieldActive.designation = false;
   if(_shiftDraft.minByField && typeof _shiftDraft.minByField === 'object'){
-    ['section','machine','responsibility','designation'].forEach(k=>{
+    ['section','machine','designation','responsibility'].forEach(k=>{
       if(!_shiftDraft.minByField[k]) _shiftDraft.minByField[k] = {};
       Object.keys(_shiftDraft.minByField[k]).forEach(v=>{
         _shiftDraft.minByField[k][v] = Math.max(0, Number(_shiftDraft.minByField[k][v])||0);
@@ -666,8 +687,8 @@ function openEditProfileModal(){
       <input class="inp-field" id="profileDesigInput" value="${escHtml(esc(emp.designation||''))}" maxlength="40"></div>
     <div class="field"><label>${L('Emp ID','Emp ID')}</label>
       <input class="inp-field" id="profileEmpIdInput" value="${escHtml(esc(emp.empId||SESSION.empId||''))}" maxlength="20"></div>
-    <div class="field"><label>${L('सेक्शन','Section')}</label>
-      <input class="inp-field" id="profileSecInput" value="${escHtml(esc(emp.sec||''))}" maxlength="40" placeholder="from Excel Section"></div>
+    <div class="field"><label>${L('सेक्शन','Department')}</label>
+      <input class="inp-field" id="profileSecInput" value="${escHtml(esc(emp.sec||''))}" maxlength="40" placeholder="from Excel Department"></div>
     <div class="field"><label>${L('मशीन','Machine')}</label>
       <input class="inp-field" id="profileMcInput" value="${esc(emp.mc||emp.machine||'')}" maxlength="40"></div>
     <div class="field"><label>${L('ज़िम्मेदारी','Responsibility')}</label>
@@ -1712,7 +1733,7 @@ async function showProfile(){
           [L('सैलरी','Salary'), (function(){ const n=er.salary??er.monthlySalary; if(n==null||n==='')return '—'; const num=Number(String(n).replace(/[^\d.]/g,'')); return isNaN(num)?('₹ '+n):('₹ '+num.toLocaleString('en-IN')); })()],
           [L('वीकली ऑफ','Weekly Off'), er.woff||'—'],
           [L('पद','Designation'), er.designation||'—'],
-          [L('सेक्शन','Section'), secLabel||er.sec||'—'],
+          [L('सेक्शन','Department'), secLabel||er.sec||'—'],
         ];
         return '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left">'
           +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(L('मेरी जानकारी','MY DETAILS'))+'</div>'

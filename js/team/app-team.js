@@ -100,7 +100,7 @@ function _renderTeamImpl(search=''){
     if(listEl && listEl.parentNode) listEl.parentNode.insertBefore(tc, listEl);
   }
 
-  // Build groups: Excel Section → Responsibility → Name (all collapsed by default)
+  // Build groups: Excel Department → Responsibility → Name (all collapsed by default)
   const secMap = new Map(); // secLabel -> Map(respLabel -> emps[])
   list.forEach(e=>{
     const sec = ((typeof getEmpSection==='function') ? getEmpSection(e) : '') || String(e.section||e.sec||'').trim() || ((typeof L==='function')?L('अन्य','Other'):'Other');
@@ -521,7 +521,7 @@ async function exportSalaryCost(){
       aoa.push(['Generated', genAt, 'By', d.generatedBy || SESSION.name || '']);
       aoa.push(['Working days basis', d.workingDays || 26]);
       aoa.push([]);
-      aoa.push(['#','Employee Code','Name','Mobile','Section','Monthly Salary (₹)','Per Day (₹)','Ab Days','Ab Deduction (₹)','Cost / Net Payable (₹)']);
+      aoa.push(['#','Employee Code','Name','Mobile','Department','Monthly Salary (₹)','Per Day (₹)','Ab Days','Ab Deduction (₹)','Cost / Net Payable (₹)']);
       d.perEmployee.forEach((r,i)=>{
         aoa.push([
           i+1,

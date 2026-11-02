@@ -53,7 +53,7 @@ async function addEmployee(){
   if(!sectionRaw){ toast(L('⚠️ Section जरूरी है','⚠️ Section is required')); return; }
   if(!mc){ toast(L('⚠️ मशीन चुनें','⚠️ Select a Machine')); return; }
   // Only Admin can add Manager-section employees
-  if(sec==='MGR' && !isAdmin()){ toast(L('❌ Manager section में सिर्फ Admin जोड़ सकते हैं','❌ Only Admin can add to Manager section')); return; }
+  if(sec==='MGR' && !isAdmin()){ toast(L('❌ Manager department में सिर्फ Admin जोड़ सकते हैं','❌ Only Admin can add to Manager department')); return; }
   // Duplicate employee code
   const codeClash = (getEmps()||[]).find(e => e.status !== 'resigned' && e.empId && String(e.empId).trim().toUpperCase() === code.toUpperCase());
   if(codeClash){
@@ -1119,7 +1119,7 @@ function _mapExcelColumns(headerRow){
     mobile:      ['mobile','mobile no','mobile number','phone','phone no','phone number','contact','contact no','मोबाइल','mobile no.'],
     designation: ['designation','desig','role','position','post','पद'],
     machine:     ['machine','mc','machine name','section machine','मशीन'],
-    section:     ['section','sec','department section','dept section','सेक्शन','area','unit','dept','department'],
+    section:     ['department','dept','section','sec','department section','dept section','सेक्शन','विभाग','area','unit'],
     responsibility: ['responsibility','responsibilities','duty','job'],
     doj:         ['joining date','joining','date of joining','doj','join date'],
     dob:         ['date of birth','dob','birth date','d.o.b','birthdate'],
