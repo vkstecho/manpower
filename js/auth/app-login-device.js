@@ -678,6 +678,7 @@ function _stopWebOtpListen(){
  * @param {function} [onFilled] called with 6-digit code
  */
 function _startWebOtpListen(inputId, onFilled){
+  try{ window._startWebOtpListen = _startWebOtpListen; }catch(e){}
   _stopWebOtpListen();
   const el = document.getElementById(inputId || 'otpInput');
   if(el){
@@ -685,10 +686,16 @@ function _startWebOtpListen(inputId, onFilled){
       el.setAttribute('autocomplete', 'one-time-code');
       el.setAttribute('inputmode', 'numeric');
       el.setAttribute('name', 'one-time-code');
+      el.setAttribute('type', 'text');
+      el.setAttribute('pattern', '[0-9]*');
+      el.setAttribute('enterkeyhint', 'done');
+      // focus so iOS / Android keyboard can offer SMS OTP
+      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 200);
     }catch(e){}
   }
-  // Web OTP API (Chrome Android 84+, secure context)
+  // Web OTP API (Chrome/Edge Android, HTTPS only). SMS should include: @your-domain #123456
   if(typeof window.OTPCredential === 'undefined' || !navigator.credentials || !window.isSecureContext){
+    console.info('[WebOTP] API not available — keyboard autocomplete may still work');
     return;
   }
   try{
@@ -704,11 +711,11 @@ function _startWebOtpListen(inputId, onFilled){
       if(input){
         input.value = code;
         input.dispatchEvent(new Event('input', { bubbles:true }));
+        input.dispatchEvent(new Event('change', { bubbles:true }));
       }
-      toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS'));
+      try{ toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS')); }catch(e){}
       if(typeof onFilled === 'function') onFilled(code);
       else if(code.length === 6){
-        // Auto-verify after short delay so UI updates
         setTimeout(()=>{
           try{
             if(document.getElementById('otpLoginOverlay')?.style.display && document.getElementById('otpLoginOverlay').style.display !== 'none' && typeof _verifyDeviceOTP==='function')
@@ -716,10 +723,9 @@ function _startWebOtpListen(inputId, onFilled){
             else if(typeof _verifyOTP==='function')
               _verifyOTP();
           }catch(e){}
-        }, 300);
+        }, 250);
       }
     }).catch(err=>{
-      // AbortError = user navigated away / we cancelled — ignore
       if(err && err.name === 'AbortError') return;
       console.warn('[WebOTP]', err && err.message);
     });

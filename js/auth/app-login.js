@@ -294,6 +294,7 @@ async function _sendOTP(isResend){
     const sentEl=document.getElementById('otpSentTo');
     if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
     document.getElementById('otpInput')?.focus();
+    setTimeout(function(){ try{ _startWebOtpListen('otpInput'); }catch(e){} }, 400);
     _startResendTimer();
     _startWebOtpListen('otpInput', code=>{
       if(code && code.length===6) setTimeout(()=>{ try{ _verifyOTP(); }catch(e){} }, 250);
