@@ -7,7 +7,7 @@
 // openPrintModal → user picks sections → _execPrint()
 // ─────────────────────────────────────────────────────────
 function printSched(){
-  // Print modal = ONLY current on-screen view groups (Department / Machine / Resp / Designation)
+  // Print modal = ONLY current on-screen view groups (Section / Machine / Resp / Designation)
   const roster = getSchedFilteredEmps().filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team');
   const viewGroups = _buildSchedDisplayGroups(roster);
   const mode = _schedGroupMode();
@@ -328,8 +328,7 @@ async function exportSchedExcel(){
   const lbl = (document.getElementById('schedLbl')||{}).textContent || '';
   const genAt = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
 
-  // Column sequence (same as Team template + Schedule template):
-  // Name | Emp ID | Weekly Off | Mobile | Department | Machine | Designation | Responsibility | Salary | Joining | DOB | [dates…]
+  // Column sequence matches Manager's working Excel (Name…Section…DOB then dates)
   const FIXED = [
     'Name','Emp ID','Weekly Off','Mobile','Department',
     'Machine','Designation','Responsibility','Salary (₹/month)','Joining Date','Date of Birth'
@@ -362,7 +361,7 @@ async function exportSchedExcel(){
     const shifts = dates.map(d => {
       try{ return getShift(e, d) || ''; }catch(err){ return ''; }
     });
-    // Order: Name, Emp ID, Weekly Off, Mobile, Department, Machine, Designation, Responsibility, Salary, Joining Date, Date of Birth, [dates…]
+    // Order: Name, Emp ID, Designation, Weekly Off, Mobile, Section, Machine, Responsibility, Salary, Joining Date, Date of Birth, [dates…]
     return [
       e.name||'',
       e.empId||'',

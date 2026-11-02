@@ -90,11 +90,7 @@ function openBulkImportTeam(){
 }
 
 function downloadBulkImportTemplate(){
-  // Column order (same as Schedule template + Download Excel):
-  // Name | Emp ID | Weekly Off | Mobile | Department | Machine | Designation | Responsibility | Salary | Joining Date | Date of Birth
-  const csv='Name,Emp ID,Weekly Off,Mobile,Department,Machine,Designation,Responsibility,Salary (₹/month),Joining Date,Date of Birth\n'+
-    'RAM KUMAR,30001001,Sunday,9876543210,Production,Line-1,Operator,Operation,25000,01-04-2024,15-06-1995\n'+
-    'SHYAM LAL,30001002,Monday,,Warehouse,ALL,Supervisor,Quality Check,,,\n';
+  const csv='Name,Emp ID,Weekly Off,Mobile,Department,Machine,Designation,Responsibility,Salary (₹/month),Joining Date,Date of Birth\n'+'RAM KUMAR,30001001,Sunday,9876543210,Production,Line-1,Operator,Operation,25000,01-04-2024,15-06-1995\n'+'SHYAM LAL,30001002,Monday,,Warehouse,ALL,Supervisor,Quality Check,,,\n';
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -174,7 +170,7 @@ function _isDateHeaderCol(key){
   if(!s) return false;
   // Skip known non-date employee columns
   const lower = s.toLowerCase();
-  if(/^(name|emp|e\s*code|code|id|designation|weekly|mobile|phone|joining|birth|dob|machine|resp|salary|section|department|dept)/i.test(lower)) return false;
+  if(/^(name|emp|e\s*code|code|id|designation|weekly|mobile|phone|joining|birth|dob|machine|resp|salary|section)/i.test(lower)) return false;
   // 01-Jan-26, 1-Jan-2026, 01/01/2026, 2026-01-01, 01-Jan-2025 … up to 2+ years of columns
   if(/^\d{1,2}[-/ .](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .]\d{2,4}$/i.test(s)) return true;
   if(/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
