@@ -121,20 +121,22 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Unticked codes are hidden everywhere on Schedule.
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:4px 0 6px">🔄 Auto Schedule — Rotation Order</div>
+  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:4px 0 6px">🔄 Auto Schedule — Rotation Sequence</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.5">
-    Your team only. After each Weekly Off, Auto moves to the next code in this order.
+    Your team only. After each Weekly Off, Auto moves to the <b>next code in this order</b>.
+    Put shift codes in the boxes (e.g. A → D → B → C). Use 2, 3 or 4 boxes.
   </div>
   <div style="margin-bottom:14px">
-    <select id="ss_autoRotationMode" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700"
-      onchange="try{_shiftDraft.autoRotationMode=this.value}catch(e){}">
-      <option value="plant" ${(d.autoRotationMode||'plant')==='plant'?'selected':''}>Plant style — A→C→B · A→D→C→B (default)</option>
-      <option value="sequential" ${d.autoRotationMode==='sequential'?'selected':''}>Sequential — A→B→C · A→B→C→D</option>
-    </select>
-    <div style="font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.4">
-      2-shift (D/N): both modes are the same (D→N→D…).<br>
-      3-shift: Plant = A→C→B · Sequential = A→B→C.<br>
-      4-shift: Plant = A→D→C→B · Sequential = A→B→C→D.
+    <div id="ss_rotSeqWrap" style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:8px"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+      <button type="button" class="cancel-btn" style="padding:6px 10px;font-size:11px" onclick="_ssRotSeqPreset('sequential')">A→B→C→D</button>
+      <button type="button" class="cancel-btn" style="padding:6px 10px;font-size:11px" onclick="_ssRotSeqPreset('plant')">A→D→C→B</button>
+      <button type="button" class="cancel-btn" style="padding:6px 10px;font-size:11px" onclick="_ssRotSeqPreset('adb')">A→D→B→C</button>
+      <button type="button" class="cancel-btn" style="padding:6px 10px;font-size:11px" onclick="_ssRotSeqAddBox()">+ box</button>
+    </div>
+    <div style="font-size:10px;color:#94a3b8;line-height:1.4">
+      Examples: <b>A,B,C</b> · <b>A,C,B</b> · <b>A,D,B,C</b> · <b>A,B,D,C</b> · <b>D,N</b><br>
+      Only ticked work shifts (A/B/C/D or D/N) are used by Auto Schedule.
     </div>
   </div>
 
@@ -145,7 +147,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Example: only Responsibility ON + min for Xres → only Xres gaps are reported.
   </div>
   <div style="margin-bottom:12px;max-width:160px">
-    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter overview)</div>
+    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default for All chip (whole team overview)</div>
     <input type="number" min="0" max="50" value="${d.minAll!=null?d.minAll:4}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minAll=Number(this.value)||0">
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -302,6 +304,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ Save करें</button>
     <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">${L('रद्द करें','Cancel')}</button>
   </div>`);
+  setTimeout(function(){ try{ if(typeof _ssRotSeqInit==='function') _ssRotSeqInit(); }catch(e){} }, 50);
 }
 
 
@@ -449,9 +452,19 @@ async function _saveShiftSettings(){
   const workActive=(_shiftDraft.shifts||[]).filter(s=>s.active!==false&&['D','N','A','B','C'].includes(String(s.code||'').toUpperCase())).length; if(workActive < 1){ toast(L('⚠️ कम से कम 1 कार्य shift tick करें (D/N/A/B/C)','⚠️ Tick at least 1 work shift (D/N/A/B/C)')); return; }
   _shiftDraft.shiftCount = activeCount;
   try{
-    const m = String(_shiftDraft.autoRotationMode||'plant').toLowerCase();
-    _shiftDraft.autoRotationMode = (m==='sequential'||m==='abc'||m==='order') ? 'sequential' : 'plant';
-  }catch(e){ _shiftDraft.autoRotationMode = 'plant'; }
+    // Read custom rotation sequence from boxes
+    if(typeof window._ssRotSeqRead==='function'){
+      const seq = window._ssRotSeqRead();
+      if(seq && seq.length){
+        _shiftDraft.autoRotationSequence = seq;
+        _shiftDraft.autoRotationMode = 'custom';
+      }
+    }
+    const m = String(_shiftDraft.autoRotationMode||'custom').toLowerCase();
+    if(m!=='custom' && m!=='sequential' && m!=='plant'){
+      _shiftDraft.autoRotationMode = 'custom';
+    }
+  }catch(e){ /* keep existing sequence */ }
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
