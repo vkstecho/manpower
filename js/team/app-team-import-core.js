@@ -80,7 +80,7 @@ function openBulkImportTeam(){
   <div class="modal-title">📊 Import Full Team from Excel</div>
   <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">Upload Excel/CSV — columns in <b>any order</b>. Match by header name (case-insensitive).<br>
     <b style="color:var(--text)">Minimum:</b> Name + Emp ID/E Code (2 columns is enough to start).<br>
-    <b style="color:var(--text)">Optional:</b> Section, Designation, Machine, Responsibility, Mobile, Salary, Weekly Off, Joining Date, Date of Birth, and daily shift columns (e.g. 01-09-2026).<br>
+    <b style="color:var(--text)">Optional:</b> Department, Machine, Designation, Responsibility, Mobile, Salary, Weekly Off, Joining Date, Date of Birth, and daily shift columns (e.g. 01-09-2026).<br>
     Only columns present in your file are updated — you can upload just 3 columns if you want.</div>
   <button class="cancel-btn" style="margin-bottom:12px" onclick="downloadBulkImportTemplate()">⬇️ Sample Template Download करें</button>
   <input type="file" id="bulkImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBulkImportFile(this.files[0])">
@@ -90,7 +90,11 @@ function openBulkImportTeam(){
 }
 
 function downloadBulkImportTemplate(){
-  const csv='Name,Emp ID,Designation,Weekly Off,Mobile,Section,Machine,Responsibility,Salary (₹/month),Joining Date,Date of Birth\nRAM KUMAR,30001001,Line-1,Operator,M-1,Operation,25000,9876543210,01-04-2024,Sunday,15-06-1995\nSHYAM LAL,30001002,Warehouse,Supervisor,ALL,Quality Check,,,,Monday,\n';
+  // Column order (same as Schedule template + Download Excel):
+  // Name | Emp ID | Weekly Off | Mobile | Department | Machine | Designation | Responsibility | Salary | Joining Date | Date of Birth
+  const csv='Name,Emp ID,Weekly Off,Mobile,Department,Machine,Designation,Responsibility,Salary (₹/month),Joining Date,Date of Birth\n'+
+    'RAM KUMAR,30001001,Sunday,9876543210,Production,Line-1,Operator,Operation,25000,01-04-2024,15-06-1995\n'+
+    'SHYAM LAL,30001002,Monday,,Warehouse,ALL,Supervisor,Quality Check,,,\n';
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -170,7 +174,7 @@ function _isDateHeaderCol(key){
   if(!s) return false;
   // Skip known non-date employee columns
   const lower = s.toLowerCase();
-  if(/^(name|emp|e\s*code|code|id|designation|weekly|mobile|phone|joining|birth|dob|machine|resp|salary|section)/i.test(lower)) return false;
+  if(/^(name|emp|e\s*code|code|id|designation|weekly|mobile|phone|joining|birth|dob|machine|resp|salary|section|department|dept)/i.test(lower)) return false;
   // 01-Jan-26, 1-Jan-2026, 01/01/2026, 2026-01-01, 01-Jan-2025 … up to 2+ years of columns
   if(/^\d{1,2}[-/ .](?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .]\d{2,4}$/i.test(s)) return true;
   if(/^\d{1,2}[-/]\d{1,2}[-/]\d{2,4}$/.test(s)) return true;
@@ -298,7 +302,7 @@ function _processBulkImportRows(rows){
     const code=(_findCol(row,['emp id','empid','e code','ecode','emp code','employee code','employee id','code','id'])||'').toString().trim();
     const designation=(_findCol(row,['designation','position','role','desig'])||'').toString().trim();
     const machine=(_findCol(row,['machine','mc','machine name','मशीन'])||'').toString().trim();
-    const sectionCol=(_findCol(row,['section','sec','department section','सेक्शन','area','unit'])||'').toString().trim();
+    const sectionCol=(_findCol(row,['department','dept','section','sec','department section','सेक्शन','विभाग','area','unit'])||'').toString().trim();
     const resp=(_findCol(row,['responsibility','resp'])||'').toString().trim();
     const salaryRaw=(_findCol(row,['salary(₹/month)','salary(₹/month)','salary (₹/month)','salary (rs/month)','monthly salary','salary'])||'').toString().trim().replace(/[^0-9.]/g,'');
     let mobile=(_findCol(row,['mobile','mobile number','phone','phone number','contact'])||'').toString().trim().replace(/[^0-9]/g,'');
@@ -706,13 +710,13 @@ function _resolveDynField(selectId, otherInputId){
 function _dynFieldHtml(field, selectId, otherInputId, otherWrapId, selected, required){
   const en = (typeof _lang!=='undefined' && _lang!=='hi');
   const labels = {
-    section: en?'Section':'सेक्शन',
+    section: en?'Department':'विभाग',
     machine: en?'Machine':'मशीन',
     responsibility: en?'Responsibility':'ज़िम्मेदारी',
     designation: en?'Designation':'पद'
   };
   const placeholders = {
-    section: en?'Type section name':'सेक्शन लिखें',
+    section: en?'Type department name':'विभाग लिखें',
     machine: en?'Type machine name':'मशीन लिखें',
     responsibility: en?'Type responsibility':'ज़िम्मेदारी लिखें',
     designation: en?'Type designation':'पद लिखें'

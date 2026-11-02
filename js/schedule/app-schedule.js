@@ -1039,3 +1039,161 @@ window.saveAdminTeamSize = saveAdminTeamSize;
   if(document.readyState==='complete') setTimeout(apply, 500);
   else window.addEventListener('load', function(){ setTimeout(apply, 500); });
 })();
+
+/* ── Minimum Manpower Calculator (Schedule toolbar) ──
+ * Formula (continuous plant / rotating crews):
+ *   total = ceil( onDuty × shiftsPerDay × (7 / workingDays) × (1 + buffer%/100) )
+ *   workingDays = 7 − weeklyOffDays
+ * Optional: onDuty = machines × peoplePerMachine when those are filled.
+ */
+function openMinManpowerCalc(){
+  try{
+    if(typeof canEditSchedule==='function' && !canEditSchedule()){
+      try{ toast(L('❌ Schedule permission नहीं है','❌ No schedule permission')); }catch(e){}
+      return;
+    }
+  }catch(e){}
+
+  let defShifts = 2;
+  try{
+    const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+    const skip = new Set(['O','L','C/O','CO','HLF','AB','H','OD','G']);
+    const active = (cfg.shifts||[]).filter(s=>{
+      if(!s || s.active===false) return false;
+      const c = String(s.code||'').toUpperCase();
+      return c && !skip.has(c);
+    });
+    if(active.length>=1) defShifts = active.length;
+  }catch(e){}
+
+  let currentTeam = 0;
+  try{
+    currentTeam = (typeof getEmps==='function'?getEmps():[])
+      .filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team').length;
+  }catch(e){}
+
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  const T = (hi,enTxt)=> (typeof L==='function'?L(hi,enTxt):(en?enTxt:hi));
+
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">🧮 ${T('न्यूनतम मैनपावर कैलकुलेटर','Minimum Manpower Calculator')}</div>
+  <div style="font-size:12px;color:var(--muted2);line-height:1.55;margin:0 0 12px">
+    ${T('प्लांट चलाने के लिए कितने लोग चाहिए — शिफ्ट, वीकली ऑफ और लीव बफर के साथ।','How many people you need to run the plant — shifts, weekly offs, and leave buffer.')}
+  </div>
+
+  <div style="display:grid;gap:10px">
+    <div class="field">
+      <label>${T('एक शिफ्ट में ऑन-ड्यूटी लोग *','People on duty in one shift *')}</label>
+      <input class="inp-field" type="number" id="mpCalcOnDuty" min="1" step="1" value="10" inputmode="numeric"
+        oninput="_mpCalcLive()" placeholder="e.g. 10">
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px">${T('एक समय पर फ्लोर पर जितने लोग चाहिए','How many people must be present at the same time')}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field">
+        <label>${T('मशीन / लाइन (optional)','Machines / lines (optional)')}</label>
+        <input class="inp-field" type="number" id="mpCalcMachines" min="0" step="1" value="" inputmode="numeric" oninput="_mpCalcLive()" placeholder="0">
+      </div>
+      <div class="field">
+        <label>${T('प्रति मशीन लोग','People per machine')}</label>
+        <input class="inp-field" type="number" id="mpCalcPerMachine" min="0" step="1" value="" inputmode="numeric" oninput="_mpCalcLive()" placeholder="0">
+      </div>
+    </div>
+    <div style="font-size:10px;color:var(--muted2);margin-top:-4px">${T('अगर दोनों भरे → ऑन-ड्यूटी = मशीन × प्रति मशीन','If both filled → on-duty = machines × people/machine')}</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field">
+        <label>${T('शिफ्ट / दिन *','Shifts per day *')}</label>
+        <input class="inp-field" type="number" id="mpCalcShifts" min="1" max="4" step="1" value="${defShifts}" inputmode="numeric" oninput="_mpCalcLive()">
+      </div>
+      <div class="field">
+        <label>${T('वीकली ऑफ (दिन/व्यक्ति)','Weekly offs (days/person)')}</label>
+        <input class="inp-field" type="number" id="mpCalcOffs" min="0" max="3" step="1" value="1" inputmode="numeric" oninput="_mpCalcLive()">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>${T('लीव / अनुपस्थिति बफर %','Leave / absence buffer %')}</label>
+      <input class="inp-field" type="number" id="mpCalcBuffer" min="0" max="50" step="1" value="12" inputmode="numeric" oninput="_mpCalcLive()">
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px">${T('आमतौर पर 10–15% (लीव, ट्रेनिंग, अचानक छुट्टी)','Typically 10–15% (leave, training, sudden absence)')}</div>
+    </div>
+  </div>
+
+  <div id="mpCalcResult" style="margin-top:14px;padding:14px;border-radius:12px;border:1px solid rgba(249,115,22,.35);background:rgba(249,115,22,.08)">
+    <div style="font-size:11px;font-weight:800;color:#fb923c;letter-spacing:.04em;margin-bottom:6px">${T('परिणाम','RESULT')}</div>
+    <div id="mpCalcResultBody" style="font-size:13px;color:var(--text);line-height:1.6">—</div>
+  </div>
+
+  <div style="font-size:11px;color:var(--muted2);margin-top:10px;line-height:1.5">
+    ${T('फॉर्मूला:','Formula:')}
+    <code style="font-size:10px;background:var(--card2);padding:2px 6px;border-radius:6px">ceil( onDuty × shifts × 7/(7−offs) × (1+buffer%) )</code>
+    ${currentTeam?`<div style="margin-top:6px">${T('अभी टीम में','Current team')}: <b>${currentTeam}</b></div>`:''}
+  </div>
+
+  <button type="button" class="submit-btn" style="margin-top:14px;background:linear-gradient(135deg,#f97316,#ea580c)" onclick="_mpCalcLive(true)">${T('गणना करें','Calculate')}</button>
+  <button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">${T('बंद करें','Close')}</button>`);
+
+  setTimeout(function(){ try{ _mpCalcLive(); }catch(e){} }, 50);
+}
+try{ window.openMinManpowerCalc = openMinManpowerCalc; }catch(e){}
+
+function _mpCalcLive(showToast){
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  const T = (hi,enTxt)=> (typeof L==='function'?L(hi,enTxt):(en?enTxt:hi));
+  const num = (id)=>{
+    const el = document.getElementById(id);
+    if(!el) return 0;
+    const v = parseFloat(String(el.value||'').replace(/,/g,''));
+    return isFinite(v) ? v : 0;
+  };
+
+  let onDuty = Math.max(0, num('mpCalcOnDuty'));
+  const machines = Math.max(0, num('mpCalcMachines'));
+  const perMc = Math.max(0, num('mpCalcPerMachine'));
+  if(machines>0 && perMc>0) onDuty = machines * perMc;
+
+  const shifts = Math.max(1, Math.min(6, Math.round(num('mpCalcShifts')||1)));
+  const offs = Math.max(0, Math.min(6, num('mpCalcOffs')));
+  const buffer = Math.max(0, Math.min(100, num('mpCalcBuffer')));
+  const workDays = Math.max(1, 7 - offs);
+  const relief = 7 / workDays;
+  const bufMul = 1 + (buffer/100);
+  const raw = onDuty * shifts * relief * bufMul;
+  const total = Math.ceil(raw);
+
+  let currentTeam = 0;
+  try{
+    currentTeam = (typeof getEmps==='function'?getEmps():[])
+      .filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team').length;
+  }catch(e){}
+
+  const gap = currentTeam ? (total - currentTeam) : null;
+  const body = document.getElementById('mpCalcResultBody');
+  if(body){
+    const lines = [];
+    lines.push(`<div style="font-size:28px;font-weight:900;color:#fb923c;line-height:1.1">${total} <span style="font-size:14px;font-weight:700;color:var(--text)">${T('लोग','people')}</span></div>`);
+    lines.push(`<div style="margin-top:8px;font-size:12px;color:var(--muted2)">
+      ${T('ऑन-ड्यूटी','On-duty')}: <b style="color:var(--text)">${onDuty}</b>
+      &nbsp;·&nbsp; ${T('शिफ्ट','Shifts')}: <b style="color:var(--text)">${shifts}</b>
+      &nbsp;·&nbsp; ${T('रिलीफ','Relief')}: <b style="color:var(--text)">${relief.toFixed(3)}</b> (7/${workDays})
+      &nbsp;·&nbsp; ${T('बफर','Buffer')}: <b style="color:var(--text)">${buffer}%</b>
+    </div>`);
+    lines.push(`<div style="margin-top:6px;font-size:11px;color:var(--muted2)">${T('कच्चा आंकड़ा','Raw')}: ${raw.toFixed(2)} → ${T('राउंड अप','ceil')} ${total}</div>`);
+    if(currentTeam){
+      const gapColor = gap>0 ? '#f87171' : (gap<0 ? '#4ade80' : '#94a3b8');
+      const gapTxt = gap>0
+        ? T(`टीम में ${gap} कम हैं`,`Short by ${gap} vs team`)
+        : (gap<0 ? T(`टीम में ${-gap} अतिरिक्त`,`Team has ${-gap} extra`) : T('टीम बराबर','Team matches'));
+      lines.push(`<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--card2);font-size:12px">
+        ${T('वर्तमान टीम','Current team')}: <b>${currentTeam}</b>
+        &nbsp;→&nbsp; <span style="color:${gapColor};font-weight:800">${gapTxt}</span>
+      </div>`);
+    }
+    body.innerHTML = lines.join('');
+  }
+  if(showToast){
+    try{ toast(T(`✅ न्यूनतम मैनपावर: ${total}`,`✅ Minimum manpower: ${total}`)); }catch(e){}
+  }
+  return total;
+}
+try{ window._mpCalcLive = _mpCalcLive; }catch(e){}
