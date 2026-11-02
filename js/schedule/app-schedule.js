@@ -1135,119 +1135,370 @@ window.saveAdminTeamSize = saveAdminTeamSize;
 
 
 /* ── Minimum Manpower Calculator (Schedule toolbar) ── */
+/* ── Minimum Manpower Calculator — guided wizard ──
+ * Steps: Plant shifts/offs/running days → Machines (process) → Designation
+ *        → Department review → Engineering team → Summary
+ * Process team = machine operators + shared designations + dept adjustments
+ * Engineering team = separate support/maintenance headcount
+ */
+var _mpCalcState = null;
+
+function _mpT(hi, en){ return (typeof L==='function') ? L(hi, en) : hi; }
+
+function _mpCalcDefaults(){
+  var defShifts = 2;
+  try{
+    var cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+    var skip = {O:1,L:1,'C/O':1,CO:1,HLF:1,AB:1,H:1,OD:1};
+    var active = (cfg.shifts||[]).filter(function(s){
+      if(!s || s.active===false) return false;
+      var c = String(s.code||'').toUpperCase();
+      return c && !skip[c];
+    });
+    if(active.length >= 1) defShifts = active.length;
+  }catch(e){}
+  var machines = [], designations = [], departments = [], responsibilities = [];
+  try{
+    if(typeof _teamFieldValues==='function'){
+      machines = _teamFieldValues('machine') || [];
+      designations = _teamFieldValues('designation') || [];
+      departments = _teamFieldValues('section') || [];
+      responsibilities = _teamFieldValues('responsibility') || [];
+    }
+  }catch(e){}
+  var currentTeam = 0;
+  try{
+    currentTeam = (typeof getEmps==='function'?getEmps():[]).filter(function(e){
+      return e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team';
+    }).length;
+  }catch(e){}
+  return {
+    step: 0,
+    shifts: defShifts,
+    weeklyOffs: 1,
+    runningDays: 7,
+    bufferPct: 10,
+    machines: machines.map(function(m){ return { name: m, count: 1, perShift: 1 }; }),
+    designations: designations.map(function(d){ return { name: d, count: 0 }; }),
+    departments: departments.map(function(d){ return { name: d, extra: 0 }; }),
+    responsibilities: responsibilities,
+    engBase: 0,
+    engPerMachine: 0,
+    currentTeam: currentTeam
+  };
+}
+
 function openMinManpowerCalc(){
   try{
     if(typeof canEditSchedule==='function' && !canEditSchedule()){
-      try{ toast(L('❌ Schedule permission नहीं है','❌ No schedule permission')); }catch(e){}
+      try{ toast(_mpT('❌ Schedule permission नहीं है','❌ No schedule permission')); }catch(e){}
       return;
     }
   }catch(e){}
-
-  let defShifts = 2;
-  try{
-    const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
-    const skip = new Set(['O','L','C/O','CO','HLF','AB','H','OD','G']);
-    const active = (cfg.shifts||[]).filter(s=>{
-      if(!s || s.active===false) return false;
-      const c = String(s.code||'').toUpperCase();
-      return c && !skip.has(c);
-    });
-    if(active.length>=1) defShifts = active.length;
-  }catch(e){}
-
-  let currentTeam = 0;
-  try{
-    currentTeam = (typeof getEmps==='function'?getEmps():[])
-      .filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team').length;
-  }catch(e){}
-
-  const T = (hi,enTxt)=> (typeof L==='function'?L(hi,enTxt):hi);
-
-  openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">🧮 ${T('न्यूनतम मैनपावर कैलकुलेटर','Minimum Manpower Calculator')}</div>
-  <div style="font-size:12px;color:var(--muted2);line-height:1.55;margin:0 0 12px">
-    ${T('प्लांट चलाने के लिए कितने लोग चाहिए — शिफ्ट, वीकली ऑफ और लीव बफर के साथ।','How many people you need to run the plant — shifts, weekly offs, and leave buffer.')}
-  </div>
-  <div style="display:grid;gap:10px">
-    <div class="field">
-      <label>${T('एक शिफ्ट में ऑन-ड्यूटी लोग *','People on duty in one shift *')}</label>
-      <input class="inp-field" type="number" id="mpCalcOnDuty" min="1" step="1" value="10" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field">
-        <label>${T('मशीन / लाइन (optional)','Machines / lines (optional)')}</label>
-        <input class="inp-field" type="number" id="mpCalcMachines" min="0" step="1" value="" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-      </div>
-      <div class="field">
-        <label>${T('प्रति मशीन लोग','People per machine')}</label>
-        <input class="inp-field" type="number" id="mpCalcPerMachine" min="0" step="1" value="" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="field">
-        <label>${T('शिफ्ट / दिन *','Shifts per day *')}</label>
-        <input class="inp-field" type="number" id="mpCalcShifts" min="1" max="4" step="1" value="${defShifts}" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-      </div>
-      <div class="field">
-        <label>${T('वीकली ऑफ (दिन/व्यक्ति)','Weekly offs (days/person)')}</label>
-        <input class="inp-field" type="number" id="mpCalcOffs" min="0" max="3" step="1" value="1" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-      </div>
-    </div>
-    <div class="field">
-      <label>${T('लीव / अनुपस्थिति बफर %','Leave / absence buffer %')}</label>
-      <input class="inp-field" type="number" id="mpCalcBuffer" min="0" max="50" step="1" value="12" inputmode="numeric" oninput="_mpCalcLive()" onchange="_mpCalcLive()">
-    </div>
-  </div>
-  <div id="mpCalcResult" style="margin-top:14px;padding:14px;border-radius:12px;border:1px solid rgba(249,115,22,.35);background:rgba(249,115,22,.08)">
-    <div style="font-size:11px;font-weight:800;color:#fb923c;letter-spacing:.04em;margin-bottom:6px">${T('परिणाम','RESULT')}</div>
-    <div id="mpCalcResultBody" style="font-size:13px;color:var(--text);line-height:1.6">—</div>
-  </div>
-  <div style="font-size:11px;color:var(--muted2);margin-top:10px;line-height:1.5">
-    ${T('फॉर्मूला:','Formula:')} <code style="font-size:10px">ceil( onDuty × shifts × 7/(7−offs) × (1+buffer%) )</code>
-    ${currentTeam?`<div style="margin-top:6px">${T('अभी टीम में','Current team')}: <b>${currentTeam}</b></div>`:''}
-  </div>
-  <button type="button" class="cancel-btn" style="margin-top:12px" onclick="closeModal()">${T('बंद करें','Close')}</button>`);
-  setTimeout(function(){ try{ _mpCalcLive(); }catch(e){} }, 30);
+  _mpCalcState = _mpCalcDefaults();
+  // If no machines from Excel, start with one blank row so UI is usable
+  if(!_mpCalcState.machines.length){
+    _mpCalcState.machines = [{ name: 'Line-1', count: 1, perShift: 2 }];
+  }
+  if(!_mpCalcState.designations.length){
+    _mpCalcState.designations = [
+      { name: 'Engineer', count: 0 },
+      { name: 'Supervisor', count: 0 },
+      { name: 'Operator', count: 0 }
+    ];
+  }
+  _mpCalcRender();
 }
 try{ window.openMinManpowerCalc = openMinManpowerCalc; }catch(e){}
 
-function _mpCalcLive(){
-  const T = (hi,enTxt)=> (typeof L==='function'?L(hi,enTxt):hi);
-  const num = (id)=>{
-    const el = document.getElementById(id);
-    if(!el) return 0;
-    const v = parseFloat(String(el.value||'').replace(/,/g,''));
-    return isFinite(v) ? v : 0;
-  };
-  let onDuty = Math.max(0, num('mpCalcOnDuty'));
-  const machines = Math.max(0, num('mpCalcMachines'));
-  const perMc = Math.max(0, num('mpCalcPerMachine'));
-  if(machines>0 && perMc>0) onDuty = machines * perMc;
-  const shifts = Math.max(1, Math.min(6, Math.round(num('mpCalcShifts')||1)));
-  const offs = Math.max(0, Math.min(6, num('mpCalcOffs')));
-  const buffer = Math.max(0, Math.min(100, num('mpCalcBuffer')));
-  const workDays = Math.max(1, 7 - offs);
-  const relief = 7 / workDays;
-  const bufMul = 1 + (buffer/100);
-  const raw = onDuty * shifts * relief * bufMul;
-  const total = Math.ceil(raw);
-  let currentTeam = 0;
-  try{
-    currentTeam = (typeof getEmps==='function'?getEmps():[])
-      .filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team').length;
-  }catch(e){}
-  const gap = currentTeam ? (total - currentTeam) : null;
-  const body = document.getElementById('mpCalcResultBody');
-  if(body){
-    let gapHtml = '';
-    if(currentTeam){
-      const gapColor = gap>0 ? '#f87171' : (gap<0 ? '#4ade80' : '#94a3b8');
-      const gapTxt = gap>0 ? T('टीम में '+gap+' कम','Short by '+gap) : (gap<0 ? T('टीम में '+(-gap)+' अतिरिक्त','Team has '+(-gap)+' extra') : T('टीम बराबर','Team matches'));
-      gapHtml = '<div style="margin-top:10px;padding:8px 10px;border-radius:8px;background:var(--card2);font-size:12px">'+T('वर्तमान टीम','Current team')+': <b>'+currentTeam+'</b> → <span style="color:'+gapColor+';font-weight:800">'+gapTxt+'</span></div>';
-    }
-    body.innerHTML = '<div style="font-size:28px;font-weight:900;color:#fb923c">'+total+' <span style="font-size:14px;font-weight:700;color:var(--text)">'+T('लोग','people')+'</span></div>'+
-      '<div style="margin-top:8px;font-size:12px;color:var(--muted2)">'+T('ऑन-ड्यूटी','On-duty')+': <b style="color:var(--text)">'+onDuty+'</b> · '+T('शिफ्ट','Shifts')+': <b style="color:var(--text)">'+shifts+'</b> · '+T('रिलीफ','Relief')+': <b style="color:var(--text)">'+relief.toFixed(3)+'</b> · '+T('बफर','Buffer')+': <b style="color:var(--text)">'+buffer+'%</b></div>'+gapHtml;
-  }
-  return total;
+function _mpCalcRelief(){
+  var st = _mpCalcState || {};
+  var run = Math.max(1, Math.min(7, Number(st.runningDays)||7));
+  var offs = Math.max(0, Math.min(run-1, Number(st.weeklyOffs)||0));
+  var work = Math.max(1, run - offs);
+  return run / work;
 }
-try{ window._mpCalcLive = _mpCalcLive; }catch(e){}
+
+function _mpCalcTotals(){
+  var st = _mpCalcState || {};
+  var shifts = Math.max(1, Number(st.shifts)||1);
+  var relief = _mpCalcRelief();
+  var buf = 1 + (Math.max(0, Number(st.bufferPct)||0)/100);
+
+  // Process: machine floor strength × shifts × relief × buffer
+  var onDutyMachines = 0;
+  (st.machines||[]).forEach(function(m){
+    onDutyMachines += (Math.max(0, Number(m.count)||0) * Math.max(0, Number(m.perShift)||0));
+  });
+  var processMachines = Math.ceil(onDutyMachines * shifts * relief * buf);
+
+  // Shared designations (engineers etc. not multiplied by machine count again)
+  var onDutyDesig = 0;
+  (st.designations||[]).forEach(function(d){
+    onDutyDesig += Math.max(0, Number(d.count)||0);
+  });
+  var processDesig = Math.ceil(onDutyDesig * relief * buf);
+
+  // Department extras (process support)
+  var onDutyDept = 0;
+  (st.departments||[]).forEach(function(d){
+    onDutyDept += Math.max(0, Number(d.extra)||0);
+  });
+  var processDept = Math.ceil(onDutyDept * relief * buf);
+
+  var processTotal = processMachines + processDesig + processDept;
+
+  // Engineering team: base + per machine (all machine units)
+  var machineUnits = 0;
+  (st.machines||[]).forEach(function(m){ machineUnits += Math.max(0, Number(m.count)||0); });
+  var engOnDuty = Math.max(0, Number(st.engBase)||0) + machineUnits * Math.max(0, Number(st.engPerMachine)||0);
+  var engineeringTotal = Math.ceil(engOnDuty * relief * buf);
+
+  var grand = processTotal + engineeringTotal;
+  return {
+    relief: relief,
+    onDutyMachines: onDutyMachines,
+    processMachines: processMachines,
+    processDesig: processDesig,
+    processDept: processDept,
+    processTotal: processTotal,
+    engOnDuty: engOnDuty,
+    engineeringTotal: engineeringTotal,
+    grand: grand,
+    shifts: shifts,
+    machineUnits: machineUnits
+  };
+}
+
+function _mpCalcReadStep(){
+  var st = _mpCalcState;
+  if(!st) return;
+  var step = st.step;
+  var val = function(id){ var el=document.getElementById(id); return el ? el.value : ''; };
+  var num = function(id){ var v=parseFloat(String(val(id)).replace(/,/g,'')); return isFinite(v)?v:0; };
+
+  if(step===0){
+    st.shifts = Math.max(1, Math.min(6, Math.round(num('mpW_shifts')||1)));
+    st.weeklyOffs = Math.max(0, Math.min(6, num('mpW_offs')));
+    st.runningDays = Math.max(1, Math.min(7, Math.round(num('mpW_run')||7)));
+    st.bufferPct = Math.max(0, Math.min(50, num('mpW_buf')));
+  } else if(step===1){
+    st.machines = [];
+    var i=0;
+    while(document.getElementById('mpW_mcName_'+i)){
+      var name = String(val('mpW_mcName_'+i)||'').trim() || ('Machine '+(i+1));
+      st.machines.push({
+        name: name,
+        count: Math.max(0, num('mpW_mcCount_'+i)),
+        perShift: Math.max(0, num('mpW_mcPer_'+i))
+      });
+      i++;
+    }
+  } else if(step===2){
+    st.designations = [];
+    var j=0;
+    while(document.getElementById('mpW_dgName_'+j)){
+      st.designations.push({
+        name: String(val('mpW_dgName_'+j)||'').trim() || ('Role '+(j+1)),
+        count: Math.max(0, num('mpW_dgCount_'+j))
+      });
+      j++;
+    }
+  } else if(step===3){
+    st.departments = [];
+    var k=0;
+    while(document.getElementById('mpW_dpName_'+k)){
+      st.departments.push({
+        name: String(val('mpW_dpName_'+k)||'').trim() || ('Dept '+(k+1)),
+        extra: Math.max(0, num('mpW_dpExtra_'+k))
+      });
+      k++;
+    }
+  } else if(step===4){
+    st.engBase = Math.max(0, num('mpW_engBase'));
+    st.engPerMachine = Math.max(0, num('mpW_engPer'));
+  }
+}
+
+function _mpCalcAddMachine(){
+  _mpCalcReadStep();
+  _mpCalcState.machines.push({ name: '', count: 1, perShift: 1 });
+  _mpCalcRender();
+}
+function _mpCalcAddDesig(){
+  _mpCalcReadStep();
+  _mpCalcState.designations.push({ name: '', count: 0 });
+  _mpCalcRender();
+}
+function _mpCalcAddDept(){
+  _mpCalcReadStep();
+  _mpCalcState.departments.push({ name: '', extra: 0 });
+  _mpCalcRender();
+}
+try{ window._mpCalcAddMachine=_mpCalcAddMachine; window._mpCalcAddDesig=_mpCalcAddDesig; window._mpCalcAddDept=_mpCalcAddDept; }catch(e){}
+
+function _mpCalcGo(dir){
+  _mpCalcReadStep();
+  var st = _mpCalcState;
+  if(!st) return;
+  var next = st.step + (dir||0);
+  if(next < 0) next = 0;
+  if(next > 5) next = 5;
+  st.step = next;
+  _mpCalcRender();
+}
+try{ window._mpCalcGo = _mpCalcGo; }catch(e){}
+
+function _mpCalcStepBar(step){
+  var labels = [
+    _mpT('प्लांट','Plant'),
+    _mpT('मशीन','Machines'),
+    _mpT('पद','Designation'),
+    _mpT('विभाग','Department'),
+    _mpT('इंजीनियरिंग','Engineering'),
+    _mpT('सारांश','Summary')
+  ];
+  return '<div style="display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap">'+labels.map(function(lb,i){
+    var on = i===step;
+    var done = i<step;
+    return '<div style="flex:1;min-width:48px;text-align:center;padding:6px 4px;border-radius:8px;font-size:10px;font-weight:800;'+
+      (on?'background:rgba(249,115,22,.2);color:#fb923c;border:1px solid rgba(249,115,22,.45)':
+        done?'background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)':
+        'background:var(--card2);color:var(--muted2);border:1px solid var(--border2)')+'">'+
+      (i+1)+'. '+lb+'</div>';
+  }).join('')+'</div>';
+}
+
+function _mpCalcRender(){
+  var st = _mpCalcState;
+  if(!st) return;
+  var step = st.step;
+  var T = _mpT;
+  var body = '';
+
+  if(step===0){
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">'+T('1️⃣ प्लांट शिफ्ट व दिन','1️⃣ Plant shifts & days')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">'+T('पहले बताएँ प्लांट कैसे चलता है।','First tell us how the plant runs.')+'</div>'+
+      '<div class="field"><label>'+T('शिफ्ट / दिन *','Shifts per day *')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_shifts" min="1" max="4" value="'+st.shifts+'" inputmode="numeric"></div>'+
+      '<div class="field"><label>'+T('एक व्यक्ति के वीकली ऑफ (दिन/सप्ताह)','Weekly offs per person (days/week)')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_offs" min="0" max="3" value="'+st.weeklyOffs+'" inputmode="numeric"></div>'+
+      '<div class="field"><label>'+T('कंपनी चलने वाले दिन / सप्ताह','Plant running days / week')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_run" min="1" max="7" value="'+st.runningDays+'" inputmode="numeric"></div>'+
+      '<div class="field"><label>'+T('लीव / अनुपस्थिति बफर %','Leave / absence buffer %')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_buf" min="0" max="40" value="'+st.bufferPct+'" inputmode="numeric"></div>'+
+      '<div style="font-size:11px;color:var(--muted2);margin-top:8px">'+T('रिलीफ फैक्टर = चलने वाले दिन ÷ (चलने वाले − ऑफ)','Relief factor = running days ÷ (running − offs)')+'</div>';
+  }
+
+  else if(step===1){
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">'+T('2️⃣ मशीनें — प्रोसेस टीम','2️⃣ Machines — Process team')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+T('Excel से मशीन नाम लोड हुए। हर प्रकार की मशीन के लिए संख्या और प्रति शिफ्ट लोग भरें। कुछ मशीनों पर कम लोग लग सकते हैं।','Machine names loaded from your Excel. For each type enter how many machines and people needed per machine per shift.')+'</div>';
+    st.machines.forEach(function(m,i){
+      body += '<div style="padding:10px;border-radius:10px;border:1px solid var(--border2);background:var(--card2);margin-bottom:8px">'+
+        '<input class="inp-field" id="mpW_mcName_'+i+'" value="'+String(m.name||'').replace(/"/g,'&quot;')+'" placeholder="'+T('मशीन नाम','Machine name')+'" style="margin-bottom:6px">'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
+        '<div><div style="font-size:10px;font-weight:700;color:var(--muted2);margin-bottom:4px">'+T('संख्या','Count')+'</div>'+
+        '<input class="inp-field" type="number" id="mpW_mcCount_'+i+'" min="0" value="'+m.count+'" inputmode="numeric"></div>'+
+        '<div><div style="font-size:10px;font-weight:700;color:var(--muted2);margin-bottom:4px">'+T('लोग / मशीन / शिफ्ट','People / machine / shift')+'</div>'+
+        '<input class="inp-field" type="number" id="mpW_mcPer_'+i+'" min="0" value="'+m.perShift+'" inputmode="numeric"></div>'+
+        '</div></div>';
+    });
+    body += '<button type="button" class="cancel-btn" style="margin-top:4px" onclick="_mpCalcAddMachine()">➕ '+T('मशीन जोड़ें','Add machine')+'</button>';
+  }
+
+  else if(step===2){
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">'+T('3️⃣ पदनाम (Designation)','3️⃣ Designation')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+T('सभी मशीनों के लिए साझा पद — जैसे Engineer कम संख्या में पूरे प्लांट के लिए। यह प्रति मशीन नहीं, कुल ऑन-ड्यूटी संख्या है।','Shared roles for all machines — e.g. fewer Engineers for the whole plant. Enter total on-duty count (not per machine).')+'</div>';
+    st.designations.forEach(function(d,i){
+      body += '<div style="display:grid;grid-template-columns:1.4fr 0.8fr;gap:8px;margin-bottom:8px;align-items:end">'+
+        '<div class="field" style="margin:0"><label style="font-size:11px">'+T('पद','Designation')+'</label>'+
+        '<input class="inp-field" id="mpW_dgName_'+i+'" value="'+String(d.name||'').replace(/"/g,'&quot;')+'"></div>'+
+        '<div class="field" style="margin:0"><label style="font-size:11px">'+T('ऑन-ड्यूटी','On-duty')+'</label>'+
+        '<input class="inp-field" type="number" id="mpW_dgCount_'+i+'" min="0" value="'+d.count+'" inputmode="numeric"></div></div>';
+    });
+    body += '<button type="button" class="cancel-btn" onclick="_mpCalcAddDesig()">➕ '+T('पद जोड़ें','Add designation')+'</button>';
+  }
+
+  else if(step===3){
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">'+T('4️⃣ विभाग (Department)','4️⃣ Department')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+T('Excel के विभाग। अगर किसी विभाग में मशीन के अलावा अतिरिक्त प्रोसेस लोग चाहिए (हेल्पर, चेकर…) तो यहाँ लिखें। 0 = अतिरिक्त नहीं।','Departments from Excel. Add extra process people beyond machines (helpers, checkers…). 0 = none extra.')+'</div>';
+    if(!st.departments.length){
+      st.departments = [{ name: T('जनरल','General'), extra: 0 }];
+    }
+    st.departments.forEach(function(d,i){
+      body += '<div style="display:grid;grid-template-columns:1.4fr 0.8fr;gap:8px;margin-bottom:8px;align-items:end">'+
+        '<div class="field" style="margin:0"><label style="font-size:11px">'+T('विभाग','Department')+'</label>'+
+        '<input class="inp-field" id="mpW_dpName_'+i+'" value="'+String(d.name||'').replace(/"/g,'&quot;')+'"></div>'+
+        '<div class="field" style="margin:0"><label style="font-size:11px">'+T('अतिरिक्त ऑन-ड्यूटी','Extra on-duty')+'</label>'+
+        '<input class="inp-field" type="number" id="mpW_dpExtra_'+i+'" min="0" value="'+d.extra+'" inputmode="numeric"></div></div>';
+    });
+    body += '<button type="button" class="cancel-btn" onclick="_mpCalcAddDept()">➕ '+T('विभाग जोड़ें','Add department')+'</button>';
+  }
+
+  else if(step===4){
+    var mu = 0;
+    (st.machines||[]).forEach(function(m){ mu += Math.max(0, Number(m.count)||0); });
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:8px">'+T('5️⃣ इंजीनियरिंग टीम','5️⃣ Engineering team')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">'+T('प्रोसेस टीम के बाद — मेंटेनेंस / इंजीनियरिंग सपोर्ट सभी मशीनों के लिए।','After process team — maintenance / engineering support for all machines.')+'</div>'+
+      '<div style="padding:10px;border-radius:10px;background:rgba(56,189,248,.08);border:1px solid rgba(56,189,248,.25);margin-bottom:12px;font-size:12px">'+
+      T('कुल मशीन यूनिट (Excel/आपकी एंट्री)','Total machine units')+': <b>'+mu+'</b></div>'+
+      '<div class="field"><label>'+T('बेस इंजीनियरिंग ऑन-ड्यूटी (पूरे प्लांट)','Base engineering on-duty (whole plant)')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_engBase" min="0" value="'+st.engBase+'" inputmode="numeric"></div>'+
+      '<div class="field"><label>'+T('प्रति मशीन अतिरिक्त इंजीनियरिंग','Extra engineering per machine unit')+'</label>'+
+      '<input class="inp-field" type="number" id="mpW_engPer" min="0" step="0.1" value="'+st.engPerMachine+'" inputmode="decimal"></div>'+
+      '<div style="font-size:11px;color:var(--muted2)">'+T('ऑन-ड्यूटी इंजीनियरिंग = बेस + (मशीन × प्रति मशीन)','On-duty engineering = base + (machines × per machine)')+'</div>';
+  }
+
+  else {
+    var t = _mpCalcTotals();
+    var gap = st.currentTeam ? (t.grand - st.currentTeam) : null;
+    var gapHtml = '';
+    if(st.currentTeam){
+      var col = gap>0 ? '#f87171' : (gap<0 ? '#4ade80' : '#94a3b8');
+      var gtxt = gap>0 ? T('टीम में '+gap+' कम','Short by '+gap) : (gap<0 ? T('टीम में '+(-gap)+' अतिरिक्त','Team has '+(-gap)+' extra') : T('टीम बराबर','Matches team'));
+      gapHtml = '<div style="margin-top:10px;padding:10px;border-radius:10px;background:var(--card2);font-size:12px">'+
+        T('वर्तमान टीम (Excel)','Current team (Excel)')+': <b>'+st.currentTeam+'</b> → <span style="color:'+col+';font-weight:800">'+gtxt+'</span></div>';
+    }
+    body = '<div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:10px">'+T('6️⃣ सारांश — न्यूनतम मैनपावर','6️⃣ Summary — Minimum manpower')+'</div>'+
+      '<div style="padding:14px;border-radius:12px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.1);margin-bottom:12px;text-align:center">'+
+      '<div style="font-size:11px;font-weight:800;color:#fb923c;letter-spacing:.05em">'+T('कुल न्यूनतम','TOTAL MINIMUM')+'</div>'+
+      '<div style="font-size:36px;font-weight:900;color:#fb923c;line-height:1.1">'+t.grand+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2)">'+T('लोग','people')+'</div></div>'+
+      '<div style="display:grid;gap:8px;font-size:12px">'+
+      '<div style="padding:10px;border-radius:10px;background:var(--card2);border:1px solid var(--border2)">'+
+      '<b style="color:#4ade80">'+T('प्रोसेस टीम','Process team')+'</b>: <b>'+t.processTotal+'</b>'+
+      '<div style="color:var(--muted2);margin-top:4px;font-size:11px">'+
+      T('मशीन ऑपरेटर','Machine operators')+': '+t.processMachines+' · '+
+      T('पदनाम','Designation')+': '+t.processDesig+' · '+
+      T('विभाग अतिरिक्त','Dept extra')+': '+t.processDept+
+      '</div></div>'+
+      '<div style="padding:10px;border-radius:10px;background:var(--card2);border:1px solid var(--border2)">'+
+      '<b style="color:#38bdf8">'+T('इंजीनियरिंग टीम','Engineering team')+'</b>: <b>'+t.engineeringTotal+'</b>'+
+      '<div style="color:var(--muted2);margin-top:4px;font-size:11px">'+T('ऑन-ड्यूटी','On-duty')+': '+t.engOnDuty.toFixed(1)+'</div></div>'+
+      '<div style="font-size:11px;color:var(--muted2);line-height:1.55">'+
+      T('शिफ्ट','Shifts')+': <b>'+t.shifts+'</b> · '+
+      T('रिलीफ','Relief')+': <b>'+t.relief.toFixed(3)+'</b> · '+
+      T('मशीन यूनिट','Machine units')+': <b>'+t.machineUnits+'</b> · '+
+      T('ऑन-ड्यूटी मशीन लोग','On-duty machine people')+': <b>'+t.onDutyMachines+'</b>'+
+      '<br>'+T('फॉर्मूला','Formula')+': ceil(onDuty × shifts × relief × buffer) '+T('मशीनों के लिए; पद/इंजीनियरिंग पर shifts नहीं दोबारा','for machines; designation/engineering not × shifts again')+
+      '</div></div>'+gapHtml;
+  }
+
+  var nav = '<div style="display:flex;gap:8px;margin-top:16px">';
+  if(step>0){
+    nav += '<button type="button" class="cancel-btn" style="flex:1" onclick="_mpCalcGo(-1)">← '+T('पीछे','Back')+'</button>';
+  }
+  if(step<5){
+    nav += '<button type="button" class="submit-btn" style="flex:1.4;background:linear-gradient(135deg,#f97316,#ea580c)" onclick="_mpCalcGo(1)">'+T('आगे','Next')+' →</button>';
+  } else {
+    nav += '<button type="button" class="cancel-btn" style="flex:1" onclick="closeModal()">'+T('बंद करें','Close')+'</button>';
+  }
+  nav += '</div>';
+
+  openModal('<div class="modal-handle"></div>'+
+    '<div class="modal-title">🧮 '+T('न्यूनतम मैनपावर गाइड','Minimum Manpower Guide')+'</div>'+
+    _mpCalcStepBar(step)+ body + nav);
+}
+
+try{ window._mpCalcRender = _mpCalcRender; window._mpCalcTotals = _mpCalcTotals; }catch(e){}
+
