@@ -1294,21 +1294,27 @@ function autoGenSchedule(monthKey){
   // Per-manager Auto rotation mode (Shift Settings):
   //  sequential = A→B→C or A→B→C→D (natural tick order)
   //  plant      = A→C→B (3) or A→D→C→B (4) — classic plant interleave (default)
-  const _rotMode = (function(){
+  const rotationOrder = (function(codes){
+    const c = (codes || []).slice().map(x=>String(x).toUpperCase());
     try{
       const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+      // Custom sequence from Shift Settings boxes (e.g. A,D,B,C)
+      let seq = Array.isArray(cfg.autoRotationSequence) ? cfg.autoRotationSequence.map(x=>String(x).toUpperCase().trim()).filter(Boolean) : null;
+      if(seq && seq.length){
+        // Keep only codes that are active, preserve manager order
+        const active = new Set(c);
+        const filtered = seq.filter(x=>active.has(x));
+        if(filtered.length) return filtered;
+      }
       const m = String(cfg.autoRotationMode || cfg.rotationMode || 'plant').toLowerCase();
-      return (m === 'sequential' || m === 'abc' || m === 'order') ? 'sequential' : 'plant';
-    }catch(e){ return 'plant'; }
-  })();
-  const rotationOrder = (function(codes, mode){
-    const c = (codes || []).slice();
-    if(c.length <= 2 || mode === 'sequential') return c;
-    // plant: 1st → last → … → 2nd  e.g. A,B,C → A,C,B | A,B,C,D → A,D,C,B
-    const out = [c[0]];
-    for(let i = c.length - 1; i >= 1; i--) out.push(c[i]);
-    return out;
-  })(configShiftCodes, _rotMode);
+      if(m === 'sequential' || m === 'abc' || m === 'order' || c.length <= 2) return c;
+      if(m === 'custom') return c;
+      // plant: 1st → last → … → 2nd
+      const out = [c[0]];
+      for(let i = c.length - 1; i >= 1; i--) out.push(c[i]);
+      return out;
+    }catch(e){ return c; }
+  })(configShiftCodes);
   if(!rotationOrder.length){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
 
   const nextShiftAfter = (lastSh)=>{

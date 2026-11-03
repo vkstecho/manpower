@@ -1,25 +1,26 @@
-# Man Power v4.0.1 — Landing & PWA install fixes
+# Man Power v4.0.1 + Auth from v3.2.6
 
-## Fixed
+## What changed
+Login / authentication / fingerprint session restore taken from **ManPower-v3.2.6** (the build where returning users unlocked with fingerprint).
 
-### 1. Mixed Indian-language words on EN / HI landing page
-- Hero mock table day headers now use `data-i18n` (`mon` / `tue` / `wed` / `coverage`).
-- `apply()` always rewrites table headers from keys, so Tamil (or any other language) no longer sticks after switching back to English or Hindi.
-- Landing **display language is forced to English or Hindi only**. Other languages (ta, gu, ar, …) are still saved in `localStorage.mp_lang` for the app after login, but marketing copy stays EN/HI.
-- Added `data-i18n` for pricing title/lead, plan starts from, custom plan block, contact title, FAQ title + all Q&A, and final CTA.
-- Full Hindi strings for the new keys.
+### Files from v3.2.6
+- `js/auth/app-login.js`
+- `js/auth/app-login-device.js`
+- `js/auth/app-login-session.js`
+- `js/auth/app-session-auth.js`
+- Fingerprint + `startApp` boot path inside `js/core/app.js` (`FP_KEY` … `startApp`)
+- Session save/load path inside `js/core/app-core.js` (`encodeSession` … `check45DayLogout`)
 
-### 2. Install · iOS / Windows returned to landing page
-- Replaced `_showInstallPlatformModal()` in `js/core/app.js`.
-- Modal **never** opens `https://manpower.vkstech.com`.
-- iOS → Safari “Add to Home Screen” instructions.
-- Android → Play Store.
-- Windows / Desktop → native `beforeinstallprompt` when available; otherwise clear Chrome/Edge menu steps.
+### Kept from v4.0.1
+- Landing page language fixes (`index.html`, `js/landing-i18n.js`)
+- Rest of v4 app features outside the replaced blocks
 
-## Files changed
-- `index.html`
-- `js/landing-i18n.js`
-- `js/core/app.js`
+### Boot behaviour (from 3.2.6)
+1. `loadSession()` / IndexedDB restore
+2. If session exists → `checkFingerprintOnStart()`
+3. Fingerprint unlock → `launchApp()`
+4. No session → login screen (OTP)
 
-## Deploy note
-Clear CDN / browser cache for `js/landing-i18n.js` and `js/core/app.js` after upload.
+### Deploy
+Upload full folder. Hard-refresh devices (cache-bust `?v=401026` on auth scripts).
+Existing `mp_session` + fingerprint keys on device should work again if domain unchanged.
