@@ -1476,7 +1476,7 @@ function showDeviceConflict(emp, existingApproval, newDeviceId){
     <button class="submit-btn" onclick="requestDeviceChange('${emp.id}','${escHtml(emp.name)}','${newDeviceId}')">
       📤 Approval Request भेजें
     </button>
-    <button class="cancel-btn" onclick="closeModal()">'+L('बाद में','Later')+'</button>
+    <button class="cancel-btn" onclick="closeModal()">बाद में</button>
   </div>`);
 }
 
