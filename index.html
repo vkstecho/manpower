@@ -350,7 +350,54 @@
       background: #fff; border: 1px dashed var(--border);
       font-size: 13px; color: var(--slate);
     }
-  </style>
+  
+
+/* Multi-language promo strip */
+.lp-lang-promo, .mn-lang-promo {
+  margin: 18px 0 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(37,99,235,.06), rgba(234,88,12,.05));
+  border: 1px solid rgba(37,99,235,.12);
+}
+.lp-lang-promo-inner, .mn-lang-promo-inner { display:flex; flex-direction:column; gap:10px; }
+.lp-lang-promo-label, .mn-lang-promo-label {
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+}
+.lp-lang-promo-icon, .mn-lang-promo-icon { font-size:18px; }
+.lp-lang-promo-title, .mn-lang-promo-title {
+  font-weight:800; font-size:14px; color:#0f172a; letter-spacing:.01em;
+}
+.lp-lang-promo-sub, .mn-lang-promo-sub {
+  font-size:12px; color:#64748b; font-weight:500;
+}
+.lp-lang-chips, .mn-lang-chips {
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+}
+.lp-chip, .mn-chip {
+  min-width:40px; height:36px; padding:0 12px;
+  border-radius:999px; border:1px solid #e2e8f0;
+  background:#fff; color:#0f172a; font-weight:700; font-size:13px;
+  cursor:pointer; transition:.15s ease;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.lp-chip:hover, .mn-chip:hover {
+  border-color:#2563eb; color:#1d4ed8; transform:translateY(-1px);
+}
+.lp-chip-more, .mn-chip-more {
+  background:#0f172a; color:#fff; border-color:#0f172a;
+}
+.lp-chip-more:hover, .mn-chip-more:hover {
+  background:#1e293b; color:#fff; border-color:#1e293b;
+}
+#landingLangBtn, #mentorLandingLang {
+  min-width:48px; font-weight:800 !important;
+  border:1.5px solid #cbd5e1 !important;
+  border-radius:10px !important;
+  background:linear-gradient(180deg,#fff,#f8fafc) !important;
+}
+
+</style>
 
 <script>
 (function () {
@@ -390,7 +437,7 @@
           <a href="#faq" data-i18n="navFaq">FAQ</a>
       </nav>
       <div class="nav-cta">
-        <button type="button" id="landingLangBtn" class="btn btn-ghost" style="min-width:44px;font-weight:800" title="Language" onclick="mpLandingToggleLang()">EN</button>
+        <button type="button" id="landingLangBtn" class="btn btn-ghost" style="min-width:52px;font-weight:800" title="Country & Language" onclick="try{mpLandingOpenPicker()}catch(e){mpLandingToggleLang()}">🌐 EN</button>
         <a class="btn btn-ghost" href="app.html" rel="noopener" data-i18n="login">Login</a>
         <a class="btn btn-primary" href="app.html" rel="noopener" data-i18n="startFree">Start free</a>
       </div>
