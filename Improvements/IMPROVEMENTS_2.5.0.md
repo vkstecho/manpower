@@ -10,7 +10,7 @@ Login flow unchanged.
 | `train-data.js` (~25KB) | Eager script | `ensureTrainData()` when training cards render |
 | XLSX CDN | Already on demand in schedule | Unified via `ensureXlsx()` |
 
-Helpers in `js/utils.js`: `loadScriptOnce`, `ensureHtml2Canvas`, `ensureXlsx`, `ensureTrainData`.
+Helpers in `js/core/utils.js`: `loadScriptOnce`, `ensureHtml2Canvas`, `ensureXlsx`, `ensureTrainData`.
 
 ## Minify
 

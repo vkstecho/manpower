@@ -10,7 +10,7 @@ Login flow unchanged.
 
 ## 2. Accessibility (schedule + login)
 
-- New `js/a11y.js`:
+- New `js/core/a11y.js`:
   - Schedule table: `role="grid"`, cells `role="gridcell"`, `tabindex="0"`, `aria-label` with emp/date/shift
   - Enter/Space activates focused cell
   - Login: mobile/OTP labels, `inputmode`, `autocomplete`, describedby

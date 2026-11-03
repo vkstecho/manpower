@@ -32,7 +32,7 @@ Based on v3.0.6 with all requested commercial + UX changes.
    - Razorpay links via existing Admin payment settings
 
 6. **Module**
-   - `js/mp-commercial.js` loaded after app.js
+   - `js/commercial/mp-commercial.js` loaded after app.js
 
 ## Version
 APP_VERSION / SW_VERSION = 3.0.7 · cache bust ?v=300007

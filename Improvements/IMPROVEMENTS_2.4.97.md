@@ -6,12 +6,12 @@ Login flow kept exactly as documented (mobile OTP primary; roster auto-approve; 
 ## Done in this pass
 
 ### 1. Version single source of truth
-- `js/config.js` → `MP_CFG.APP_VERSION = '2.4.97'`
+- `js/config/config.js` → `MP_CFG.APP_VERSION = '2.4.97'`
 - `app-core.js` reads `APP_VERSION` from `MP_CFG`
 - `sw.js` header + `SW_VERSION = '2.4.97'`
 - `index.html` script cache-bust `?v=2497`
 
-### 2. Shared utilities (`js/utils.js`)
+### 2. Shared utilities (`js/core/utils.js`)
 - `escHtml`, `escAttr` (attribute-safe)
 - `sanitizeFbPath`, `isValidEmpId`, `hashPass`
 - `normMobileKey`, `isValidMobile10`

@@ -4,7 +4,7 @@ Builds on 2.4.97 hardened package.
 
 ## 1. XSS / innerHTML audit (priority #1)
 
-- Short aliases: global `H` = `escHtml`, `A` = `escAttr` in `js/utils.js`
+- Short aliases: global `H` = `escHtml`, `A` = `escAttr` in `js/core/utils.js`
 - **~230** high-risk template interpolations wrapped with `escHtml(...)` across:
   - `app-core.js`, `app-login.js`, `app-schedule.js`, `app-team.js`, `app.js`
 - Targets: `.name`, `.label`, `.title`, `.empId`, `.company`, `.message`, `e.message`, etc.
@@ -14,7 +14,7 @@ Builds on 2.4.97 hardened package.
 
 ## 2. Modularization start (priority #2)
 
-- Extracted static `MET_TRAIN_DATA` → `js/train-data.js` (~443 lines)
+- Extracted static `MET_TRAIN_DATA` → `js/core/train-data.js` (~443 lines)
 - `app.js` reduced ~3577 → ~3135 lines
 - Loaded before `app.js` in `index.html`; added to SW precache
 

@@ -3,10 +3,10 @@
 ## Files touched
 - `database.rules.json` — `publicOffer` `.read: true`, admin write
 - `FIREBASE_RULES_PUBLIC_OFFER.md` — deploy notes
-- `js/public-offer.js` — cache + REST fetch + render (no hardcoded prices)
-- `js/app-session-payment.js` — `publishPublicOfferSnapshot` on save + Publish button
+- `js/commercial/public-offer.js` — cache + REST fetch + render (no hardcoded prices)
+- `js/session/app-session-payment.js` — `publishPublicOfferSnapshot` on save + Publish button
 - `index.html` — SEO/OG, login layout, sticky bar, deferred heavy scripts
-- `js/config.js` — APP_VERSION 3.2.7
+- `js/config/config.js` — APP_VERSION 3.2.7
 - `sw.js` — 3.2.7 + public-offer precache
 
 ## Eager scripts (login needs)

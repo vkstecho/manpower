@@ -1,13 +1,13 @@
 # v3.2.6 — Quality, Accessibility & Sub-app Polish
 
 ## Accessibility (A)
-- Expanded `js/a11y.js`: skip-to-main link, live region (`mpAnnounce`), modal `role="dialog"` + `aria-modal`
+- Expanded `js/core/a11y.js`: skip-to-main link, live region (`mpAnnounce`), modal `role="dialog"` + `aria-modal`
 - Schedule grid: arrow-key cell navigation, stronger ARIA labels, MutationObserver re-enhance after rebuild
 - Icon-only buttons get `aria-label` from `title` when missing
 - Login: improved autocomplete / inputmode / describedby
 
 ## Code health (A)
-- Single version source remains `js/config.js` → `MP_CFG.APP_VERSION` = **3.2.6**
+- Single version source remains `js/config/config.js` → `MP_CFG.APP_VERSION` = **3.2.6**
 - Cache-bust query aligned (`?v=300026`)
 - Service Worker version + cache name bumped; precache list unchanged (integrity cache kept)
 

@@ -7,16 +7,16 @@ Login flow unchanged.
 ### Login (was ~7.4k lines)
 | File | Scope |
 |------|--------|
-| `js/app-login.js` | OTP, registration, role pick (~1.8k lines) |
-| `js/app-login-device.js` | Device password, other-device, Web OTP (~1.3k) |
-| `js/app-login-session.js` | Launch, role sync, logout, claims request (~4.3k) |
+| `js/auth/app-login.js` | OTP, registration, role pick (~1.8k lines) |
+| `js/auth/app-login-device.js` | Device password, other-device, Web OTP (~1.3k) |
+| `js/auth/app-login-session.js` | Launch, role sync, logout, claims request (~4.3k) |
 
 ### Team (was ~11k lines)
 | File | Scope |
 |------|--------|
-| `js/app-team.js` | Team list, salary, devices, emp upload (~1.3k) |
-| `js/app-team-import.js` | Bulk import, ops, builder helpers (~8k) |
-| `js/app-team-print-learn.js` | Print, Learn, MetCost, SupSkill (~1.7k) |
+| `js/team/app-team.js` | Team list, salary, devices, emp upload (~1.3k) |
+| `js/team/app-team-import.js` | Bulk import, ops, builder helpers (~8k) |
+| `js/team/app-team-print-learn.js` | Print, Learn, MetCost, SupSkill (~1.7k) |
 
 Load order fixed in `index.html` + SW precache. All parts pass `node --check`.
 

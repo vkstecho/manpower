@@ -23,7 +23,7 @@
 `index.html` + `sw.js` precache updated for new modules.
 
 ## 2. Offline-first schedule edit queue
-- New `js/sched-offline-queue.js`
+- New `js/schedule/sched-offline-queue.js`
 - Queues cell edits when offline; dedupes emp+date; badge UI; auto-flush on `online`
 - APIs: `enqueueScheduleEdit`, `flushOfflineQueue`, `queueScheduleIfOffline`, `MP_OFFLINE_QUEUE`
 - Integrate into save paths with `queueScheduleIfOffline(empId, date, shift, monthKey)` when desired
