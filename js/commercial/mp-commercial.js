@@ -47,6 +47,20 @@
 
   function hideInstallButtons() {
     var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true;
+    try {
+      if (hide) document.documentElement.classList.add('mp-installed');
+      else document.documentElement.classList.remove('mp-installed');
+      if (document.body) {
+        if (hide) document.body.classList.add('mp-installed');
+        else document.body.classList.remove('mp-installed');
+      }
+    } catch (eCls) {}
+    try {
+      // Clear stale flag when user is in a normal browser tab so Install reappears
+      if (!hide && window.matchMedia && window.matchMedia('(display-mode: browser)').matches) {
+        localStorage.removeItem('mp_pwa_installed');
+      }
+    } catch (e) {}
     [
       'loginPwaBtn',
       'loginAndroidStoreBtn',

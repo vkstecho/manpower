@@ -49,12 +49,26 @@ window.addEventListener('appinstalled', function () {
     try{ return localStorage.getItem('mp_pwa_installed') === '1'; }catch(e){ return false; }
   }
   window._mpHideInstallButtons = window._mpHideInstallButtons || function(){
-    var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true || wasInstalledFlag();
-    if(hide){
-      try{ localStorage.setItem('mp_pwa_installed','1'); }catch(e){}
-    }
+    // Only hide when truly running as installed app. Do NOT sticky-write the flag
+    // from a one-off detection (that hid Install forever in browser after tests).
+    var hide = isStandalone() || isPlayStoreTwa() || window.__pwaInstalled === true;
+    // wasInstalledFlag only if also standalone-like; otherwise clear stale flag in browser
+    try{
+      if(!hide && localStorage.getItem('mp_pwa_installed')==='1'){
+        // In a normal browser tab, clear stale install flag so header Install reappears
+        if(window.matchMedia && window.matchMedia('(display-mode: browser)').matches){
+          localStorage.removeItem('mp_pwa_installed');
+        } else if(wasInstalledFlag() && isStandalone()){
+          hide = true;
+        }
+      }
+    }catch(e){}
     ['loginPwaBtn','loginAndroidStoreBtn','loginInstallRow','loginSecondaryRow','pwaInstallBtn','pwaBanner'].forEach(function(id){
-      var el=document.getElementById(id); if(el) el.style.display = hide ? 'none' : '';
+      var el=document.getElementById(id);
+      if(!el) return;
+      if(hide){ el.style.display = 'none'; }
+      else if(id==='pwaInstallBtn'){ el.style.display = 'flex'; }
+      else { el.style.display = ''; }
     });
   };
   window.addEventListener('appinstalled', function(){
@@ -1231,11 +1245,12 @@ html.mp-login-active, body.mp-login-active {
       </div>
       <!-- PWA Install — shown when not installed (near Share) -->
       <div id="pwaInstallBtn" onclick="try{if(typeof _showInstallPlatformModal==='function')_showInstallPlatformModal();else if(typeof triggerPWAInstall==='function')triggerPWAInstall()}catch(e){}" title="Install App" aria-label="Install app"
-        style="display:none;align-items:center;justify-content:center;
-               width:38px;height:38px;border-radius:10px;cursor:pointer;
-               background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
-               border:1px solid rgba(249,115,22,.4);font-size:18px">
-        📲
+        style="display:none;align-items:center;justify-content:center;gap:4px;
+               min-width:38px;height:38px;padding:0 10px;border-radius:10px;cursor:pointer;
+               background:linear-gradient(135deg,#ea580c,#c2410c);
+               border:1px solid rgba(255,255,255,.25);font-size:13px;font-weight:800;color:#fff;-webkit-text-fill-color:#fff;
+               font-family:inherit;white-space:nowrap">
+        📲 Install
       </div>
       <div id="themeToggleBtn" onclick="toggleTheme()" title="Dark/Light Mode" aria-label="Theme"
         style="display:flex;align-items:center;justify-content:center;

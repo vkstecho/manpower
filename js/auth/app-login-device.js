@@ -386,7 +386,7 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
         Device Password
       </div>
-      <div style="font-size:14px;color:#e2e8f0;margin-bottom:18px;line-height:1.6">
+      <div style="font-size:14px;color:#f1f5f9;-webkit-text-fill-color:#f1f5f9;margin-bottom:18px;line-height:1.6">
         ${typeof L==='function'
           ? L(
               '<b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b> के लिए इस device पर password सेट करें।<br>अगली बार <b style="color:#4ade80">OTP की जरूरत नहीं</b> — सिर्फ password।',
@@ -395,12 +395,12 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
           : ('Set a password on this device for <b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.')}
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:8px">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
+        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:8px;opacity:1 !important">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
         <input id="spw1" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
           oninput="_spwValidate()">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin:12px 0 8px">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
+        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin:12px 0 8px;opacity:1 !important">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
         <input id="spw2" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
@@ -414,8 +414,8 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
         ${L('✅ Password Save करें','✅ Save Password')}
       </button>
       <button onclick="_skipSetPassword()"
-        style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#cbd5e1;font-size:13px;cursor:pointer;font-family:inherit">
+        style="width:100%;padding:13px;background:rgba(255,255,255,.06);border:1.5px solid #64748b;border-radius:12px;
+               color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">
         ${L('अभी नहीं → ','Not now → ')}${afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')}
       </button>
     </div>`;
@@ -493,7 +493,7 @@ function showPasswordLoginScreen(emp, deviceId){
         <span style="font-size:12px">${typeof L==='function'?L('OTP नहीं — इस device का password डालें','No OTP — enter this device password'):'No OTP — enter this device password'}</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <div style="font-size:11px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:10px;opacity:1 !important;font-size:12px">DEVICE PASSWORD *</div>
         <input id="pwlInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
@@ -583,7 +583,7 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
         <span style="font-size:12px">+91-${mobile10} · ${typeof L==='function'?L('OTP नहीं चाहिए','No OTP needed'):'No OTP needed'}</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <div style="font-size:11px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:10px;opacity:1 !important;font-size:12px">DEVICE PASSWORD *</div>
         <input id="pwmInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
@@ -1249,7 +1249,7 @@ function showNewEmpRegistrationForm(code){
       </div>
       <!-- Mobile -->
       <div style="background:#1e293b;border:1.5px solid #334155;border-radius:14px;padding:16px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:8px">MOBILE NUMBER *</div>
+        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:8px;opacity:1 !important">MOBILE NUMBER *</div>
         <input id="nrPhone" type="tel" inputmode="numeric" placeholder="10 digit number" maxlength="10"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;
                  border-radius:10px;padding:13px 12px;color:#fff;font-size:18px;font-weight:700;outline:none;font-family:inherit"
@@ -1257,7 +1257,7 @@ function showNewEmpRegistrationForm(code){
       </div>
       <!-- Department -->
       <div style="background:#1e293b;border:1.5px solid #334155;border-radius:14px;padding:16px;margin-bottom:12px;position:relative">
-        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:8px">DEPARTMENT *</div>
+        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:8px;opacity:1 !important">DEPARTMENT *</div>
         <select id="nrDept" onchange="_nrValidate()"
           style="width:100%;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:13px 12px;color:#fff;font-size:15px;font-weight:700;outline:none;
