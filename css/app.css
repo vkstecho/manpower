@@ -1288,3 +1288,117 @@ body.light .ms-day-sh.shc.O {
     font-weight: 800;
   }
 }
+
+
+/* ===== CONTRAST FIXES v4.0.9+ (fonts vs background) ===== */
+/* Toast: always high-contrast dark panel + light text in BOTH themes */
+.toast,
+.toast.show {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  line-height: 1.45 !important;
+  opacity: 1 !important;
+}
+body.light .toast,
+body.light .toast.show {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+}
+.toast * {
+  color: inherit !important;
+}
+
+/* Pending / status chips that sit on dark overlays */
+.pending-chip,
+.pending-badge,
+[class*="pending"] {
+  color: #f8fafc;
+}
+
+/* Ensure muted text still readable on dark panels */
+body:not(.light) {
+  --muted: #94a3b8;
+  --muted2: #cbd5e1;
+  --text: #f1f5f9;
+}
+body:not(.light) .muted,
+body:not(.light) .sub,
+body:not(.light) .meta,
+body:not(.light) .hint {
+  color: #cbd5e1 !important;
+}
+
+/* Light theme: never force dark text onto dark toast/overlay leftovers */
+body.light .overlay .toast,
+body.light #toast {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+/* Schedule cell labels stay readable */
+body:not(.light) .shc {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+body.light .shc {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+/* Off / weekly-off cells need extra contrast */
+body:not(.light) .shc.O,
+body:not(.light) .ms-day-sh.shc.O {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+body.light .shc.O,
+body.light .ms-day-sh.shc.O {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+/* Modal body text */
+body:not(.light) .modal,
+body:not(.light) .modal-box,
+body:not(.light) #modalBody {
+  color: #f1f5f9 !important;
+}
+body:not(.light) .modal .muted,
+body:not(.light) .modal-sub {
+  color: #cbd5e1 !important;
+}
+
+/* Input placeholders */
+body:not(.light) input::placeholder,
+body:not(.light) textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+body.light input::placeholder,
+body.light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* Learn & Grow / secondary labels */
+body:not(.light) .learn-bar,
+body:not(.light) .learn-bar * {
+  color: #f1f5f9;
+}
+body.light .learn-bar,
+body.light .learn-bar * {
+  color: #0f172a;
+}
+
+/* Floating black info boxes / tooltips inside schedule */
+.sched-tip,
+.cell-tip,
+.pending-toast,
+[class*="tip-box"] {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+}
