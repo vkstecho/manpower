@@ -471,7 +471,7 @@
           </div>
           <table class="ui-table">
             <thead>
-              <tr><th data-i18n="department">Department</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
+              <tr><th data-i18n="department">Department</th><th data-i18n="mon">Mon</th><th data-i18n="tue">Tue</th><th data-i18n="wed">Wed</th><th data-i18n="coverage">Coverage</th></tr>
             </thead>
             <tbody>
               <tr><td>Print · M-1</td><td>D</td><td>D</td><td>N</td><td><span class="pill ok">OK</span></td></tr>
@@ -756,19 +756,19 @@
   
     <section id="pricing" class="bg">
     <div class="wrap">
-      <h2>Simple plans for plant teams</h2>
-      <p class="lead">Published prices and trial days come from Admin in the Man Power app. Custom plans with special features are available on request.</p>
+      <h2 data-i18n="pricingTitle">Simple plans for plant teams</h2>
+      <p class="lead" data-i18n="pricingLead">Published prices and trial days come from Admin in the Man Power app. Custom plans with special features are available on request.</p>
       <div class="price-hero card" style="margin-top:20px;text-align:center;padding:28px 20px">
-        <div style="font-size:13px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em">Plan starts from</div>
+        <div data-i18n="planStartsFrom" style="font-size:13px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em">Plan starts from</div>
         <div id="lpMinPrice" style="font-size:clamp(2rem,5vw,2.75rem);font-weight:800;color:var(--orange);margin:8px 0">₹99</div>
         <p id="lpPriceNote" style="color:var(--slate);font-size:14px;max-width:32rem;margin:0 auto">Choose a published headcount band, or ask for a custom plan (extra sections, multi-plant, special features).</p>
         <p id="lpTrialNote" style="margin-top:12px;font-size:14px;font-weight:600;color:var(--green)">Free trial · days set by admin</p>
         <p id="lpRefundNote" style="margin-top:6px;font-size:13px;color:var(--slate)">Cancel &amp; refund window via Customer Care (days set by admin).</p>
         <div id="lpPlanChips" style="margin-top:22px;text-align:left;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px"></div>
         <div style="margin-top:20px;padding:16px;border-radius:14px;background:var(--orange-soft);border:1px solid rgba(234,88,12,.25);text-align:left">
-          <div style="font-weight:800;color:var(--navy);margin-bottom:6px">Custom plan / special features</div>
-          <p style="font-size:14px;color:var(--slate);margin:0 0 10px;line-height:1.5">Need a different amount, multi-plant setup, or features not in standard plans? We can set a custom plan and Razorpay link for your team.</p>
-          <a class="btn btn-orange" href="#contact">Talk to us for custom pricing</a>
+          <div data-i18n="customPlanTitle" style="font-weight:800;color:var(--navy);margin-bottom:6px">Custom plan / special features</div>
+          <p data-i18n="customPlanDesc" style="font-size:14px;color:var(--slate);margin:0 0 10px;line-height:1.5">Need a different amount, multi-plant setup, or features not in standard plans? We can set a custom plan and Razorpay link for your team.</p>
+          <a class="btn btn-orange" href="#contact" data-i18n="customPlanCta">Talk to us for custom pricing</a>
         </div>
         <div style="margin-top:22px">
           <a class="btn btn-orange btn-lg" href="app.html">Start free trial</a>
@@ -780,7 +780,7 @@
   <section id="contact" class="bg">
     <div class="wrap" style="text-align:center">
       <span class="section-label" data-i18n="contactLabel">Contact</span>
-      <h2>Customer care &amp; sales</h2>
+      <h2 data-i18n="contactSub">Customer care &amp; sales</h2>
       <p class="lead" style="margin:0 auto 24px;max-width:36rem"><span data-i18n="contactSub">WhatsApp, call, or email for demos, custom plans, cancel / refund, and support.</span></p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;text-align:left;max-width:720px;margin:0 auto">
         <a href="https://wa.me/918929394920" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
@@ -811,29 +811,29 @@
 <section id="faq">
     <div class="wrap" style="text-align:center;">
       <span class="section-label" data-i18n="faqLabel">FAQ</span>
-      <h2>Questions buyers ask</h2>
+      <h2 data-i18n="faqSub">Questions buyers ask</h2>
     </div>
     <div class="wrap">
       <div class="faq">
         <details open>
-          <summary>Is Man Power an HRMS like Keka or HROne?</summary>
-          <p>No. Man Power is a plant manpower and shift system: Excel team setup, Auto Schedule, coverage checks, leave/OD, and mobile roster views. It is not a full hire-to-retire HR + payroll suite.</p>
+          <summary data-i18n="faq1q">Is Man Power an HRMS like Keka or HROne?</summary>
+          <p data-i18n="faq1a">No. Man Power is a plant manpower and shift system: Excel team setup, Auto Schedule, coverage checks, leave/OD, and mobile roster views. It is not a full hire-to-retire HR + payroll suite.</p>
         </details>
         <details>
-          <summary>Who is it for?</summary>
-          <p>Plant managers, shift supervisors, and ops teams in factories, flexible packaging, printing, converting, and any multi-section / multi-machine environment that still runs on Excel rosters.</p>
+          <summary data-i18n="faq2q">Who is it for?</summary>
+          <p data-i18n="faq2a">Plant managers, shift supervisors, and ops teams in factories, flexible packaging, printing, converting, and any multi-section / multi-machine environment that still runs on Excel rosters.</p>
         </details>
         <details>
-          <summary>Does it work offline?</summary>
-          <p>Yes. Man Power is a PWA with an offline queue so schedule work can continue on weak plant networks and sync when connectivity returns.</p>
+          <summary data-i18n="faq3q">Does it work offline?</summary>
+          <p data-i18n="faq3a">Yes. Man Power is a PWA with an offline queue so schedule work can continue on weak plant networks and sync when connectivity returns.</p>
         </details>
         <details>
-          <summary>How is coverage different from a normal shift calendar?</summary>
-          <p>After Auto Schedule, the app counts people per shift inside Department, Machine, Designation, and Responsibility groups. Short days are listed so you can change weekly offs and regenerate — instead of discovering gaps on the floor.</p>
+          <summary data-i18n="faq4q">How is coverage different from a normal shift calendar?</summary>
+          <p data-i18n="faq4a">After Auto Schedule, the app counts people per shift inside Department, Machine, Designation, and Responsibility groups. Short days are listed so you can change weekly offs and regenerate — instead of discovering gaps on the floor.</p>
         </details>
         <details>
-          <summary>Can we still use greytHR / Keka for payroll?</summary>
-          <p>Yes. Many teams keep payroll/compliance in their HRMS and use Man Power specifically for shop-floor roster quality. They solve different jobs.</p>
+          <summary data-i18n="faq5q">Can we still use greytHR / Keka for payroll?</summary>
+          <p data-i18n="faq5a">Yes. Many teams keep payroll/compliance in their HRMS and use Man Power specifically for shop-floor roster quality. They solve different jobs.</p>
         </details>
       </div>
     </div>
@@ -842,10 +842,10 @@
   <!-- FINAL CTA -->
   <section class="cta-band">
     <div class="wrap">
-      <h2>Stop rebuilding the roster in Excel every week.</h2>
-      <p>Start with your existing team sheet. Auto Schedule with coverage. Run the week on mobile.</p>
+      <h2 data-i18n="ctaTitle">Stop rebuilding the roster in Excel every week.</h2>
+      <p data-i18n="ctaSub">Start with your existing team sheet. Auto Schedule with coverage. Run the week on mobile.</p>
       <div class="hero-actions">
-        <a class="btn btn-orange btn-lg" href="app.html" rel="noopener">Start free on Man Power</a>
+        <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="ctaStart">Start free on Man Power</a>
         <a class="btn btn-white btn-lg" href="https://vkstech.com" rel="noopener">About VKS Tech</a>
       </div>
       <p style="margin-top:18px;font-size:13px;opacity:.75;">Mobile OTP login · Hindi & English · Built by VKS Tech</p>

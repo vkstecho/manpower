@@ -59,7 +59,23 @@
     "mon": "Mon",
     "tue": "Tue",
     "wed": "Wed",
-    "coverage": "Coverage",
+        "coverage": "Coverage",
+    "planStartsFrom": "Plan starts from",
+    "pricingLead": "Published prices and trial days come from Admin in the Man Power app. Custom plans with special features are available on request.",
+    "customPlanTitle": "Custom plan / special features",
+    "customPlanDesc": "Need a different amount, multi-plant setup, or features not in standard plans? We can set a custom plan and Razorpay link for your team.",
+    "customPlanCta": "Talk to us for custom pricing",
+    "ctaStart": "Start free on Man Power",
+    "faq1q": "Is Man Power an HRMS like Keka or HROne?",
+    "faq1a": "No. Man Power is a plant manpower and shift system: Excel team setup, Auto Schedule, coverage checks, leave/OD, and mobile roster views. It is not a full hire-to-retire HR + payroll suite.",
+    "faq2q": "Who is it for?",
+    "faq2a": "Plant managers, shift supervisors, and ops teams in factories, flexible packaging, printing, converting, and any multi-section / multi-machine environment that still runs on Excel rosters.",
+    "faq3q": "Does it work offline?",
+    "faq3a": "Yes. Man Power is a PWA with an offline queue so schedule work can continue on weak plant networks and sync when connectivity returns.",
+    "faq4q": "How is coverage different from a normal shift calendar?",
+    "faq4a": "After Auto Schedule, the app counts people per shift inside Department, Machine, Designation, and Responsibility groups. Short days are listed so you can change weekly offs and regenerate — instead of discovering gaps on the floor.",
+    "faq5q": "Can we still use greytHR / Keka for payroll?",
+    "faq5a": "Yes. Many teams keep payroll/compliance in their HRMS and use Man Power specifically for shop-floor roster quality. They solve different jobs.",
     "short": "Short",
     "featuresTitle": "Features",
     "featuresSub": "Everything you need to plan manpower — without buying a full HR stack.",
@@ -85,7 +101,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "hi": {
     "featuresLabel": "विशेषताएँ",
@@ -140,7 +156,23 @@
     "mon": "सोम",
     "tue": "मंगल",
     "wed": "बुध",
-    "coverage": "कवरेज",
+        "coverage": "कवरेज",
+    "planStartsFrom": "प्लान शुरू होता है",
+    "pricingLead": "प्रकाशित कीमतें और ट्रायल दिन Man Power ऐप में Admin से आते हैं। विशेष सुविधाओं वाले कस्टम प्लान अनुरोध पर उपलब्ध हैं।",
+    "customPlanTitle": "कस्टम प्लान / विशेष सुविधाएँ",
+    "customPlanDesc": "अलग राशि, मल्टी-प्लांट सेटअप, या स्टैंडर्ड प्लान में न होने वाली सुविधाएँ चाहिए? हम आपकी टीम के लिए कस्टम प्लान और Razorpay लिंक सेट कर सकते हैं।",
+    "customPlanCta": "कस्टम प्राइसिंग के लिए बात करें",
+    "ctaStart": "Man Power पर मुफ्त शुरू करें",
+    "faq1q": "क्या Man Power Keka या HROne जैसा HRMS है?",
+    "faq1a": "नहीं। Man Power एक प्लांट मैनपावर और शिफ्ट सिस्टम है: Excel टीम सेटअप, Auto Schedule, कवरेज जाँच, leave/OD, और मोबाइल रोस्टर व्यू। यह पूरा hire-to-retire HR + पेरोल सूट नहीं है।",
+    "faq2q": "यह किसके लिए है?",
+    "faq2a": "प्लांट मैनेजर, शिफ्ट सुपरवाइज़र, और फैक्टरी, फ्लेक्सिबल पैकेजिंग, प्रिंटिंग, कन्वर्टिंग तथा किसी भी मल्टी-सेक्शन / मल्टी-मशीन टीम के ops — जो अभी भी Excel रोस्टर पर चलते हैं।",
+    "faq3q": "क्या यह ऑफ़लाइन काम करता है?",
+    "faq3a": "हाँ। Man Power एक PWA है जिसमें ऑफ़लाइन कतार है, ताकि कमज़ोर प्लांट नेटवर्क पर भी शेड्यूल काम जारी रहे और कनेक्टिविटी आने पर सिंक हो।",
+    "faq4q": "कवरेज सामान्य शिफ्ट कैलेंडर से कैसे अलग है?",
+    "faq4a": "Auto Schedule के बाद ऐप विभाग, मशीन, पदनाम और ज़िम्मेदारी समूहों में प्रति शिफ्ट लोगों की गिनती करता है। कम दिन सूची में आते हैं ताकि आप साप्ताहिक छुट्टी बदलकर फिर जनरेट कर सकें — फ्लोर पर गैप पता चलने से पहले।",
+    "faq5q": "क्या हम पेरोल के लिए greytHR / Keka रख सकते हैं?",
+    "faq5a": "हाँ। कई टीमें पेरोल/कंप्लायंस अपने HRMS में रखती हैं और शॉप-फ्लोर रोस्टर क्वालिटी के लिए Man Power इस्तेमाल करती हैं। दोनों अलग काम करते हैं।",
     "short": "कम",
     "featuresTitle": "विशेषताएँ",
     "featuresSub": "मैनपावर प्लानिंग के लिए ज़रूरी सब कुछ — पूरा HR सॉफ्टवेयर खरीदे बिना।",
@@ -1105,7 +1137,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "kn": {
     "featuresLabel": "Features",
@@ -1186,7 +1218,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "bn": {
     "featuresLabel": "Features",
@@ -1267,7 +1299,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "mr": {
     "featuresLabel": "Features",
@@ -1348,7 +1380,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "ur": {
     "featuresLabel": "Features",
@@ -1591,7 +1623,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "ml": {
     "featuresLabel": "Features",
@@ -1672,7 +1704,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   },
   "pa": {
     "featuresLabel": "Features",
@@ -1753,7 +1785,7 @@
     "localeHint": "Same preference is used in the Man Power app.",
     "country": "1. Country",
     "languageSection": "2. Language",
-    "missingNote": "Missing landing strings → English."
+    "missingNote": "Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login."
   }
 };
 
@@ -1771,8 +1803,10 @@
     return l;
   }
   function uiLang() {
+    // Landing marketing copy is fully translated for EN + HI only.
+    // Other languages (ta, gu, ar, …) are stored for the app but render as English here.
     var l = getLang();
-    if (STR[l]) return l;
+    if (l === 'hi' || l === 'hindi' || l === 'hin') return 'hi';
     return 'en';
   }
   function t(k) {
@@ -1797,8 +1831,8 @@
     });
     var btn = document.getElementById('landingLangBtn');
     if (btn) {
-      var raw = getLang();
-      btn.textContent = raw === 'hi' ? 'हिं' : (raw === 'en' ? 'EN' : String(raw).slice(0,2).toUpperCase());
+      // Landing UI is EN or HI only
+      btn.textContent = (lang === 'hi') ? 'हिं' : 'EN';
     }
 
     // Phrase-level replacements for remaining marketing copy (EN ↔ HI, no mix)
@@ -1863,14 +1897,10 @@
       }
     });
 
-    // Department in mock table
-    document.querySelectorAll('.ui-table th').forEach(function (th) {
-      var v = (th.textContent || '').trim();
-      if (v === 'Section' || v === 'Department' || v === 'विभाग' || v === 'सेक्शन') th.textContent = t('department');
-      if (v === 'Mon' || v === 'सोम') th.textContent = t('mon');
-      if (v === 'Tue' || v === 'मंगल') th.textContent = t('tue');
-      if (v === 'Wed' || v === 'बुध') th.textContent = t('wed');
-      if (v === 'Coverage' || v === 'कवरेज') th.textContent = t('coverage');
+    // Hero mock table: always set from keys (prevents Tamil/other languages sticking after language switch)
+    var thKeys = ['department', 'mon', 'tue', 'wed', 'coverage'];
+    document.querySelectorAll('.ui-table thead th').forEach(function (th, i) {
+      if (i < thKeys.length) th.textContent = t(thKeys[i]);
     });
   }
 
@@ -1941,12 +1971,12 @@
     modal.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.5);padding:12px';
     modal.innerHTML = '<div style="background:#f8fafc;border-radius:16px;max-width:480px;width:100%;padding:20px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.2)">' +
       '<div style="font-weight:800;font-size:18px;margin-bottom:4px">🌐 Country & Language</div>' +
-      '<div style="font-size:12px;color:#64748b;margin-bottom:14px">Same preference is used in the Man Power app. Landing copy is fully translated for English & Hindi; other languages store your choice.</div>' +
+      '<div style="font-size:12px;color:#64748b;margin-bottom:14px">Same preference is used in the Man Power app. Landing page shows English or Hindi only. Other languages are saved for the Man Power app after login.</div>' +
       '<div style="font-size:12px;font-weight:700;margin-bottom:8px">1. Country</div>' +
       '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px" id="mpLandCountryGrid">'+cHtml+'</div>' +
       '<div style="font-size:12px;font-weight:700;margin-bottom:8px">2. Language</div>' +
       '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px" id="mpLandLangGrid">'+langBtns(curC)+'</div>' +
-      '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px">Missing landing strings → English.</div>' +
+      '<div style="font-size:11px;color:#94a3b8;margin-bottom:12px">Landing always uses EN or HI. App languages (Tamil, Gujarati, …) apply after login.</div>' +
       '<button type="button" id="mpLandLocaleDone" style="width:100%;padding:14px;border:none;border-radius:12px;background:#ea580c;color:#fff;font-weight:800;cursor:pointer">✅ Done</button>' +
       '</div>';
     document.body.appendChild(modal);

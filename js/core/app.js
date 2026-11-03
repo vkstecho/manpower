@@ -80,31 +80,46 @@ function _mpTriggerPwaInstall(){
 }
 
 function _showInstallPlatformModal(){
-  var PLAY = (typeof window._shareAndroidUrl==='string' && window._shareAndroidUrl) ? window._shareAndroidUrl : 'https://play.google.com/store/apps/details?id=com.vkstech.manpower';
-  var WEB = (typeof window._shareIosUrl==='string' && window._shareIosUrl) ? window._shareIosUrl : 'https://manpower.vkstech.com';
+  // Never navigate away to the marketing landing page.
+  // 1) Try native install prompt first
+  try{
+    if(typeof _mpTriggerPwaInstall==='function' && _mpTriggerPwaInstall()) return;
+  }catch(e){}
+
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  var isAndroid = /android/i.test(navigator.userAgent);
+  var PLAY = (typeof window._shareAndroidUrl==='string' && window._shareAndroidUrl)
+    ? window._shareAndroidUrl
+    : 'https://play.google.com/store/apps/details?id=com.vkstech.manpower';
+
+  if(isIOS){
+    try{ if(typeof _showIosInstallHelp==='function'){ _showIosInstallHelp(); return; } }catch(e){}
+  }
+  if(isAndroid){
+    try{ window.open(PLAY,'_blank','noopener'); return; }catch(e){}
+  }
+
+  // Desktop / fallback: show platform chooser that does NOT open the landing URL
   var apple = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="#1d1d1f"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>';
   var play = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 512 512"><path fill="#00A0FF" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/><path fill="#00F076" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/><path fill="#FFD500" d="M104.6 13L325.3 234.3 385.4 174.2 465.3 128 104.6 13z"/><path fill="#FF3A44" d="M104.6 499l360.7-115.2-79.9-46.1-60.1 60.1L104.6 499z"/><path fill="#00D6FF" d="M104.6 13v486L325.3 256 104.6 13z"/></svg>';
   var win = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><path fill="#0078D4" d="M3 5.1L10.5 4v7.2H3V5.1zm0 13.8v-6.3h7.5V20L3 18.9zM11.4 4L21 2.7v8.5h-9.6V4zM21 21.3L11.4 20v-7.2H21v8.5z"/></svg>';
-  function row(bg, icon, label, sub, href, extraOnclick){
-    var oc = extraOnclick || ("closeModal();window.open('"+href+"','_blank','noopener')");
-    return '<button type="button" class="profile-action" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px" onclick="'+oc+'">'+
+  function row(bg, icon, label, sub, onclick){
+    return '<button type="button" class="profile-action" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px" onclick="'+onclick+'">'+
       '<div class="pa-icon" style="background:'+bg+';display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;border-radius:12px;overflow:hidden">'+icon+'</div>'+
       '<div style="flex:1;min-width:0;text-align:left"><div class="pa-label" style="font-weight:800">'+label+'</div><div class="pa-sub" style="font-size:11px;color:var(--muted2)">'+sub+'</div></div>'+
       '<div class="pa-arrow">›</div></button>';
   }
   var html = '<div class="modal-handle"></div><div class="modal-title">📲 Install App</div>'+
     '<div style="font-size:12px;color:var(--muted2);margin:0 0 14px;line-height:1.45">Choose your platform</div>'+
-    row('rgba(0,0,0,.06)', apple, 'iPhone / iPad', 'Apple · Safari → Share → Add to Home Screen', WEB,
-      "closeModal();if(typeof _showInstallInstructions==='function'){if(typeof _showIosInstallHelp==='function')_showIosInstallHelp();else if(typeof _showInstallInstructions==='function')_showInstallInstructions();}") +
-    row('rgba(1,135,95,.12)', play, 'Android', 'Google Play Store', PLAY) +
-    row('rgba(0,120,212,.12)', win, 'Windows / Desktop', 'Install now (Chrome / Edge)', WEB, "closeModal();if(!_mpTriggerPwaInstall()){alert('If install did not open: Chrome menu (⋮) → Install Man Power / Install app.');}") +
+    row('rgba(0,0,0,.06)', apple, 'iPhone / iPad', 'Apple · Safari → Share → Add to Home Screen',
+      "closeModal();setTimeout(function(){try{_showIosInstallHelp()}catch(e){}},50)") +
+    row('rgba(1,135,95,.12)', play, 'Android', 'Google Play Store',
+      "closeModal();window.open('"+PLAY+"','_blank','noopener')") +
+    row('rgba(0,120,212,.12)', win, 'Windows / Desktop', 'Chrome/Edge → Install app / PWA',
+      "closeModal();if(!_mpTriggerPwaInstall()){openModal('<div class=\\'modal-handle\\'></div><div class=\\'modal-title\\'>Install on Windows / Desktop</div><div style=\\'font-size:14px;line-height:1.7;color:var(--muted2);margin-bottom:14px\\'><div>1️⃣ Look for the <b style=\\'color:var(--text)\\'>Install</b> icon in the address bar</div><div>2️⃣ Or open the browser menu (⋮) → <b style=\\'color:var(--text)\\'>Install Man Power</b> / <b style=\\'color:var(--text)\\'>Install app</b></div><div>3️⃣ Click <b style=\\'color:var(--text)\\'>Install</b></div></div><button class=\\'cancel-btn\\' style=\\'width:100%\\' onclick=\\'closeModal()\\'>Close</button>');}") +
     '<div style="font-size:11px;color:var(--muted2);margin:8px 0 4px;line-height:1.5">Or use browser menu: <b>Install app</b> / <b>Add to Home Screen</b>.</div>'+
     '<button type="button" class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">Close</button>';
-  // Fix iOS row: open short iOS help
-  html = html.replace(
-    "closeModal();if(typeof _showInstallInstructions==='function'){if(typeof _showIosInstallHelp==='function')_showIosInstallHelp();else if(typeof _showInstallInstructions==='function')_showInstallInstructions();}",
-    "closeModal();setTimeout(function(){try{_showIosInstallHelp()}catch(e){window.open('"+WEB+"','_blank')}},100)"
-  );
   openModal(html);
 }
 function _showIosInstallHelp(){
