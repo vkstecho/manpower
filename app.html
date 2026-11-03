@@ -835,26 +835,6 @@ html.mp-login-active, body.mp-login-active {
 #loginMobileTitle{font-size:13px;font-weight:700;color:#f1f5f9!important;margin-bottom:6px}
 .inp-field::placeholder{color:#94a3b8;opacity:1}
 </style>
-
-<script>
-/* v4.0.1 install stub — real impl in js/core/app.js */
-window._mpInstallPending = false;
-window._showInstallPlatformModal = window._showInstallPlatformModal || function(){
-  window._mpInstallPending = true;
-  // if app.js not loaded yet, wait briefly then retry
-  var n=0;
-  (function wait(){
-    n++;
-    if(window.__mpInstallReady && window._showInstallPlatformModalReal){
-      window._showInstallPlatformModal = window._showInstallPlatformModalReal;
-      window._showInstallPlatformModal();
-      return;
-    }
-    if(n<40) return setTimeout(wait, 50);
-    alert('Install: open browser menu (⋮) → Install app / Add to Home Screen');
-  })();
-};
-</script>
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -967,7 +947,7 @@ window._showInstallPlatformModal = window._showInstallPlatformModal || function(
         <span class="mp-sec-ic mp-sec-ic-svg"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 512 512" aria-hidden="true"><path fill="#00A0FF" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/><path fill="#00F076" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/><path fill="#FFD500" d="M104.6 13L325.3 234.3 385.4 174.2 465.3 128 104.6 13z"/><path fill="#FF3A44" d="M104.6 499l360.7-115.2-79.9-46.1-60.1 60.1L104.6 499z"/><path fill="#00D6FF" d="M104.6 13v486L325.3 256 104.6 13z"/></svg></span>
         <span class="mp-sec-lb">Play Store</span>
       </a>
-      <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install for iOS / Windows (PWA)" onclick="try{if(window._mpTriggerPwaInstall&&window._mpTriggerPwaInstall())return;if(window._showInstallPlatformModal){window._showInstallPlatformModal();return;}alert('Install: use browser menu → Install app / Add to Home Screen');}catch(e){try{if(window._showInstallPlatformModal)window._showInstallPlatformModal();}catch(e2){alert('Install: browser menu → Install app');}}">
+      <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install for iOS / Windows (PWA)" onclick="try{if(window._mpTriggerPwaInstall&&_mpTriggerPwaInstall()){}else if(window._showInstallPlatformModal)_showInstallPlatformModal();}catch(e){if(window._showInstallPlatformModal)_showInstallPlatformModal();}">
         <span class="mp-sec-ic mp-sec-ic-svg mp-sec-ic-pair"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="#f8fafc" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#60a5fa" d="M3 5.1L10.5 4v7.2H3V5.1zm0 13.8v-6.3h7.5V20L3 18.9zM11.4 4L21 2.7v8.5h-9.6V4zM21 21.3L11.4 20v-7.2H21v8.5z"/></svg></span>
         <span class="mp-sec-lb">Install · iOS / Windows</span>
       </button>
@@ -2041,7 +2021,7 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/commercial/public-offer.js?v=300035"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=401001"></script>
+<script src="js/core/app-core.js?v=300035"></script>
 <script src="js/auth/app-login.js?v=300035"></script>
 <script src="js/auth/app-login-device.js?v=300035"></script>
 <script src="js/auth/app-session-auth.js?v=300035"></script>
@@ -2050,7 +2030,7 @@ window.__sectionsReady = (async function loadSections(){
 <script src="js/session/app-session-home.js?v=300035"></script>
 <script src="js/session/app-session-payment.js?v=300035"></script>
 <script src="js/auth/app-login-session.js?v=300035"></script>
-<script src="js/core/app.js?v=401001"></script>
+<script src="js/core/app.js?v=300035"></script>
 <script src="js/team/app-team-print-learn.js?v=300035"></script>
 <script src="js/commercial/mp-commercial.js?v=300035"></script>
 <script src="js/core/a11y.js?v=300035"></script>
