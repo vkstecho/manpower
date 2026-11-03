@@ -2370,27 +2370,35 @@ window.deleteLearnButton = deleteLearnButton;
 function openLearnModuleIntro(title, url){
   var isResume = /resume/i.test(String(title||'')) || /resume-builder/i.test(String(url||''));
   var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /Mentor\//i.test(String(url||'')) || /mentor\.vkstech/i.test(String(url||''));
+  var isFpJob = /fp\s*job|fpjob|packaging industry network/i.test(String(title||'')) || /fpjob\.vkstech/i.test(String(url||''));
   // Prefer local real icons shipped with the app
-  var imgSrc = isResume
-    ? (document.querySelector('link[rel="icon"]') ? 'assets/resume-icon.jpg' : 'assets/resume-icon.jpg')
-    : 'assets/mentor-icon.jpg';
+  var imgSrc = 'assets/mentor-icon.jpg';
   if (isResume) {
     imgSrc = 'assets/resume-icon.jpg';
+  } else if (isFpJob) {
+    imgSrc = 'assets/fpjob-icon.png';
   } else if (isMentor) {
     imgSrc = 'assets/mentor-icon.jpg';
   }
-  var headline = isResume ? 'AI Resume Builder' : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module'));
+  var headline = isResume ? 'AI Resume Builder'
+    : (isFpJob ? 'FP Job — Packaging Industry Network'
+    : (isMentor ? 'Mentor — One-to-One Guidance' : String(title||'Module')));
   var points = isResume ? [
     '100% free — build a professional resume',
     'Download & share as PDF with recruiters',
     'Multiple templates · live preview · mobile friendly',
     'Saved with your mobile login when online'
+  ] : (isFpJob ? [
+    'India\'s job network for Flexible Packaging professionals',
+    'Admin-verified members · hiring & seeking listings',
+    'Company profiles — UFlex, SRF, Cosmo, JPFL & 20+ plants',
+    'Multi-language · chats · resume tools · built by VKS Tech'
   ] : [
     'One-to-one guidance on AI tools & career skills',
     'Flexible Packaging expert sessions + free plant modules',
     'Tracks for Gemini, Claude, ChatGPT, Grok & more',
     'Book sessions, workspace notes & doubt chat'
-  ];
+  ]);
   var layer = document.getElementById('learnModuleIntro');
   if(!layer){
     layer = document.createElement('div');
@@ -2422,9 +2430,10 @@ function openLearnModuleIntro(title, url){
   };
 }
 function openLearnIframeModule(title, url){
-  // Mentor: skip dark intro — open mentor.vkstech.com immediately (no intermediate page)
+  // Mentor / FP Job: open external apps directly (no intermediate iframe wall)
   var isMentor = /mentor|guidance|one-to-one/i.test(String(title||'')) || /mentor\.vkstech/i.test(String(url||''));
-  if (isMentor) {
+  var isFpJob = /fp\s*job|fpjob|packaging industry network/i.test(String(title||'')) || /fpjob\.vkstech/i.test(String(url||''));
+  if (isMentor || isFpJob) {
     openLearnIframeModuleDirect(title, url);
     return;
   }
@@ -2436,6 +2445,35 @@ function openLearnIframeModuleDirect(title, url){
     const safeUrl = String(url||'').trim();
     if(!safeUrl){ toast('Link not configured'); return; }
     var isMentor = /mentor|guidance|one-to-one/i.test(safeTitle) || /mentor\.vkstech/i.test(safeUrl);
+    var isFpJob = /fp\s*job|fpjob|packaging industry network/i.test(safeTitle) || /fpjob\.vkstech/i.test(safeUrl);
+
+    // FP Job — Packaging Industry Network (fpjob.vkstech.com) — external PWA, no iframe
+    if (isFpJob) {
+      var destFp = 'https://fpjob.vkstech.com/';
+      try {
+        var uFp = new URL(destFp);
+        var mobileFp = '';
+        try {
+          if (typeof SESSION !== 'undefined' && SESSION && SESSION.mobile) mobileFp = String(SESSION.mobile).replace(/\D/g,'').slice(-10);
+          if (!mobileFp) {
+            var sessFp = localStorage.getItem('mp_session');
+            if (sessFp) {
+              var jFp = JSON.parse(sessFp);
+              mobileFp = String(jFp.mobile || jFp.phone || '').replace(/\D/g,'').slice(-10);
+            }
+          }
+        } catch (eFp0) {}
+        if (mobileFp && mobileFp.length === 10) {
+          uFp.searchParams.set('mobile', mobileFp);
+          uFp.searchParams.set('from', 'mp');
+        }
+        uFp.searchParams.set('return', (location.origin || 'https://manpower.vkstech.com') + '/app.html');
+        destFp = uFp.toString();
+      } catch (eFp1) {}
+      try { toast('Opening FP Job…'); } catch (eFp2) {}
+      window.location.href = destFp;
+      return;
+    }
 
     // Mentor is cross-origin (mentor.vkstech.com). Mobile browsers + X-Frame-Options
     // often show a blank white iframe. Navigate top window to the marketing landing
@@ -2524,7 +2562,9 @@ function _learnModuleUrls(){
   return {
     resume: origin + '/resume-builder/index.html',
     // Marketing landing (not mentor.html in iframe — avoids blank white screen on mobile)
-    guidance: 'https://mentor.vkstech.com/'
+    guidance: 'https://mentor.vkstech.com/',
+    // FP Job — Packaging Industry Network (live PWA)
+    fpjob: 'https://fpjob.vkstech.com/'
   };
 }
 
@@ -2600,6 +2640,8 @@ function injectLearnModuleButtons(){
 
     ensureBtn('learnBtnResumeBuilder', 'AI Resume Builder', '#fef3c7', '#d97706', urls.resume, 'AI Resume Builder', 'assets/resume-icon.jpg');
     ensureBtn('learnBtnOneToOne', 'Mentor — One-to-One Guidance', '#d1fae5', '#059669', urls.guidance, 'Mentor — One-to-One Guidance', 'assets/mentor-icon.jpg');
+    // FP Job — real icon from github.com/vkstecho/fpjob (icon-192.png)
+    ensureBtn('learnBtnFpJob', 'FP Job — Packaging Industry Network', '#ecfdf5', '#0e3b2e', urls.fpjob, 'FP Job — Packaging Industry Network', 'assets/fpjob-icon.png');
 
     // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
     try{
