@@ -200,6 +200,20 @@
 
   if (!window._doPlatformShare) {
     window._doPlatformShare = function (kind) {
+      if (kind === 'desktop') {
+        try {
+          if (typeof triggerPWAInstall === 'function') {
+            triggerPWAInstall();
+            return;
+          }
+        } catch (e) {}
+        try {
+          if (typeof _showInstallInstructions === 'function') {
+            _showInstallInstructions();
+            return;
+          }
+        } catch (e2) {}
+      }
       var url =
         kind === 'ios'
           ? window._shareIosUrl || WEB_APP
