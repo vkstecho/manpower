@@ -696,7 +696,7 @@ window.toggleMRSkillTheme = function(){
   }
 })();
 
-window.closeMRSkill = function(){
+closeMRSkill = function(){
   const view = document.getElementById('learnMRSkillView');
   if(view) view.style.display='none';
   const mb = document.getElementById('learnMainButtons');
