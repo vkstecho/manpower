@@ -179,10 +179,25 @@
     // Landing videos (from Admin publish)
     var videoBox = document.getElementById('loginVideos');
     if (videoBox) {
-      var shortU = offer && offer.videoShortUrl ? String(offer.videoShortUrl).trim() : '';
-      var longU = offer && offer.videoLongUrl ? String(offer.videoLongUrl).trim() : '';
-      var shortT = (offer && offer.videoShortTitle) || 'Auto Schedule · one click';
-      var longT = (offer && offer.videoLongTitle) || 'Setup + free trial';
+      var hiLang = false;
+      try {
+        hiLang = String(localStorage.getItem('mp_lang') || '').toLowerCase() === 'hi';
+      } catch (eL) {}
+      var shortU = '';
+      var longU = '';
+      if (hiLang) {
+        shortU = (offer && (offer.videoShortUrlHi || offer.videoShortUrl)) ? String(offer.videoShortUrlHi || offer.videoShortUrl).trim() : '';
+        longU = (offer && (offer.videoLongUrlHi || offer.videoLongUrl)) ? String(offer.videoLongUrlHi || offer.videoLongUrl).trim() : '';
+      } else {
+        shortU = offer && offer.videoShortUrl ? String(offer.videoShortUrl).trim() : '';
+        longU = offer && offer.videoLongUrl ? String(offer.videoLongUrl).trim() : '';
+      }
+      var shortT = hiLang
+        ? ((offer && (offer.videoShortTitleHi || offer.videoShortTitle)) || 'ऑटो शेड्यूल · एक क्लिक')
+        : ((offer && offer.videoShortTitle) || 'Auto Schedule · one click');
+      var longT = hiLang
+        ? ((offer && (offer.videoLongTitleHi || offer.videoLongTitle)) || 'सेटअप + मुफ्त ट्रायल')
+        : ((offer && offer.videoLongTitle) || 'Setup + free trial');
       function toEmbed(url) {
         if (!url) return '';
         var m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{6,})/i);

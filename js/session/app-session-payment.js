@@ -489,19 +489,32 @@ async function openPaymentSettingsAdmin(){
 
   <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
   <div style="margin:14px 0;padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.08)">
-    <div style="font-size:13px;font-weight:900;margin-bottom:6px">🎬 Landing videos (Admin · 8929397949)</div>
+    <div style="font-size:13px;font-weight:900;margin-bottom:6px">🎬 Landing videos — 4 URLs (Admin · 8929397949)</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.45">
-      YouTube / Vimeo / direct MP4 links. After Save + <b>Publish to landing page</b>, login screen and marketing page load these videos.
+      Set <b>English</b> and <b>Hindi</b> videos. Landing page shows EN or HI set based on language toggle.
+      YouTube / youtu.be / MP4. After <b>Save</b> + <b>Publish to landing page</b>.
     </div>
-    <div class="field"><label>Short video URL (Auto Schedule · one click)</label>
+    <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 4px">English videos</div>
+    <div class="field"><label>EN · Short URL (Auto Schedule · one click)</label>
       <input id="pay_video_short" class="inp-field" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." value="">
     </div>
-    <div class="field"><label>Long video URL (Setup + free 15 days)</label>
+    <div class="field"><label>EN · Long URL (Setup + free trial)</label>
       <input id="pay_video_long" class="inp-field" placeholder="https://www.youtube.com/watch?v=..." value="">
     </div>
-    <div class="field"><label>Optional titles (shown under embeds)</label>
+    <div class="field"><label>EN · Optional titles</label>
       <input id="pay_video_short_title" class="inp-field" placeholder="Auto Schedule in one click" value="">
       <input id="pay_video_long_title" class="inp-field" style="margin-top:6px" placeholder="Setup + free 15-day trial" value="">
+    </div>
+    <div style="font-size:12px;font-weight:800;color:#f97316;margin:12px 0 4px">Hindi videos (हिंदी)</div>
+    <div class="field"><label>HI · Short URL (ऑटो शेड्यूल · एक क्लिक)</label>
+      <input id="pay_video_short_hi" class="inp-field" placeholder="https://www.youtube.com/watch?v=... (Hindi short)" value="">
+    </div>
+    <div class="field"><label>HI · Long URL (सेटअप + मुफ्त ट्रायल)</label>
+      <input id="pay_video_long_hi" class="inp-field" placeholder="https://www.youtube.com/watch?v=... (Hindi long)" value="">
+    </div>
+    <div class="field"><label>HI · Optional titles</label>
+      <input id="pay_video_short_title_hi" class="inp-field" placeholder="ऑटो शेड्यूल — एक क्लिक" value="">
+      <input id="pay_video_long_title_hi" class="inp-field" style="margin-top:6px" placeholder="सेटअप + मुफ्त 15 दिन" value="">
     </div>
   </div>
   <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · videos '+ ((s.videoShortUrl||s.videoLongUrl)?'set':'none') +' · discount '+ (s.annualDiscountPct||0) +'%');try{if(typeof closeModal==='function'){closeModal();closeModal();}}catch(e){}try{document.querySelectorAll('.modal-overlay,.modal-bg,#modalRoot .modal').forEach(function(el){el.style.display='none';el.classList&&el.classList.add('hidden');});}catch(e3){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');else if(typeof showTab==='function')showTab('home');}catch(e2){}try{window.scrollTo(0,0);}catch(e4){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
@@ -678,37 +691,42 @@ async function loadLandingVideosAdmin(){
 async function fillLandingVideoFields(){
   try{
     const v = await loadLandingVideosAdmin();
-    const s = document.getElementById('pay_video_short');
-    const l = document.getElementById('pay_video_long');
-    const st = document.getElementById('pay_video_short_title');
-    const lt = document.getElementById('pay_video_long_title');
-    if(s) s.value = (v && v.shortUrl) || '';
-    if(l) l.value = (v && v.longUrl) || '';
-    if(st) st.value = (v && v.shortTitle) || '';
-    if(lt) lt.value = (v && v.longTitle) || '';
+    const map = {
+      pay_video_short: 'shortUrl',
+      pay_video_long: 'longUrl',
+      pay_video_short_title: 'shortTitle',
+      pay_video_long_title: 'longTitle',
+      pay_video_short_hi: 'shortUrlHi',
+      pay_video_long_hi: 'longUrlHi',
+      pay_video_short_title_hi: 'shortTitleHi',
+      pay_video_long_title_hi: 'longTitleHi'
+    };
+    Object.keys(map).forEach(function(id){
+      const el = document.getElementById(id);
+      if(el) el.value = (v && v[map[id]]) || '';
+    });
   }catch(e){}
 }
 async function saveLandingVideosFromPaymentForm(){
   if(typeof isAdmin!=='function' || !isAdmin()) return;
-  const shortUrl = String((document.getElementById('pay_video_short')||{}).value||'').trim().slice(0,500);
-  const longUrl = String((document.getElementById('pay_video_long')||{}).value||'').trim().slice(0,500);
-  const shortTitle = String((document.getElementById('pay_video_short_title')||{}).value||'').trim().slice(0,120);
-  const longTitle = String((document.getElementById('pay_video_long_title')||{}).value||'').trim().slice(0,120);
+  function val(id, max){
+    return String((document.getElementById(id)||{}).value||'').trim().slice(0, max||500);
+  }
   const payload = {
-    shortUrl: shortUrl,
-    longUrl: longUrl,
-    shortTitle: shortTitle || 'Auto Schedule in one click',
-    longTitle: longTitle || 'Setup + free 15-day trial',
-    updatedAt: new Date().toISOString(),
-    updatedBy: (typeof SESSION!=='undefined' && SESSION && SESSION.mobile) ? String(SESSION.mobile) : 'admin'
+    shortUrl: val('pay_video_short', 500),
+    longUrl: val('pay_video_long', 500),
+    shortTitle: val('pay_video_short_title', 120),
+    longTitle: val('pay_video_long_title', 120),
+    shortUrlHi: val('pay_video_short_hi', 500),
+    longUrlHi: val('pay_video_long_hi', 500),
+    shortTitleHi: val('pay_video_short_title_hi', 120),
+    longTitleHi: val('pay_video_long_title_hi', 120),
+    updatedAt: new Date().toISOString()
   };
   window._landingVideosCache = payload;
   if(typeof fbSet==='function') await fbSet('settings/landingVideos', payload);
   else if(typeof fbUpdate==='function') await fbUpdate('settings/landingVideos', payload);
 }
-window.loadLandingVideosAdmin = loadLandingVideosAdmin;
-window.fillLandingVideoFields = fillLandingVideoFields;
-window.saveLandingVideosFromPaymentForm = saveLandingVideosFromPaymentForm;
 
 /** Build + write publicOffer snapshot for anonymous landing (v3.2.7). */
 async function publishPublicOfferSnapshot() {
@@ -780,12 +798,20 @@ async function publishPublicOfferSnapshot() {
       const fl = document.getElementById('pay_video_long');
       const fst = document.getElementById('pay_video_short_title');
       const flt = document.getElementById('pay_video_long_title');
-      if (fs || fl) {
+      const fsh = document.getElementById('pay_video_short_hi');
+      const flh = document.getElementById('pay_video_long_hi');
+      const fsth = document.getElementById('pay_video_short_title_hi');
+      const flth = document.getElementById('pay_video_long_title_hi');
+      if (fs || fl || fsh || flh) {
         vids = Object.assign({}, vids, {
           shortUrl: fs ? String(fs.value || '').trim() : (vids.shortUrl || ''),
           longUrl: fl ? String(fl.value || '').trim() : (vids.longUrl || ''),
           shortTitle: fst ? String(fst.value || '').trim() : (vids.shortTitle || ''),
-          longTitle: flt ? String(flt.value || '').trim() : (vids.longTitle || '')
+          longTitle: flt ? String(flt.value || '').trim() : (vids.longTitle || ''),
+          shortUrlHi: fsh ? String(fsh.value || '').trim() : (vids.shortUrlHi || ''),
+          longUrlHi: flh ? String(flh.value || '').trim() : (vids.longUrlHi || ''),
+          shortTitleHi: fsth ? String(fsth.value || '').trim() : (vids.shortTitleHi || ''),
+          longTitleHi: flth ? String(flth.value || '').trim() : (vids.longTitleHi || '')
         });
         window._landingVideosCache = vids;
         try {
@@ -805,6 +831,10 @@ async function publishPublicOfferSnapshot() {
       videoLongUrl: String(vids.longUrl || '').trim().slice(0, 500),
       videoShortTitle: String(vids.shortTitle || 'Auto Schedule in one click').trim().slice(0, 120),
       videoLongTitle: String(vids.longTitle || 'Setup + free 15-day trial').trim().slice(0, 120),
+      videoShortUrlHi: String(vids.shortUrlHi || '').trim().slice(0, 500),
+      videoLongUrlHi: String(vids.longUrlHi || '').trim().slice(0, 500),
+      videoShortTitleHi: String(vids.shortTitleHi || '').trim().slice(0, 120),
+      videoLongTitleHi: String(vids.longTitleHi || '').trim().slice(0, 120),
       updatedAt: new Date().toISOString()
     };
     if (typeof fbSet === 'function') await fbSet('publicOffer', snapshot);
