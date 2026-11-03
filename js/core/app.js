@@ -64,13 +64,15 @@ try{const id=editId||"todo_"+Date.now()+"_"+Math.random().toString(36).slice(2,7
 
 function _mpTriggerPwaInstall(){
   try{
-    var p = (typeof _mpSyncPwaPrompt==='function' && _mpSyncPwaPrompt()) || window.__pwaDeferredPrompt || _pwaPrompt;
+    var p = null;
+    try{ if(typeof _mpSyncPwaPrompt==='function') p = _mpSyncPwaPrompt(); }catch(e0){}
+    p = p || window.__pwaDeferredPrompt || window._pwaPrompt || null;
     if(p && typeof p.prompt==='function'){
       p.prompt();
       try{
         p.userChoice.then(function(r){
-          if(r && r.outcome==='accepted'){ try{ hideInstallBanner(); }catch(e){} }
-          _pwaPrompt=null; window.__pwaDeferredPrompt=null;
+          if(r && r.outcome==='accepted'){ try{ if(typeof hideInstallBanner==='function') hideInstallBanner(); }catch(e){} }
+          window._pwaPrompt=null; window.__pwaDeferredPrompt=null;
         });
       }catch(e){}
       return true;
@@ -79,63 +81,111 @@ function _mpTriggerPwaInstall(){
   return false;
 }
 
+/** Self-contained install UI — does NOT depend on deferred openModal (excel-ops). */
+function _mpEnsureInstallOverlay(){
+  var el = document.getElementById('mpInstallOverlay');
+  if(el) return el;
+  el = document.createElement('div');
+  el.id = 'mpInstallOverlay';
+  el.setAttribute('role','dialog');
+  el.setAttribute('aria-modal','true');
+  el.style.cssText = 'display:none;position:fixed;inset:0;z-index:999999;background:rgba(0,0,0,.55);align-items:flex-end;justify-content:center;padding:12px;box-sizing:border-box';
+  el.innerHTML = '<div id="mpInstallSheet" style="background:#f8fafc;color:#0f172a;border-radius:16px 16px 12px 12px;max-width:420px;width:100%;padding:18px 16px 14px;max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.35);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif"></div>';
+  el.addEventListener('click', function(e){ if(e.target===el) _mpCloseInstallOverlay(); });
+  document.body.appendChild(el);
+  return el;
+}
+function _mpCloseInstallOverlay(){
+  var el = document.getElementById('mpInstallOverlay');
+  if(el) el.style.display = 'none';
+}
+function _mpOpenInstallSheet(html){
+  var el = _mpEnsureInstallOverlay();
+  var sheet = document.getElementById('mpInstallSheet');
+  if(sheet) sheet.innerHTML = html;
+  el.style.display = 'flex';
+}
+window._mpCloseInstallOverlay = _mpCloseInstallOverlay;
+
+function _showIosInstallHelp(){
+  _mpOpenInstallSheet(
+    '<div style="width:40px;height:4px;background:#cbd5e1;border-radius:4px;margin:0 auto 12px"></div>'+
+    '<div style="font-weight:800;font-size:17px;margin-bottom:12px">📲 iPhone / iPad Install</div>'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+    '<div style="width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:22px">🍎</div>'+
+    '<div style="font-size:13px;font-weight:800">Apple Safari</div></div>'+
+    '<div style="font-size:14px;line-height:2;color:#475569">'+
+    '<div>1️⃣ Open this page in <b style="color:#0f172a">Safari</b></div>'+
+    '<div>2️⃣ Tap <b style="color:#0f172a">Share 📤</b></div>'+
+    '<div>3️⃣ Choose <b style="color:#0f172a">Add to Home Screen</b></div>'+
+    '<div>4️⃣ Tap <b style="color:#0f172a">Add</b></div></div>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay()" style="width:100%;margin-top:16px;padding:12px;border:none;border-radius:12px;background:#e2e8f0;font-weight:700;cursor:pointer">OK</button>'
+  );
+}
+
+function _showDesktopInstallHelp(){
+  _mpOpenInstallSheet(
+    '<div style="width:40px;height:4px;background:#cbd5e1;border-radius:4px;margin:0 auto 12px"></div>'+
+    '<div style="font-weight:800;font-size:17px;margin-bottom:12px">💻 Windows / Desktop Install</div>'+
+    '<div style="font-size:14px;line-height:1.85;color:#475569;margin-bottom:14px">'+
+    '<div>1️⃣ In <b style="color:#0f172a">Chrome</b> or <b style="color:#0f172a">Edge</b>, look for the <b style="color:#0f172a">Install</b> icon in the address bar</div>'+
+    '<div>2️⃣ Or open the menu <b style="color:#0f172a">⋮</b> → <b style="color:#0f172a">Install Man Power</b> / <b style="color:#0f172a">Install app</b></div>'+
+    '<div>3️⃣ Click <b style="color:#0f172a">Install</b></div></div>'+
+    '<button type="button" onclick="try{_mpTriggerPwaInstall()}catch(e){};_mpCloseInstallOverlay()" style="width:100%;padding:12px;border:none;border-radius:12px;background:#ea580c;color:#fff;font-weight:800;cursor:pointer">Try install prompt</button>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay()" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#e2e8f0;font-weight:700;cursor:pointer">Close</button>'
+  );
+}
+
 function _showInstallPlatformModal(){
-  // Never navigate away to the marketing landing page.
-  // 1) Try native install prompt first
+  // Never navigate to marketing landing page.
   try{
     if(typeof _mpTriggerPwaInstall==='function' && _mpTriggerPwaInstall()) return;
   }catch(e){}
 
-  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
-    (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
-  var isAndroid = /android/i.test(navigator.userAgent);
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  var isAndroid = /android/i.test(ua);
   var PLAY = (typeof window._shareAndroidUrl==='string' && window._shareAndroidUrl)
     ? window._shareAndroidUrl
     : 'https://play.google.com/store/apps/details?id=com.vkstech.manpower';
 
-  if(isIOS){
-    try{ if(typeof _showIosInstallHelp==='function'){ _showIosInstallHelp(); return; } }catch(e){}
-  }
+  if(isIOS){ _showIosInstallHelp(); return; }
   if(isAndroid){
-    try{ window.open(PLAY,'_blank','noopener'); return; }catch(e){}
+    try{ window.open(PLAY,'_blank','noopener'); }catch(e){ location.href = PLAY; }
+    return;
   }
 
-  // Desktop / fallback: show platform chooser that does NOT open the landing URL
-  var apple = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="#1d1d1f"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>';
-  var play = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 512 512"><path fill="#00A0FF" d="M325.3 234.3L104.6 13l280.8 161.2-60.1 60.1z"/><path fill="#00F076" d="M325.3 277.7l60.1 60.1L104.6 499l220.7-221.3z"/><path fill="#FFD500" d="M104.6 13L325.3 234.3 385.4 174.2 465.3 128 104.6 13z"/><path fill="#FF3A44" d="M104.6 499l360.7-115.2-79.9-46.1-60.1 60.1L104.6 499z"/><path fill="#00D6FF" d="M104.6 13v486L325.3 256 104.6 13z"/></svg>';
-  var win = '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24"><path fill="#0078D4" d="M3 5.1L10.5 4v7.2H3V5.1zm0 13.8v-6.3h7.5V20L3 18.9zM11.4 4L21 2.7v8.5h-9.6V4zM21 21.3L11.4 20v-7.2H21v8.5z"/></svg>';
-  function row(bg, icon, label, sub, onclick){
-    return '<button type="button" class="profile-action" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px" onclick="'+onclick+'">'+
-      '<div class="pa-icon" style="background:'+bg+';display:flex;align-items:center;justify-content:center;width:44px;height:44px;min-width:44px;border-radius:12px;overflow:hidden">'+icon+'</div>'+
-      '<div style="flex:1;min-width:0;text-align:left"><div class="pa-label" style="font-weight:800">'+label+'</div><div class="pa-sub" style="font-size:11px;color:var(--muted2)">'+sub+'</div></div>'+
-      '<div class="pa-arrow">›</div></button>';
-  }
-  var html = '<div class="modal-handle"></div><div class="modal-title">📲 Install App</div>'+
-    '<div style="font-size:12px;color:var(--muted2);margin:0 0 14px;line-height:1.45">Choose your platform</div>'+
-    row('rgba(0,0,0,.06)', apple, 'iPhone / iPad', 'Apple · Safari → Share → Add to Home Screen',
-      "closeModal();setTimeout(function(){try{_showIosInstallHelp()}catch(e){}},50)") +
-    row('rgba(1,135,95,.12)', play, 'Android', 'Google Play Store',
-      "closeModal();window.open('"+PLAY+"','_blank','noopener')") +
-    row('rgba(0,120,212,.12)', win, 'Windows / Desktop', 'Chrome/Edge → Install app / PWA',
-      "closeModal();if(!_mpTriggerPwaInstall()){openModal('<div class=\\'modal-handle\\'></div><div class=\\'modal-title\\'>Install on Windows / Desktop</div><div style=\\'font-size:14px;line-height:1.7;color:var(--muted2);margin-bottom:14px\\'><div>1️⃣ Look for the <b style=\\'color:var(--text)\\'>Install</b> icon in the address bar</div><div>2️⃣ Or open the browser menu (⋮) → <b style=\\'color:var(--text)\\'>Install Man Power</b> / <b style=\\'color:var(--text)\\'>Install app</b></div><div>3️⃣ Click <b style=\\'color:var(--text)\\'>Install</b></div></div><button class=\\'cancel-btn\\' style=\\'width:100%\\' onclick=\\'closeModal()\\'>Close</button>');}") +
-    '<div style="font-size:11px;color:var(--muted2);margin:8px 0 4px;line-height:1.5">Or use browser menu: <b>Install app</b> / <b>Add to Home Screen</b>.</div>'+
-    '<button type="button" class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">Close</button>';
-  openModal(html);
+  // Desktop / unknown: platform chooser (self-contained, no openModal)
+  _mpOpenInstallSheet(
+    '<div style="width:40px;height:4px;background:#cbd5e1;border-radius:4px;margin:0 auto 12px"></div>'+
+    '<div style="font-weight:800;font-size:17px;margin-bottom:4px">📲 Install App</div>'+
+    '<div style="font-size:12px;color:#64748b;margin-bottom:14px">Choose your platform</div>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay();setTimeout(_showIosInstallHelp,40)" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">🍎</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:800;color:#0f172a">iPhone / iPad</div><div style="font-size:11px;color:#64748b">Safari → Share → Add to Home Screen</div></div>'+
+      '<div style="color:#94a3b8">›</div></button>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay();window.open(\''+PLAY+'\',\'_blank\',\'noopener\')" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(1,135,95,.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">▶</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:800;color:#0f172a">Android</div><div style="font-size:11px;color:#64748b">Google Play Store</div></div>'+
+      '<div style="color:#94a3b8">›</div></button>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay();setTimeout(function(){if(!_mpTriggerPwaInstall())_showDesktopInstallHelp();},40)" style="width:100%;margin-bottom:10px;text-align:left;display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;cursor:pointer">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(0,120,212,.12);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🪟</div>'+
+      '<div style="flex:1;min-width:0"><div style="font-weight:800;color:#0f172a">Windows / Desktop</div><div style="font-size:11px;color:#64748b">Chrome/Edge → Install app / PWA</div></div>'+
+      '<div style="color:#94a3b8">›</div></button>'+
+    '<div style="font-size:11px;color:#94a3b8;margin:8px 0 4px;line-height:1.5">Or use browser menu: <b>Install app</b> / <b>Add to Home Screen</b>.</div>'+
+    '<button type="button" onclick="_mpCloseInstallOverlay()" style="width:100%;margin-top:8px;padding:12px;border:none;border-radius:12px;background:#e2e8f0;font-weight:700;cursor:pointer">Close</button>'
+  );
 }
-function _showIosInstallHelp(){
-  openModal('<div class="modal-handle"></div><div class="modal-title">📲 iPhone / iPad Install</div>'+
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
-    '<div style="width:44px;height:44px;border-radius:12px;background:rgba(0,0,0,.06);display:flex;align-items:center;justify-content:center">'+
-    '<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="#1d1d1f"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg></div>'+
-    '<div style="font-size:13px;font-weight:800">Apple Safari</div></div>'+
-    '<div style="font-size:14px;line-height:2;color:var(--muted2)">'+
-    '<div>1️⃣ Open this page in <b style="color:var(--text)">Safari</b></div>'+
-    '<div>2️⃣ Tap <b style="color:var(--text)">Share 📤</b></div>'+
-    '<div>3️⃣ <b style="color:var(--text)">Add to Home Screen</b></div>'+
-    '<div>4️⃣ Tap <b style="color:var(--text)">Add</b></div></div>'+
-    '<button class="cancel-btn" onclick="closeModal()" style="margin-top:16px;width:100%">OK</button>');
-}
-try{ window._showInstallPlatformModal=_showInstallPlatformModal; window._showIosInstallHelp=_showIosInstallHelp; }catch(e){}
+try{
+  window._showInstallPlatformModal=_showInstallPlatformModal;
+  window._showInstallPlatformModalReal=_showInstallPlatformModal;
+  window._showIosInstallHelp=_showIosInstallHelp;
+  window._mpTriggerPwaInstall=_mpTriggerPwaInstall;
+  window._showDesktopInstallHelp=_showDesktopInstallHelp;
+  window.__mpInstallReady=true;
+  if(window._mpInstallPending){ window._mpInstallPending=false; try{_showInstallPlatformModal();}catch(e){} }
+}catch(e){}
+
 
 function _showInstallInstructions(){const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);_mpIsPwaInstalled()?toast(L("✅ App पहले से installed है! Home screen पर देखें।","✅ App already installed! Check your home screen.")):isIOS?openModal('<div class="modal-handle"></div>\n      <div class="modal-title">📲 iPhone पर Install करें</div>\n      <div style="font-size:14px;line-height:2;color:var(--muted2)">\n        <div>1️⃣ <b style="color:#fff">Safari</b> में यह page खोलें</div>\n        <div>2️⃣ नीचे <b style="color:#fff">Share 📤</b> दबाएं</div>\n        <div>3️⃣ <b style="color:#fff">Add to Home Screen</b> चुनें</div>\n        <div>4️⃣ <b style="color:#fff">Add</b> दबाएं</div>\n      </div>\n      <button class="cancel-btn" onclick="closeModal()" style="margin-top:16px">ठीक है</button>'):openModal('<div class="modal-handle"></div>\n    <div class="modal-title">📲 App Install करें</div>\n    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:14px;margin-bottom:14px">\n      <div style="font-size:14px;font-weight:800;color:#22c55e;margin-bottom:6px">⚡ सबसे आसान तरीका</div>\n      <div style="font-size:13px;color:var(--text);line-height:1.6">\n        Browser के <b>ऊपर address bar</b> में <b style="color:#f97316">Install</b> बटन दिख रहा है —<br>\n        उसी पर एक बार टैप / क्लिक करें।\n      </div>\n    </div>\n    <div style="font-size:13px;color:var(--muted2);line-height:1.9">\n      <b style="color:#fff">अगर Install नहीं दिखे:</b><br>\n      1️⃣ Chrome menu <b>⋮</b> (ऊपर right)<br>\n      2️⃣ <b>Install app</b> / <b>Add to Home screen</b><br>\n      3️⃣ <b>Install</b> दबाएं\n    </div>\n    <button class="submit-btn" onclick="closeModal();_mpRetryInstall()" style="margin-top:16px">🔄 फिर से Try करें</button>\n    <button class="cancel-btn" onclick="closeModal()" style="margin-top:8px">ठीक है</button>')}function _mpRetryInstall(){setTimeout(()=>{try{triggerPWAInstall()}catch(e){}},300)}function _mpInitInstallUi(){_mpSyncPwaPrompt(),_mpRefreshInstallButtons(),window.addEventListener("beforeinstallprompt",e=>{e.preventDefault(),_pwaPrompt=e,window.__pwaDeferredPrompt=e,showInstallBanner()}),window.addEventListener("appinstalled",()=>{hideInstallBanner(),toast(L("🎉 App install हो गई! Home screen पर देखें","🎉 App installed! Check your home screen")),_pwaPrompt=null,window.__pwaDeferredPrompt=null,_mpRefreshInstallButtons()})}window._onPwaPromptReady=function(e){_pwaPrompt=e||window.__pwaDeferredPrompt;try{_mpRefreshInstallButtons()}catch(x){}};
 /* v3.1.4 Install: Play Store fallback when PWA prompt unavailable */
@@ -175,11 +225,13 @@ async function triggerPWAInstall(){
     window.open(PLAY, '_blank', 'noopener');
     return;
   }
-  if(typeof _showInstallInstructions==='function'){
+  if(typeof _showInstallPlatformModal==='function'){
+    _showInstallPlatformModal();
+  } else if(typeof _showInstallInstructions==='function'){
     _showInstallInstructions();
-  } else {
-    if(typeof _showInstallPlatformModal==='function') _showInstallPlatformModal();
-    else openModal('<div class="modal-handle"></div><div class="modal-title">📲 Install App</div><button class="cancel-btn" onclick="closeModal()">Close</button>');
+  } else if(typeof _showDesktopInstallHelp==='function'){
+    _showDesktopInstallHelp();
   }
 }
+
 window.triggerPWAInstall = triggerPWAInstall;
