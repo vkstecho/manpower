@@ -350,7 +350,54 @@
       background: #fff; border: 1px dashed var(--border);
       font-size: 13px; color: var(--slate);
     }
-  </style>
+  
+
+/* Multi-language promo strip */
+.lp-lang-promo, .mn-lang-promo {
+  margin: 18px 0 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(37,99,235,.06), rgba(234,88,12,.05));
+  border: 1px solid rgba(37,99,235,.12);
+}
+.lp-lang-promo-inner, .mn-lang-promo-inner { display:flex; flex-direction:column; gap:10px; }
+.lp-lang-promo-label, .mn-lang-promo-label {
+  display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px;
+}
+.lp-lang-promo-icon, .mn-lang-promo-icon { font-size:18px; }
+.lp-lang-promo-title, .mn-lang-promo-title {
+  font-weight:800; font-size:14px; color:#0f172a; letter-spacing:.01em;
+}
+.lp-lang-promo-sub, .mn-lang-promo-sub {
+  font-size:12px; color:#64748b; font-weight:500;
+}
+.lp-lang-chips, .mn-lang-chips {
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+}
+.lp-chip, .mn-chip {
+  min-width:40px; height:36px; padding:0 12px;
+  border-radius:999px; border:1px solid #e2e8f0;
+  background:#fff; color:#0f172a; font-weight:700; font-size:13px;
+  cursor:pointer; transition:.15s ease;
+  box-shadow:0 1px 2px rgba(15,23,42,.04);
+}
+.lp-chip:hover, .mn-chip:hover {
+  border-color:#2563eb; color:#1d4ed8; transform:translateY(-1px);
+}
+.lp-chip-more, .mn-chip-more {
+  background:#0f172a; color:#fff; border-color:#0f172a;
+}
+.lp-chip-more:hover, .mn-chip-more:hover {
+  background:#1e293b; color:#fff; border-color:#1e293b;
+}
+#landingLangBtn, #mentorLandingLang {
+  min-width:48px; font-weight:800 !important;
+  border:1.5px solid #cbd5e1 !important;
+  border-radius:10px !important;
+  background:linear-gradient(180deg,#fff,#f8fafc) !important;
+}
+
+</style>
 
 <script>
 (function () {
@@ -381,17 +428,18 @@
       <a class="logo" href="/"><img src="assets/mp-logo-transparent.png" alt="Man Power" width="36" height="36" style="width:36px;height:36px;border-radius:10px;object-fit:contain;background:#0f172a" /> Man Power
       </a>
       <nav class="nav-links">
-        <a href="#videos">Videos</a>
-        <a href="#features">Features</a>
-        <a href="#how">How it works</a>
-        <a href="#compare">Why Man Power</a>
-        <a href="#pricing">Pricing</a>
-          <a href="#contact">Contact</a>
-          <a href="#faq">FAQ</a>
+        <a href="#videos" data-i18n="navVideos">Videos</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+        <a href="#how" data-i18n="navHow">How it works</a>
+        <a href="#compare" data-i18n="navWhy">Why Man Power</a>
+        <a href="#pricing" data-i18n="navPricing">Pricing</a>
+          <a href="#contact" data-i18n="navContact">Contact</a>
+          <a href="#faq" data-i18n="navFaq">FAQ</a>
       </nav>
       <div class="nav-cta">
-        <a class="btn btn-ghost" href="app.html" rel="noopener">Login</a>
-        <a class="btn btn-primary" href="app.html" rel="noopener">Start free</a>
+        <button type="button" id="landingLangBtn" class="btn btn-ghost" style="min-width:52px;font-weight:800" title="Country & Language" onclick="try{mpLandingOpenPicker()}catch(e){mpLandingToggleLang()}">🌐 EN</button>
+        <a class="btn btn-ghost" href="app.html" rel="noopener" data-i18n="login">Login</a>
+        <a class="btn btn-primary" href="app.html" rel="noopener" data-i18n="startFree">Start free</a>
       </div>
     </div>
   </header>
@@ -400,15 +448,12 @@
   <section class="hero">
     <div class="wrap hero-grid">
       <div>
-        <div class="badge">Plant-floor shift & manpower · by VKS Tech</div>
-        <h1>Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
-        <p class="hero-sub">
-          Upload your Excel. Auto-generate shifts. Check section, machine, and role coverage before the day starts.
-          Built for factories, converting plants, and multi-section teams.
-        </p>
+        <div class="badge" data-i18n="badge">Plant-floor shift & manpower · by VKS Tech</div>
+        <h1 data-i18n-html-key="heroTitleHtml">Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
+        <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts. Check department, machine, and role coverage before the day starts. Built for factories, converting plants, and multi-section teams.</p>
         <div class="hero-actions">
-          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener">Start free trial</a>
-          <a class="btn btn-white btn-lg" href="#how">See how it works</a>
+          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Start free trial</a>
+          <a class="btn btn-white btn-lg" href="#how" data-i18n="seeHow">See how it works</a>
         </div>
         <div class="hero-meta">
           <span><strong>Excel → roster</strong> in minutes</span>
@@ -426,7 +471,7 @@
           </div>
           <table class="ui-table">
             <thead>
-              <tr><th>Section</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
+              <tr><th data-i18n="department">Department</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
             </thead>
             <tbody>
               <tr><td>Print · M-1</td><td>D</td><td>D</td><td>N</td><td><span class="pill ok">OK</span></td></tr>
@@ -512,39 +557,39 @@
   <!-- FEATURES -->
   <section id="features">
     <div class="wrap">
-      <span class="section-label">Features</span>
-      <h2>Everything you need to plan manpower — without buying a full HR stack.</h2>
-      <p class="lead">Competitors sell hire-to-retire HRMS. Man Power focuses on the job your supervisors actually do every week: build a roster that covers the plant.</p>
+      <span class="section-label" data-i18n="featuresLabel">Features</span>
+      <h2 data-i18n="featuresTitle">Everything you need to plan manpower — without buying a full HR stack.</h2>
+      <p class="lead" data-i18n="featuresSub">Competitors sell hire-to-retire HRMS. Man Power focuses on the job your supervisors actually do every week: build a roster that covers the plant.</p>
       <div class="feat-grid">
         <article class="feat">
           <div class="feat-icon">📄</div>
-          <h3>Excel-driven team setup</h3>
-          <p>Department, machines, designation, responsibility, and weekly offs come from the manager’s Excel — not a long HR configuration project.</p>
+          <h3 data-i18n="featExcelTitle">Excel-driven team setup</h3>
+          <p data-i18n="featExcelDesc">Department, machines, designation, responsibility, and weekly offs come from the manager’s Excel — not a long HR configuration project.</p>
         </article>
         <article class="feat">
           <div class="feat-icon">⚡</div>
-          <h3>Auto Schedule</h3>
-          <p>Generate D/N/O rotations in one pass. Stagger phases so the whole section doesn’t land on the same code on day one.</p>
+          <h3 data-i18n="featAutoTitle">Auto Schedule</h3>
+          <p data-i18n="featAutoDesc">Generate D/N/O rotations in one pass. Stagger phases so the whole section doesn’t land on the same code on day one.</p>
         </article>
         <article class="feat">
           <div class="feat-icon">✅</div>
-          <h3>Coverage validation</h3>
-          <p>After auto-generate, Man Power counts people per shift inside Department, Machine, Designation, and Responsibility groups — and flags gaps.</p>
+          <h3 data-i18n="featCovTitle">Coverage validation</h3>
+          <p data-i18n="featCovDesc">After auto-generate, Man Power counts people per shift inside Department, Machine, Designation, and Responsibility groups — and flags gaps.</p>
         </article>
         <article class="feat">
           <div class="feat-icon">📱</div>
-          <h3>Mobile PWA + offline</h3>
-          <p>Works on the phone on the floor. Offline queue keeps schedule edits moving when the network drops.</p>
+          <h3 data-i18n="featMobileTitle">Mobile PWA + offline</h3>
+          <p data-i18n="featMobileDesc">Works on the phone on the floor. Offline queue keeps schedule edits moving when the network drops.</p>
         </article>
         <article class="feat">
           <div class="feat-icon">👥</div>
-          <h3>Manager & member flows</h3>
-          <p>OTP login, member pending → approve with emp code / section / machine, then they appear on the schedule immediately.</p>
+          <h3 data-i18n="featMgrTitle">Manager & member flows</h3>
+          <p data-i18n="featMgrDesc">OTP login, member pending → approve with emp code / section / machine, then they appear on the schedule immediately.</p>
         </article>
         <article class="feat">
           <div class="feat-icon">📊</div>
-          <h3>Leave, OD & reports</h3>
-          <p>Mark OD on the grid and keep OD records in sync. Reports and photos for important shop-floor information.</p>
+          <h3 data-i18n="featLeaveTitle">Leave, OD & reports</h3>
+          <p data-i18n="featLeaveDesc">Mark OD on the grid and keep OD records in sync. Reports and photos for important shop-floor information.</p>
         </article>
       </div>
     </div>
@@ -584,7 +629,7 @@
       <div class="split reverse">
         <div class="split-copy">
           <span class="section-label">Coverage that HRMS calendars skip</span>
-          <h2>Not just “who is on D or N” — is the machine covered?</h2>
+          <h2><span data-i18n="coverageTitle">Not just “who is on D or N” — is the machine covered?</span></h2>
           <ul class="check-list">
             <li>Example: 3 people in one section + 3 active shifts → every working day needs coverage on each shift</li>
             <li>Same rule machine-wise, responsibility-wise, designation-wise</li>
@@ -607,23 +652,23 @@
   <!-- HOW -->
   <section class="bg-soft" id="how">
     <div class="wrap">
-      <span class="section-label">How it works</span>
-      <h2>Live in three steps — not a six-month HRMS project.</h2>
+      <span class="section-label" data-i18n="howLabel">How it works</span>
+      <h2 data-i18n="howTitle">Live in three steps — not a six-month HRMS project.</h2>
       <div class="steps">
         <div class="step">
           <div class="step-num">1</div>
-          <h3>Setup team from Excel</h3>
-          <p>Manager uploads the plant roster. Departments and machines stay the way your plant already talks about them.</p>
+          <h3 data-i18n="how1Title">Setup team from Excel</h3>
+          <p data-i18n="how1Desc">Manager uploads the plant roster. Departments and machines stay the way your plant already talks about them.</p>
         </div>
         <div class="step">
           <div class="step-num">2</div>
-          <h3>Auto Schedule + coverage</h3>
-          <p>Generate shifts, review short groups, adjust weekly offs, and save a roster the floor can trust.</p>
+          <h3 data-i18n="how2Title">Auto Schedule + coverage</h3>
+          <p data-i18n="how2Desc">Generate shifts, review short groups, adjust weekly offs, and save a roster the floor can trust.</p>
         </div>
         <div class="step">
           <div class="step-num">3</div>
-          <h3>Run the week on mobile</h3>
-          <p>Members see My Shift. Managers tweak cells, mark OD/leave, and keep working even offline.</p>
+          <h3 data-i18n="how3Title">Run the week on mobile</h3>
+          <p data-i18n="how3Desc">Members see My Shift. Managers tweak cells, mark OD/leave, and keep working even offline.</p>
         </div>
       </div>
     </div>
@@ -632,9 +677,9 @@
   <!-- COMPARE -->
   <section id="compare">
     <div class="wrap">
-      <span class="section-label">Why Man Power</span>
-      <h2>Specialist rostering vs full HRMS</h2>
-      <p class="lead">Use this when buyers compare you with Keka, greytHR, HROne, or SalaryBox.</p>
+      <span class="section-label" data-i18n="whyLabel">Why Man Power</span>
+      <h2 data-i18n="whyTitle">Specialist rostering vs full HRMS</h2>
+      <p data-i18n="whySub">Use this when buyers compare you with Keka, greytHR, HROne, or SalaryBox.</p>
       <div class="compare-wrap">
         <table class="compare">
           <thead>
@@ -734,9 +779,9 @@
 
   <section id="contact" class="bg">
     <div class="wrap" style="text-align:center">
-      <span class="section-label">Contact</span>
+      <span class="section-label" data-i18n="contactLabel">Contact</span>
       <h2>Customer care &amp; sales</h2>
-      <p class="lead" style="margin:0 auto 24px;max-width:36rem">WhatsApp, call, or email for demos, custom plans, cancel / refund, and support.</p>
+      <p class="lead" style="margin:0 auto 24px;max-width:36rem"><span data-i18n="contactSub">WhatsApp, call, or email for demos, custom plans, cancel / refund, and support.</span></p>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;text-align:left;max-width:720px;margin:0 auto">
         <a href="https://wa.me/918929394920" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
           <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#25D366;margin-bottom:10px">
@@ -765,7 +810,7 @@
 
 <section id="faq">
     <div class="wrap" style="text-align:center;">
-      <span class="section-label">FAQ</span>
+      <span class="section-label" data-i18n="faqLabel">FAQ</span>
       <h2>Questions buyers ask</h2>
     </div>
     <div class="wrap">
@@ -816,10 +861,10 @@
         </div>
         <div class="foot-col">
           <h4>Product</h4>
-          <a href="#videos">Videos</a>
-        <a href="#features">Features</a>
-          <a href="#how">How it works</a>
-          <a href="#compare">Why Man Power</a>
+          <a href="#videos" data-i18n="navVideos">Videos</a>
+        <a href="#features" data-i18n="navFeatures">Features</a>
+          <a href="#how" data-i18n="navHow">How it works</a>
+          <a href="#compare" data-i18n="navWhy">Why Man Power</a>
           <a href="app.html">Open app</a>
         </div>
         <div class="foot-col">
@@ -939,5 +984,6 @@
 })();
 </script>
 
+<script src="js/landing-i18n.js"></script>
 </body>
 </html>

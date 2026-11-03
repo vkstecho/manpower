@@ -121,20 +121,25 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Unticked codes are hidden everywhere on Schedule.
   </div>
 
-  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:4px 0 6px">🔄 Auto Schedule — Rotation Order</div>
+  <div style="font-size:12px;font-weight:800;color:#a78bfa;margin:4px 0 6px">🔄 Auto Schedule — Rotation Sequence</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.5">
-    Your team only. After each Weekly Off, Auto moves to the next code in this order.
+    Your team only. After each Weekly Off, Auto moves to the <b>next code in this order</b>.
+    Type codes in the boxes below (e.g. A → D → B → C).
   </div>
-  <div style="margin-bottom:14px">
-    <select id="ss_autoRotationMode" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700"
-      onchange="try{_shiftDraft.autoRotationMode=this.value}catch(e){}">
-      <option value="plant" ${(d.autoRotationMode||'plant')==='plant'?'selected':''}>Plant style — A→C→B · A→D→C→B (default)</option>
-      <option value="sequential" ${d.autoRotationMode==='sequential'?'selected':''}>Sequential — A→B→C · A→B→C→D</option>
-    </select>
-    <div style="font-size:10px;color:#94a3b8;margin-top:6px;line-height:1.4">
-      2-shift (D/N): both modes are the same (D→N→D…).<br>
-      3-shift: Plant = A→C→B · Sequential = A→B→C.<br>
-      4-shift: Plant = A→D→C→B · Sequential = A→B→C→D.
+  <div style="margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid rgba(167,139,250,.35);background:rgba(167,139,250,.06)">
+    <div style="font-size:10px;font-weight:700;color:#7c3aed;margin-bottom:8px;text-transform:uppercase;letter-spacing:.03em">Your sequence</div>
+    <div id="ss_rotSeqWrap" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;min-height:48px;margin-bottom:10px"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center;margin-bottom:6px">
+      <span style="font-size:10px;color:#94a3b8;width:100%;text-align:center;margin-bottom:2px">Quick fill (optional)</span>
+      <button type="button" onclick="_ssRotSeqPreset('sequential')" style="width:auto;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">A→B→C→D</button>
+      <button type="button" onclick="_ssRotSeqPreset('plant')" style="width:auto;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">A→D→C→B</button>
+      <button type="button" onclick="_ssRotSeqPreset('adb')" style="width:auto;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">A→D→B→C</button>
+      <button type="button" onclick="_ssRotSeqAddBox()" style="width:auto;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px dashed #a78bfa;background:rgba(167,139,250,.1);color:#7c3aed;cursor:pointer">+ box</button>
+      <button type="button" onclick="_ssRotSeqRemoveBox()" style="width:auto;padding:6px 10px;font-size:11px;font-weight:700;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:#94a3b8;cursor:pointer">− box</button>
+    </div>
+    <div style="font-size:10px;color:#94a3b8;line-height:1.4;text-align:center">
+      Examples: <b>A,B,C</b> · <b>A,C,B</b> · <b>A,D,B,C</b> · <b>D,N</b><br>
+      Only ticked work shifts are used by Auto Schedule.
     </div>
   </div>
 
@@ -145,7 +150,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     Example: only Responsibility ON + min for Xres → only Xres gaps are reported.
   </div>
   <div style="margin-bottom:12px;max-width:160px">
-    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default (All filter overview)</div>
+    <div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Default for All chip (whole team overview)</div>
     <input type="number" min="0" max="50" value="${d.minAll!=null?d.minAll:4}" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minAll=Number(this.value)||0">
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
@@ -302,6 +307,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ Save करें</button>
     <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">${L('रद्द करें','Cancel')}</button>
   </div>`);
+  setTimeout(function(){ try{ if(typeof _ssRotSeqInit==='function') _ssRotSeqInit(); }catch(e){} }, 50);
 }
 
 
@@ -449,9 +455,19 @@ async function _saveShiftSettings(){
   const workActive=(_shiftDraft.shifts||[]).filter(s=>s.active!==false&&['D','N','A','B','C'].includes(String(s.code||'').toUpperCase())).length; if(workActive < 1){ toast(L('⚠️ कम से कम 1 कार्य shift tick करें (D/N/A/B/C)','⚠️ Tick at least 1 work shift (D/N/A/B/C)')); return; }
   _shiftDraft.shiftCount = activeCount;
   try{
-    const m = String(_shiftDraft.autoRotationMode||'plant').toLowerCase();
-    _shiftDraft.autoRotationMode = (m==='sequential'||m==='abc'||m==='order') ? 'sequential' : 'plant';
-  }catch(e){ _shiftDraft.autoRotationMode = 'plant'; }
+    // Read custom rotation sequence from boxes
+    if(typeof window._ssRotSeqRead==='function'){
+      const seq = window._ssRotSeqRead();
+      if(seq && seq.length){
+        _shiftDraft.autoRotationSequence = seq;
+        _shiftDraft.autoRotationMode = 'custom';
+      }
+    }
+    const m = String(_shiftDraft.autoRotationMode||'custom').toLowerCase();
+    if(m!=='custom' && m!=='sequential' && m!=='plant'){
+      _shiftDraft.autoRotationMode = 'custom';
+    }
+  }catch(e){ /* keep existing sequence */ }
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
@@ -687,7 +703,7 @@ function openEditProfileModal(){
       <input class="inp-field" id="profileDesigInput" value="${escHtml(esc(emp.designation||''))}" maxlength="40"></div>
     <div class="field"><label>${L('Emp ID','Emp ID')}</label>
       <input class="inp-field" id="profileEmpIdInput" value="${escHtml(esc(emp.empId||SESSION.empId||''))}" maxlength="20"></div>
-    <div class="field"><label>${L('सेक्शन','Department')}</label>
+    <div class="field"><label>${L('विभाग','Department')}</label>
       <input class="inp-field" id="profileSecInput" value="${escHtml(esc(emp.sec||''))}" maxlength="40" placeholder="from Excel Department"></div>
     <div class="field"><label>${L('मशीन','Machine')}</label>
       <input class="inp-field" id="profileMcInput" value="${esc(emp.mc||emp.machine||'')}" maxlength="40"></div>
@@ -1733,7 +1749,7 @@ async function showProfile(){
           [L('सैलरी','Salary'), (function(){ const n=er.salary??er.monthlySalary; if(n==null||n==='')return '—'; const num=Number(String(n).replace(/[^\d.]/g,'')); return isNaN(num)?('₹ '+n):('₹ '+num.toLocaleString('en-IN')); })()],
           [L('वीकली ऑफ','Weekly Off'), er.woff||'—'],
           [L('पद','Designation'), er.designation||'—'],
-          [L('सेक्शन','Department'), secLabel||er.sec||'—'],
+          [L('विभाग','Department'), secLabel||er.sec||'—'],
         ];
         return '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left">'
           +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(L('मेरी जानकारी','MY DETAILS'))+'</div>'
@@ -3121,3 +3137,118 @@ function _homeTodaySummaryHtml(){
 }
 
 
+
+
+/* ── Auto rotation sequence boxes (Shift & Min Staff) ── */
+function _ssRotActiveCodes(){
+  try{
+    var d = (typeof _shiftDraft !== 'undefined' && _shiftDraft) ? _shiftDraft : (typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {});
+    var shifts = (d && d.shifts) ? d.shifts : [];
+    var work = shifts.filter(function(s){ return s && s.code && s.active !== false; })
+      .map(function(s){ return String(s.code).toUpperCase(); })
+      .filter(function(c){ return ['D','N','A','B','C'].indexOf(c) >= 0; });
+    var abcd = work.filter(function(c){ return ['A','B','C','D'].indexOf(c) >= 0; });
+    if (abcd.length >= 2) return abcd;
+    var dn = work.filter(function(c){ return c === 'D' || c === 'N'; });
+    if (dn.length) return dn;
+    return work.length ? work : ['A','B','C'];
+  }catch(e){ return ['A','B','C']; }
+}
+function _ssRotDefaultSeq(preset){
+  var codes = _ssRotActiveCodes();
+  var n = codes.length;
+  if (preset === 'plant' && n >= 3) {
+    var out = [codes[0]];
+    for (var i = n - 1; i >= 1; i--) out.push(codes[i]);
+    return out;
+  }
+  if (preset === 'adb') {
+    var prefer = ['A','D','B','C'].filter(function(c){ return codes.indexOf(c) >= 0; });
+    if (prefer.length >= 3) return prefer;
+    if (n >= 4) return [codes[0], codes[n-1], codes[1], codes[2]];
+  }
+  return codes.slice();
+}
+function _ssRotSeqInit(){
+  try{
+    var d = (typeof _shiftDraft !== 'undefined' && _shiftDraft) ? _shiftDraft : {};
+    var seq = Array.isArray(d.autoRotationSequence)
+      ? d.autoRotationSequence.map(function(x){ return String(x).toUpperCase(); }).filter(Boolean)
+      : null;
+    if (!seq || !seq.length) {
+      var mode = String(d.autoRotationMode || 'plant').toLowerCase();
+      seq = _ssRotDefaultSeq(mode === 'sequential' ? 'sequential' : (mode === 'custom' ? 'sequential' : 'plant'));
+    }
+    window._ssRotSeqBoxes = seq.slice();
+    _ssRotSeqRender();
+  }catch(e){ console.warn('_ssRotSeqInit', e); }
+}
+function _ssRotSeqRender(){
+  var wrap = document.getElementById('ss_rotSeqWrap');
+  if (!wrap) return;
+  var boxes = (window._ssRotSeqBoxes && window._ssRotSeqBoxes.length)
+    ? window._ssRotSeqBoxes.slice()
+    : ['A','B','C'];
+  if (!boxes.length) boxes = ['A','B','C'];
+  var html = '';
+  for (var i = 0; i < boxes.length; i++) {
+    if (i > 0) {
+      html += '<span style="font-weight:900;color:#a78bfa;font-size:18px;user-select:none">→</span>';
+    }
+    var code = String(boxes[i] || '').replace(/"/g, '');
+    html += '<input type="text" class="ss-rot-box" data-rot-i="' + i + '" maxlength="3" value="' + code + '" ' +
+      'placeholder="' + (i + 1) + '" ' +
+      'style="width:56px;height:44px;text-align:center;font-weight:900;font-size:16px;padding:8px 4px;' +
+      'text-transform:uppercase;border-radius:10px;border:2px solid #a78bfa;background:var(--card);color:var(--text);' +
+      'box-sizing:border-box" ' +
+      'oninput="_ssRotSeqOnInput()" onchange="_ssRotSeqOnInput()" />';
+  }
+  wrap.innerHTML = html;
+  try { _ssRotSeqOnInput(); } catch (e) {}
+}
+function _ssRotSeqOnInput(){
+  try{
+    var inputs = document.querySelectorAll('#ss_rotSeqWrap .ss-rot-box');
+    var seq = [];
+    for (var i = 0; i < inputs.length; i++) {
+      var v = String(inputs[i].value || '').trim().toUpperCase();
+      if (v) seq.push(v);
+    }
+    window._ssRotSeqBoxes = [];
+    for (var j = 0; j < inputs.length; j++) {
+      window._ssRotSeqBoxes.push(String(inputs[j].value || '').trim().toUpperCase());
+    }
+    if (typeof _shiftDraft !== 'undefined' && _shiftDraft) {
+      _shiftDraft.autoRotationSequence = seq.slice();
+      _shiftDraft.autoRotationMode = 'custom';
+    }
+  }catch(e){}
+}
+function _ssRotSeqRead(){
+  _ssRotSeqOnInput();
+  return (window._ssRotSeqBoxes || []).map(function(x){ return String(x||'').trim().toUpperCase(); }).filter(Boolean);
+}
+function _ssRotSeqPreset(kind){
+  window._ssRotSeqBoxes = _ssRotDefaultSeq(kind);
+  _ssRotSeqRender();
+}
+function _ssRotSeqAddBox(){
+  if (!window._ssRotSeqBoxes) window._ssRotSeqBoxes = [];
+  if (window._ssRotSeqBoxes.length >= 6) return;
+  window._ssRotSeqBoxes.push('');
+  _ssRotSeqRender();
+}
+function _ssRotSeqRemoveBox(){
+  if (!window._ssRotSeqBoxes || window._ssRotSeqBoxes.length <= 2) return;
+  window._ssRotSeqBoxes.pop();
+  _ssRotSeqRender();
+}
+try {
+  window._ssRotSeqInit = _ssRotSeqInit;
+  window._ssRotSeqRender = _ssRotSeqRender;
+  window._ssRotSeqRead = _ssRotSeqRead;
+  window._ssRotSeqPreset = _ssRotSeqPreset;
+  window._ssRotSeqAddBox = _ssRotSeqAddBox;
+  window._ssRotSeqRemoveBox = _ssRotSeqRemoveBox;
+  window._ssRotSeqOnInput = _ssRotSeqOnInput;
+} catch (e) {}

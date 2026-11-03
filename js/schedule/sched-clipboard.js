@@ -11,6 +11,56 @@
   /** Last clicked schedule cell { empId, date } — enables paste on one cell without multi-select */
   var _msPasteAnchor = null;
 
+  function _isMyShiftTab() {
+    try {
+      var tab = document.getElementById('tab-myshift');
+      if (!tab) return false;
+      if (tab.classList.contains('on')) return true;
+      // Some builds use display / aria
+      if (tab.style.display && tab.style.display !== 'none' && tab.offsetParent !== null) {
+        var sch = document.getElementById('tab-schedule');
+        if (sch && sch.classList.contains('on')) return false;
+        if (tab.classList.contains('active') || tab.getAttribute('aria-hidden') === 'false') return true;
+      }
+      // Fallback: my shift content visible with multi bar
+      var content = document.getElementById('myShiftContent');
+      if (content && content.offsetParent !== null && document.querySelector('.ms-day')) {
+        var sch2 = document.getElementById('tab-schedule');
+        if (!sch2 || !sch2.classList.contains('on')) return true;
+      }
+    } catch (e) {}
+    return false;
+  }
+
+  function _parseMyShiftSelection() {
+    var set = global._myShiftMultiSel;
+    if (!set || !set.size) return null;
+    var empId = global._myShiftMultiEmp;
+    if (!empId) {
+      try {
+        var e = typeof myEmp === 'function' ? myEmp() : null;
+        if (e) empId = e.id;
+      } catch (e2) {}
+    }
+    if (!empId) return null;
+    var dates = Array.from(set).map(String).sort();
+    var pairs = dates.map(function (d) {
+      return { empId: empId, date: d, key: empId + '|' + d };
+    });
+    return { pairs: pairs, empIds: [empId], dates: dates, myShift: true };
+  }
+
+  function _myShiftFocusDate() {
+    try {
+      var el = document.querySelector('.ms-day.ms-kb-focus, .ms-day.ms-multi-on');
+      if (el) return el.getAttribute('data-ms-date');
+      var a = global._myShiftKbFocus;
+      if (a && a.date) return a.date;
+    } catch (e) {}
+    return null;
+  }
+
+
   function _canEdit() {
     return typeof canEditSchedule !== 'function' || canEditSchedule();
   }
@@ -196,7 +246,27 @@
       _toast(_L('❌ Edit permission नहीं', '❌ No edit permission'));
       return false;
     }
-    var sel = _parseSelection();
+    var sel = null;
+    // My Shift calendar multi-select
+    if (_isMyShiftTab()) {
+      sel = _parseMyShiftSelection();
+      if (!sel) {
+        var fd = _myShiftFocusDate();
+        var empId = global._myShiftMultiEmp;
+        try {
+          if (!empId && typeof myEmp === 'function' && myEmp()) empId = myEmp().id;
+        } catch (e0) {}
+        if (fd && empId) {
+          sel = {
+            pairs: [{ empId: empId, date: fd, key: empId + '|' + fd }],
+            empIds: [empId],
+            dates: [fd],
+            myShift: true,
+          };
+        }
+      }
+    }
+    if (!sel) sel = _parseSelection();
     // Allow copy of single focused/anchor cell if no multi-select
     if (!sel) {
       var origin = _resolveOrigin();
@@ -377,10 +447,44 @@
       return false;
     }
 
-    var sel = _parseSelection();
+    var sel = _isMyShiftTab() ? (_parseMyShiftSelection() || _parseSelection()) : _parseSelection();
     var applied = 0;
     var rows = clip.matrix.length;
     var cols = clip.matrix[0].length;
+
+    // My Shift: paste along selected days (single employee row)
+    if (_isMyShiftTab() && sel && sel.myShift && sel.dates && sel.dates.length) {
+      var empIdMs = sel.empIds[0];
+      var empNameMs = '';
+      try {
+        var em = (typeof getEmps === 'function' ? getEmps() : []).find(function (x) { return x && x.id === empIdMs; });
+        if (em) empNameMs = em.name || '';
+      } catch (e) {}
+      // 1-row clipboard → fill selected days in order
+      var flat = [];
+      for (var rr = 0; rr < rows; rr++) {
+        for (var cc = 0; cc < (clip.matrix[rr] || []).length; cc++) {
+          flat.push(clip.matrix[rr][cc]);
+        }
+      }
+      for (var di = 0; di < sel.dates.length; di++) {
+        var shv = flat[di % Math.max(1, flat.length)];
+        if (shv === '' || shv == null) continue;
+        _stageChange(empIdMs, sel.dates[di], shv);
+        applied++;
+      }
+      try {
+        if (typeof _updateSaveBar === 'function') _updateSaveBar();
+        if (typeof renderMyShift === 'function') renderMyShift();
+        if (typeof renderSchedule === 'function') renderSchedule();
+      } catch (e) {}
+      if (applied === 0) {
+        _toast(_L('⚠️ पेस्ट नहीं हुआ', '⚠️ Nothing pasted'));
+        return false;
+      }
+      _toast(_L('📌 ', '📌 ') + applied + _L(' दिन पेस्ट (Save दबाएँ)', ' days pasted — press Save'));
+      return true;
+    }
 
     // Same-shape multi-select → map 1:1
     if (
@@ -448,8 +552,9 @@
 
   function _onKeyDown(e) {
     if (_isTypingTarget(e.target)) return;
+    var onMy = _isMyShiftTab();
     var tbl = document.getElementById('schedTbl');
-    if (!tbl) return;
+    if (!onMy && !tbl) return;
 
     var mod = e.ctrlKey || e.metaKey;
     if (!mod) return;
@@ -465,6 +570,18 @@
   function _onTableClick(e) {
     var td = e.target && e.target.closest && e.target.closest('td[data-empid][data-date]');
     if (td) _setAnchorFromTd(td);
+    // My Shift day anchor
+    try {
+      var day = e.target && e.target.closest && e.target.closest('.ms-day[data-ms-date]');
+      if (day) {
+        var empId = day.getAttribute('data-ms-empid');
+        var date = day.getAttribute('data-ms-date');
+        if (empId && date) {
+          _msPasteAnchor = { empId: empId, date: date };
+          global._myShiftKbFocus = { empId: empId, date: date };
+        }
+      }
+    } catch (err) {}
   }
 
   function initSchedClipboard() {
