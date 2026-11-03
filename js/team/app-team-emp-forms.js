@@ -817,7 +817,7 @@ async function renderLeftMembers(){
     secGroups[k].push(e);
   });
 
-  let html = `<div style="font-size:11px;color:var(--muted2);margin-bottom:8px;font-weight:700">${typeof L==='function'?L('कुल '+leftList.length+' कर्मचारी · विभाग के अनुसार:','Total '+leftList.length+' employees · Section-wise:'):(leftList.length+' employees · Section-wise:')}</div>`;
+  let html = `<div style="font-size:11px;color:var(--muted2);margin-bottom:8px;font-weight:700">${typeof L==='function'?L('कुल '+leftList.length+' कर्मचारी · सेक्शन के अनुसार:','Total '+leftList.length+' employees · Section-wise:'):(leftList.length+' employees · Section-wise:')}</div>`;
   
   const renderOrder = [...SEC_ORDER, ...Object.keys(secGroups).filter(k => !SEC_ORDER.includes(k))];
   renderOrder.forEach(sec => {

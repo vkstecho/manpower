@@ -162,15 +162,6 @@ async function launchApp(){
 
   // FIX: await buildNav so nav exists before goTab/renderAll is called
   try { await buildNav(); } catch(e){ console.warn('buildNav error:',e); }
-
-  // If team data missing (session restored before Firebase load), load then re-render
-  try{
-    if(typeof initData==='function' && (typeof _cache==='undefined' || !_cache || _cache.employees===null || (Array.isArray(_cache.employees)&&_cache.employees.length===0 && !window._mpEmpRetryDone))){
-      window._mpEmpRetryDone = true;
-      await Promise.resolve(initData()).catch(function(e){ console.warn('[launchApp] initData retry', e); });
-    }
-  }catch(e){}
-
   // Re-sync header height after nav is built (sidebar depends on accurate --hdr-height)
   try{ syncStickyTop(); }catch(e){}
   goTab(_currentTab||'home'); // buildNav() already set _currentTab to the correct role-based landing tab
