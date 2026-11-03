@@ -1,6 +1,5 @@
 "undefined"==typeof Notification&&(window.Notification={permission:"denied",requestPermission:()=>Promise.resolve("denied")}),document.addEventListener("keydown",function(e){if("F12"===e.key||e.ctrlKey&&e.shiftKey&&["I","J","C"].includes(e.key)||e.ctrlKey&&"U"===e.key)return e.preventDefault(),!1});var _fbStarted=!1;
 
-/** mp_session is base64 via encodeSession — never JSON.parse alone */
 function _mpParseStoredSession(raw){
   if(!raw) return null;
   try{ if(typeof decodeSession==="function"){ var d=decodeSession(raw); if(d&&d.role) return d; } }catch(e){}
@@ -33,30 +32,52 @@ function _mpHideLogin(){
     if(login){ login.classList.remove("show"); login.style.setProperty("display","none","important"); }
   }catch(e){}
 }
+function _mpDataReady(){
+  try{
+    if(window._mpListenersStarted) return true;
+    if(typeof _cache!=="undefined" && _cache && _cache.employees!==null && _cache.employees!==undefined) return true;
+  }catch(e){}
+  return false;
+}
+function _mpSafeEnterApp(){
+  try{
+    if(typeof startApp==="function"){
+      try{ startApp(); }catch(e){}
+      return;
+    }
+  }catch(e){}
+  try{
+    if(!_mpDataReady() && typeof initData==="function"){
+      Promise.resolve(initData()).catch(function(){}).then(function(){
+        try{
+          if(typeof checkFingerprintOnStart==="function"){
+            Promise.resolve(checkFingerprintOnStart()).then(function(fp){
+              if(!fp && typeof launchApp==="function") launchApp();
+            }).catch(function(){ if(typeof launchApp==="function") launchApp(); });
+          } else if(typeof launchApp==="function") launchApp();
+        }catch(e){}
+      });
+      return;
+    }
+  }catch(e){}
+  try{
+    if(typeof checkFingerprintOnStart==="function"){
+      Promise.resolve(checkFingerprintOnStart()).then(function(fp){
+        if(!fp && typeof launchApp==="function") launchApp();
+      }).catch(function(){ if(typeof launchApp==="function") launchApp(); });
+      return;
+    }
+  }catch(e){}
+  try{ if(typeof launchApp==="function") launchApp(); }catch(e){}
+}
 function _mpRestoreFromSession(){
   if(!_mpHasUsableSession()) return false;
   try{ if(typeof loadSession==="function") loadSession(); }catch(e){}
   _mpHideLogin();
   if(_mpFpScreenVisible()) return true;
-  try{
-    // Prefer fingerprint gate when enabled
-    if(typeof checkFingerprintOnStart==="function"){
-      Promise.resolve(checkFingerprintOnStart()).then(function(fpShown){
-        if(!fpShown){
-          try{ if(typeof launchApp==="function") launchApp(); }catch(e){}
-        }
-      }).catch(function(){
-        try{ if(typeof launchApp==="function") launchApp(); }catch(e){}
-      });
-      return true;
-    }
-    if(typeof startApp==="function"){ try{ startApp(); }catch(e){} return true; }
-    if(typeof launchApp==="function"){ try{ launchApp(); }catch(e){} return true; }
-  }catch(e){}
+  try{ _mpSafeEnterApp(); }catch(e){}
   return true;
 }
-
-/** Show login ONLY when there is truly no session */
 function _forceLogin(){
   if(_mpHasUsableSession()){ _mpRestoreFromSession(); return; }
   try{
@@ -74,12 +95,10 @@ function _forceLogin(){
     if(typeof showStep==="function"){try{showStep(1);}catch(e){}}
   }catch(e){}
 }
-
 setTimeout(function(){
   var ls=document.getElementById("loadingScreen");
   ls&&(ls.style.cssText="display:none!important;opacity:0;pointer-events:none;visibility:hidden");
 },800);
-
 if(-1!==window.location.search.indexOf("logout=")){
   try{history.replaceState(null,"",window.location.pathname);}catch(e){}
   try{localStorage.removeItem("mp_session");}catch(e){}
@@ -91,8 +110,6 @@ if(-1!==window.location.search.indexOf("logout=")){
   setTimeout(_forceLogin,300);
   setTimeout(_forceLogin,1200);
 }
-
-// Continuous guard: if session exists, never leave user stuck on login
 function _mpSessionGuardTick(){
   try{
     if(!_mpHasUsableSession()) return;
@@ -103,12 +120,9 @@ function _mpSessionGuardTick(){
     }
   }catch(e){}
 }
-setInterval(_mpSessionGuardTick, 1500);
-setTimeout(_mpSessionGuardTick, 400);
-setTimeout(_mpSessionGuardTick, 1200);
-setTimeout(_mpSessionGuardTick, 3000);
-
-// 10s black-screen safety — never kick valid session
+setInterval(_mpSessionGuardTick, 2000);
+setTimeout(_mpSessionGuardTick, 500);
+setTimeout(_mpSessionGuardTick, 2000);
 setTimeout(function(){
   try{
     if(_mpHasUsableSession()){

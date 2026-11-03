@@ -2482,11 +2482,19 @@ function _updateSchedAdminVisibility(){
 
 function renderAll(){
   // Each step isolated — one failure must not show generic Display error for whole Home
-  try{ goTab(_currentTab); }catch(e){ console.error('[renderAll] goTab', e && (e.stack||e.message||e)); }
+  try{ goTab(_currentTab||'home'); }catch(e){ console.error('[renderAll] goTab', e && (e.stack||e.message||e)); }
+  try{ if(typeof renderHome==='function') renderHome(); }catch(e){ console.error('[renderAll] renderHome', e && (e.stack||e.message||e)); }
   try{ updatePendingBadge(); }catch(e){ console.error('[renderAll] pendingBadge', e && (e.stack||e.message||e)); }
   try{ updateTodoBadge(); }catch(e){ console.error('[renderAll] todoBadge', e && (e.stack||e.message||e)); }
   try{ _updateSchedAdminVisibility(); }catch(e){ console.error('[renderAll] schedAdmin', e && (e.stack||e.message||e)); }
   try{ _mpInitHistory(); }catch(e){}
+  // Second pass after listeners may fill _cache
+  try{
+    setTimeout(function(){
+      try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
+      try{ if(typeof updateSyncTime==='function') updateSyncTime(); }catch(e){}
+    }, 1200);
+  }catch(e){}
 }
 
 // ── Reusable confirm modal (replaces native confirm() dialogs) ──
