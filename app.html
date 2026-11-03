@@ -1229,6 +1229,14 @@ html.mp-login-active, body.mp-login-active {
                background:var(--card2);border:1px solid var(--border2);font-size:16px">
         📤
       </div>
+      <!-- PWA Install — shown when not installed (near Share) -->
+      <div id="pwaInstallBtn" onclick="try{if(typeof _showInstallPlatformModal==='function')_showInstallPlatformModal();else if(typeof triggerPWAInstall==='function')triggerPWAInstall()}catch(e){}" title="Install App" aria-label="Install app"
+        style="display:none;align-items:center;justify-content:center;
+               width:38px;height:38px;border-radius:10px;cursor:pointer;
+               background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
+               border:1px solid rgba(249,115,22,.4);font-size:18px">
+        📲
+      </div>
       <div id="themeToggleBtn" onclick="toggleTheme()" title="Dark/Light Mode" aria-label="Theme"
         style="display:flex;align-items:center;justify-content:center;
                width:38px;height:38px;border-radius:10px;cursor:pointer;
@@ -1237,14 +1245,6 @@ html.mp-login-active, body.mp-login-active {
       </div>
       <div class="notif-btn" id="notifBtn" onclick="openUserNotifications()" style="display:none">
         🔔<div class="notif-badge" id="notifCount" style="display:none">0</div>
-      </div>
-      <!-- PWA Install button — always visible if not installed -->
-      <div id="pwaInstallBtn" onclick="triggerPWAInstall()" title="Install App"
-        style="display:none;align-items:center;justify-content:center;
-               width:38px;height:38px;border-radius:10px;cursor:pointer;
-               background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(168,85,247,.2));
-               border:1px solid rgba(249,115,22,.4);font-size:20px">
-        📲
       </div>
       <div class="user-chip user-chip-profile" onclick="showProfile()" title="Profile" aria-label="Profile">
         <div class="user-av" id="userAv" style="background:linear-gradient(135deg,var(--m1),var(--s1))">?</div>

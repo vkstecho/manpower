@@ -55,7 +55,14 @@
       'pwaBanner'
     ].forEach(function (id) {
       var el = document.getElementById(id);
-      if (el) el.style.display = hide ? 'none' : '';
+      if (!el) return;
+      if (hide) {
+        el.style.display = 'none';
+      } else if (id === 'pwaInstallBtn') {
+        el.style.display = 'flex';
+      } else {
+        el.style.display = '';
+      }
     });
     if (hide) {
       var android = document.getElementById('loginAndroidStoreBtn');

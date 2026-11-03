@@ -66,6 +66,11 @@ async function launchApp(){
   const _mc = document.getElementById('mainContent');
   if(_mh){ _mh.style.display='block'; _mh.style.visibility='visible'; _mh.style.opacity='1'; }
   if(_mc){ _mc.style.display='block'; _mc.style.visibility='visible'; _mc.style.opacity='1'; }
+  // Show Install App in header when not running as installed PWA
+  try{
+    if(typeof window._mpHideInstallButtons==='function') window._mpHideInstallButtons();
+    else if(typeof hideInstallButtons==='function') hideInstallButtons();
+  }catch(_ie){}
   try{
     const login=document.getElementById('loginScreen');
     if(login){ login.style.display='none'; login.classList.remove('show'); }

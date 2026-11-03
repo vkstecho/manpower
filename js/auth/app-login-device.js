@@ -490,10 +490,10 @@ function showPasswordLoginScreen(emp, deviceId){
       </div>
       <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
         <b style="color:#f97316">${escHtml(emp.name||'')}</b><br>
-        <span style="font-size:12px">OTP नहीं — इस device का password डालें</span>
+        <span style="font-size:12px">${typeof L==='function'?L('OTP नहीं — इस device का password डालें','No OTP — enter this device password'):'No OTP — enter this device password'}</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
         <input id="pwlInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
@@ -580,10 +580,10 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
       </div>
       <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
         <b style="color:#f97316">${name}</b><br>
-        <span style="font-size:12px">+91-${mobile10} · OTP नहीं चाहिए</span>
+        <span style="font-size:12px">+91-${mobile10} · ${typeof L==='function'?L('OTP नहीं चाहिए','No OTP needed'):'No OTP needed'}</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <div style="font-size:11px;font-weight:800;color:#e2e8f0;letter-spacing:1px;margin-bottom:10px">DEVICE PASSWORD *</div>
         <input id="pwmInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
           style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
                  padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
@@ -598,7 +598,7 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
       </button>
       <button onclick="_forgotMobilePw()"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
+               color:#cbd5e1;font-size:12px;cursor:pointer;font-family:inherit">
         ${L('🔑 Password भूल गए? OTP से verify करें','🔑 Forgot password? Verify with OTP')}
       </button>
     </div>`;
@@ -616,7 +616,7 @@ async function _submitMobilePwLogin(){
   const errEl=document.getElementById('pwmErr');
   const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
-    if(errEl) errEl.textContent='❌ गलत Password';
+    if(errEl) errEl.textContent=(typeof L==='function'?L('❌ गलत Password','❌ Wrong password'):'❌ Wrong password');
     return;
   }
   const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();

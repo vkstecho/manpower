@@ -710,6 +710,26 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
       toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'));
       return;
     }
+    // Remember cell as paste origin for clipboard
+    try{
+      window._myShiftMultiEmp = empId;
+      window._myShiftKbFocus = { empId: empId, date: date };
+      window._msPasteAnchor = { empId: empId, date: date };
+    }catch(_a){}
+    // Clipboard ready + not multi-selecting → show Paste bar on this cell
+    if(!window._myShiftMultiMode && window._msClipboard && (window._msClipboard.count || (window._msClipboard.flat && window._msClipboard.flat.length))){
+      try{
+        document.querySelectorAll('.ms-day.ms-paste-target').forEach(function(el){
+          el.classList.remove('ms-paste-target');
+          el.style.outline = '';
+        });
+        var cell = document.querySelector('.ms-day[data-ms-date="'+date+'"][data-ms-empid="'+empId+'"]');
+        if(cell){ cell.classList.add('ms-paste-target'); cell.style.outline='2px solid #16a34a'; }
+        window._myShiftMultiSel = new Set([date]);
+        _showMyShiftBulkBar(empId, empName);
+      }catch(_p){}
+      return;
+    }
     // Multi-select mode: toggle cells and show bulk bar
     if(window._myShiftMultiMode){
       if(window._myShiftMultiEmp && window._myShiftMultiEmp !== empId){
@@ -971,62 +991,96 @@ try{ window.bindMyShiftDragSelect = bindMyShiftDragSelect; }catch(e){}
 
 function _showMyShiftBulkBar(empId, empName){
   _hideMyShiftBulkBar();
-  const n = (window._myShiftMultiSel && window._myShiftMultiSel.size) || 0;
-  if(!n) return;
-  const cfg = (typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {}) || {};
-  // Work shifts only (D/N/A/B/C) that are ticked active in M/c & Shift Setting
-  const WORK = new Set(['D','N','A','B','C']);
-  const codes = [];
-  (cfg.shifts || []).forEach(s=>{
-    if(!s || !s.code || s.active === false) return;
-    const c = String(s.code).toUpperCase();
-    if(WORK.has(c) && !codes.includes(c)) codes.push(c);
-  });
-  // defaults if empty
-  if(!codes.length) codes.push('D','N');
-  // Status options always available in bulk bar (incl. G)
-  const extra = [
-    {v:'O', label:'Off'},
-    {v:'L', label:'Leave'},
-    {v:'G', label:'G'},
-    {v:'D+N', label:'D+N'}
-  ];
-  const _legC = (window.MP_SHIFT_COLORS||window.SHIFT_LEGEND_COLORS||{
-    D:{bg:'#a16207',fg:'#fff'},N:{bg:'#4f46e5',fg:'#fff'},G:{bg:'#2563eb',fg:'#fff'},
-    O:{bg:'#64748b',fg:'#fff'},L:{bg:'#be123c',fg:'#fff'},'D+N':{bg:'#7c3aed',fg:'#fff'}
-  });
-  const shiftBtns = codes.slice(0,8).map(code=>{
-    const c=_legC[code]||{bg:'#334155',fg:'#fff'};
-    return `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${code}')"
-      style="padding:8px 12px;border-radius:10px;border:none;background:${c.bg};color:${c.fg};font-weight:800;font-size:13px;cursor:pointer">${code}</button>`;
-  }).join('') + extra.map(x=>{
-    const c=_legC[x.v]||{bg:'#334155',fg:'#fff'};
-    return `<button type="button" onclick="applyMyShiftBulk('${empId}','${String(empName||'').replace(/'/g,"\\'")}','${x.v}')"
-      style="padding:8px 12px;border-radius:10px;border:none;background:${c.bg};color:${c.fg};font-weight:800;font-size:13px;cursor:pointer">${x.label}</button>`;
-  }).join('');
-
-  const bar = document.createElement('div');
+  var n = (window._myShiftMultiSel && window._myShiftMultiSel.size) || 0;
+  var hasClip = !!(window._msClipboard && (window._msClipboard.count || (window._msClipboard.flat && window._msClipboard.flat.length)));
+  if(n === 0 && !hasClip) return;
+  var bar = document.createElement('div');
   bar.id = 'myShiftBulkBar';
-  // Prefer top if selection is in lower half of viewport (so cells stay visible)
-  let placeTop = false;
+  var placeTop = false;
   try{
-    const cells = document.querySelectorAll('.ms-day.ms-multi-on, .ms-day[style*="f97316"]');
-    let maxBottom = 0;
-    cells.forEach(c=>{ const r=c.getBoundingClientRect(); if(r.bottom>maxBottom) maxBottom=r.bottom; });
+    var cells = document.querySelectorAll('.ms-day.ms-multi-on');
+    var maxBottom = 0;
+    cells.forEach(function(c){ var r=c.getBoundingClientRect(); if(r.bottom>maxBottom) maxBottom=r.bottom; });
     if(maxBottom > window.innerHeight * 0.55) placeTop = true;
   }catch(e){}
   bar.style.cssText = placeTop
     ? 'position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;'
     : 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;';
-  bar.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-      <div style="font-size:12px;font-weight:800;color:#f97316">${n} day${n>1?'s':''} selected · ${escHtml(empName||'')}</div>
-      <button type="button" onclick="clearMyShiftMulti()" style="border:none;background:transparent;color:var(--muted2);font-size:12px;cursor:pointer;font-weight:700">${L('Clear','Clear')}</button>
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${shiftBtns}</div>
-    <div style="font-size:11px;color:var(--muted2)">${L('Shift चुनें → saves now','Pick shift → saves immediately')} · ${L('Double-tap cell = single day picker','Double-tap cell = single day picker')}</div>
-  `;
+
+  var clipN = hasClip ? (window._msClipboard.count || window._msClipboard.flat.length || 0) : 0;
+  var title = n > 0
+    ? (n + ' day' + (n>1?'s':'') + ' selected · ' + (empName || ''))
+    : (typeof L==='function' ? L('पेस्ट करने के लिए तैयार','Ready to paste') : 'Ready to paste');
+
+  var copyLbl = typeof L==='function' ? L('Copy','Copy') : 'Copy';
+  var pasteLbl = typeof L==='function' ? L('Paste','Paste') : 'Paste';
+  var clearLbl = typeof L==='function' ? L('Clear','Clear') : 'Clear';
+  var actions = '';
+  if(n > 0){
+    actions += '<button type="button" class="ms-bulk-copy" style="flex:1;min-width:110px;padding:12px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:900;font-size:14px;cursor:pointer">📋 '+copyLbl+'</button>';
+  }
+  if(hasClip){
+    actions += '<button type="button" class="ms-bulk-paste" style="flex:1;min-width:110px;padding:12px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:900;font-size:14px;cursor:pointer">📌 '+pasteLbl+(clipN?(' ('+clipN+')'):'')+'</button>';
+  }
+  actions += '<button type="button" class="ms-bulk-clear" style="padding:12px 14px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-weight:800;font-size:13px;cursor:pointer">'+clearLbl+'</button>';
+
+  var hint = n > 0
+    ? (typeof L==='function' ? L('Copy दबाएं → फिर किसी दिन पर टैप कर Paste','Tap Copy → then tap a day and Paste') : 'Tap Copy → then tap a day and Paste')
+    : (typeof L==='function' ? L('Paste से चुनी गई shifts लागू होंगी','Paste applies the copied shifts') : 'Paste applies the copied shifts');
+
+  var safeTitle = (typeof escHtml==='function' ? escHtml(String(title||'')) : String(title||'').replace(/</g,'&lt;'));
+  bar.innerHTML = '<div style="font-size:12px;font-weight:800;color:#f97316">'+safeTitle+'</div>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px">'+actions+'</div>'
+    + '<div style="font-size:11px;color:var(--muted2)">'+hint+'</div>';
   document.body.appendChild(bar);
+
+  var copyBtn = bar.querySelector('.ms-bulk-copy');
+  if(copyBtn){
+    copyBtn.addEventListener('click', function(){
+      try{
+        if(typeof copySchedSelection==='function') copySchedSelection();
+        else if(typeof _myShiftCopySelected==='function') _myShiftCopySelected();
+      }catch(e){}
+      setTimeout(function(){
+        try{ _showMyShiftBulkBar(window._myShiftMultiEmp||'', empName||''); }catch(x){}
+      }, 60);
+    });
+  }
+  var pasteBtn = bar.querySelector('.ms-bulk-paste');
+  if(pasteBtn){
+    pasteBtn.addEventListener('click', function(){
+      try{
+        if(typeof pasteSchedSelection==='function') pasteSchedSelection();
+        else toast('Paste unavailable');
+      }catch(e){ console.warn(e); }
+    });
+  }
+  var clearBtn = bar.querySelector('.ms-bulk-clear');
+  if(clearBtn){
+    clearBtn.addEventListener('click', function(){ clearMyShiftMulti(); });
+  }
+}
+
+function _myShiftCopySelected(){
+  try{
+    if(typeof copySchedSelection==='function'){ copySchedSelection(); return; }
+  }catch(e){}
+  try{
+    var empId = window._myShiftMultiEmp;
+    var dates = Array.from(window._myShiftMultiSel||[]).sort();
+    if(!empId || !dates.length){
+      toast(typeof L==='function'?L('कोई दिन चुना नहीं','No days selected'):'No days selected');
+      return;
+    }
+    var flat = dates.map(function(d){
+      try{
+        var cell = document.querySelector('.ms-day[data-ms-date="'+d+'"][data-ms-empid="'+empId+'"]');
+        return (cell && (cell.getAttribute('data-ms-shift')||cell.getAttribute('data-ms-sh'))) || '';
+      }catch(e){ return ''; }
+    });
+    window._msClipboard = { matrix:[flat], empIds:[empId], dates:dates, flat:flat, count:flat.length, at:Date.now(), myShift:true };
+    toast('📋 '+flat.length+(typeof L==='function'?L(' cells कॉपी',' cells copied'):' cells copied'));
+  }catch(e){ console.warn(e); }
 }
 
 function clearMyShiftMulti(){
@@ -1186,7 +1240,7 @@ function renderMyShift(){
               ${window._myShiftMultiMode?L('✕ Cancel Multi','✕ Cancel Multi'):L('☑️ Multi-Select','☑️ Multi-Select')}
             </button>
             <span class="ms-hint" style="margin:0">${window._myShiftMultiMode
-              ? L('दिन टैप करें → नीचे से shift चुनें','Tap days → pick shift on bar')
+              ? L('दिन टैप करें → Copy, फिर Paste','Tap days → Copy, then Paste')
               : L('दिन टैप करें → shift चुनें (Save से commit)','Tap a day → pick shift (then Save)')}</span>
           </div>
         </div>`;
