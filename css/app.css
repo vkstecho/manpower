@@ -945,3 +945,346 @@ html.mp-installed #pwaBanner,
 body.mp-installed #pwaBanner{
   display:none !important;
 }
+
+
+/* === CONTRAST v4.0.9 — readable text in Light + Dark ===================== */
+/* Primary body text always uses theme tokens */
+body, .tab, .card, .panel, .modal, .modal-body {
+  color: var(--text);
+}
+
+/* ---- Dark theme: lift secondary text above muddy slate ---- */
+body:not(.light) {
+  --muted: #a8b6c8;
+  --muted2: #d0d8e4;
+}
+body:not(.light) .muted,
+body:not(.light) .hint,
+body:not(.light) .sub,
+body:not(.light) .stitle-sub,
+body:not(.light) [style*="color:#94a3b8"],
+body:not(.light) [style*="color: #94a3b8"],
+body:not(.light) [style*="color:#64748b"],
+body:not(.light) [style*="color: #64748b"] {
+  color: #b8c4d4 !important;
+}
+body:not(.light) .nav-btn {
+  color: #b0bcc9;
+}
+body:not(.light) .nav-btn.on {
+  color: var(--m1);
+}
+body:not(.light) .chip {
+  color: #e2e8f0;
+}
+body:not(.light) .chip.on {
+  color: #fff;
+}
+
+/* ---- Light theme: dark text on light surfaces ---- */
+body.light {
+  --text: #0f172a;
+  --muted: #334155;
+  --muted2: #1e293b;
+}
+body.light,
+body.light .tab,
+body.light .card,
+body.light .panel {
+  color: #0f172a;
+}
+body.light .muted,
+body.light .hint,
+body.light .sub,
+body.light .stitle-sub {
+  color: #334155 !important;
+}
+/* Hardcoded slate on light backgrounds → dark slate */
+body.light [style*="color:#94a3b8"],
+body.light [style*="color: #94a3b8"],
+body.light [style*="color:#64748b"],
+body.light [style*="color: #64748b"],
+body.light [style*="color:#8892a4"],
+body.light [style*="color: #8892a4"],
+body.light [style*="color:#cbd5e1"],
+body.light [style*="color: #cbd5e1"] {
+  color: #334155 !important;
+}
+body.light [style*="color:#e2e8f0"],
+body.light [style*="color: #e2e8f0"],
+body.light [style*="color:#f1f5f9"],
+body.light [style*="color: #f1f5f9"] {
+  color: #0f172a !important;
+}
+
+/* Sidebar / bottom nav — stronger inactive labels */
+body.light .nav-btn {
+  color: #475569 !important;
+}
+body.light .nav-btn.on {
+  color: #c2410c !important;
+  font-weight: 800;
+}
+body.light .side-nav button,
+body.light .side-nav a,
+body.light .sidebar button,
+body.light #sideNav button,
+body.light .left-nav button {
+  color: #334155 !important;
+}
+body.light .side-nav button.on,
+body.light .sidebar button.on,
+body.light #sideNav button.on,
+body.light .left-nav button.on {
+  color: #c2410c !important;
+}
+
+/* Chips / filters */
+body.light .chip {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+  border-color: #cbd5e1 !important;
+  font-weight: 700;
+}
+body.light .chip.on {
+  background: var(--m1) !important;
+  color: #fff !important;
+  border-color: var(--m1) !important;
+}
+
+/* Schedule legend pills */
+body.light .sched-legend,
+body.light #schedLegend,
+body.light .legend-item {
+  color: #0f172a !important;
+}
+body.light #schedLegend span,
+body.light .sched-legend span {
+  color: inherit;
+}
+
+/* Coverage / summary rows — keep numbers readable on tinted cells */
+body.light tr.cov-row td,
+body.light tr.summary-row td,
+body.light .cov-cell,
+body.light td[style*="background"] {
+  color: #0f172a;
+}
+body.light .cov-warn,
+body.light td.cov-short,
+body.light [class*="cov"] .warn {
+  color: #9a3412 !important;
+  font-weight: 800;
+}
+
+/* Dark section header rows stay light-on-dark */
+body.light tr.sec-row td,
+body.light .sec-row,
+body.light [class*="sec-row"] {
+  color: #f8fafc !important;
+}
+
+/* Save / pending bar — always high contrast on green panel */
+#schedSaveBar,
+#schedSaveBar *,
+.save-bar,
+.save-bar * {
+  color: #ecfdf5;
+}
+#schedSaveBar #saveBarTitle,
+.save-bar .title {
+  color: #86efac !important;
+  font-weight: 900;
+}
+#schedSaveBar #saveBarSub,
+#schedSaveBar .sub,
+.save-bar .sub {
+  color: #bbf7d0 !important;
+}
+#schedSaveBar button,
+.save-bar button {
+  color: #fff !important;
+}
+#schedSaveBar button[onclick*="discard"],
+#schedSaveBar .cancel-btn {
+  color: #fecdd3 !important;
+}
+/* Saving spinner text */
+#schedSaveBar button[disabled],
+#schedSaveBar .saving {
+  color: #d1fae5 !important;
+  opacity: 1 !important;
+}
+
+/* Employee name / id on schedule name column */
+body.light .emp-name,
+body.light .name-cell,
+body.light td.name-col {
+  color: #0f172a !important;
+}
+body.light .emp-id,
+body.light .code-sub {
+  color: #475569 !important;
+}
+
+/* Learn & Grow strip */
+body.light .learn-bar,
+body.light [onclick*="openLearnScreen"],
+body.light button[onclick*="openLearnScreen"] {
+  color: #0f172a;
+}
+body.light button[onclick*="openLearnScreen"] span {
+  color: #334155 !important;
+  font-weight: 700;
+}
+
+/* Modals */
+body.light .modal,
+body.light .modal-box,
+body.light .modal-content {
+  color: #0f172a !important;
+}
+body.light .modal-title {
+  color: #0f172a !important;
+}
+body.light .modal .muted,
+body.light .modal-sub {
+  color: #334155 !important;
+}
+
+/* Inputs always readable */
+body.light input,
+body.light select,
+body.light textarea,
+body.light .inp-field {
+  color: #0f172a !important;
+  background: #f8fafc !important;
+}
+body.light input::placeholder,
+body.light textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+body:not(.light) input::placeholder,
+body:not(.light) textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1;
+}
+
+/* Toast / banners */
+body.light .toast {
+  color: #0f172a !important;
+}
+
+/* Headers */
+body.light .hdr,
+body.light .hdr * {
+  color: #0f172a;
+}
+body.light .hdr-brand,
+body.light .hdr .brand {
+  color: #0f172a !important;
+}
+body.light .hdr button {
+  color: #0f172a !important;
+}
+
+/* Tables */
+body.light table,
+body.light th,
+body.light td {
+  color: #0f172a;
+}
+body.light th {
+  color: #1e293b !important;
+  font-weight: 800;
+}
+
+/* Sticky / frozen name column dark strip stays light text */
+body.light .sched-name-col,
+body.light td.sticky-name,
+body.light .name-sticky {
+  color: #f8fafc !important;
+}
+
+/* My Shift day cells */
+body.light .ms-day {
+  color: #0f172a;
+}
+body.light .ms-day .day-num {
+  color: #475569 !important;
+}
+
+/* Pending / leave / reports list items */
+body.light .list-item,
+body.light .pending-card,
+body.light .leave-card,
+body.light .report-card {
+  color: #0f172a !important;
+}
+body.light .list-item .meta,
+body.light .pending-card .meta {
+  color: #334155 !important;
+}
+
+/* Buttons that were white-text on pale bg in light */
+body.light .btn-ghost,
+body.light .btn-outline {
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+/* Live badge */
+body.light .live-badge,
+body.light #liveBadge {
+  color: #166534 !important;
+}
+
+/* Dark panels inside light page (save bar, dark cards) — force light text */
+body.light #schedSaveBar,
+body.light #schedSaveBar div,
+body.light #schedSaveBar span,
+body.light .dark-panel,
+body.light [style*="background:linear-gradient(135deg,#0d2a1a"],
+body.light [style*="background:linear-gradient(135deg, #0d2a1a"] {
+  color: #ecfdf5 !important;
+}
+body.light #schedSaveBar #saveBarTitle {
+  color: #86efac !important;
+}
+body.light #schedSaveBar #saveBarSub {
+  color: #bbf7d0 !important;
+}
+
+/* Avoid washing out intentional white-on-colored chips (shift codes) */
+body.light .shc,
+body.light .ms-day-sh,
+body.light [class*="shc."] {
+  /* leave shift chip colors as-is; only ensure non-empty contrast */
+  font-weight: 800;
+}
+body.light .shc.O,
+body.light .ms-day-sh.shc.O {
+  background: #475569 !important;
+  color: #ffffff !important;
+}
+
+/* Desktop side rail */
+@media (min-width: 900px) {
+  body.light .side-rail,
+  body.light .desktop-nav,
+  body.light #desktopNav {
+    color: #334155;
+  }
+  body.light .side-rail button,
+  body.light .desktop-nav button,
+  body.light #desktopNav button {
+    color: #334155 !important;
+  }
+  body.light .side-rail button.on,
+  body.light .desktop-nav button.on,
+  body.light #desktopNav button.on {
+    color: #c2410c !important;
+    font-weight: 800;
+  }
+}

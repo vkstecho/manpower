@@ -1004,8 +1004,8 @@ function _showMyShiftBulkBar(empId, empName){
     if(maxBottom > window.innerHeight * 0.55) placeTop = true;
   }catch(e){}
   bar.style.cssText = placeTop
-    ? 'position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;'
-    : 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,420px);width:auto;padding:12px 14px;border-radius:16px;background:var(--bg2);border:1.5px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.35);display:flex;flex-direction:column;gap:8px;';
+    ? 'position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:400;max-width:min(96vw,480px);width:auto;padding:12px 14px;border-radius:16px;background:linear-gradient(165deg,#1e1b4b,#0f172a);border:1.5px solid rgba(99,102,241,.5);box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;color:#f8fafc;'
+    : 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,480px);width:auto;padding:12px 14px;border-radius:16px;background:linear-gradient(165deg,#1e1b4b,#0f172a);border:1.5px solid rgba(99,102,241,.5);box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;color:#f8fafc;';
 
   var clipN = hasClip ? (window._msClipboard.count || window._msClipboard.flat.length || 0) : 0;
   var title = n > 0
@@ -1017,21 +1017,64 @@ function _showMyShiftBulkBar(empId, empName){
   var clearLbl = typeof L==='function' ? L('Clear','Clear') : 'Clear';
   var actions = '';
   if(n > 0){
-    actions += '<button type="button" class="ms-bulk-copy" style="flex:1;min-width:110px;padding:12px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;font-weight:900;font-size:14px;cursor:pointer">📋 '+copyLbl+'</button>';
+    actions += '<button type="button" class="ms-bulk-copy" style="flex:1;min-width:88px;padding:10px 12px;border-radius:12px;border:none;background:linear-gradient(135deg,#0f766e,#0d9488);color:#fff;font-weight:900;font-size:13px;cursor:pointer">📋 '+copyLbl+'</button>';
   }
   if(hasClip){
-    actions += '<button type="button" class="ms-bulk-paste" style="flex:1;min-width:110px;padding:12px 14px;border-radius:12px;border:none;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;font-weight:900;font-size:14px;cursor:pointer">📌 '+pasteLbl+(clipN?(' ('+clipN+')'):'')+'</button>';
+    actions += '<button type="button" class="ms-bulk-paste" style="flex:1;min-width:88px;padding:10px 12px;border-radius:12px;border:none;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;font-weight:900;font-size:13px;cursor:pointer">📌 '+pasteLbl+(clipN?(' ('+clipN+')'):'')+'</button>';
   }
-  actions += '<button type="button" class="ms-bulk-clear" style="padding:12px 14px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-weight:800;font-size:13px;cursor:pointer">'+clearLbl+'</button>';
+  actions += '<button type="button" class="ms-bulk-clear" style="padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.35);background:rgba(255,255,255,.06);color:#e2e8f0;font-weight:800;font-size:13px;cursor:pointer">'+clearLbl+'</button>';
+
+  // Shift palette (same codes as Schedule multi-select) — shown whenever days are selected
+  var palette = '';
+  if(n > 0){
+    var codes = [
+      {c:'D', bg:'#f59e0b', fg:'#000', cls:'ms-shift-dn'},
+      {c:'N', bg:'#4f46e5', fg:'#fff', cls:'ms-shift-dn'},
+      {c:'A', bg:'#16a34a', fg:'#fff', cls:'ms-shift-abc'},
+      {c:'B', bg:'#db2777', fg:'#fff', cls:'ms-shift-abc'},
+      {c:'C', bg:'#0891b2', fg:'#fff', cls:'ms-shift-abc'},
+      {c:'O', bg:'#334155', fg:'#94a3b8', cls:''},
+      {c:'L', bg:'#be123c', fg:'#fda4af', cls:''},
+      {c:'G', bg:'#0c4a6e', fg:'#7dd3fc', cls:''},
+      {c:'C/O', bg:'#713f12', fg:'#fde68a', cls:'', lab:'CO'},
+      {c:'HLF', bg:'#f97316', fg:'#fff', cls:'', lab:'½'},
+      {c:'Ab', bg:'#7f1d1d', fg:'#fca5a5', cls:''},
+      {c:'H', bg:'#ea580c', fg:'#fff', cls:''}
+    ];
+    // Hide inactive shift codes when config is available
+    var activeMap = null;
+    try{
+      var cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+      if(cfg.shifts && cfg.shifts.length){
+        activeMap = {};
+        cfg.shifts.forEach(function(s){
+          if(s && s.code) activeMap[String(s.code).toUpperCase()] = (s.active !== false);
+        });
+      }
+    }catch(eCfg){}
+    codes.forEach(function(x){
+      var codeUp = String(x.c).toUpperCase();
+      if(activeMap && (codeUp==='D'||codeUp==='N'||codeUp==='A'||codeUp==='B'||codeUp==='C'||codeUp==='G')){
+        if(activeMap[codeUp] === false) return;
+      }
+      var lab = x.lab || x.c;
+      palette += '<button type="button" class="ms-bulk-shift '+(x.cls||'')+'" data-shift="'+x.c+'" style="min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:none;background:'+x.bg+';color:'+x.fg+';font-weight:900;font-size:13px;cursor:pointer">'+lab+'</button>';
+    });
+  }
 
   var hint = n > 0
-    ? (typeof L==='function' ? L('Copy दबाएं → फिर किसी दिन पर टैप कर Paste','Tap Copy → then tap a day and Paste') : 'Tap Copy → then tap a day and Paste')
+    ? (typeof L==='function'
+        ? L('शिफ्ट चुनें या Copy → Paste','Pick a shift code or Copy → Paste')
+        : 'Pick a shift code or Copy → Paste')
     : (typeof L==='function' ? L('Paste से चुनी गई shifts लागू होंगी','Paste applies the copied shifts') : 'Paste applies the copied shifts');
 
   var safeTitle = (typeof escHtml==='function' ? escHtml(String(title||'')) : String(title||'').replace(/</g,'&lt;'));
-  bar.innerHTML = '<div style="font-size:12px;font-weight:800;color:#f97316">'+safeTitle+'</div>'
-    + '<div style="display:flex;flex-wrap:wrap;gap:8px">'+actions+'</div>'
-    + '<div style="font-size:11px;color:var(--muted2)">'+hint+'</div>';
+  bar.innerHTML = '<div style="font-size:12px;font-weight:800;color:#fdba74;display:flex;align-items:center;justify-content:space-between;gap:8px">'
+    + '<span>'+safeTitle+'</span>'
+    + '<div style="display:flex;flex-wrap:wrap;gap:6px">'+actions+'</div>'
+    + '</div>'
+    + (palette ? ('<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">'+palette+'</div>') : '')
+    + '<div style="font-size:11px;color:#94a3b8;text-align:center">'+hint+'</div>';
   document.body.appendChild(bar);
 
   var copyBtn = bar.querySelector('.ms-bulk-copy');
@@ -1059,6 +1102,18 @@ function _showMyShiftBulkBar(empId, empName){
   if(clearBtn){
     clearBtn.addEventListener('click', function(){ clearMyShiftMulti(); });
   }
+  // Shift chips → apply to all selected days
+  bar.querySelectorAll('.ms-bulk-shift').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var sh = btn.getAttribute('data-shift') || '';
+      if(!sh) return;
+      try{
+        if(typeof applyMyShiftBulk==='function'){
+          applyMyShiftBulk(empId || window._myShiftMultiEmp || '', empName || '', sh);
+        }
+      }catch(e){ console.warn('[myShift bulk shift]', e); }
+    });
+  });
 }
 
 function _myShiftCopySelected(){
