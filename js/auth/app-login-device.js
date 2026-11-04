@@ -754,21 +754,34 @@ function _forgotMobilePw(){
 // ════════════════════════════════════════
 
 // ── Web OTP API: auto-read SMS OTP on supported browsers (Chrome Android) ──
-// Requires HTTPS. SMS format ideally includes: @your-domain #123456
-// iOS/Safari: autocomplete="one-time-code" shows keyboard suggestion from Messages.
+// Requires HTTPS. SMS should mention domain (Firebase does: "... for manpower.vkstech.com").
+// Mentor relies on autocomplete="one-time-code" only; Man Power also uses WebOTP so Chrome
+// shows the Allow dialog — we must NOT abort that listener when Allow is tapped.
 let _webOtpAbort = null;
+let _webOtpActiveId = null;
 function _stopWebOtpListen(){
   try{ if(_webOtpAbort){ _webOtpAbort.abort(); } }catch(e){}
   _webOtpAbort = null;
+  _webOtpActiveId = null;
   try{ if(window._webOtpPoll){ clearInterval(window._webOtpPoll); window._webOtpPoll=null; } }catch(e){}
 }
 /**
- * Listen for SMS OTP and fill the OTP input. Starts WebOTP + short poll for Chrome Allow dialog.
+ * Listen for SMS OTP and fill the OTP input.
+ * Starts at most ONE WebOTP credentials.get — re-entry for same input is ignored
+ * so Chrome "Allow" can still resolve.
  */
 function _startWebOtpListen(inputId, onFilled){
   try{ window._startWebOtpListen = _startWebOtpListen; }catch(e){}
-  _stopWebOtpListen();
   const id = inputId || 'otpInput';
+
+  // Already listening for this field — keep existing promise (do not abort)
+  if(_webOtpAbort && _webOtpActiveId === id){
+    console.info('[WebOTP] already listening for', id);
+    return;
+  }
+  _stopWebOtpListen();
+  _webOtpActiveId = id;
+
   const el = document.getElementById(id);
   if(el){
     try{
@@ -780,7 +793,6 @@ function _startWebOtpListen(inputId, onFilled){
       el.setAttribute('enterkeyhint', 'done');
       el.setAttribute('autocapitalize', 'off');
       el.setAttribute('spellcheck', 'false');
-      // Visible digits on dark login even if body.light is on
       el.style.setProperty('color', '#f8fafc', 'important');
       el.style.setProperty('-webkit-text-fill-color', '#f8fafc', 'important');
       el.style.setProperty('caret-color', '#f97316', 'important');
@@ -789,7 +801,24 @@ function _startWebOtpListen(inputId, onFilled){
       el.style.setProperty('letter-spacing', '10px', 'important');
       el.style.setProperty('font-size', '28px', 'important');
       el.style.setProperty('font-weight', '800', 'important');
-      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 180);
+      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 120);
+      // Mentors-style path: browser keyboard / autofill can fill without WebOTP
+      if(!el._mpOtpBound){
+        el._mpOtpBound = true;
+        el.addEventListener('input', function(){
+          var v = String(el.value||'').replace(/\D/g,'').slice(0,6);
+          if(v !== el.value) el.value = v;
+          try{ if(typeof _onOtpInput==='function') _onOtpInput(v); }catch(e){}
+          if(v.length===6){
+            setTimeout(function(){
+              try{
+                if(typeof onFilled==='function') onFilled(v);
+                else if(typeof _verifyOTP==='function') _verifyOTP();
+              }catch(e){}
+            }, 150);
+          }
+        });
+      }
     }catch(e){}
   }
 
@@ -800,8 +829,8 @@ function _startWebOtpListen(inputId, onFilled){
     if(input){
       input.value = code;
       try{ if(typeof _onOtpInput==='function') _onOtpInput(code); }catch(e){}
-      input.dispatchEvent(new Event('input', { bubbles:true }));
-      input.dispatchEvent(new Event('change', { bubbles:true }));
+      try{ input.dispatchEvent(new Event('input', { bubbles:true })); }catch(e){}
+      try{ input.dispatchEvent(new Event('change', { bubbles:true })); }catch(e){}
     }
     try{ toast(typeof L==='function' ? L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS') : '📲 OTP auto-filled from SMS'); }catch(e){}
     if(typeof onFilled === 'function') onFilled(code);
@@ -819,7 +848,7 @@ function _startWebOtpListen(inputId, onFilled){
     return true;
   }
 
-  // Poll: Chrome "Allow" SMS autofill can fill the field without resolving WebOTP
+  // Poll: some Chrome builds fill the input on Allow without resolving credentials.get
   try{
     var polls = 0;
     var pollTimer = setInterval(function(){
@@ -835,13 +864,13 @@ function _startWebOtpListen(inputId, onFilled){
           setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
         }
       }
-      if(polls > 40){ clearInterval(pollTimer); window._webOtpPoll = null; }
-    }, 300);
+      if(polls > 60){ clearInterval(pollTimer); window._webOtpPoll = null; }
+    }, 250);
     window._webOtpPoll = pollTimer;
   }catch(e){}
 
   if(typeof window.OTPCredential === 'undefined' || !navigator.credentials || !window.isSecureContext){
-    console.info('[WebOTP] API not available — keyboard / Chrome SMS prompt may still work');
+    console.info('[WebOTP] API not available — use keyboard OTP suggestion / type manually');
     return;
   }
   try{
@@ -1326,7 +1355,7 @@ async function _sendDeviceOTP(isResend){
     if(s1) s1.style.display='none';
     if(s2) s2.style.display='block'; try{ _armDeviceOtpAutofillWatch(); }catch(e){};
     document.getElementById('deviceOtpInput')?.focus(); try{ _armDeviceOtpAutofillWatch(); }catch(e){}
-    _startWebOtpListen('otpInput', code=>{ if(code&&code.length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
+    _startWebOtpListen('deviceOtpInput', code=>{ if(code&&String(code).replace(/\D/g,'').length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('Device OTP send', err);

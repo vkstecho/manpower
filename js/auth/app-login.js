@@ -293,12 +293,26 @@ async function _sendOTP(isResend){
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
     if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
-    document.getElementById('otpInput')?.focus();
-    setTimeout(function(){ try{ _startWebOtpListen('otpInput'); }catch(e){} }, 400);
+    const otpEl = document.getElementById('otpInput');
+    if(otpEl){
+      try{
+        otpEl.value = '';
+        otpEl.setAttribute('autocomplete','one-time-code');
+        otpEl.setAttribute('name','one-time-code');
+        otpEl.setAttribute('inputmode','numeric');
+        otpEl.setAttribute('type','text');
+        otpEl.focus();
+      }catch(e){}
+    }
     _startResendTimer();
-    _startWebOtpListen('otpInput', code=>{
-      if(code && code.length===6) setTimeout(()=>{ try{ _verifyOTP(); }catch(e){} }, 250);
-    });
+    // ONE WebOTP listener only — a second start aborts the first and drops Chrome "Allow" result
+    try{
+      _startWebOtpListen('otpInput', function(code){
+        if(code && String(code).replace(/\D/g,'').length===6){
+          setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
+        }
+      });
+    }catch(e){ console.warn('[otp] WebOTP start', e); }
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
     try{ _restoreBtn(); }catch(e){}
   }catch(err){
