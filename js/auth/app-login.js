@@ -490,32 +490,51 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
   const hasReq = !!reqKey;
   ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  // Kill light-theme overrides that turn buttons white / hide text
+  if(!document.getElementById('odlForceDarkCss')){
+    var st=document.createElement('style'); st.id='odlForceDarkCss';
+    st.textContent=
+      '#otherDeviceLoginOverlay,#otherDeviceLoginOverlay *{color-scheme:dark;}'+
+      '#otherDeviceLoginOverlay{background:#0a0f1a!important;}'+
+      '#otherDeviceLoginOverlay .odl-title{color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-body,#otherDeviceLoginOverlay .odl-status{color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip{background:#1e293b!important;border:1px solid #334155!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-lbl{color:#94a3b8!important;-webkit-text-fill-color:#94a3b8!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-name{color:#f97316!important;-webkit-text-fill-color:#f97316!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-sub{color:#cbd5e1!important;-webkit-text-fill-color:#cbd5e1!important;}'+
+      '#otherDeviceLoginOverlay .odl-btn-primary{background:linear-gradient(135deg,#f97316,#ea580c)!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;border:none!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-btn-secondary{background:#1e293b!important;color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;border:1px solid #475569!important;font-weight:700!important;}'+
+      '#otherDeviceLoginOverlay b{color:#4ade80!important;}'+
+      '#otherDeviceLoginOverlay b.odl-accent{color:#f97316!important;}'+
+      '#otherDeviceLoginOverlay b.odl-white{color:#ffffff!important;}';
+    document.head.appendChild(st);
+  }
   ov.innerHTML=`
     <div style="width:100%;max-width:400px;text-align:center">
       <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP blocked</div>
-      <div style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:14px">
+      <div class="odl-title" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP blocked</div>
+      <div class="odl-body" style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:14px">
         Firebase rate-limit / quota reached for this number.<br>
         ${hasReq
-          ? ('A <b style="color:#f97316">login request</b> was sent to <b style="color:#fff">Admin</b>'+(otherDeviceActive?' and your other device':'')+'.')
-          : 'Could not write request — enable <b>Anonymous Auth</b> in Firebase, then retry.'}
+          ? ('A <b class="odl-accent">login request</b> was sent to <b class="odl-white">Admin</b>'+(otherDeviceActive?' and your other device':'')+'.')
+          : 'Could not write request — enable <b class="odl-white">Anonymous Auth</b> in Firebase, then retry.'}
       </div>
-      <div style="background:#1e293b;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;color:#cbd5e1;font-weight:800;letter-spacing:.04em">ACCOUNT</div>
-        <div style="font-size:16px;font-weight:900;color:#f97316">${String(empName).replace(/</g,'')}</div>
-        <div style="font-size:12px;color:#cbd5e1">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
+      <div class="odl-chip" style="background:#1e293b;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
+        <div class="odl-chip-lbl" style="font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:.04em">ACCOUNT</div>
+        <div class="odl-chip-name" style="font-size:16px;font-weight:900;color:#f97316">${String(empName).replace(/</g,'')}</div>
+        <div class="odl-chip-sub" style="font-size:12px;color:#cbd5e1">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
       </div>
-      <div id="odlStatus" style="font-size:14px;color:#e2e8f0;margin-bottom:12px;line-height:1.6;min-height:40px">
+      <div id="odlStatus" class="odl-status" style="font-size:14px;color:#e2e8f0;margin-bottom:12px;line-height:1.6;min-height:40px">
         ${hasReq
-          ? '⏳ Waiting for approval…<br>On the other device / Admin app → <b style="color:#4ade80">Pending</b> → <b style="color:#4ade80">Approve</b>.'
+          ? '⏳ Waiting for approval…<br>On the other device / Admin app → <b>Pending</b> → <b>Approve</b>.'
           : '⚠️ Fix Firebase Anonymous Auth, then tap Retry below.'}
       </div>
-      <button type="button" onclick="closeOtherDeviceLogin();setTimeout(()=>{try{_sendOTP(false);}catch(e){}},200)"
+      <button type="button" class="odl-btn-primary" onclick="closeOtherDeviceLogin();setTimeout(()=>{try{_sendOTP(false);}catch(e){}},200)"
         style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
         🔄 Retry OTP
       </button>
-      <button type="button" onclick="closeOtherDeviceLogin()"
-        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#94a3b8;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+      <button type="button" class="odl-btn-secondary" onclick="closeOtherDeviceLogin()"
+        style="width:100%;padding:12px;background:#1e293b;border:1px solid #475569;border-radius:12px;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">← Back</button>
     </div>`;
   ov.style.display='flex';
 
@@ -543,7 +562,10 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   }
 }
 
-/** Complete login after device/Admin approved a loginRequests row (no SMS OTP). */
+/** Complete flow after device/Admin approved a loginRequests row (no SMS OTP).
+ *  - Existing fully registered approved user → login
+ *  - New / deleted / incomplete → Manager / Member choice + registration (same as OTP path)
+ */
 async function doLoginAfterApproval(emp, userData, deviceId){
   const mobile = String((emp && (emp.phone||emp.mobile)) || (userData && (userData.phone||userData.mobile)) || '')
     .replace(/\D/g,'').slice(-10);
@@ -552,28 +574,69 @@ async function doLoginAfterApproval(emp, userData, deviceId){
   }
   try{ await window._fbSignInAnon(); }catch(e){}
 
-  let ud = userData;
-  if(!ud || !ud.status){
-    try{ ud = await fbGet('mobileUsers/'+mobile); }catch(e){}
-  }
-  if(!ud){
-    // Build minimal record from emp if needed
-    ud = {
-      role: (emp && emp.role) || 'member',
-      name: (emp && emp.name) || '',
-      mobile: '+91'+mobile,
-      phone: mobile,
-      status: 'approved',
-      empId: (emp && emp.empId) || '',
-      empCode: (emp && emp.empId) || '',
-      empObjId: (emp && emp.id) || '',
-      employeeId: (emp && emp.id) || ''
-    };
-  }
-  if(ud.status && ud.status !== 'approved' && ud.status !== 'pending'){
-    throw new Error('Account status: '+ud.status);
+  // Always re-read live registration — do not invent a fake member
+  let ud = null;
+  try{ ud = await fbGet('mobileUsers/'+mobile); }catch(e){}
+  if(!ud && userData && userData.status) ud = userData;
+
+  _loginMobile = '+91'+mobile;
+  try{ _markWriteAuthFromLogin(mobile); }catch(e){}
+  try{
+    localStorage.setItem('mp_device_phone', mobile);
+    localStorage.setItem('mp_device_verified_at', String(Date.now()));
+  }catch(e){}
+
+  const isRemoved = !ud || !ud.status
+    || ud.status==='removed' || ud.status==='revoked' || ud.status==='left' || ud.status==='left_team'
+    || ud.forceFreshLogin || ud.role==='removed';
+  const isCompleteApproved = ud && ud.status==='approved'
+    && (ud.role==='manager' || ud.role==='member' || ud.role==='worker')
+    && (ud.name || ud.empObjId || ud.employeeId || ud.empId);
+
+  // NEW or incomplete → same as successful OTP for a new number: choose Manager / Member
+  if(isRemoved || !isCompleteApproved){
+    if(isRemoved && ud){
+      try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
+        try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){}
+      }
+    }
+    try{
+      const rosterEmp = (typeof _resolveEmpByMobile==='function') ? await _resolveEmpByMobile(mobile) : null;
+      if(rosterEmp && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'
+          && rosterEmp.status!=='resigned' && rosterEmp.status!=='left'){
+        window._otpRosterEmp = rosterEmp;
+      }
+    }catch(e){}
+    toast(typeof L==='function'
+      ? L('✅ Approve हो गया — Manager या Member चुनें','✅ Approved — choose Manager or Member')
+      : '✅ Approved — choose Manager or Member');
+    try{ closeOtherDeviceLogin(); }catch(e){}
+    try{
+      var login=document.getElementById('loginScreen');
+      if(login){ login.style.display='flex'; login.classList.add('show'); }
+    }catch(e){}
+    showStep(3);
+    setTimeout(function(){ try{ showStep(3); }catch(e){} }, 200);
+    return;
   }
 
+  // Pending registration — open pending UI, do not full-launch
+  if(ud.status==='pending'){
+    toast(typeof L==='function'
+      ? L('⏳ Registration अभी pending है — Manager/Admin approve करें','⏳ Registration still pending — Manager/Admin must approve')
+      : '⏳ Registration still pending');
+    try{ closeOtherDeviceLogin(); }catch(e){}
+    if(ud.role==='member' && typeof _launchAsNewUser==='function'){
+      try{ await _launchAsNewUser(ud); }catch(e){}
+      setTimeout(function(){ try{ _watchApprovalStatus(mobile); }catch(e){} }, 500);
+      return;
+    }
+    try{ showStep('pending'); }catch(e){ showStep(3); }
+    try{ _watchApprovalStatus(mobile); }catch(e){}
+    return;
+  }
+
+  // Fully registered approved user → claim device + login
   const empObjId = ud.empObjId || ud.employeeId || (emp && emp.id) || '';
   const devId = deviceId || (typeof getDeviceId==='function' ? getDeviceId() : '');
   if(empObjId && devId){
@@ -588,13 +651,6 @@ async function doLoginAfterApproval(emp, userData, deviceId){
       });
     }catch(e){ console.warn('[doLoginAfterApproval] deviceApprovals', e); }
   }
-
-  _loginMobile = '+91'+mobile;
-  try{ _markWriteAuthFromLogin(mobile); }catch(e){}
-  try{
-    localStorage.setItem('mp_device_phone', mobile);
-    localStorage.setItem('mp_device_verified_at', String(Date.now()));
-  }catch(e){}
 
   toast('✅ Login approved — Welcome '+(ud.name||mobile));
   if(typeof _launchAsNewUser === 'function'){

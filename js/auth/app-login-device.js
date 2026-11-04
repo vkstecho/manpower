@@ -22,6 +22,24 @@ async function showOtherDeviceLoginRequest(emp, dRec, deviceId){
   if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
   const phoneHint = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
   ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  if(!document.getElementById('odlForceDarkCss')){
+    var st=document.createElement('style'); st.id='odlForceDarkCss';
+    st.textContent=
+      '#otherDeviceLoginOverlay,#otherDeviceLoginOverlay *{color-scheme:dark;}'+
+      '#otherDeviceLoginOverlay{background:#0a0f1a!important;}'+
+      '#otherDeviceLoginOverlay .odl-title{color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-body,#otherDeviceLoginOverlay .odl-status{color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip{background:#1e293b!important;border:1px solid #334155!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-lbl{color:#94a3b8!important;-webkit-text-fill-color:#94a3b8!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-name{color:#f97316!important;-webkit-text-fill-color:#f97316!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-chip-sub{color:#cbd5e1!important;-webkit-text-fill-color:#cbd5e1!important;}'+
+      '#otherDeviceLoginOverlay .odl-btn-primary{background:linear-gradient(135deg,#f97316,#ea580c)!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;border:none!important;font-weight:900!important;}'+
+      '#otherDeviceLoginOverlay .odl-btn-secondary{background:#1e293b!important;color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;border:1px solid #475569!important;font-weight:700!important;}'+
+      '#otherDeviceLoginOverlay b{color:#4ade80!important;}'+
+      '#otherDeviceLoginOverlay b.odl-accent{color:#f97316!important;}'+
+      '#otherDeviceLoginOverlay b.odl-white{color:#ffffff!important;}';
+    document.head.appendChild(st);
+  }
   ov.innerHTML=`
     <div style="width:100%;max-width:400px;text-align:center">
       <div style="font-size:44px;margin-bottom:8px">📱↔️📱</div>
@@ -42,7 +60,7 @@ async function showOtherDeviceLoginRequest(emp, dRec, deviceId){
       </div>
 
       <button id="odlSendBtn" onclick="sendOtherDeviceLoginRequest()"
-        style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
+        class="odl-btn-primary" style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
         📤 Send notification to other device
       </button>
 
@@ -54,7 +72,7 @@ async function showOtherDeviceLoginRequest(emp, dRec, deviceId){
       </button>
 
       <button onclick="closeOtherDeviceLogin()"
-        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;color:#64748b;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
+        class="odl-btn-secondary" style="width:100%;padding:12px;background:#1e293b;border:1px solid #475569;border-radius:12px;color:#e2e8f0;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit">← Back</button>
     </div>`;
   ov.style.display='flex';
 }
