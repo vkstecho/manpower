@@ -591,10 +591,14 @@ function showPasswordLoginScreen(emp, deviceId){
         font-size:17px !important;font-weight:900 !important;margin-bottom:10px !important;
       }
       #pwLoginOverlay .pwl-sec{
-        width:100% !important;padding:12px !important;background:#1e293b !important;border:1.5px solid #64748b !important;
-        border-radius:12px !important;color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;
-        font-size:13px !important;font-weight:700 !important;margin-top:8px !important;min-height:44px !important;
+        width:100% !important;padding:12px !important;background:#1e293b !important;background-color:#1e293b !important;
+        border:1.5px solid #64748b !important;
+        border-radius:12px !important;color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;
+        font-size:13px !important;font-weight:700 !important;margin-top:8px !important;min-height:48px !important;
       }
+      #pwLoginOverlay .pwl-sub{color:#cbd5e1 !important;-webkit-text-fill-color:#cbd5e1 !important;}
+      #pwLoginOverlay .pwl-lab{color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;font-weight:800 !important;}
+
     </style>
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🔓</div>
@@ -677,37 +681,90 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
   if(!ov){ ov=document.createElement('div'); ov.id='pwMobileOverlay'; document.body.appendChild(ov); }
   window._pwMobileCtx = { userData, mobile10, deviceId };
   const name = (userData.name||'User').replace(/</g,'');
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;color-scheme:dark';
+  const forgotLab = (typeof L==='function')
+    ? L('🔑 Password भूल गए? OTP से verify करें','🔑 Forgot password? Verify with OTP')
+    : '🔑 Forgot password? Verify with OTP';
+  const loginLab = (typeof L==='function') ? L('✅ Login करें','✅ Login') : '✅ Login';
+  const noOtp = (typeof L==='function') ? L('OTP नहीं चाहिए','No OTP needed') : 'No OTP needed';
   ov.innerHTML=`
+    <style id="pwmForceDark">
+      #pwMobileOverlay, #pwMobileOverlay * { box-sizing: border-box; color-scheme: dark; }
+      #pwMobileOverlay { background: #0a0f1a !important; }
+      #pwMobileOverlay .pwm-title {
+        font-family: 'Barlow Condensed', sans-serif !important;
+        font-size: 26px !important; font-weight: 900 !important;
+        background: linear-gradient(135deg,#f97316,#a855f7) !important;
+        -webkit-background-clip: text !important; background-clip: text !important;
+        -webkit-text-fill-color: transparent !important; color: transparent !important;
+      }
+      #pwMobileOverlay .pwm-sub { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; font-size: 14px !important; }
+      #pwMobileOverlay .pwm-sub b { color: #f97316 !important; -webkit-text-fill-color: #f97316 !important; }
+      #pwMobileOverlay .pwm-sub span { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; font-size: 12px !important; }
+      #pwMobileOverlay .pwm-card {
+        background: #162032 !important; border: 1.5px solid #3b5a8a !important;
+        border-radius: 14px !important; padding: 20px !important; margin-bottom: 14px !important; text-align: left !important;
+      }
+      #pwMobileOverlay .pwm-lab {
+        font-size: 12px !important; font-weight: 800 !important; letter-spacing: .5px !important;
+        color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; margin-bottom: 10px !important;
+      }
+      #pwMobileOverlay input#pwmInput {
+        width: 100% !important;
+        background: #0f1b2d !important; background-color: #0f1b2d !important;
+        border: 1.5px solid #60a5fa !important; border-radius: 10px !important;
+        padding: 16px !important;
+        color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important;
+        caret-color: #f97316 !important;
+        font-size: 22px !important; font-weight: 700 !important; text-align: center !important;
+        letter-spacing: 6px !important; outline: none !important; box-shadow: none !important;
+        font-family: inherit !important;
+      }
+      #pwMobileOverlay input#pwmInput::placeholder {
+        color: #64748b !important; -webkit-text-fill-color: #64748b !important; opacity: 1 !important;
+      }
+      #pwMobileOverlay input#pwmInput:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 40px #0f1b2d inset !important;
+        -webkit-text-fill-color: #f8fafc !important;
+      }
+      #pwMobileOverlay #pwmErr {
+        color: #fb7185 !important; -webkit-text-fill-color: #fb7185 !important;
+        font-size: 13px !important; font-weight: 700 !important; margin-top: 8px !important;
+        min-height: 16px !important; text-align: center !important;
+      }
+      #pwMobileOverlay #pwmLoginBtn {
+        width: 100% !important; padding: 16px !important;
+        background: linear-gradient(135deg,#f97316,#ea580c) !important;
+        border: none !important; border-radius: 13px !important;
+        color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
+        font-size: 17px !important; font-weight: 900 !important;
+        margin-bottom: 10px !important; cursor: pointer !important; font-family: inherit !important;
+      }
+      #pwMobileOverlay #pwmForgotBtn {
+        width: 100% !important; padding: 13px !important;
+        background: #1e293b !important; background-color: #1e293b !important;
+        border: 1.5px solid #64748b !important; border-radius: 12px !important;
+        color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important;
+        font-size: 13px !important; font-weight: 700 !important;
+        cursor: pointer !important; font-family: inherit !important;
+        min-height: 48px !important;
+      }
+    </style>
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🔓</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
-        background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
-        Password Login
+      <div class="pwm-title">Password Login</div>
+      <div class="pwm-sub" style="margin:8px 0 20px">
+        <b>${name}</b><br>
+        <span>+91-${mobile10} · ${noOtp}</span>
       </div>
-      <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
-        <b style="color:#f97316">${name}</b><br>
-        <span style="font-size:12px">+91-${mobile10} · ${typeof L==='function'?L('OTP नहीं चाहिए','No OTP needed'):'No OTP needed'}</span>
-      </div>
-      <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:10px;opacity:1 !important;font-size:12px">DEVICE PASSWORD *</div>
-        <input id="pwmInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
-          style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                 padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
-                 font-size:24px;text-align:center;outline:none;font-family:inherit;letter-spacing:6px"
+      <div class="pwm-card">
+        <div class="pwm-lab">DEVICE PASSWORD *</div>
+        <input id="pwmInput" type="password" inputmode="text" autocomplete="current-password" placeholder="••••••" maxlength="20"
           onkeydown="if(event.key==='Enter')_submitMobilePwLogin()">
-        <div id="pwmErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+        <div id="pwmErr"></div>
       </div>
-      <button onclick="_submitMobilePwLogin()"
-        style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
-               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
-        ${L('✅ Login करें','✅ Login')}
-      </button>
-      <button onclick="_forgotMobilePw()"
-        style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#cbd5e1;font-size:12px;cursor:pointer;font-family:inherit">
-        ${L('🔑 Password भूल गए? OTP से verify करें','🔑 Forgot password? Verify with OTP')}
-      </button>
+      <button type="button" id="pwmLoginBtn" onclick="_submitMobilePwLogin()">${loginLab}</button>
+      <button type="button" id="pwmForgotBtn" onclick="_forgotMobilePw()">${forgotLab}</button>
     </div>`;
   ov.style.display='flex';
   setTimeout(()=>{ try{ document.getElementById('pwmInput')?.focus(); }catch(e){} }, 300);
