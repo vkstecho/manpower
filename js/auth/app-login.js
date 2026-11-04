@@ -360,14 +360,15 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   const code = (err && err.code) || '';
   const raw = String((err && err.message) || err || '');
   // Treat most phone-auth send failures as "SMS unavailable" so Admin/other device still get a request
+  // Only real SMS/quota problems → Admin approve screen.
+  // Do NOT treat captcha / timeout / generic errors as "quota blocked" (desktop was false-positive).
   const isSmsBlocked =
     code === 'auth/quota-exceeded' ||
     code === 'auth/too-many-requests' ||
     code === 'auth/billing-not-enabled' ||
     code === 'auth/operation-not-allowed' ||
-    code === 'auth/internal-error' ||
-    code === 'auth/captcha-check-failed' ||
-    /quota|billing|too.?many|sms|rate.?limit|unavailable|blocked|internal-error|captcha/i.test(code + ' ' + raw);
+    (/quota-exceeded|too-many-requests|billing-not-enabled|sms.?quota|rate.?limit/i.test(code + ' ' + raw) &&
+      !/captcha|timeout|network|invalid-phone|invalid-app/i.test(code + ' ' + raw));
   // Network-only: still notify so user is not stuck, but mark reason clearly
   const isNetwork = code === 'auth/network-request-failed' || /network|offline|Failed to fetch/i.test(raw);
   if(!isSmsBlocked && !isNetwork) return;

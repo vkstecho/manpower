@@ -1079,54 +1079,115 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       new Error(label||'OTP timed out'), { code: 'auth/timeout' })), ms))
   ]);
 
-  // ── LAPTOP/DESKTOP: visible reCAPTCHA ONLY (immediate, no invisible wait) ──
+  // ── DESKTOP: invisible first (same success path as phone when domain is trusted),
+  // then visible checkbox fallback. Never reuse warm one-shot verifiers.
   if(isDesktop){
-    _fbShowRecaptchaSlotNow(cid);
-    toast(typeof L==='function' ? L('🔐 Security checkbox ✓ करें — उसके बाद OTP भेजा जाएगा','🔐 Tick the security checkbox — then OTP will be sent') : '🔐 Tick the security checkbox — then OTP will be sent');
-    try{
-      // Prefer already-warmed widget
-      let verifier = null;
-      if(window._fbRecaptchaWarm && window._fbRecaptchaWarmReady){
-        verifier = window._fbRecaptchaWarm;
-        window[key] = verifier;
-        // clear warm pointers so next send creates fresh (Firebase one-shot)
-        window._fbRecaptchaWarm = null;
-        window._fbRecaptchaWarmReady = false;
-      } else {
-        _fbClearRecaptcha(key);
-        verifier = await _fbMakeRecaptcha(cid, key, 'normal');
-      }
-      const confirmation = await withTimeout(
-        window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
-        60000,
-        'Complete the checkbox if shown — OTP timed out'
-      );
+    const hideDesktopRc = ()=>{
       try{
+        const host = document.getElementById(cid);
+        if(host){ host.innerHTML=''; host.style.cssText='display:none'; }
         const inline = document.getElementById('recaptcha-inline');
         if(inline){
           inline.querySelectorAll('.rc-hint').forEach(h=>h.remove());
-          const host = document.getElementById(cid);
-          if(host) host.innerHTML = '';
           inline.style.minHeight = '0';
         }
+        const bar = document.getElementById('rcDesktopBar');
+        if(bar) bar.remove();
       }catch(e){}
-      return confirmation;
-    }catch(err){
-      console.warn('[otp] desktop visible failed', err);
+    };
+
+    // Clear any stale warm/visible widgets (re-using causes captcha-check-failed on desktop)
+    try{
       _fbClearRecaptcha(key);
       _fbClearRecaptcha('_fbRecaptchaWarm');
-      // One retry with brand-new visible widget
+      window._fbRecaptchaWarm = null;
+      window._fbRecaptchaWarmReady = false;
+      window._fbRecaptchaWarmSolved = false;
+    }catch(e){}
+
+    // 1) Invisible — no checkbox; works when authorized domain + browser OK (matches mobile success)
+    try{
+      toast(typeof L==='function'
+        ? L('⏳ OTP भेजा जा रहा है…','⏳ Sending OTP…')
+        : '⏳ Sending OTP…');
+      const vInv = await _fbMakeRecaptcha(cid, key, 'invisible');
+      const confInv = await withTimeout(
+        window._fbSignInWithPhoneNumber(window._fbAuth, phone, vInv),
+        25000,
+        'OTP timed out'
+      );
+      hideDesktopRc();
+      return confInv;
+    }catch(errInv){
+      console.warn('[otp] desktop invisible failed', errInv && (errInv.code||errInv.message||errInv));
+      _fbClearRecaptcha(key);
+    }
+
+    // 2) Visible checkbox — fixed bottom bar so it cannot be missed / covered
+    toast(typeof L==='function'
+      ? L('🔐 नीचे Security checkbox ✓ करें — tick के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
+      : '🔐 Tick the security checkbox below — then OTP will send');
+    try{
+      // Dedicated fixed host (ignore broken inline layout on some laptop browsers)
+      let bar = document.getElementById('rcDesktopBar');
+      if(!bar){
+        bar = document.createElement('div');
+        bar.id = 'rcDesktopBar';
+        document.body.appendChild(bar);
+      }
+      bar.style.cssText = [
+        'position:fixed','left:50%','bottom:20px','transform:translateX(-50%)',
+        'z-index:2147483000','background:#0f172a','border:1px solid #334155',
+        'border-radius:14px','padding:12px 14px 10px','box-shadow:0 16px 48px rgba(0,0,0,.55)',
+        'display:flex','flex-direction:column','align-items:center','gap:8px',
+        'max-width:96vw','min-width:320px'
+      ].join(';');
+      bar.innerHTML = '<div style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center">🔐 Security check — tick the box, then wait for OTP</div>';
+      let host = document.getElementById(cid);
+      if(host && host.parentElement) host.parentElement.removeChild(host);
+      host = document.createElement('div');
+      host.id = cid;
+      host.style.cssText = 'min-width:304px;min-height:78px;display:block;opacity:1;pointer-events:auto;background:#fff;border-radius:8px;padding:4px';
+      bar.appendChild(host);
+
+      const verifier = await _fbMakeRecaptcha(cid, key, 'normal');
+      // Ensure host stays visible after make (make may reparent)
       try{
-        _fbShowRecaptchaSlotNow(cid);
-        const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
-        return await withTimeout(
-          window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2),
-          60000,
-          'Tick the security checkbox below, then wait for SMS'
+        const h2 = document.getElementById(cid);
+        if(h2 && h2.parentElement !== bar){
+          bar.appendChild(h2);
+        }
+        if(h2){
+          h2.style.cssText = 'min-width:304px;min-height:78px;display:block!important;opacity:1!important;pointer-events:auto!important;background:#fff;border-radius:8px;padding:4px;position:relative;left:auto;bottom:auto;transform:none;z-index:5';
+        }
+        bar.style.display = 'flex';
+      }catch(eVis){}
+
+      const confVis = await withTimeout(
+        window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
+        90000,
+        'Tick the checkbox in the box at the bottom of the screen'
+      );
+      hideDesktopRc();
+      return confVis;
+    }catch(errVis){
+      console.warn('[otp] desktop visible failed', errVis && (errVis.code||errVis.message||errVis));
+      _fbClearRecaptcha(key);
+      // 3) One more invisible attempt (fresh)
+      try{
+        const v3 = await _fbMakeRecaptcha(cid, key, 'invisible');
+        const conf3 = await withTimeout(
+          window._fbSignInWithPhoneNumber(window._fbAuth, phone, v3),
+          20000,
+          'OTP timed out'
         );
-      }catch(err2){
+        hideDesktopRc();
+        return conf3;
+      }catch(err3){
         _fbClearRecaptcha(key);
-        throw err2;
+        hideDesktopRc();
+        // Prefer the more informative visible error
+        throw errVis;
       }
     }
   }
@@ -1206,26 +1267,31 @@ async function _fbVerifyPhoneOtp(confirmationResult, code){
 
 function _fbOtpErrorMessage(err){
   const code = (err && err.code) || '';
-  const msg = (err && err.message) || String(err||'');
-  if(code === 'auth/invalid-verification-code') return 'Wrong OTP — check SMS and try again';
-  if(code === 'auth/code-expired') return 'OTP expired — request a new one';
-  if(code === 'auth/too-many-requests') return 'Too many SMS attempts — opening device / Admin approval…';
-  if(code === 'auth/network-request-failed') return 'Network error — check internet';
-  if(code === 'auth/timeout' || /timed out/i.test(msg)) return 'OTP timed out — on laptop tick the security checkbox, allow popups, then retry';
-  if(code === 'auth/captcha-check-failed') return 'Security check failed — reload page and retry';
-  if(code === 'auth/invalid-phone-number') return 'Invalid mobile number';
-  if(code === 'auth/missing-phone-number') return 'Enter mobile number';
-  if(code === 'auth/quota-exceeded') return 'SMS quota exceeded — requesting approval on other device / Admin';
-  if(code === 'auth/billing-not-enabled') return 'SMS billing off — requesting approval on other device / Admin';
-  if(code === 'auth/operation-not-allowed') return 'Phone login disabled in Firebase Console';
-  if(code === 'auth/internal-error'){
-    return 'OTP service error (auth/internal-error). Check: Phone Auth ON, domain authorized, billing/SMS enabled. Then reload page.';
-  }
-  if(/Firebase Auth not ready/i.test(msg)) return msg;
-  // Strip long Firebase: Error (...) wrappers for toast
-  const m = msg.match(/auth\/[a-z0-9-]+/i);
-  if(m) return 'OTP error ('+m[0]+') — reload and try again';
-  return msg.slice(0,120) || 'OTP failed';
+  const raw = String((err && err.message) || err || '');
+  if(code === 'auth/captcha-check-failed' || /captcha/i.test(raw))
+    return (typeof L==='function')
+      ? L('Security check failed — page reload करें, checkbox ✓ करें, फिर Send OTP','Security check failed — reload page, tick checkbox, then Send OTP')
+      : 'Security check failed — reload page, tick checkbox, then Send OTP';
+  if(code === 'auth/too-many-requests')
+    return (typeof L==='function')
+      ? L('बहुत कोशिशें — 15–30 मिनट बाद try करें','Too many attempts — try again in 15–30 minutes')
+      : 'Too many attempts — try again in 15–30 minutes';
+  if(code === 'auth/quota-exceeded')
+    return (typeof L==='function')
+      ? L('SMS quota खत्म — Admin approve से login करें','SMS quota exceeded — use Admin approve login')
+      : 'SMS quota exceeded — use Admin approve login';
+  if(code === 'auth/invalid-phone-number')
+    return (typeof L==='function') ? L('गलत मोबाइल नंबर','Invalid mobile number') : 'Invalid mobile number';
+  if(code === 'auth/timeout' || /timed out/i.test(raw))
+    return (typeof L==='function')
+      ? L('Timeout — checkbox ✓ करें या दोबारा Send OTP','Timeout — tick checkbox or Send OTP again')
+      : 'Timeout — tick checkbox or Send OTP again';
+  if(code === 'auth/network-request-failed')
+    return (typeof L==='function') ? L('Network error — internet चेक करें','Network error — check internet') : 'Network error — check internet';
+  if(code === 'auth/billing-not-enabled')
+    return 'Billing not enabled on Firebase (Blaze required for SMS)';
+  if(raw && raw.length < 120) return raw;
+  return raw || code || 'OTP failed';
 }
 
 // ════════════════════════════════════════
