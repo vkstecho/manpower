@@ -1181,6 +1181,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     }
 
     // 2) Visible checkbox — fixed bottom bar so it cannot be missed / covered
+    // z-index deliberately below Google's challenge iframe (~2e9) so image captcha is never covered
     toast(typeof L==='function'
       ? L('🔐 नीचे Security checkbox ✓ करें — tick के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
       : '🔐 Tick the security checkbox below — then OTP will send');
@@ -1192,32 +1193,67 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         bar.id = 'rcDesktopBar';
         document.body.appendChild(bar);
       }
+      // z-index 100000: above login UI, below reCAPTCHA challenge popup (avoids covering image grid)
       bar.style.cssText = [
         'position:fixed','left:50%','bottom:20px','transform:translateX(-50%)',
-        'z-index:2147483000','background:#0f172a','border:1px solid #334155',
-        'border-radius:14px','padding:12px 14px 10px','box-shadow:0 16px 48px rgba(0,0,0,.55)',
-        'display:flex','flex-direction:column','align-items:center','gap:8px',
-        'max-width:96vw','min-width:320px'
+        'z-index:100000','background:#0f172a','border:1px solid #334155',
+        'border-radius:14px','padding:12px 14px 14px','box-shadow:0 16px 48px rgba(0,0,0,.55)',
+        'display:flex','flex-direction:column','align-items:center','gap:10px',
+        'max-width:96vw','min-width:320px','min-height:120px','box-sizing:border-box'
       ].join(';');
-      bar.innerHTML = '<div style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center">🔐 Security check — tick the box, then wait for OTP</div>';
+      var _secTitle = (typeof L==='function')
+        ? L('🔐 Security check — tick के बाद OTP','🔐 Security check — tick the box, then wait for OTP')
+        : '🔐 Security check — tick the box, then wait for OTP';
+      bar.innerHTML = '<div style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
       let host = document.getElementById(cid);
       if(host && host.parentElement) host.parentElement.removeChild(host);
       host = document.createElement('div');
       host.id = cid;
-      host.style.cssText = 'min-width:304px;min-height:78px;display:block;opacity:1;pointer-events:auto;background:#fff;border-radius:8px;padding:4px';
+      // Explicit size + white background so the checkbox area never collapses to 0 height
+      host.style.cssText = [
+        'min-width:304px','width:304px','min-height:78px','height:78px',
+        'display:block','opacity:1','pointer-events:auto',
+        'background:#fff','border-radius:8px','padding:4px',
+        'overflow:visible','flex-shrink:0','box-sizing:border-box'
+      ].join(';');
       bar.appendChild(host);
 
       const verifier = await _fbMakeRecaptcha(cid, key, 'normal');
-      // Ensure host stays visible after make (make may reparent)
+      // Ensure host stays visible after make (make may reparent / shrink)
       try{
         const h2 = document.getElementById(cid);
         if(h2 && h2.parentElement !== bar){
           bar.appendChild(h2);
         }
         if(h2){
-          h2.style.cssText = 'min-width:304px;min-height:78px;display:block!important;opacity:1!important;pointer-events:auto!important;background:#fff;border-radius:8px;padding:4px;position:relative;left:auto;bottom:auto;transform:none;z-index:5';
+          h2.style.cssText = [
+            'min-width:304px','width:304px','min-height:78px','height:78px',
+            'display:block!important','opacity:1!important','pointer-events:auto!important',
+            'background:#fff','border-radius:8px','padding:4px',
+            'position:relative','left:auto','bottom:auto','transform:none',
+            'z-index:5','overflow:visible','flex-shrink:0','box-sizing:border-box'
+          ].join(';');
         }
+        // Keep bar open and sized even if widget is still loading
         bar.style.display = 'flex';
+        bar.style.minHeight = '120px';
+        // If Google injects an iframe, force it visible
+        setTimeout(function(){
+          try{
+            var ifr = (document.getElementById(cid)||{}).querySelector && document.getElementById(cid).querySelector('iframe');
+            if(ifr){
+              ifr.style.cssText = 'display:block!important;opacity:1!important;width:304px!important;height:78px!important;min-height:78px!important;border:0;';
+            }
+          }catch(eI){}
+        }, 400);
+        setTimeout(function(){
+          try{
+            var ifr = (document.getElementById(cid)||{}).querySelector && document.getElementById(cid).querySelector('iframe');
+            if(ifr){
+              ifr.style.cssText = 'display:block!important;opacity:1!important;width:304px!important;height:78px!important;min-height:78px!important;border:0;';
+            }
+          }catch(eI){}
+        }, 1200);
       }catch(eVis){}
 
       const confVis = await withTimeout(

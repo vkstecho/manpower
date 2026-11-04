@@ -661,9 +661,20 @@ function _startResendTimer(){
   const resendBtn=document.getElementById('otpResendBtn');
   if(resendBtn) resendBtn.style.display='none';
   if(_otpResendInterval) clearInterval(_otpResendInterval);
+  const _resendLabel = function(s){
+    // Language-aware: never show Hindi when UI is English (or any non-hi)
+    if(typeof L === 'function'){
+      return L(s + 's में फिर भेजें', s + 's · Resend');
+    }
+    try{
+      var lang = (typeof _lang !== 'undefined' && _lang) ? String(_lang).toLowerCase() : (localStorage.getItem('mp_lang')||'en').toLowerCase();
+      if(lang === 'hi' || lang === 'hindi' || lang === 'hin') return s + 's में फिर भेजें';
+    }catch(e){}
+    return s + 's · Resend';
+  };
   _otpResendInterval=setInterval(()=>{
     sec--;
-    if(timerEl) timerEl.textContent=sec>0?sec+'s में फिर भेजें':'';
+    if(timerEl) timerEl.textContent = sec > 0 ? _resendLabel(sec) : '';
     if(sec<=0){
       clearInterval(_otpResendInterval);
       if(resendBtn) resendBtn.style.display='inline';
