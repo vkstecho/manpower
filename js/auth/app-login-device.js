@@ -814,7 +814,7 @@ async function _fbMakeRecaptcha(containerId, storeKey, size){
 }
 
 /**
- * Send OTP to E.164 phone. Tries invisible reCAPTCHA, then visible fallback.
+ * Send OTP to E.164 phone. Visible reCAPTCHA first (Mentor-style reliability), invisible last resort on mobile.
  * Clears any existing Firebase Auth session first (avoids auth/internal-error).
  */
 
@@ -964,29 +964,64 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     }
   }
 
-  // ── MOBILE: invisible first (fast), then visible fallback ──
+  // ── MOBILE: visible reCAPTCHA first (Mentor-style — more reliable on Android/Chrome) ──
+  // Invisible often hangs or fails on WebViews / TWA / strict browsers; visible checkbox is tappable.
   try{
-    const verifier = await _fbMakeRecaptcha(cid, key, 'invisible');
-    return await withTimeout(
-      window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
-      15000,
-      'Invisible check timed out'
-    );
-  }catch(err1){
-    console.warn('[otp] invisible failed', err1 && (err1.code||err1.message));
-    _fbClearRecaptcha(key);
+    toast(typeof L==='function' ? L('🔐 नीचे Security checkbox ✓ करें','🔐 Complete the security check below') : '🔐 Complete the security check below');
+    _fbShowRecaptchaSlotNow(cid);
+    // Mentor-style fixed bottom host for easy tapping on small screens
     try{
-      toast('🔐 Complete the security check below…');
+      const host = document.getElementById(cid);
+      if(host && window.innerWidth < 640){
+        host.style.cssText = [
+          'position:fixed','left:50%','bottom:24px','transform:translateX(-50%)',
+          'z-index:100000','min-width:304px','min-height:78px','opacity:1',
+          'pointer-events:auto','overflow:visible','background:#fff','padding:10px',
+          'border-radius:12px','box-shadow:0 12px 40px rgba(0,0,0,.25)','width:auto','max-width:95vw'
+        ].join(';');
+      }
+    }catch(eStyle){}
+    const verifier = await _fbMakeRecaptcha(cid, key, 'normal');
+    const confirmation = await withTimeout(
+      window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
+      90000,
+      'Tick the security checkbox if shown — OTP timed out'
+    );
+    // Hide host after success
+    try{
+      const host = document.getElementById(cid);
+      if(host){ host.innerHTML=''; host.style.minHeight='0'; host.style.display='none'; }
+      const inline = document.getElementById('recaptcha-inline');
+      if(inline){ inline.querySelectorAll('.rc-hint').forEach(h=>h.remove()); inline.style.minHeight='0'; }
+    }catch(eHide){}
+    return confirmation;
+  }catch(err1){
+    console.warn('[otp] mobile visible failed', err1 && (err1.code||err1.message));
+    _fbClearRecaptcha(key);
+    // Fallback: one more visible attempt, then invisible last resort
+    try{
+      toast(typeof L==='function' ? L('🔐 Security check फिर से…','🔐 Security check again…') : '🔐 Security check again…');
       _fbShowRecaptchaSlotNow(cid);
       const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
       return await withTimeout(
         window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier2),
-        60000,
+        90000,
         'OTP timed out — tick checkbox if shown'
       );
     }catch(err2){
+      console.warn('[otp] mobile visible retry failed, trying invisible', err2);
       _fbClearRecaptcha(key);
-      throw err2;
+      try{
+        const verifier3 = await _fbMakeRecaptcha(cid, key, 'invisible');
+        return await withTimeout(
+          window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier3),
+          20000,
+          'OTP timed out'
+        );
+      }catch(err3){
+        _fbClearRecaptcha(key);
+        throw err2;
+      }
     }
   }
 }
