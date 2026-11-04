@@ -1082,7 +1082,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
   // ── LAPTOP/DESKTOP: visible reCAPTCHA ONLY (immediate, no invisible wait) ──
   if(isDesktop){
     _fbShowRecaptchaSlotNow(cid);
-    toast('🔐 Tick the security checkbox, then OTP sends instantly');
+    toast(typeof L==='function' ? L('🔐 Security checkbox ✓ करें — उसके बाद OTP भेजा जाएगा','🔐 Tick the security checkbox — then OTP will be sent') : '🔐 Tick the security checkbox — then OTP will be sent');
     try{
       // Prefer already-warmed widget
       let verifier = null;

@@ -283,34 +283,18 @@ async function _sendOTP(isResend){
 
   try{
     const _desk = (typeof _isDesktopLoginUA==='function') ? _isDesktopLoginUA() : !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''));
+    // Stay on step 1 until Firebase accepts the send (captcha must be done first on desktop)
+    try{ showStep(1); }catch(e){}
     if(_desk){
-      toast(L('🔐 नीचे Security checkbox ✓ करें — OTP तुरंत भेजा जाएगा','🔐 Tick the security checkbox below — OTP sends right away'));
+      toast(L('🔐 नीचे Security checkbox ✓ करें — tick के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
       try{ if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container'); }catch(e){}
+      try{ if(typeof _fbWarmDesktopRecaptcha==='function') _fbWarmDesktopRecaptcha('recaptcha-container', '_fbRecaptchaWarm'); }catch(e){}
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
-    // Mentor-style: show OTP step + focus field BEFORE/while SMS is sent so keyboard can offer OTP chip
-    try{
-      showStep(2);
-      var _otpPre = document.getElementById('otpInput');
-      if(_otpPre){
-        if(String(_otpPre.value||'').replace(/\D/g,'').length !== 6) _otpPre.value = '';
-        _otpPre.setAttribute('autocomplete','one-time-code');
-        _otpPre.setAttribute('name','one-time-code');
-        _otpPre.setAttribute('inputmode','numeric');
-        _otpPre.focus();
-      }
-      var _sentEl0 = document.getElementById('otpSentTo');
-      if(_sentEl0) _sentEl0.textContent = (typeof L==='function'?L('OTP भेजा जा रहा है…','Sending OTP…'):'Sending OTP…');
-      if(typeof _startWebOtpListen==='function'){
-        _startWebOtpListen('otpInput', function(code){
-          if(code && String(code).replace(/\D/g,'').length===6){
-            setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
-          }
-        });
-      }
-    }catch(ePre){ console.warn('[otp] prepare field', ePre); }
+    // Do NOT open Enter OTP / "Sending OTP…" until captcha + Firebase succeed
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
+    // Only now move to OTP entry
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
     if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
@@ -345,6 +329,13 @@ async function _sendOTP(isResend){
   }catch(err){
     console.error('OTP error:',err);
     try{ _restoreBtn(); }catch(e){}
+    // Captcha not done / send failed — stay on mobile step, do not leave user on empty OTP screen
+    try{ showStep(1); }catch(e){}
+    try{
+      if((typeof _isDesktopLoginUA==='function' && _isDesktopLoginUA()) || !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''))){
+        if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container');
+      }
+    }catch(e){}
     const msg = '❌ '+_fbOtpErrorMessage(err);
     if(errEl) errEl.textContent=msg; toast(msg);
     // SMS quota / rate-limit / billing down → fall back to device notify or admin
