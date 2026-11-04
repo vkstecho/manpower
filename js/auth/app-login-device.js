@@ -964,24 +964,49 @@ function _fbPhoneAuthReady(){
 }
 
 function _fbEnsureRecaptchaHost(containerId, visible){
-  // Prefer in-form host for visible checkbox so user can complete the check
   let el = document.getElementById(containerId);
+
+  // Desktop bottom bar wins when present — never steal host into login-card inline
+  // (that was leaving the yellow bar empty / checkbox disappeared)
+  if(visible){
+    const bar = document.getElementById('rcDesktopBar');
+    if(bar){
+      if(!el || el.parentElement !== bar){
+        if(el && el.parentElement) try{ el.parentElement.removeChild(el); }catch(e){}
+        el = document.createElement('div');
+        el.id = containerId;
+        bar.appendChild(el);
+      }
+      el.className = 'rc-visible';
+      el.innerHTML = '';
+      el.style.cssText = [
+        'min-width:304px','width:304px','min-height:78px','height:78px',
+        'display:block','opacity:1','pointer-events:auto',
+        'background:#fff','border-radius:8px','padding:4px',
+        'overflow:visible','flex-shrink:0','box-sizing:border-box',
+        'position:relative','left:auto','bottom:auto','transform:none','z-index:5'
+      ].join(';');
+      return el;
+    }
+  }
+
+  // Prefer in-form host for visible checkbox so user can complete the check
   if(visible){
     const inline = document.getElementById('recaptcha-inline');
     if(inline){
       // Clear and use the visible slot inside the login card
-      inline.innerHTML = '';
-      inline.style.cssText = 'margin:10px 0 12px;display:flex;justify-content:center;align-items:center;min-height:78px;width:100%';
-      // Move/create host as child of inline so it is on-screen and clickable
+      try{ inline.querySelectorAll('.rc-hint').forEach(function(h){ /* keep hints */ }); }catch(e){}
+      // Do not wipe hints — only ensure host child
+      inline.style.cssText = 'margin:10px 0 12px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:78px;width:100%';
       if(!el || el.parentElement !== inline){
-        if(el && el.parentElement) el.parentElement.removeChild(el);
+        if(el && el.parentElement) try{ el.parentElement.removeChild(el); }catch(e){}
         el = document.createElement('div');
         el.id = containerId;
         inline.appendChild(el);
       }
       el.className = 'rc-visible';
       el.innerHTML = '';
-      el.style.cssText = 'display:block;position:relative;left:auto;bottom:auto;transform:none;z-index:5;width:auto;height:auto;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible';
+      el.style.cssText = 'display:block;position:relative;left:auto;bottom:auto;transform:none;z-index:5;width:auto;height:auto;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible;background:#fff;border-radius:8px;padding:4px';
       return el;
     }
   }
@@ -993,7 +1018,7 @@ function _fbEnsureRecaptchaHost(containerId, visible){
   el.innerHTML = '';
   if(visible){
     el.className = 'rc-visible';
-    el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:100000;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible;background:rgba(15,23,42,.95);padding:10px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
+    el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:100000;min-width:304px;min-height:78px;opacity:1;pointer-events:auto;overflow:visible;background:#fff;padding:10px;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.5)';
   } else {
     el.className = 'rc-invisible';
     el.style.cssText = 'position:fixed;left:-9999px;bottom:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden;z-index:-1';
@@ -1143,6 +1168,8 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       try{
         const host = document.getElementById(cid);
         if(host){ host.innerHTML=''; host.style.cssText='display:none'; }
+        const barHost = document.getElementById('recaptcha-container-desktop-bar');
+        if(barHost){ try{ barHost.innerHTML=''; barHost.remove(); }catch(e){} }
         const inline = document.getElementById('recaptcha-inline');
         if(inline){
           inline.querySelectorAll('.rc-hint').forEach(h=>h.remove());
@@ -1150,6 +1177,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         }
         const bar = document.getElementById('rcDesktopBar');
         if(bar) bar.remove();
+        try{ _fbClearRecaptcha((key||'_fbRecaptchaNew')+'_visibleBar'); }catch(e){}
       }catch(e){}
     };
 
@@ -1181,80 +1209,123 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     }
 
     // 2) Visible checkbox — fixed bottom bar so it cannot be missed / covered
-    // z-index deliberately below Google's challenge iframe (~2e9) so image captcha is never covered
+    // z-index below Google's challenge (~2e9). Unique host id avoids conflict with
+    // body #recaptcha-container and stops _fbEnsureRecaptchaHost moving widget to inline.
     toast(typeof L==='function'
       ? L('🔐 नीचे Security checkbox ✓ करें — tick के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
       : '🔐 Tick the security checkbox below — then OTP will send');
     try{
-      // Dedicated fixed host (ignore broken inline layout on some laptop browsers)
-      let bar = document.getElementById('rcDesktopBar');
-      if(!bar){
-        bar = document.createElement('div');
-        bar.id = 'rcDesktopBar';
-        document.body.appendChild(bar);
-      }
-      // z-index 100000: above login UI, below reCAPTCHA challenge popup (avoids covering image grid)
+      var barCid = 'recaptcha-container-desktop-bar';
+      var barKey = key + '_visibleBar';
+
+      // Tear down any previous bar / host
+      try{
+        var _prevBar = document.getElementById('rcDesktopBar');
+        if(_prevBar) _prevBar.remove();
+        var _prevH = document.getElementById(barCid);
+        if(_prevH && _prevH.parentElement) _prevH.parentElement.removeChild(_prevH);
+        _fbClearRecaptcha(barKey);
+      }catch(eRm){}
+
+      var bar = document.createElement('div');
+      bar.id = 'rcDesktopBar';
+      document.body.appendChild(bar);
       bar.style.cssText = [
         'position:fixed','left:50%','bottom:20px','transform:translateX(-50%)',
         'z-index:100000','background:#0f172a','border:1px solid #334155',
         'border-radius:14px','padding:12px 14px 14px','box-shadow:0 16px 48px rgba(0,0,0,.55)',
         'display:flex','flex-direction:column','align-items:center','gap:10px',
-        'max-width:96vw','min-width:320px','min-height:120px','box-sizing:border-box'
+        'max-width:96vw','min-width:320px','min-height:120px','box-sizing:border-box',
+        'opacity:1','visibility:visible','pointer-events:auto'
       ].join(';');
       var _secTitle = (typeof L==='function')
         ? L('🔐 Security check — tick के बाद OTP','🔐 Security check — tick the box, then wait for OTP')
         : '🔐 Security check — tick the box, then wait for OTP';
-      bar.innerHTML = '<div style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
-      let host = document.getElementById(cid);
-      if(host && host.parentElement) host.parentElement.removeChild(host);
-      host = document.createElement('div');
-      host.id = cid;
-      // Explicit size + white background so the checkbox area never collapses to 0 height
+      bar.innerHTML = '<div class="rc-bar-title" style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
+
+      // Dedicated host only for this bar (unique id)
+      var host = document.createElement('div');
+      host.id = barCid;
+      host.className = 'rc-visible';
+      host.setAttribute('data-mp-rc','desktop-bar');
       host.style.cssText = [
         'min-width:304px','width:304px','min-height:78px','height:78px',
-        'display:block','opacity:1','pointer-events:auto',
-        'background:#fff','border-radius:8px','padding:4px',
-        'overflow:visible','flex-shrink:0','box-sizing:border-box'
+        'display:block','opacity:1','visibility:visible','pointer-events:auto',
+        'background:#ffffff','border-radius:8px','padding:4px',
+        'overflow:visible','flex-shrink:0','box-sizing:border-box',
+        'position:relative','left:auto','bottom:auto','transform:none','z-index:5'
       ].join(';');
+      // Placeholder so user sees a white box while Google script loads
+      host.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;line-height:70px;font-weight:600">Loading security check…</div>';
       bar.appendChild(host);
 
-      const verifier = await _fbMakeRecaptcha(cid, key, 'normal');
-      // Ensure host stays visible after make (make may reparent / shrink)
+      // Create verifier directly on bar host — do NOT call _fbEnsureRecaptchaHost
+      // (that path prefers #recaptcha-inline and was emptying this bar)
+      _fbClearRecaptcha(barKey);
+      var params = {
+        size: 'normal',
+        callback: function(){},
+        'expired-callback': function(){ try{ window[barKey]=null; }catch(e){} }
+      };
+      if(!window._fbRecaptchaVerifierClass){
+        throw new Error('reCAPTCHA not ready — reload page');
+      }
+      var verifier = new window._fbRecaptchaVerifierClass(window._fbAuth, barCid, params);
+      window[barKey] = verifier;
       try{
-        const h2 = document.getElementById(cid);
-        if(h2 && h2.parentElement !== bar){
-          bar.appendChild(h2);
+        if(typeof verifier.render === 'function'){
+          await verifier.render();
         }
-        if(h2){
-          h2.style.cssText = [
-            'min-width:304px','width:304px','min-height:78px','height:78px',
-            'display:block!important','opacity:1!important','pointer-events:auto!important',
-            'background:#fff','border-radius:8px','padding:4px',
-            'position:relative','left:auto','bottom:auto','transform:none',
-            'z-index:5','overflow:visible','flex-shrink:0','box-sizing:border-box'
-          ].join(';');
-        }
-        // Keep bar open and sized even if widget is still loading
-        bar.style.display = 'flex';
-        bar.style.minHeight = '120px';
-        // If Google injects an iframe, force it visible
-        setTimeout(function(){
-          try{
-            var ifr = (document.getElementById(cid)||{}).querySelector && document.getElementById(cid).querySelector('iframe');
+      }catch(eRender){
+        console.warn('[recaptcha desktop bar render]', eRender);
+      }
+
+      // Reinforce visibility after render (never reparent — that kills the widget)
+      function _forceRcVisibleInBar(){
+        try{
+          var h2 = document.getElementById(barCid);
+          var b2 = document.getElementById('rcDesktopBar');
+          if(b2){
+            b2.style.display = 'flex';
+            b2.style.minHeight = '120px';
+            b2.style.opacity = '1';
+            b2.style.visibility = 'visible';
+            b2.style.pointerEvents = 'auto';
+          }
+          if(h2){
+            h2.style.setProperty('display','block','important');
+            h2.style.setProperty('opacity','1','important');
+            h2.style.setProperty('visibility','visible','important');
+            h2.style.setProperty('pointer-events','auto','important');
+            h2.style.setProperty('min-width','304px','important');
+            h2.style.setProperty('width','304px','important');
+            h2.style.setProperty('min-height','78px','important');
+            h2.style.setProperty('height','78px','important');
+            h2.style.setProperty('background','#ffffff','important');
+            h2.style.setProperty('overflow','visible','important');
+            var ifr = h2.querySelector && h2.querySelector('iframe');
             if(ifr){
-              ifr.style.cssText = 'display:block!important;opacity:1!important;width:304px!important;height:78px!important;min-height:78px!important;border:0;';
+              // Remove loading placeholder once iframe is present
+              try{
+                var ph = h2.querySelector('[data-mp-rc-ph]');
+                if(ph) ph.remove();
+              }catch(ePh){}
+              ifr.style.setProperty('display','block','important');
+              ifr.style.setProperty('opacity','1','important');
+              ifr.style.setProperty('visibility','visible','important');
+              ifr.style.setProperty('width','304px','important');
+              ifr.style.setProperty('height','78px','important');
+              ifr.style.setProperty('min-height','78px','important');
+              ifr.style.setProperty('border','0','important');
             }
-          }catch(eI){}
-        }, 400);
-        setTimeout(function(){
-          try{
-            var ifr = (document.getElementById(cid)||{}).querySelector && document.getElementById(cid).querySelector('iframe');
-            if(ifr){
-              ifr.style.cssText = 'display:block!important;opacity:1!important;width:304px!important;height:78px!important;min-height:78px!important;border:0;';
-            }
-          }catch(eI){}
-        }, 1200);
-      }catch(eVis){}
+          }
+        }catch(eF){}
+      }
+      _forceRcVisibleInBar();
+      setTimeout(_forceRcVisibleInBar, 200);
+      setTimeout(_forceRcVisibleInBar, 600);
+      setTimeout(_forceRcVisibleInBar, 1200);
+      setTimeout(_forceRcVisibleInBar, 2500);
 
       const confVis = await withTimeout(
         window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
@@ -1262,6 +1333,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         'Tick the checkbox in the box at the bottom of the screen'
       );
       hideDesktopRc();
+      try{ _fbClearRecaptcha(barKey); }catch(e){}
       return confVis;
     }catch(errVis){
       console.warn('[otp] desktop visible failed', errVis && (errVis.code||errVis.message||errVis));
