@@ -689,55 +689,43 @@ function _startWebOtpListen(inputId, onFilled){
       el.setAttribute('type', 'text');
       el.setAttribute('pattern', '[0-9]*');
       el.setAttribute('enterkeyhint', 'done');
-      el.setAttribute('autocapitalize', 'off');
-      el.setAttribute('spellcheck', 'false');
       // focus so iOS / Android keyboard can offer SMS OTP
       setTimeout(function(){ try{ el.focus(); }catch(e){} }, 200);
     }catch(e){}
   }
-  function _applyCode(raw){
-    const code = String(raw||'').replace(/\D/g,'').slice(0,6);
-    if(code.length < 4) return false;
-    const input = document.getElementById(inputId || 'otpInput');
-    if(input){
-      input.value = code;
-      try{ input.dispatchEvent(new Event('input', { bubbles:true })); }catch(e){}
-      try{ input.dispatchEvent(new Event('change', { bubbles:true })); }catch(e){}
-      try{ if(typeof _onOtpInput==='function') _onOtpInput(code); }catch(e){}
-    }
-    try{ toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS')); }catch(e){}
-    if(typeof onFilled === 'function') onFilled(code);
-    else if(code.length === 6){
-      setTimeout(function(){
-        try{
-          var ov = document.getElementById('otpLoginOverlay');
-          if(ov && ov.style.display && ov.style.display !== 'none' && typeof _verifyDeviceOTP==='function')
-            _verifyDeviceOTP();
-          else if(typeof _verifyOTP==='function')
-            _verifyOTP();
-        }catch(e){}
-      }, 250);
-    }
-    return true;
-  }
-  // Web OTP API (Chrome/Edge Android, HTTPS only). SMS ideally: @manpower.vkstech.com #123456
+  // Web OTP API (Chrome/Edge Android, HTTPS only). SMS should include: @your-domain #123456
   if(typeof window.OTPCredential === 'undefined' || !navigator.credentials || !window.isSecureContext){
     console.info('[WebOTP] API not available — keyboard autocomplete may still work');
     return;
   }
   try{
     _webOtpAbort = new AbortController();
-    // Keep listening up to 2 minutes so user has time to tap Allow after SMS arrives
-    var timeoutId = setTimeout(function(){ try{ _stopWebOtpListen(); }catch(e){} }, 120000);
     navigator.credentials.get({
       otp: { transport: ['sms'] },
       signal: _webOtpAbort.signal
-    }).then(function(cred){
-      try{ clearTimeout(timeoutId); }catch(e){}
+    }).then(cred=>{
       if(!cred || !cred.code) return;
-      _applyCode(cred.code);
-    }).catch(function(err){
-      try{ clearTimeout(timeoutId); }catch(e){}
+      const code = String(cred.code).replace(/\D/g,'').slice(0,6);
+      if(code.length < 4) return;
+      const input = document.getElementById(inputId || 'otpInput');
+      if(input){
+        input.value = code;
+        input.dispatchEvent(new Event('input', { bubbles:true }));
+        input.dispatchEvent(new Event('change', { bubbles:true }));
+      }
+      try{ toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS')); }catch(e){}
+      if(typeof onFilled === 'function') onFilled(code);
+      else if(code.length === 6){
+        setTimeout(()=>{
+          try{
+            if(document.getElementById('otpLoginOverlay')?.style.display && document.getElementById('otpLoginOverlay').style.display !== 'none' && typeof _verifyDeviceOTP==='function')
+              _verifyDeviceOTP();
+            else if(typeof _verifyOTP==='function')
+              _verifyOTP();
+          }catch(e){}
+        }, 250);
+      }
+    }).catch(err=>{
       if(err && err.name === 'AbortError') return;
       console.warn('[WebOTP]', err && err.message);
     });
@@ -1176,7 +1164,7 @@ async function _sendDeviceOTP(isResend){
     if(s1) s1.style.display='none';
     if(s2) s2.style.display='block'; try{ _armDeviceOtpAutofillWatch(); }catch(e){};
     document.getElementById('deviceOtpInput')?.focus(); try{ _armDeviceOtpAutofillWatch(); }catch(e){}
-    _startWebOtpListen('deviceOtpInput', code=>{ if(code&&code.length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
+    _startWebOtpListen('otpInput', code=>{ if(code&&code.length===6) setTimeout(()=>{ try{ _verifyDeviceOTP(); }catch(e){} }, 250); });
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('Device OTP send', err);

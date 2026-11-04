@@ -294,37 +294,12 @@ async function _sendOTP(isResend){
     const sentEl=document.getElementById('otpSentTo');
     if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
     document.getElementById('otpInput')?.focus();
+    setTimeout(function(){ try{ _startWebOtpListen('otpInput'); }catch(e){} }, 400);
     _startResendTimer();
-    // Single WebOTP listen only — a second call aborts the first and breaks Allow→autofill
-    try{
-      _startWebOtpListen('otpInput', function(code){
-        if(code && code.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 250);
-      });
-    }catch(e){}
-    // Restart listen on focus (user may grant SMS after first attempt was cancelled)
-    try{
-      var _oi = document.getElementById('otpInput');
-      if(_oi && !_oi._webOtpFocusBound){
-        _oi._webOtpFocusBound = true;
-        _oi.addEventListener('focus', function(){
-          if((_oi.value||'').replace(/\D/g,'').length >= 6) return;
-          try{ _startWebOtpListen('otpInput', function(code){
-            if(code && code.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 250);
-          }); }catch(e){}
-        });
-      }
-    }catch(e){}
+    _startWebOtpListen('otpInput', code=>{
+      if(code && code.length===6) setTimeout(()=>{ try{ _verifyOTP(); }catch(e){} }, 250);
+    });
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
-    // If still "Sending…" perception: reassure after 15s
-    try{
-      clearTimeout(window._otpSendSlowTimer);
-      window._otpSendSlowTimer = setTimeout(function(){
-        var step2 = document.getElementById('loginStep2');
-        if(step2 && step2.style.display !== 'none'){
-          try{ toast(L('⏳ OTP आने में देर हो रही हो तो SMS चेक करें','⏳ Taking longer — check your SMS inbox')); }catch(e){}
-        }
-      }, 15000);
-    }catch(e){}
     try{ _restoreBtn(); }catch(e){}
   }catch(err){
     console.error('OTP error:',err);
