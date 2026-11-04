@@ -289,7 +289,7 @@ async function _sendOTP(isResend){
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
-    // Listen for SMS BEFORE Firebase returns (SMS can arrive during/just after this call)
+    // Mentor-style: show OTP step + focus field BEFORE/while SMS is sent so keyboard can offer OTP chip
     try{
       showStep(2);
       var _otpPre = document.getElementById('otpInput');
@@ -297,16 +297,19 @@ async function _sendOTP(isResend){
         if(String(_otpPre.value||'').replace(/\D/g,'').length !== 6) _otpPre.value = '';
         _otpPre.setAttribute('autocomplete','one-time-code');
         _otpPre.setAttribute('name','one-time-code');
+        _otpPre.setAttribute('inputmode','numeric');
         _otpPre.focus();
       }
       var _sentEl0 = document.getElementById('otpSentTo');
       if(_sentEl0) _sentEl0.textContent = (typeof L==='function'?L('OTP भेजा जा रहा है…','Sending OTP…'):'Sending OTP…');
-      _startWebOtpListen('otpInput', function(code){
-        if(code && String(code).replace(/\D/g,'').length===6){
-          setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
-        }
-      });
-    }catch(ePre){ console.warn('[otp] pre-send WebOTP', ePre); }
+      if(typeof _startWebOtpListen==='function'){
+        _startWebOtpListen('otpInput', function(code){
+          if(code && String(code).replace(/\D/g,'').length===6){
+            setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
+          }
+        });
+      }
+    }catch(ePre){ console.warn('[otp] prepare field', ePre); }
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
@@ -314,31 +317,30 @@ async function _sendOTP(isResend){
     const otpEl = document.getElementById('otpInput');
     if(otpEl){
       try{
-        // Do NOT clear value if WebOTP already filled during send
-        if(String(otpEl.value||'').replace(/\D/g,'').length !== 6){
-          otpEl.setAttribute('autocomplete','one-time-code');
-          otpEl.setAttribute('name','one-time-code');
-          otpEl.setAttribute('inputmode','numeric');
-          otpEl.setAttribute('type','text');
-          otpEl.focus();
-        }
+        otpEl.setAttribute('autocomplete','one-time-code');
+        otpEl.setAttribute('name','one-time-code');
+        otpEl.setAttribute('inputmode','numeric');
+        otpEl.setAttribute('type','text');
+        // Mentor: focus so system can show tappable OTP chip above keyboard
+        setTimeout(function(){ try{ otpEl.focus(); }catch(e){} }, 100);
+        setTimeout(function(){ try{ otpEl.focus(); }catch(e){} }, 500);
       }catch(e){}
     }
     _startResendTimer();
-    // Re-assert listener (same id keeps existing credentials.get — does not abort)
     try{
-      _startWebOtpListen('otpInput', function(code){
-        if(code && String(code).replace(/\D/g,'').length===6){
-          setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
-        }
-      });
-    }catch(e){ console.warn('[otp] WebOTP start', e); }
-    // If already 6 digits (filled while sending), verify now
+      if(typeof _startWebOtpListen==='function'){
+        _startWebOtpListen('otpInput', function(code){
+          if(code && String(code).replace(/\D/g,'').length===6){
+            setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
+          }
+        });
+      }
+    }catch(e){}
     try{
       var _already = String((document.getElementById('otpInput')||{}).value||'').replace(/\D/g,'');
       if(_already.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 300);
     }catch(e){}
-    toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
+    toast(L('✅ OTP भेज दिया! Keyboard में OTP tap करें','✅ OTP sent! Tap OTP on keyboard if shown'));
     try{ _restoreBtn(); }catch(e){}
   }catch(err){
     console.error('OTP error:',err);

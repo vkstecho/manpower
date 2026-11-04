@@ -753,9 +753,11 @@ function _forgotMobilePw(){
 
 // ════════════════════════════════════════
 
-// ── Web OTP API: auto-read SMS OTP (Chrome Android) ──
-// CRITICAL: credentials.get() must be running BEFORE the SMS arrives.
-// Call _startWebOtpListen() when user taps Send OTP, then send Firebase SMS.
+// ── OTP autofill — Mentor-style (system keyboard chip), NOT WebOTP Allow dialog ──
+// Mentor only uses autocomplete="one-time-code" + focus. Android/Chrome then shows
+// the SMS OTP as a tappable suggestion above the keyboard; tap → OS pastes into input.
+// We intentionally do NOT call navigator.credentials.get() (that path shows the
+// "Allow Chrome to read the message?" sheet and was unreliable on this app).
 let _webOtpAbort = null;
 let _webOtpActiveId = null;
 let _webOtpOnFilled = null;
@@ -768,7 +770,6 @@ function _stopWebOtpListen(){
   try{ if(window._webOtpPoll){ clearInterval(window._webOtpPoll); window._webOtpPoll=null; } }catch(e){}
 }
 
-/** Force digits into an OTP input (defeats framework/readonly quirks). */
 function _mpFillOtpInput(id, code){
   code = String(code||'').replace(/\D/g,'').slice(0,6);
   if(!code) return false;
@@ -779,7 +780,6 @@ function _mpFillOtpInput(id, code){
     var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
     if(desc && desc.set) desc.set.call(input, code);
     else input.value = code;
-    input.setAttribute('value', code);
     try{ if(typeof _onOtpInput==='function') _onOtpInput(code); }catch(e){}
     try{ if(typeof _otpValidate==='function') _otpValidate(); }catch(e){}
     try{
@@ -788,90 +788,78 @@ function _mpFillOtpInput(id, code){
       input.dispatchEvent(new Event('input', { bubbles:true }));
     }
     input.dispatchEvent(new Event('change', { bubbles:true }));
-  }catch(e){ console.warn('[WebOTP] fill failed', e); return false; }
+  }catch(e){ return false; }
   return true;
 }
 
 /**
- * Start listening for SMS OTP. Safe to call multiple times for same field
- * (will not abort an in-flight credentials.get for the same id).
+ * Prepare OTP field like Mentor: attributes + focus + listen for OS paste.
+ * Does NOT start WebOTP credentials.get (avoids broken Allow dialog path).
  */
 function _startWebOtpListen(inputId, onFilled){
   try{ window._startWebOtpListen = _startWebOtpListen; window._mpFillOtpInput = _mpFillOtpInput; }catch(e){}
   var id = inputId || 'otpInput';
   if(typeof onFilled === 'function') _webOtpOnFilled = onFilled;
+  _webOtpActiveId = id;
 
   var el = document.getElementById(id);
-  if(el){
-    try{
-      el.setAttribute('autocomplete', 'one-time-code');
-      el.setAttribute('inputmode', 'numeric');
-      el.setAttribute('name', 'one-time-code');
-      el.setAttribute('type', 'text');
-      el.setAttribute('pattern', '[0-9]*');
-      el.setAttribute('maxlength', '6');
-      el.setAttribute('enterkeyhint', 'done');
-      el.setAttribute('autocapitalize', 'off');
-      el.setAttribute('spellcheck', 'false');
-      el.removeAttribute('readonly');
-      el.removeAttribute('disabled');
-      el.style.setProperty('color', '#f8fafc', 'important');
-      el.style.setProperty('-webkit-text-fill-color', '#f8fafc', 'important');
-      el.style.setProperty('caret-color', '#f97316', 'important');
-      el.style.setProperty('background', '#0f1b2d', 'important');
-      el.style.setProperty('background-color', '#0f1b2d', 'important');
-      el.style.setProperty('letter-spacing', '10px', 'important');
-      el.style.setProperty('font-size', '28px', 'important');
-      el.style.setProperty('font-weight', '800', 'important');
-      try{ el.focus(); }catch(e){}
-      if(!el._mpOtpBound){
-        el._mpOtpBound = true;
-        el.addEventListener('input', function(){
-          var v = String(el.value||'').replace(/\D/g,'').slice(0,6);
-          if(v !== el.value){
-            try{
-              var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-              if(desc && desc.set) desc.set.call(el, v); else el.value = v;
-            }catch(e2){ el.value = v; }
-          }
-          try{ if(typeof _onOtpInput==='function') _onOtpInput(v); }catch(e){}
-          if(v.length===6){
-            setTimeout(function(){
-              try{
-                if(typeof _webOtpOnFilled==='function') _webOtpOnFilled(v);
-                else if(typeof _verifyOTP==='function') _verifyOTP();
-              }catch(e){}
-            }, 120);
-          }
-        });
-      }
-    }catch(e){}
-  }
+  if(!el) return;
 
-  function _applyCode(code){
-    code = String(code||'').replace(/\D/g,'').slice(0,6);
-    if(code.length < 4) return false;
-    _mpFillOtpInput(id, code);
-    try{ toast(typeof L==='function' ? L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS') : '📲 OTP auto-filled from SMS'); }catch(e){}
-    var cb = _webOtpOnFilled;
-    if(typeof cb === 'function') cb(code);
-    else if(code.length === 6){
-      setTimeout(function(){
-        try{
-          var ov = document.getElementById('otpLoginOverlay');
-          if(ov && ov.style.display && ov.style.display !== 'none' && typeof _verifyDeviceOTP==='function')
-            _verifyDeviceOTP();
-          else if(typeof _verifyOTP==='function')
-            _verifyOTP();
-        }catch(e){}
-      }, 180);
-    }
-    return true;
-  }
-
-  // Poll: catch browser autofill that sets .value without firing our promise
   try{
-    if(window._webOtpPoll){ clearInterval(window._webOtpPoll); }
+    el.setAttribute('autocomplete', 'one-time-code');
+    el.setAttribute('inputmode', 'numeric');
+    el.setAttribute('name', 'one-time-code');
+    el.setAttribute('type', 'text');
+    el.setAttribute('pattern', '[0-9]{6}');
+    el.setAttribute('maxlength', '6');
+    el.setAttribute('enterkeyhint', 'done');
+    el.setAttribute('autocapitalize', 'off');
+    el.setAttribute('spellcheck', 'false');
+    el.removeAttribute('readonly');
+    el.removeAttribute('disabled');
+    // Visible digits on dark login
+    el.style.setProperty('color', '#f8fafc', 'important');
+    el.style.setProperty('-webkit-text-fill-color', '#f8fafc', 'important');
+    el.style.setProperty('caret-color', '#f97316', 'important');
+    el.style.setProperty('background', '#0f1b2d', 'important');
+    el.style.setProperty('background-color', '#0f1b2d', 'important');
+    el.style.setProperty('font-size', '28px', 'important');
+    el.style.setProperty('font-weight', '800', 'important');
+    el.style.setProperty('letter-spacing', '0.4em', 'important');
+    el.style.setProperty('text-align', 'center', 'important');
+  }catch(e){}
+
+  // When user taps keyboard OTP chip, OS pastes → input event → auto-verify
+  if(!el._mpOtpBound){
+    el._mpOtpBound = true;
+    el.addEventListener('input', function(){
+      var v = String(el.value||'').replace(/\D/g,'').slice(0,6);
+      if(v !== el.value){
+        try{
+          var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+          if(desc && desc.set) desc.set.call(el, v); else el.value = v;
+        }catch(e2){ el.value = v; }
+      }
+      try{ if(typeof _onOtpInput==='function') _onOtpInput(v); }catch(e){}
+      try{ if(typeof _otpValidate==='function') _otpValidate(); }catch(e){}
+      if(v.length === 6){
+        setTimeout(function(){
+          try{
+            if(typeof _webOtpOnFilled === 'function') _webOtpOnFilled(v);
+            else if(typeof _verifyOTP === 'function') _verifyOTP();
+          }catch(e){}
+        }, 120);
+      }
+    });
+  }
+
+  // Focus so Chrome/Android can offer the OTP keyboard suggestion (Mentor behavior)
+  setTimeout(function(){ try{ el.focus(); }catch(e){} }, 80);
+  setTimeout(function(){ try{ el.focus(); }catch(e){} }, 400);
+
+  // Poll briefly: some keyboards paste without a reliable input event
+  try{
+    if(window._webOtpPoll) clearInterval(window._webOtpPoll);
     var polls = 0;
     window._webOtpPoll = setInterval(function(){
       polls++;
@@ -880,45 +868,17 @@ function _startWebOtpListen(inputId, onFilled){
       if(v.length === 6){
         clearInterval(window._webOtpPoll);
         window._webOtpPoll = null;
-        _applyCode(v);
+        try{ if(typeof _onOtpInput==='function') _onOtpInput(v); }catch(e){}
+        try{
+          if(typeof _webOtpOnFilled === 'function') _webOtpOnFilled(v);
+          else if(typeof _verifyOTP === 'function') _verifyOTP();
+        }catch(e){}
       }
       if(polls > 80){ clearInterval(window._webOtpPoll); window._webOtpPoll = null; }
     }, 250);
   }catch(e){}
 
-  // Already have an in-flight listener for this field — keep it (do not abort)
-  if(_webOtpAbort && _webOtpActiveId === id){
-    console.info('[WebOTP] keep existing listener for', id);
-    return;
-  }
-
-  // Switch field: abort old, start new
-  if(_webOtpAbort && _webOtpActiveId !== id){
-    try{ _webOtpAbort.abort(); }catch(e){}
-    _webOtpAbort = null;
-  }
-  _webOtpActiveId = id;
-
-  if(typeof window.OTPCredential === 'undefined' || !navigator.credentials || !window.isSecureContext){
-    console.info('[WebOTP] API unavailable — type OTP or use keyboard suggestion');
-    return;
-  }
-  try{
-    _webOtpAbort = new AbortController();
-    navigator.credentials.get({
-      otp: { transport: ['sms'] },
-      signal: _webOtpAbort.signal
-    }).then(function(cred){
-      var code = cred && (cred.code || cred.otp || (cred.id && String(cred.id)));
-      console.info('[WebOTP] credential received', code ? 'yes' : 'empty', cred && cred.type);
-      if(!code) return;
-      _applyCode(code);
-    }).catch(function(err){
-      if(err && err.name === 'AbortError') return;
-      console.warn('[WebOTP]', err && (err.name||'') , err && err.message);
-    });
-    console.info('[WebOTP] listening for SMS on', id);
-  }catch(e){ console.warn('[WebOTP] start failed', e); }
+  console.info('[OTP] Mentor-style ready (keyboard chip). No WebOTP Allow dialog.');
 }
 
 

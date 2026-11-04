@@ -131,13 +131,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
-<script type="module" src="js/config/firebase-init.js?v=400014"></script>
+<script type="module" src="js/config/firebase-init.js?v=400015"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=400014">
+<link rel="stylesheet" href="css/app.css?v=400015">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -983,11 +983,13 @@ html.mp-login-active, body.mp-login-active {
       </div>
       <div class="err-msg" id="loginErr2"></div>
       <form id="otpAutoForm" action="javascript:void(0)" onsubmit="event.preventDefault();_verifyOTP();return false;" autocomplete="on" style="width:100%">
-      <input class="inp-field" type="text" id="otpInput" name="one-time-code" placeholder="------"
-        inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" enterkeyhint="done" autocapitalize="off" spellcheck="false"
+      <!-- Mentor-style: autocomplete=one-time-code + focus → Android/Chrome shows OTP chip to tap-paste -->
+      <input class="inp-field" type="text" id="otpInput" name="one-time-code" placeholder="••••••"
+        inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"
+        enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="one-time-code"
         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6);_onOtpInput(this.value)"
         onkeydown="if(event.key==='Enter'){_verifyOTP();return false;}"
-        style="font-size:28px;letter-spacing:10px;text-align:center;margin-bottom:12px;width:100%;box-sizing:border-box">
+        style="font-size:28px;letter-spacing:0.4em;text-align:center;margin-bottom:12px;width:100%;box-sizing:border-box;font-weight:800;color:#f8fafc;-webkit-text-fill-color:#f8fafc;caret-color:#f97316;background:#0f1b2d">
       <button type="submit" class="big-btn" id="verifyOtpBtn" disabled style="opacity:.5">Verify &#10003;</button>
       </form>
       <div style="text-align:center;margin-top:10px">
@@ -2030,37 +2032,37 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/commercial/public-offer.js?v=400014"></script>
+<script src="js/commercial/public-offer.js?v=400015"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=400014"></script>
-<script src="js/auth/app-login.js?v=400014"></script>
-<script src="js/auth/app-login-device.js?v=400014"></script>
-<script src="js/auth/app-session-auth.js?v=400014"></script>
-<script src="js/session/app-session-nav.js?v=400014"></script>
-<script src="js/session/app-session-settings.js?v=400014"></script>
-<script src="js/session/app-session-home.js?v=400014"></script>
-<script src="js/session/app-session-payment.js?v=400014"></script>
-<script src="js/auth/app-login-session.js?v=400014"></script>
-<script src="js/core/app.js?v=400014"></script>
-<script src="js/team/app-team-print-learn.js?v=400014"></script>
-<script src="js/commercial/mp-commercial.js?v=400014"></script>
-<script src="js/core/a11y.js?v=400014"></script>
+<script src="js/core/app-core.js?v=400015"></script>
+<script src="js/auth/app-login.js?v=400015"></script>
+<script src="js/auth/app-login-device.js?v=400015"></script>
+<script src="js/auth/app-session-auth.js?v=400015"></script>
+<script src="js/session/app-session-nav.js?v=400015"></script>
+<script src="js/session/app-session-settings.js?v=400015"></script>
+<script src="js/session/app-session-home.js?v=400015"></script>
+<script src="js/session/app-session-payment.js?v=400015"></script>
+<script src="js/auth/app-login-session.js?v=400015"></script>
+<script src="js/core/app.js?v=400015"></script>
+<script src="js/team/app-team-print-learn.js?v=400015"></script>
+<script src="js/commercial/mp-commercial.js?v=400015"></script>
+<script src="js/core/a11y.js?v=400015"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
 (function(){
   var heavy = [
-    'js/i18n/i18n_ml.js?v=400014',
-    'js/schedule/app-schedule.js?v=400014',
-    'js/team/app-team.js?v=400014',
-    'js/team/app-team-import-core.js?v=400014',
-    'js/team/app-team-emp-forms.js?v=400014',
-    'js/team/app-team-excel-ops.js?v=400014',
-    'js/schedule/app-sched-builder.js?v=400014',
-    'js/team/app-team-import.js?v=400014',
-    'js/schedule/sched-offline-queue.js?v=400014',
-    'js/schedule/sched-clipboard.js?v=400014',
-    'js/schedule/sched-undo.js?v=400014',
-    'js/schedule/sched-cell-keys.js?v=400014'
+    'js/i18n/i18n_ml.js?v=400015',
+    'js/schedule/app-schedule.js?v=400015',
+    'js/team/app-team.js?v=400015',
+    'js/team/app-team-import-core.js?v=400015',
+    'js/team/app-team-emp-forms.js?v=400015',
+    'js/team/app-team-excel-ops.js?v=400015',
+    'js/schedule/app-sched-builder.js?v=400015',
+    'js/team/app-team-import.js?v=400015',
+    'js/schedule/sched-offline-queue.js?v=400015',
+    'js/schedule/sched-clipboard.js?v=400015',
+    'js/schedule/sched-undo.js?v=400015',
+    'js/schedule/sched-cell-keys.js?v=400015'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;
