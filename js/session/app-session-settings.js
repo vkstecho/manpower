@@ -1665,6 +1665,11 @@ async function showProfile(){
         <div><div class="pa-label">Holiday List</div><div class="pa-sub">Date + Reason · Excel / Auto-fetch All-India</div></div>
         <div class="pa-arrow">›</div>
       </button>
+      <button type="button" class="profile-action danger" onclick="openDeleteAccountModal()" style="border-color:rgba(244,63,94,.45);margin-top:8px">
+        <div class="pa-icon" style="background:rgba(244,63,94,.15)">🗑️</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Delete Account','Delete Account'):'Delete Account'}</div><div class="pa-sub">${typeof L==='function'?L('इस mobile की registration हटाएं','Remove this mobile registration'):'Remove this mobile registration'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
       <button class="profile-action danger" onclick="doLogout()" style="margin-top:4px">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
         <div><div class="pa-label">Logout</div><div class="pa-sub">${typeof L==='function'?L('सभी sessions साफ़ करें','Clear all sessions'):'Clear all sessions'}</div></div>
@@ -1677,7 +1682,11 @@ async function showProfile(){
       <div style="font-size:44px;margin-bottom:8px">👤</div>
       <div style="font-size:18px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px">Guest Access</div>
-      <button class="profile-action danger" onclick="doLogout()" style="margin-top:16px;justify-content:center">
+      <button type="button" class="profile-action danger" onclick="openDeleteAccountModal()" style="margin-top:12px;justify-content:center;border-color:rgba(244,63,94,.45)">
+        <div class="pa-icon" style="background:rgba(244,63,94,.15)">🗑️</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Delete Account','Delete Account'):'Delete Account'}</div></div>
+      </button>
+      <button class="profile-action danger" onclick="doLogout()" style="margin-top:10px;justify-content:center">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
         <div><div class="pa-label">Logout</div></div>
       </button>
@@ -1813,6 +1822,11 @@ async function showProfile(){
         <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund','Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund'):'Help · Cancel · 7-day refund'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
+      <button type="button" class="profile-action danger" onclick="openDeleteAccountModal()" style="border-color:rgba(244,63,94,.45);margin-top:8px">
+        <div class="pa-icon" style="background:rgba(244,63,94,.15)">🗑️</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Delete Account','Delete Account'):'Delete Account'}</div><div class="pa-sub">${typeof L==='function'?L('इस mobile की registration हमेशा के लिए हटाएं','Permanently remove this mobile registration'):'Permanently remove this mobile registration'}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
       <button class="profile-action danger" onclick="doLogout()">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
         <div><div class="pa-label">Logout</div><div class="pa-sub">${typeof L==='function'?L('सभी sessions साफ़ करें','Clear all sessions'):'Clear all sessions'}</div></div>
@@ -1833,6 +1847,168 @@ async function showProfile(){
  }
 }
 
+
+
+
+// ════════════════════════════════════════
+// DELETE ACCOUNT — wipe mobile registration so next login is NEW (role select)
+// ════════════════════════════════════════
+function openDeleteAccountModal(){
+  const mob = (typeof _normMobileKey==='function')
+    ? _normMobileKey(SESSION.mobile||SESSION.uid||'')
+    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  if(!mob || mob.length!==10){
+    toast(typeof L==='function'?L('❌ Session में mobile नहीं मिला','❌ Mobile not found in session'):'❌ Mobile not found in session');
+    return;
+  }
+  const role = SESSION.role||'';
+  const name = String(SESSION.name||mob).replace(/</g,'');
+  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
+  const warnMgr = (role==='manager')
+    ? ('<div style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.35);border-radius:10px;padding:10px 12px;font-size:12px;color:#fecdd3;margin-bottom:12px;line-height:1.5">⚠️ '
+      + T('Manager: टीम डेटा employees में रह सकता है। पूरा handoff चाहिए तो पहले Leave team / Transfer Manager करें।',
+          'Manager: team employee data may remain. For full handoff use Leave team / Transfer Manager first.')
+      + '</div>')
+    : '';
+  openModal('<div class="modal-handle"></div>'
+    + '<div class="modal-title">🗑️ ' + T('Delete Account','Delete Account') + '</div>'
+    + '<div style="font-size:13px;color:var(--muted2);line-height:1.55;margin-bottom:12px">'
+    + '<b style="color:var(--text)">' + name + '</b> · +91-' + mob + '<br>'
+    + (role ? ('Role: <b style="color:var(--m1)">' + role + '</b><br>') : '')
+    + T('यह action <b style="color:#f43f5e">permanent</b> है। अगली बार इसी number से login पर आपको <b>Manager / Member</b> चुनना पड़ेगा — जैसे नया user।',
+        'This is <b style="color:#f43f5e">permanent</b>. Next login with this number will ask <b>Manager / Member</b> again — like a new user.')
+    + '</div>'
+    + warnMgr
+    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">Type <b style="color:#f43f5e">DELETE</b> to confirm</label>'
+    + '<input class="inp-field" id="deleteAccountConfirm" placeholder="DELETE" autocomplete="off"'
+    + ' style="margin:8px 0 14px;width:100%;box-sizing:border-box;letter-spacing:2px;font-weight:800;text-align:center">'
+    + '<button type="button" class="submit-btn" style="background:linear-gradient(135deg,#f43f5e,#be123c)" onclick="confirmDeleteMyAccount()">'
+    + '🗑️ ' + T('हाँ — Account Delete करें','Yes — Delete Account') + '</button>'
+    + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">' + T('रद्द करें','Cancel') + '</button>');
+  setTimeout(function(){ try{ document.getElementById('deleteAccountConfirm')?.focus(); }catch(e){} }, 100);
+}
+
+async function confirmDeleteMyAccount(){
+  const conf = (document.getElementById('deleteAccountConfirm')?.value||'').trim().toUpperCase();
+  if(conf !== 'DELETE'){
+    toast(typeof L==='function'?L('⚠️ Confirm करने के लिए DELETE लिखें','⚠️ Type DELETE to confirm'):'⚠️ Type DELETE to confirm');
+    try{ document.getElementById('deleteAccountConfirm')?.focus(); }catch(e){}
+    return;
+  }
+  const mob = (typeof _normMobileKey==='function')
+    ? _normMobileKey(SESSION.mobile||SESSION.uid||'')
+    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+  if(!mob || mob.length!==10){
+    toast('❌ Mobile missing');
+    return;
+  }
+  try{
+    if(typeof _ensureWriteAuth==='function'){
+      try{ await _ensureWriteAuth(); }catch(e){}
+    }
+    toast(typeof L==='function'?L('⏳ Account delete हो रहा है…','⏳ Deleting account…'):'⏳ Deleting account…');
+
+    const empObjId = SESSION.empObjId || SESSION.empId || '';
+    const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
+
+    // 1) Remove mobile registration (critical — next login becomes NEW)
+    try{ await fbRemove('mobileUsers/'+mob); }catch(e){
+      try{ await fbSet('mobileUsers/'+mob, null); }catch(e2){
+        try{
+          await fbSet('mobileUsers/'+mob, {
+            status: 'removed',
+            role: 'removed',
+            forceFreshLogin: true,
+            deletedAt: new Date().toISOString(),
+            deletedBy: 'self'
+          });
+        }catch(e3){ console.warn('[deleteAccount] mobileUsers', e3); }
+      }
+    }
+
+    // 2) Managers node
+    try{ await fbRemove('managers/'+mob); }catch(e){
+      try{ await fbSet('managers/'+mob, null); }catch(e2){}
+    }
+
+    // 3) Device approvals for this employee
+    if(empObjId){
+      try{ await fbRemove('deviceApprovals/'+empObjId); }catch(e){
+        try{ await fbSet('deviceApprovals/'+empObjId, null); }catch(e2){}
+      }
+    }
+
+    // 4) Mark linked employee as left so roster auto-login / rejoin does not skip role select
+    try{
+      const all = (typeof getEmps==='function') ? getEmps() : (window._cache && _cache.employees) || [];
+      const hits = (all||[]).filter(function(e){
+        if(!e) return false;
+        if(empObjId && (e.id===empObjId || e.empId===empObjId)) return true;
+        const ph = (typeof _normMobileKey==='function') ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+        return ph===mob;
+      });
+      for(var i=0;i<hits.length;i++){
+        var e = hits[i];
+        if(!e || !e.id) continue;
+        try{
+          await fbUpdate('employees/'+e.id, {
+            status: 'left_team',
+            leftAt: new Date().toISOString(),
+            leftReason: 'self_delete_account',
+            forceFreshLogin: true
+          });
+        }catch(err){ console.warn('[deleteAccount] emp', err); }
+      }
+    }catch(e){ console.warn('[deleteAccount] employees', e); }
+
+    // 5) Local device password + auth markers for this mobile/emp
+    try{
+      if(typeof _clearDevicePassword==='function') _clearDevicePassword(empObjId, mob);
+      else {
+        if(empObjId) localStorage.removeItem('mp_pw_'+empObjId);
+        localStorage.removeItem('mp_pw_m_'+mob);
+      }
+    }catch(e){}
+    try{
+      localStorage.removeItem('mp_device_phone');
+      localStorage.removeItem('mp_device_verified_at');
+      localStorage.removeItem('mp_write_auth_at');
+      sessionStorage.removeItem('mp_write_auth');
+      localStorage.removeItem('fp_registered');
+    }catch(e){}
+
+    // 6) Notify admin (best effort)
+    try{
+      if(typeof notifyAdmin==='function'){
+        await notifyAdmin('🗑️ Account deleted by user', (SESSION.name||'')+' · +91-'+mob+' · role '+(SESSION.role||''));
+      } else if(typeof fbPush==='function'){
+        await fbPush('adminNotifications', {
+          type: 'account_deleted',
+          title: 'Account deleted',
+          body: (SESSION.name||'')+' · +91-'+mob,
+          mobile: mob,
+          read: false,
+          at: new Date().toISOString()
+        });
+      }
+    }catch(e){}
+
+    closeModal();
+    toast(typeof L==='function'
+      ? L('✅ Account delete हो गया। अगली बार Manager/Member चुनें।','✅ Account deleted. Next login choose Manager/Member.')
+      : '✅ Account deleted. Next login choose Manager/Member.');
+    setTimeout(function(){
+      try{ doLogout(); }catch(e){ location.href = location.pathname + '?logout=' + Date.now(); }
+    }, 900);
+  }catch(err){
+    console.error('[deleteAccount]', err);
+    toast('❌ '+(err && err.message ? err.message : 'Delete failed'));
+  }
+}
+try{
+  window.openDeleteAccountModal = openDeleteAccountModal;
+  window.confirmDeleteMyAccount = confirmDeleteMyAccount;
+}catch(e){}
 
 // ════════════════════════════════════════
 // MANAGER LEAVES TEAM — automated handoff

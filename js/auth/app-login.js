@@ -868,13 +868,15 @@ async function _checkUserAfterOTP(){
       _launchAsHardAdmin(mobile || _loginMobile);
       return;
     }
-    // Rejoin: same mobile left/removed earlier → restore mobileUsers link to existing employee (keeps ms/shifts)
+    // Rejoin only if mobileUsers still exists (user did NOT delete account).
+    // After Delete Account, mobileUsers is gone → always Manager/Member choice.
     try{
-      if(typeof _tryRejoinPreserveShifts==='function'){
+      const muPre = await fbGet('mobileUsers/'+mobile);
+      if(muPre && muPre.status==='approved' && typeof _tryRejoinPreserveShifts==='function'){
         const rejoined = await _tryRejoinPreserveShifts(mobile);
         if(rejoined){
           const roster = await _resolveEmpByMobile(mobile);
-          if(roster){
+          if(roster && roster.status!=='left_team' && roster.status!=='removed' && roster.status!=='resigned' && roster.status!=='left'){
             const ok = await _loginRosterMemberAfterOtp(mobile, roster);
             if(ok){
               try{ toast(L('✅ वापस join — पुरानी shifts बहाल','✅ Rejoined — previous shifts restored')); }catch(e){}
@@ -1110,11 +1112,14 @@ async function _checkUserAfterOTP(){
         return;
       }
     }catch(eAd){}
-    // Last chance: roster login even if mobileUsers read failed
+    // Last chance: roster only if active employee AND mobileUsers approved still exists
     try{
       const mobile2=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
+      const mu2 = await fbGet('mobileUsers/'+mobile2);
       const rosterEmp = await _resolveEmpByMobile(mobile2);
-      if(rosterEmp){
+      if(mu2 && mu2.status==='approved' && rosterEmp
+          && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'
+          && rosterEmp.status!=='resigned' && rosterEmp.status!=='left'){
         const ok = await _loginRosterMemberAfterOtp(mobile2, rosterEmp);
         if(ok) return;
       }
