@@ -376,50 +376,120 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
   const empName = (emp && emp.name) ? String(emp.name).replace(/'/g,"\\'") : '';
   const mob = mobile10 || (emp && (emp.phone||emp.mobile)) || '';
   const mobClean = String(mob||'').replace(/\D/g,'').slice(-10);
-  // stash for submit
   window._pwSetupCtx = { emp, deviceId, afterApproval, userData, mobile10: mobClean };
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
-  ov.innerHTML=`
+  const skipLabel = (typeof L==='function')
+    ? (L('अभी नहीं → ','Not now → ') + (afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')))
+    : ('Not now → ' + (afterApproval ? 'Open App' : 'Login with OTP'));
+  const nameHtml = escHtml((emp&&emp.name)||'User');
+  const subHtml = (typeof L==='function')
+    ? L(
+        '<b style="color:#f97316">'+nameHtml+'</b> के लिए इस device पर password सेट करें।<br>अगली बार <b style="color:#4ade80">OTP की जरूरत नहीं</b> — सिर्फ password।',
+        'Set a password on this device for <b style="color:#f97316">'+nameHtml+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.'
+      )
+    : ('Set a password on this device for <b style="color:#f97316">'+nameHtml+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.');
+  const lab1 = (typeof L==='function') ? L('PASSWORD (कम से कम 5 अक्षर) *','PASSWORD (min 5 characters) *') : 'PASSWORD (min 5 characters) *';
+  const lab2 = (typeof L==='function') ? L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *') : 'Re-enter PASSWORD *';
+  const saveLab = (typeof L==='function') ? L('✅ Password Save करें','✅ Save Password') : '✅ Save Password';
+
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;';
+  ov.innerHTML = `
+    <style id="spwForceDark">
+      /* Defeat body.light global input/button rules on this overlay only */
+      #setPasswordOverlay, #setPasswordOverlay * { box-sizing: border-box; }
+      #setPasswordOverlay input#spw1,
+      #setPasswordOverlay input#spw2 {
+        width: 100% !important;
+        background: #0f1b2d !important;
+        background-color: #0f1b2d !important;
+        border: 1.5px solid #60a5fa !important;
+        border-radius: 10px !important;
+        padding: 14px !important;
+        color: #f8fafc !important;
+        -webkit-text-fill-color: #f8fafc !important;
+        caret-color: #f97316 !important;
+        font-size: 22px !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        letter-spacing: 6px !important;
+        outline: none !important;
+        box-shadow: none !important;
+        opacity: 1 !important;
+      }
+      #setPasswordOverlay input#spw1::placeholder,
+      #setPasswordOverlay input#spw2::placeholder {
+        color: #64748b !important;
+        -webkit-text-fill-color: #64748b !important;
+        letter-spacing: 4px;
+        opacity: 1 !important;
+      }
+      #setPasswordOverlay input#spw1:-webkit-autofill,
+      #setPasswordOverlay input#spw2:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 40px #0f1b2d inset !important;
+        -webkit-text-fill-color: #f8fafc !important;
+        caret-color: #f97316 !important;
+      }
+      #setPasswordOverlay #spwBtn {
+        width: 100% !important;
+        padding: 16px !important;
+        background: linear-gradient(135deg,#22c55e,#15803d) !important;
+        border: none !important;
+        border-radius: 13px !important;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        font-size: 17px !important;
+        font-weight: 900 !important;
+        margin-bottom: 12px !important;
+      }
+      #setPasswordOverlay #spwSkip {
+        width: 100% !important;
+        padding: 13px !important;
+        background: #1e293b !important;
+        background-color: #1e293b !important;
+        border: 1.5px solid #64748b !important;
+        border-radius: 12px !important;
+        color: #e2e8f0 !important;
+        -webkit-text-fill-color: #e2e8f0 !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        min-height: 48px !important;
+      }
+      #setPasswordOverlay .spw-lab {
+        font-size: 12px !important;
+        font-weight: 800 !important;
+        color: #f1f5f9 !important;
+        -webkit-text-fill-color: #f1f5f9 !important;
+        letter-spacing: .4px;
+        margin-bottom: 8px;
+        opacity: 1 !important;
+      }
+    </style>
     <div style="width:100%;max-width:360px;text-align:center">
-      <div style="font-size:48px;margin-bottom:12px">🔐</div>
+      <div style="font-size:48px;margin-bottom:12px" aria-hidden="true">🔐</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
         Device Password
       </div>
-      <div style="font-size:14px;color:#f1f5f9;-webkit-text-fill-color:#f1f5f9;margin-bottom:18px;line-height:1.6">
-        ${typeof L==='function'
-          ? L(
-              '<b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b> के लिए इस device पर password सेट करें।<br>अगली बार <b style="color:#4ade80">OTP की जरूरत नहीं</b> — सिर्फ password।',
-              'Set a password on this device for <b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.'
-            )
-          : ('Set a password on this device for <b style="color:#f97316">'+escHtml((emp&&emp.name)||'User')+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.')}
-      </div>
+      <div style="font-size:14px;color:#f1f5f9;-webkit-text-fill-color:#f1f5f9;margin-bottom:18px;line-height:1.6">${subHtml}</div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:18px;margin-bottom:14px;text-align:left">
-        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:8px;opacity:1 !important">${L('PASSWORD (कम से कम 5 अंक) *','PASSWORD (min 5 characters) *')}</div>
-        <input id="spw1" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
-          style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                 padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
+        <div class="spw-lab">${lab1}</div>
+        <input id="spw1" type="password" inputmode="numeric" placeholder="•••••" maxlength="20"
+          autocomplete="new-password" autocapitalize="off" spellcheck="false"
           oninput="_spwValidate()">
-        <div style="font-size:12px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin:12px 0 8px;opacity:1 !important">${L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *')}</div>
-        <input id="spw2" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
-          style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                 padding:14px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;font-size:22px;text-align:center;outline:none;font-family:inherit;letter-spacing:4px"
+        <div class="spw-lab" style="margin-top:12px">${lab2}</div>
+        <input id="spw2" type="password" inputmode="numeric" placeholder="•••••" maxlength="20"
+          autocomplete="new-password" autocapitalize="off" spellcheck="false"
           oninput="_spwValidate()">
         <div id="spwErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
       </div>
-      <button id="spwBtn" onclick="_submitSetPassword()"
-        style="width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#15803d);border:none;
-               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:12px;
-               opacity:.4;pointer-events:none;font-family:inherit">
-        ${L('✅ Password Save करें','✅ Save Password')}
-      </button>
-      <button onclick="_skipSetPassword()"
-        style="width:100%;padding:13px;background:rgba(255,255,255,.06);border:1.5px solid #64748b;border-radius:12px;
-               color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">
-        ${L('अभी नहीं → ','Not now → ')}${afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')}
-      </button>
+      <button type="button" id="spwBtn" onclick="_submitSetPassword()"
+        style="opacity:.4;pointer-events:none;cursor:pointer;font-family:inherit">${saveLab}</button>
+      <button type="button" id="spwSkip" onclick="_skipSetPassword()" style="cursor:pointer;font-family:inherit">${skipLabel}</button>
     </div>`;
-  ov.style.display='flex';
+  ov.style.display = 'flex';
+  // Focus first field for clarity while typing
+  setTimeout(function(){ try{ document.getElementById('spw1')?.focus(); }catch(e){} }, 80);
 }
 
 function _spwValidate(){
@@ -480,40 +550,59 @@ function showPasswordLoginScreen(emp, deviceId){
   if(!ov){ ov=document.createElement('div'); ov.id='pwLoginOverlay'; document.body.appendChild(ov); }
   const empId = emp.id || '';
   const empName = (emp.name||'').replace(/'/g,"\\'");
+  const mobile = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
   ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  const sub = (typeof L==='function')
+    ? L('OTP नहीं — इस device का password डालें','No OTP — enter this device password')
+    : 'No OTP — enter this device password';
   ov.innerHTML=`
+    <style id="pwlForceDark">
+      #pwLoginOverlay input#pwlInput{
+        width:100% !important;background:#0f1b2d !important;background-color:#0f1b2d !important;
+        border:1.5px solid #60a5fa !important;border-radius:10px !important;padding:14px !important;
+        color:#f8fafc !important;-webkit-text-fill-color:#f8fafc !important;caret-color:#f97316 !important;
+        font-size:22px !important;font-weight:700 !important;text-align:center !important;
+        letter-spacing:6px !important;outline:none !important;box-shadow:none !important;
+      }
+      #pwLoginOverlay input#pwlInput:-webkit-autofill{
+        -webkit-box-shadow:0 0 0 40px #0f1b2d inset !important;-webkit-text-fill-color:#f8fafc !important;
+      }
+      #pwLoginOverlay #pwlBtn{
+        width:100% !important;padding:16px !important;background:linear-gradient(135deg,#f97316,#ea580c) !important;
+        border:none !important;border-radius:13px !important;color:#fff !important;-webkit-text-fill-color:#fff !important;
+        font-size:17px !important;font-weight:900 !important;margin-bottom:10px !important;
+      }
+      #pwLoginOverlay .pwl-sec{
+        width:100% !important;padding:12px !important;background:#1e293b !important;border:1.5px solid #64748b !important;
+        border-radius:12px !important;color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;
+        font-size:13px !important;font-weight:700 !important;margin-top:8px !important;min-height:44px !important;
+      }
+    </style>
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🔓</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
         Password Login
       </div>
-      <div style="font-size:14px;color:#94a3b8;margin-bottom:20px">
+      <div style="font-size:14px;color:#e2e8f0;-webkit-text-fill-color:#e2e8f0;margin-bottom:20px">
         <b style="color:#f97316">${escHtml(emp.name||'')}</b><br>
-        <span style="font-size:12px">${typeof L==='function'?L('OTP नहीं — इस device का password डालें','No OTP — enter this device password'):'No OTP — enter this device password'}</span>
+        <span style="font-size:12px;color:#94a3b8">${sub}</span>
       </div>
       <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:11px;font-weight:800;color:#ffffff !important;-webkit-text-fill-color:#ffffff !important;letter-spacing:.5px;margin-bottom:10px;opacity:1 !important;font-size:12px">DEVICE PASSWORD *</div>
-        <input id="pwlInput" type="password" inputmode="numeric" placeholder="●●●●●" maxlength="20"
-          style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                 padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
-                 font-size:24px;text-align:center;outline:none;font-family:inherit;letter-spacing:6px"
-          onkeydown="if(event.key==='Enter')_submitPwLogin('${empId}','${empName}','${deviceId}')">
+        <div style="font-size:12px;font-weight:800;color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;letter-spacing:.5px;margin-bottom:10px">DEVICE PASSWORD *</div>
+        <input id="pwlInput" type="password" inputmode="numeric" placeholder="•••••" maxlength="20"
+          autocomplete="current-password" onkeydown="if(event.key==='Enter')_submitPwLogin('${empId}','${empName}','${deviceId}')">
         <div id="pwlErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
       </div>
-      <button onclick="_submitPwLogin('${empId}','${empName}','${deviceId}')"
-        style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
-               border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;margin-bottom:10px;font-family:inherit">
-        ${L('✅ Login करें','✅ Login')}
+      <button type="button" id="pwlBtn" onclick="_submitPwLogin('${empId}','${empName}','${deviceId}')" style="cursor:pointer;font-family:inherit">
+        ${(typeof L==='function')?L('🔓 Login','🔓 Login'):'🔓 Login'}
       </button>
-      <button onclick="_forgotPw('${empId}','${empName}', '${escHtml(String((emp.phone||emp.mobile||'')).replace(/\D/g,'').slice(-10))}')"
-        style="width:100%;padding:13px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#64748b;font-size:12px;cursor:pointer;font-family:inherit">
-        ${L('🔑 Password भूल गए? OTP से दोबारा verify करें','🔑 Forgot password? Verify with OTP again')}
+      <button type="button" class="pwl-sec" onclick="_forgotPw('${empId}','${empName}','${mobile}')" style="cursor:pointer;font-family:inherit">
+        ${(typeof L==='function')?L('Password भूल गए? OTP से login','Forgot password? Login with OTP'):'Forgot password? Login with OTP'}
       </button>
     </div>`;
   ov.style.display='flex';
-  setTimeout(()=>{ try{ document.getElementById('pwlInput')?.focus(); }catch(e){} }, 300);
+  setTimeout(function(){ try{ document.getElementById('pwlInput')?.focus(); }catch(e){} }, 80);
 }
 
 async function _submitPwLogin(empId, empName, deviceId){
@@ -671,16 +760,16 @@ let _webOtpAbort = null;
 function _stopWebOtpListen(){
   try{ if(_webOtpAbort){ _webOtpAbort.abort(); } }catch(e){}
   _webOtpAbort = null;
+  try{ if(window._webOtpPoll){ clearInterval(window._webOtpPoll); window._webOtpPoll=null; } }catch(e){}
 }
 /**
- * Listen for SMS OTP and fill #otpInput (or given selector).
- * @param {string} inputId
- * @param {function} [onFilled] called with 6-digit code
+ * Listen for SMS OTP and fill the OTP input. Starts WebOTP + short poll for Chrome Allow dialog.
  */
 function _startWebOtpListen(inputId, onFilled){
   try{ window._startWebOtpListen = _startWebOtpListen; }catch(e){}
   _stopWebOtpListen();
-  const el = document.getElementById(inputId || 'otpInput');
+  const id = inputId || 'otpInput';
+  const el = document.getElementById(id);
   if(el){
     try{
       el.setAttribute('autocomplete', 'one-time-code');
@@ -689,13 +778,70 @@ function _startWebOtpListen(inputId, onFilled){
       el.setAttribute('type', 'text');
       el.setAttribute('pattern', '[0-9]*');
       el.setAttribute('enterkeyhint', 'done');
-      // focus so iOS / Android keyboard can offer SMS OTP
-      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 200);
+      el.setAttribute('autocapitalize', 'off');
+      el.setAttribute('spellcheck', 'false');
+      // Visible digits on dark login even if body.light is on
+      el.style.setProperty('color', '#f8fafc', 'important');
+      el.style.setProperty('-webkit-text-fill-color', '#f8fafc', 'important');
+      el.style.setProperty('caret-color', '#f97316', 'important');
+      el.style.setProperty('background', '#0f1b2d', 'important');
+      el.style.setProperty('background-color', '#0f1b2d', 'important');
+      el.style.setProperty('letter-spacing', '10px', 'important');
+      el.style.setProperty('font-size', '28px', 'important');
+      el.style.setProperty('font-weight', '800', 'important');
+      setTimeout(function(){ try{ el.focus(); }catch(e){} }, 180);
     }catch(e){}
   }
-  // Web OTP API (Chrome/Edge Android, HTTPS only). SMS should include: @your-domain #123456
+
+  function _applyCode(code){
+    code = String(code||'').replace(/\D/g,'').slice(0,6);
+    if(code.length < 4) return false;
+    const input = document.getElementById(id);
+    if(input){
+      input.value = code;
+      try{ if(typeof _onOtpInput==='function') _onOtpInput(code); }catch(e){}
+      input.dispatchEvent(new Event('input', { bubbles:true }));
+      input.dispatchEvent(new Event('change', { bubbles:true }));
+    }
+    try{ toast(typeof L==='function' ? L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS') : '📲 OTP auto-filled from SMS'); }catch(e){}
+    if(typeof onFilled === 'function') onFilled(code);
+    else if(code.length === 6){
+      setTimeout(function(){
+        try{
+          var ov = document.getElementById('otpLoginOverlay');
+          if(ov && ov.style.display && ov.style.display !== 'none' && typeof _verifyDeviceOTP==='function')
+            _verifyDeviceOTP();
+          else if(typeof _verifyOTP==='function')
+            _verifyOTP();
+        }catch(e){}
+      }, 200);
+    }
+    return true;
+  }
+
+  // Poll: Chrome "Allow" SMS autofill can fill the field without resolving WebOTP
+  try{
+    var polls = 0;
+    var pollTimer = setInterval(function(){
+      polls++;
+      var input = document.getElementById(id);
+      var v = input ? String(input.value||'').replace(/\D/g,'') : '';
+      if(v.length === 6){
+        clearInterval(pollTimer);
+        window._webOtpPoll = null;
+        try{ if(typeof _onOtpInput==='function') _onOtpInput(v); }catch(e){}
+        if(typeof onFilled === 'function') onFilled(v);
+        else if(typeof _verifyOTP==='function'){
+          setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
+        }
+      }
+      if(polls > 40){ clearInterval(pollTimer); window._webOtpPoll = null; }
+    }, 300);
+    window._webOtpPoll = pollTimer;
+  }catch(e){}
+
   if(typeof window.OTPCredential === 'undefined' || !navigator.credentials || !window.isSecureContext){
-    console.info('[WebOTP] API not available — keyboard autocomplete may still work');
+    console.info('[WebOTP] API not available — keyboard / Chrome SMS prompt may still work');
     return;
   }
   try{
@@ -703,33 +849,14 @@ function _startWebOtpListen(inputId, onFilled){
     navigator.credentials.get({
       otp: { transport: ['sms'] },
       signal: _webOtpAbort.signal
-    }).then(cred=>{
+    }).then(function(cred){
       if(!cred || !cred.code) return;
-      const code = String(cred.code).replace(/\D/g,'').slice(0,6);
-      if(code.length < 4) return;
-      const input = document.getElementById(inputId || 'otpInput');
-      if(input){
-        input.value = code;
-        input.dispatchEvent(new Event('input', { bubbles:true }));
-        input.dispatchEvent(new Event('change', { bubbles:true }));
-      }
-      try{ toast(L('📲 OTP SMS से auto-fill हो गया','📲 OTP auto-filled from SMS')); }catch(e){}
-      if(typeof onFilled === 'function') onFilled(code);
-      else if(code.length === 6){
-        setTimeout(()=>{
-          try{
-            if(document.getElementById('otpLoginOverlay')?.style.display && document.getElementById('otpLoginOverlay').style.display !== 'none' && typeof _verifyDeviceOTP==='function')
-              _verifyDeviceOTP();
-            else if(typeof _verifyOTP==='function')
-              _verifyOTP();
-          }catch(e){}
-        }, 250);
-      }
-    }).catch(err=>{
+      _applyCode(cred.code);
+    }).catch(function(err){
       if(err && err.name === 'AbortError') return;
       console.warn('[WebOTP]', err && err.message);
     });
-  }catch(e){ console.warn('[WebOTP] not available', e.message); }
+  }catch(e){ console.warn('[WebOTP] start failed', e); }
 }
 
 
