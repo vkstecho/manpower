@@ -131,13 +131,13 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
-<script type="module" src="js/config/firebase-init.js?v=300035"></script>
+<script type="module" src="js/config/firebase-init.js?v=400014"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=300035">
+<link rel="stylesheet" href="css/app.css?v=400014">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -982,12 +982,14 @@ html.mp-login-active, body.mp-login-active {
         <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP sent</div>
       </div>
       <div class="err-msg" id="loginErr2"></div>
-      <input class="inp-field" type="text" id="otpInput" name="one-time-code" placeholder="- - - - - -"
+      <form id="otpAutoForm" action="javascript:void(0)" onsubmit="event.preventDefault();_verifyOTP();return false;" autocomplete="on" style="width:100%">
+      <input class="inp-field" type="text" id="otpInput" name="one-time-code" placeholder="------"
         inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" enterkeyhint="done" autocapitalize="off" spellcheck="false"
-        oninput="this.value=this.value.replace(/[^0-9]/g,'');_onOtpInput(this.value)"
-        onkeydown="if(event.key==='Enter')_verifyOTP()"
-        style="font-size:28px;letter-spacing:10px;text-align:center;margin-bottom:12px">
-      <button class="big-btn" id="verifyOtpBtn" onclick="_verifyOTP()" disabled style="opacity:.5">Verify &#10003;</button>
+        oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6);_onOtpInput(this.value)"
+        onkeydown="if(event.key==='Enter'){_verifyOTP();return false;}"
+        style="font-size:28px;letter-spacing:10px;text-align:center;margin-bottom:12px;width:100%;box-sizing:border-box">
+      <button type="submit" class="big-btn" id="verifyOtpBtn" disabled style="opacity:.5">Verify &#10003;</button>
+      </form>
       <div style="text-align:center;margin-top:10px">
         <span id="otpResendTimer" style="font-size:13px;color:#cbd5e1;font-weight:600"></span>
         <span id="otpResendBtn" onclick="_sendOTP(true)" style="font-size:12px;color:var(--m1);font-weight:700;cursor:pointer;display:none">Resend OTP &#8635;</span>
@@ -2028,37 +2030,37 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/commercial/public-offer.js?v=300035"></script>
+<script src="js/commercial/public-offer.js?v=400014"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=300035"></script>
-<script src="js/auth/app-login.js?v=300035"></script>
-<script src="js/auth/app-login-device.js?v=300035"></script>
-<script src="js/auth/app-session-auth.js?v=300035"></script>
-<script src="js/session/app-session-nav.js?v=300035"></script>
-<script src="js/session/app-session-settings.js?v=300035"></script>
-<script src="js/session/app-session-home.js?v=300035"></script>
-<script src="js/session/app-session-payment.js?v=300035"></script>
-<script src="js/auth/app-login-session.js?v=300035"></script>
-<script src="js/core/app.js?v=300035"></script>
-<script src="js/team/app-team-print-learn.js?v=300035"></script>
-<script src="js/commercial/mp-commercial.js?v=300035"></script>
-<script src="js/core/a11y.js?v=300035"></script>
+<script src="js/core/app-core.js?v=400014"></script>
+<script src="js/auth/app-login.js?v=400014"></script>
+<script src="js/auth/app-login-device.js?v=400014"></script>
+<script src="js/auth/app-session-auth.js?v=400014"></script>
+<script src="js/session/app-session-nav.js?v=400014"></script>
+<script src="js/session/app-session-settings.js?v=400014"></script>
+<script src="js/session/app-session-home.js?v=400014"></script>
+<script src="js/session/app-session-payment.js?v=400014"></script>
+<script src="js/auth/app-login-session.js?v=400014"></script>
+<script src="js/core/app.js?v=400014"></script>
+<script src="js/team/app-team-print-learn.js?v=400014"></script>
+<script src="js/commercial/mp-commercial.js?v=400014"></script>
+<script src="js/core/a11y.js?v=400014"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
 (function(){
   var heavy = [
-    'js/i18n/i18n_ml.js?v=300035',
-    'js/schedule/app-schedule.js?v=300035',
-    'js/team/app-team.js?v=300035',
-    'js/team/app-team-import-core.js?v=300035',
-    'js/team/app-team-emp-forms.js?v=300035',
-    'js/team/app-team-excel-ops.js?v=300035',
-    'js/schedule/app-sched-builder.js?v=300035',
-    'js/team/app-team-import.js?v=300035',
-    'js/schedule/sched-offline-queue.js?v=300035',
-    'js/schedule/sched-clipboard.js?v=300035',
-    'js/schedule/sched-undo.js?v=300035',
-    'js/schedule/sched-cell-keys.js?v=300035'
+    'js/i18n/i18n_ml.js?v=400014',
+    'js/schedule/app-schedule.js?v=400014',
+    'js/team/app-team.js?v=400014',
+    'js/team/app-team-import-core.js?v=400014',
+    'js/team/app-team-emp-forms.js?v=400014',
+    'js/team/app-team-excel-ops.js?v=400014',
+    'js/schedule/app-sched-builder.js?v=400014',
+    'js/team/app-team-import.js?v=400014',
+    'js/schedule/sched-offline-queue.js?v=400014',
+    'js/schedule/sched-clipboard.js?v=400014',
+    'js/schedule/sched-undo.js?v=400014',
+    'js/schedule/sched-cell-keys.js?v=400014'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;

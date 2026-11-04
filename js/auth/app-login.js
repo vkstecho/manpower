@@ -289,6 +289,24 @@ async function _sendOTP(isResend){
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
+    // Listen for SMS BEFORE Firebase returns (SMS can arrive during/just after this call)
+    try{
+      showStep(2);
+      var _otpPre = document.getElementById('otpInput');
+      if(_otpPre){
+        if(String(_otpPre.value||'').replace(/\D/g,'').length !== 6) _otpPre.value = '';
+        _otpPre.setAttribute('autocomplete','one-time-code');
+        _otpPre.setAttribute('name','one-time-code');
+        _otpPre.focus();
+      }
+      var _sentEl0 = document.getElementById('otpSentTo');
+      if(_sentEl0) _sentEl0.textContent = (typeof L==='function'?L('OTP भेजा जा रहा है…','Sending OTP…'):'Sending OTP…');
+      _startWebOtpListen('otpInput', function(code){
+        if(code && String(code).replace(/\D/g,'').length===6){
+          setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 200);
+        }
+      });
+    }catch(ePre){ console.warn('[otp] pre-send WebOTP', ePre); }
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
@@ -296,16 +314,18 @@ async function _sendOTP(isResend){
     const otpEl = document.getElementById('otpInput');
     if(otpEl){
       try{
-        otpEl.value = '';
-        otpEl.setAttribute('autocomplete','one-time-code');
-        otpEl.setAttribute('name','one-time-code');
-        otpEl.setAttribute('inputmode','numeric');
-        otpEl.setAttribute('type','text');
-        otpEl.focus();
+        // Do NOT clear value if WebOTP already filled during send
+        if(String(otpEl.value||'').replace(/\D/g,'').length !== 6){
+          otpEl.setAttribute('autocomplete','one-time-code');
+          otpEl.setAttribute('name','one-time-code');
+          otpEl.setAttribute('inputmode','numeric');
+          otpEl.setAttribute('type','text');
+          otpEl.focus();
+        }
       }catch(e){}
     }
     _startResendTimer();
-    // ONE WebOTP listener only — a second start aborts the first and drops Chrome "Allow" result
+    // Re-assert listener (same id keeps existing credentials.get — does not abort)
     try{
       _startWebOtpListen('otpInput', function(code){
         if(code && String(code).replace(/\D/g,'').length===6){
@@ -313,6 +333,11 @@ async function _sendOTP(isResend){
         }
       });
     }catch(e){ console.warn('[otp] WebOTP start', e); }
+    // If already 6 digits (filled while sending), verify now
+    try{
+      var _already = String((document.getElementById('otpInput')||{}).value||'').replace(/\D/g,'');
+      if(_already.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 300);
+    }catch(e){}
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
     try{ _restoreBtn(); }catch(e){}
   }catch(err){
