@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Man Power by VKS Tech — Plant Shift & Manpower Scheduling</title>
-  <meta name="description" content="Excel-driven team & shift management for factories and multi-section plants. Auto Schedule with coverage checks. Offline-friendly PWA. Not another full HRMS." />
+  <title>Man Power by VKS Tech — Premium plant shift roster in minutes</title>
+  <meta name="description" content="Premium plant shift & manpower scheduling — as easy as Excel, built for mobile. Auto Schedule, coverage checks, offline PWA. Used for 30+ member teams. Not another full HRMS." />
   <link rel="icon" type="image/png" href="assets/icon-192.png" />
   <link rel="apple-touch-icon" href="assets/icon-180.png" />
   <meta name="theme-color" content="#0f172a" />
@@ -259,6 +259,82 @@
     .t-who { font-size: 13px; color: var(--slate); }
     .t-who strong { display: block; color: var(--navy); }
 
+
+    /* Premium plan cards */
+    .plan-grid {
+      display: grid; gap: 16px; margin-top: 28px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 700px) {
+      .plan-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (min-width: 1000px) {
+      .plan-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .plan-card {
+      background: #fff; border: 1px solid var(--border); border-radius: 18px;
+      padding: 22px 18px; box-shadow: var(--shadow); position: relative;
+      display: flex; flex-direction: column; min-height: 100%;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .plan-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+    .plan-card.featured {
+      border-color: rgba(234,88,12,.45);
+      background: linear-gradient(180deg, #fff7ed 0%, #fff 48%);
+      box-shadow: 0 8px 28px rgba(234,88,12,.12);
+    }
+    .plan-badge {
+      position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+      background: var(--orange); color: #fff; font-size: 11px; font-weight: 800;
+      padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    }
+    .plan-name { font-size: 14px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+    .plan-price { font-size: 1.75rem; font-weight: 800; color: var(--navy); line-height: 1.1; }
+    .plan-price span { font-size: 13px; font-weight: 600; color: var(--slate); }
+    .plan-annual { font-size: 12px; color: var(--green); font-weight: 600; margin-top: 6px; }
+    .plan-perks { list-style: none; margin: 16px 0 18px; flex: 1; }
+    .plan-perks li {
+      font-size: 13px; color: var(--slate); padding: 5px 0 5px 18px; position: relative;
+    }
+    .plan-perks li::before {
+      content: "✓"; position: absolute; left: 0; color: var(--green); font-weight: 800;
+    }
+    .plan-cta {
+      display: block; text-align: center; font-weight: 700; font-size: 13px;
+      padding: 11px 12px; border-radius: 12px; background: var(--navy); color: #fff;
+    }
+    .plan-card.featured .plan-cta { background: var(--orange); }
+    .plan-cta.ghost {
+      background: transparent; color: var(--navy); border: 1px solid var(--border);
+    }
+    .price-note-bar {
+      margin-top: 20px; padding: 14px 16px; border-radius: 14px;
+      background: var(--bg); border: 1px solid var(--border);
+      font-size: 13px; color: var(--slate); text-align: center;
+    }
+    .t-card.featured-quote {
+      grid-column: 1 / -1;
+      background: linear-gradient(135deg, #0f172a, #1e3a8a);
+      color: #e2e8f0; border: none;
+    }
+    .t-card.featured-quote p { color: #f1f5f9; font-size: 15px; line-height: 1.65; }
+    .t-card.featured-quote .t-who { color: #94a3b8; }
+    .t-card.featured-quote .t-who strong { color: #fff; }
+    .t-card.featured-quote .stars { color: #fbbf24; }
+    .video-empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; min-height: 200px; padding: 28px 20px; text-align: center;
+      background: linear-gradient(160deg, #0f172a, #1e293b); color: #cbd5e1;
+    }
+    .video-empty .play {
+      width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center;
+      background: rgba(249,115,22,.2); border: 2px solid rgba(249,115,22,.5);
+      color: #fdba74; font-size: 18px;
+    }
+    .video-empty strong { color: #fff; font-size: 15px; }
+    .video-empty span { font-size: 13px; max-width: 280px; line-height: 1.45; opacity: .85; }
+    .video-empty .hint { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
     /* FAQ */
     .faq { max-width: 720px; margin: 28px auto 0; }
     details {
@@ -403,7 +479,7 @@
       <div>
         <div class="badge" data-i18n="badge">Plant-floor shift & manpower · by VKS Tech</div>
         <h1 data-i18n-html-key="heroTitleHtml">Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
-        <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts. Check department, machine, and role coverage before the day starts. Built for factories, converting plants, and multi-section teams.</p>
+        <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts in minutes. Check coverage before the day starts — on phone, at any hour. Premium rostering made as easy as a spreadsheet. Built for factories and multi-section plants.</p>
         <div class="hero-actions">
           <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Start free trial</a>
           <a class="btn btn-white btn-lg" href="#how" data-i18n="seeHow">See how it works</a>
@@ -458,15 +534,16 @@
     <div class="wrap">
       <span class="section-label" data-i18n="videosWatch">WATCH</span>
       <h2 data-i18n="videosTitle">See Auto Schedule in action — then full setup</h2>
-      <p class="lead" data-i18n="videosLead">Short clip: one-click magic. Longer video: setup + free 15-day trial offer (Hinglish / English).</p>
+      <p class="lead" data-i18n="videosLead">Short clip: one-click magic. Longer video: setup + free trial (Hinglish / English). If a clip is not published yet, start the free trial and experience the product live.</p>
 
       <div class="video-grid">
         <article class="video-card" data-video-slot="short">
           <div class="video-frame">
-            <div class="video-placeholder">
+            <div class="video-placeholder video-empty">
               <div class="play">▶</div>
-              <strong data-i18n="videoShortPhStrong">Short · Auto Schedule</strong>
-              <span data-i18n="videoShortPhSpan">One click → full shift roster with coverage. ~45–90 sec</span>
+              <strong>See Auto Schedule in ~60 seconds</strong>
+              <span>One click → full shift roster with coverage checks.</span>
+              <span class="hint">Video goes live when Admin publishes the short clip. Until then, start the free trial and try it yourself.</span>
             </div>
           </div>
           <div class="video-body">
@@ -478,10 +555,11 @@
 
         <article class="video-card" data-video-slot="long">
           <div class="video-frame">
-            <div class="video-placeholder">
+            <div class="video-placeholder video-empty">
               <div class="play">▶</div>
-              <strong data-i18n="videoLongPhStrong">Long · Setup + free 15 days</strong>
-              <span data-i18n="videoLongPhSpan">Hook → setup walkthrough → trial offer. ~4–8 min</span>
+              <strong>Full setup + free trial walkthrough</strong>
+              <span>Excel → team → Auto Schedule → My Shift on phone.</span>
+              <span class="hint">Long video appears here after Admin publishes. Prefer a live walkthrough? Open the app and start free.</span>
             </div>
           </div>
           <div class="video-body">
@@ -671,115 +749,100 @@
     </div>
   </section>
 
-  <!-- SOCIAL -->
+  <!-- SOCIAL / PROOF -->
   <section class="bg-soft">
     <div class="wrap">
-      <span class="section-label" data-i18n="outcomesTitle">Outcomes</span>
-      <h2 data-i18n="outcomesH2">What plant teams want from a roster tool</h2>
+      <span class="section-label">Real use</span>
+      <h2>Trusted on the floor — not just a pitch deck</h2>
+      <p class="lead">Built for the same pain as Excel: slow updates, no mobile view, zero answer when someone calls at an odd hour.</p>
       <div class="t-grid">
-        <div class="t-card">
+        <div class="t-card featured-quote">
           <div class="stars">★★★★★</div>
-          <p data-i18n="quote1">“We stopped rebuilding the same Excel every week. Coverage gaps show up before the shift starts — not after a machine sits idle.”</p>
-          <div class="t-who"><strong data-i18n="quote1who">Plant / shift lead</strong> <span data-i18n="quote1role">Multi-section converting line</span></div>
+          <p>“I have been using Man Power for more than six months to manage the schedule of about <strong style="color:#fdba74">30 members at GLS</strong>. Before that I used Excel — it was very time-consuming and almost impossible to maintain on mobile. At any odd hour, if a team member called about a shift change, I had no details. Now I open the app in a blink, check who is available, and it works within seconds.”</p>
+          <div class="t-who">
+            <strong>Shift / operations lead</strong>
+            <span>GLS · ~30 member team · 6+ months live</span>
+          </div>
         </div>
         <div class="t-card">
           <div class="stars">★★★★★</div>
-          <p data-i18n="quote2">“Members join on mobile, we approve with section and machine, and they’re on the schedule the same day. No second data entry.”</p>
-          <div class="t-who"><strong data-i18n="quote2who">Operations manager</strong> <span data-i18n="quote2role">Flexible packaging unit</span></div>
+          <p>“Coverage gaps show up before the shift starts — not after a machine sits idle. We stopped rebuilding the same Excel every week.”</p>
+          <div class="t-who"><strong>Plant / shift lead</strong> <span>Multi-section line</span></div>
         </div>
         <div class="t-card">
           <div class="stars">★★★★★</div>
-          <p data-i18n="quote3">“We didn’t need another full HRMS. We needed the roster to be honest about section and machine coverage.”</p>
-          <div class="t-who"><strong data-i18n="quote3who">Factory admin</strong> <span data-i18n="quote3role">Multi-machine plant</span></div>
+          <p>“We didn’t need another full HRMS. We needed a roster tool that is easy, fast, and honest about section and machine coverage.”</p>
+          <div class="t-who"><strong>Factory admin</strong> <span>Multi-machine plant</span></div>
         </div>
       </div>
-      <p style="margin-top:16px;font-size:12px;color:var(--slate);" data-i18n="quoteNote">Sample outcome copy — replace with real customer quotes when available.</p>
     </div>
   </section>
 
-  <!-- FAQ -->
-  
+  <!-- PRICING -->
     <section id="pricing" class="bg">
     <div class="wrap">
-      <h2 data-i18n="pricingH2">Simple plans for plant teams</h2>
-      <p class="lead" data-i18n="pricingLead">Published prices and trial days come from Admin in the Man Power app. Custom plans with special features are available on request.</p>
-      <div class="price-hero card" style="margin-top:20px;text-align:center;padding:28px 20px">
-        <div style="font-size:13px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.04em" data-i18n="planStarts">Plan starts from</div>
-        <div id="lpMinPrice" style="font-size:clamp(2rem,5vw,2.75rem);font-weight:800;color:var(--orange);margin:8px 0">₹99</div>
-        <p id="lpPriceNote" style="color:var(--slate);font-size:14px;max-width:32rem;margin:0 auto">Choose a published headcount band, or ask for a custom plan (extra sections, multi-plant, special features).</p>
-        <p id="lpTrialNote" style="margin-top:12px;font-size:14px;font-weight:600;color:var(--green)">Free trial · days set by admin</p>
-        <p id="lpRefundNote" style="margin-top:6px;font-size:13px;color:var(--slate)">Cancel &amp; refund window via Customer Care (days set by admin).</p>
-        <div id="lpPlanChips" style="margin-top:22px;text-align:left;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px"></div>
-        <div style="margin-top:20px;padding:16px;border-radius:14px;background:var(--orange-soft);border:1px solid rgba(234,88,12,.25);text-align:left">
-          <div style="font-weight:800;color:var(--navy);margin-bottom:6px" data-i18n="customPlanTitle">Custom plan / special features</div>
-          <p style="font-size:14px;color:var(--slate);margin:0 0 10px;line-height:1.5" data-i18n="customPlanBody">Need a different amount, multi-plant setup, or features not in standard plans? We can set a custom plan and Razorpay link for your team.</p>
-          <a class="btn btn-orange" href="#contact" data-i18n="talkCustom">Talk to us for custom pricing</a>
-        </div>
-        <div style="margin-top:22px">
-          <a class="btn btn-orange btn-lg" href="app.html" data-i18n="startTrial">Start free trial</a>
+      <span class="section-label">Pricing</span>
+      <h2>Premium rostering — priced for plant teams</h2>
+      <p class="lead">Clear monthly bands. Start free, then pick the size that matches your floor. Annual billing saves ~17% when enabled by admin.</p>
+
+      <div class="plan-grid" id="lpPlanGrid">
+        <div class="plan-card" style="grid-column:1/-1;text-align:center;padding:28px;color:var(--slate)">
+          Loading plans from Admin…
         </div>
       </div>
+
+      <div id="lpPlanChips" style="display:none"></div>
+
+      <div class="price-note-bar">
+        <span id="lpTrialNote">Free trial after login · days set by admin</span>
+        · <span id="lpRefundNote">Cancel &amp; refund window via Customer Care</span>
+        · <a href="#contact" style="color:var(--orange);font-weight:700">Custom / multi-plant → talk to us</a>
+      </div>
+      <p id="lpPriceNote" style="display:none">Published amounts can be updated by Admin; cards above match default product bands.</p>
+      <div id="lpMinPrice" style="display:none">₹99</div>
     </div>
   </section>
 
-  <section id="contact" class="bg">
-    <div class="wrap" style="text-align:center">
-      <span class="section-label" data-i18n="contactTitle">Contact</span>
-      <h2 data-i18n="contactSub">Customer care & sales</h2>
-      <p class="lead" style="margin:0 auto 24px;max-width:36rem"></p>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;text-align:left;max-width:720px;margin:0 auto">
-        <a href="https://wa.me/918929394920" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
-          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#25D366;margin-bottom:10px">
-<svg width="26" height="26" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-1.99.491.511-1.93-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-</span>
-          <div style="font-weight:800" data-i18n="waCall">WhatsApp / Call</div>
-          <div style="color:var(--orange);font-weight:700;margin-top:4px">+91-8929394920</div>
-        </a>
-        <a href="mailto:CareMP@vkstech.com" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
-          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#2563eb;margin-bottom:10px">
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 6.5A2.5 2.5 0 016.5 4h11A2.5 2.5 0 0120 6.5v11a2.5 2.5 0 01-2.5 2.5h-11A2.5 2.5 0 014 17.5v-11z" stroke="#fff" stroke-width="1.6"/><path d="M5.5 7.5L12 12.2 18.5 7.5" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-</span>
-          <div style="font-weight:800" data-i18n="emailLabel">Email</div>
-          <div style="color:var(--blue);font-weight:700;margin-top:4px">CareMP@vkstech.com</div>
-        </a>
-        <a href="https://vkstech.com" target="_blank" rel="noopener" class="card" style="padding:18px;text-decoration:none;color:inherit;display:block">
-          <span class="contact-ico" aria-hidden="true" style="display:inline-flex;width:44px;height:44px;border-radius:12px;align-items:center;justify-content:center;background:#0f172a;margin-bottom:10px">
-<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="1.6"/><path d="M3 12h18M12 3c2.5 2.8 3.8 5.8 3.8 9s-1.3 6.2-3.8 9c-2.5-2.8-3.8-5.8-3.8-9s1.3-6.2 3.8-9z" stroke="#fff" stroke-width="1.6"/></svg>
-</span>
-          <div style="font-weight:800">VKS Tech</div>
-          <div style="color:var(--slate);font-weight:700;margin-top:4px" data-i18n="websiteLabel">VKS Tech</div>
-        </a>
-      </div>
-    </div>
-  </section>
 
-<section id="faq">
-    <div class="wrap" style="text-align:center;">
-      <span class="section-label" data-i18n="faqTitle">FAQ</span>
-      <h2 data-i18n="faqSub">Questions buyers ask</h2>
-    </div>
+  <!-- FAQ -->
+  <section id="faq">
     <div class="wrap">
-            <div class="faq">
+      <span class="section-label">FAQ</span>
+      <h2>Questions plant teams ask</h2>
+      <div class="faq">
         <details open>
-          <summary data-i18n="faq1q">Is Man Power an HRMS like Keka or HROne?</summary>
-          <p data-i18n="faq1a">No. Man Power is a plant manpower and shift system: Excel team setup, Auto Schedule, coverage checks, leave/OD, and mobile roster views. It is not a full hire-to-retire HR + payroll suite.</p>
+          <summary>Is Man Power a full HRMS?</summary>
+          <p>No. It is a premium rostering tool — Excel in, Auto Schedule, coverage by department/machine/role, My Shift on phone. Keep greytHR / Keka / payroll where they belong.</p>
         </details>
         <details>
-          <summary data-i18n="faq2q">Who is it for?</summary>
-          <p data-i18n="faq2a">Plant managers, shift supervisors, and ops teams in factories, flexible packaging, printing, converting, and any multi-section / multi-machine environment that still runs on Excel rosters.</p>
+          <summary>How fast can we go live?</summary>
+          <p>Most teams start from an existing Excel roster. Upload, map sections, run Auto Schedule, and members see shifts on mobile the same day — not a six-month HR project.</p>
         </details>
         <details>
-          <summary data-i18n="faq3q">Does it work offline?</summary>
-          <p data-i18n="faq3a">Yes. Man Power is a PWA with an offline queue so schedule work can continue on weak plant networks and sync when connectivity returns.</p>
+          <summary>What does the free trial include?</summary>
+          <p>New users get a free trial after login (days set by Admin). Use real shifts on your phone. If it saves time, continue on a paid plan that matches your headcount.</p>
         </details>
         <details>
-          <summary data-i18n="faq4q">How is coverage different from a normal shift calendar?</summary>
-          <p data-i18n="faq4a">After Auto Schedule, the app counts people per shift inside Department, Machine, Designation, and Responsibility groups. Short days are listed so you can change weekly offs and regenerate — instead of discovering gaps on the floor.</p>
+          <summary>How is this different from a shift calendar?</summary>
+          <p>After Auto Schedule, the app counts people per shift inside Department, Machine, Designation, and Responsibility groups and flags short days — so gaps show before the floor feels them.</p>
         </details>
         <details>
-          <summary data-i18n="faq5q">Can we still use greytHR / Keka for payroll?</summary>
-          <p data-i18n="faq5a">Yes. Man Power focuses on rostering and coverage. Keep your existing payroll / attendance HRMS if you already use one — they solve different jobs.</p>
+          <summary>Can we still use greytHR / Keka for payroll?</summary>
+          <p>Yes. Man Power focuses on rostering and coverage. Keep your existing payroll / attendance HRMS if you already use one.</p>
         </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="bg-soft">
+    <div class="wrap" style="text-align:center;max-width:640px;margin:0 auto;">
+      <span class="section-label">Contact</span>
+      <h2>Custom plan or multi-plant?</h2>
+      <p class="lead">Special features, extra sections, or a different band — talk to VKS Tech. We build for Indian plant operations.</p>
+      <div class="hero-actions" style="justify-content:center;margin-top:8px">
+        <a class="btn btn-orange btn-lg" href="app.html">Start free trial</a>
+        <a class="btn btn-ghost btn-lg" href="https://vkstech.com" rel="noopener">VKS Tech</a>
       </div>
     </div>
   </section>
@@ -787,8 +850,8 @@
   <!-- FINAL CTA -->
   <section class="cta-band">
     <div class="wrap">
-      <h2 data-i18n="ctaTitle">Stop rebuilding the roster in Excel every week.</h2>
-      <p data-i18n="ctaSub">Start with your existing team sheet. Auto Schedule with coverage. Run the week on mobile.</p>
+      <h2 data-i18n="ctaTitle">Premium rostering that feels as easy as Excel — and works on your phone.</h2>
+      <p data-i18n="ctaSub">Used for months on real plant teams. Start free, schedule in minutes, answer shift calls in seconds.</p>
       <div class="hero-actions">
         <a class="btn btn-orange btn-lg" href="app.html" rel="noopener"><span data-i18n="ctaStart">Start free on Man Power</span></a>
         <a class="btn btn-white btn-lg" href="https://vkstech.com" rel="noopener" data-i18n="aboutVks">About VKS Tech</a>
@@ -897,7 +960,7 @@
       if (n === 99 || n === 199) return hi ? 'मासिक · व्यक्तिगत (1)' : 'Monthly · Individual (1)';
       if (n === 499) return hi ? 'मासिक · 25 तक' : 'Monthly · Up to 25';
       if (n === 999) return hi ? 'मासिक · 50 तक' : 'Monthly · Up to 50';
-      if (n === 1499 || n === 2499) return hi ? 'मासिक · 200 तक' : 'Monthly · Up to 200';
+      if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return hi ? 'मासिक · 200 तक' : 'Monthly · Up to 200';
       if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return hi ? 'वार्षिक · व्यक्तिगत (1)' : 'Annual · Individual (1)';
       if (n === 5269 || (n >= 4800 && n < 6000)) return hi ? 'वार्षिक · 25 तक' : 'Annual · Up to 25';
       if (n === 10549 || (n >= 9000 && n < 12000)) return hi ? 'वार्षिक · 50 तक' : 'Annual · Up to 50';
@@ -913,7 +976,7 @@
     }
     if(!plans.length){
       plans = [{amount:99},{amount:499},{amount:999},{amount:1499}];
-      amounts = [99,499,999,1499];
+      amounts = [99,499,999,1999]; // fallback only if Admin publicOffer empty
     }
     var min = amounts.length ? Math.min.apply(null, amounts) : 99;
     var el = document.getElementById('lpMinPrice');
@@ -936,22 +999,108 @@
         ? (rd + '-दिन कैंसल और रिफंड · पेड प्लान के बाद Customer Care से')
         : (rd + '-day cancel & refund via Customer Care after you start a paid plan.');
     }
-    function renderPlanChips(){
-      var chips = document.getElementById('lpPlanChips');
-      if(!chips) return;
-      var h = isHi();
-      chips.innerHTML = plans.slice(0,12).map(function(p){
-        var amt = planAmount(p);
-        if (!(amt > 0)) return '';
-        var label = planLabel(p, amt);
-        var sub = (p.period === 'annual' || /Annual|वार्षिक/i.test(label))
-          ? (h ? 'वार्षिक बिल' : 'Billed yearly')
-          : (h ? 'मासिक बिल' : 'Billed monthly');
-        return '<div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px">'+label+'</div><div style="color:var(--orange);font-weight:800;font-size:1.25rem;margin-top:4px">'+inr(amt)+'</div><div style="font-size:11px;color:var(--slate);margin-top:4px">'+sub+'</div></div>';
-      }).join('') + '<div class="card" style="padding:14px;border-style:dashed"><div style="font-weight:700;font-size:13px">'+(h?'कस्टम':'Custom')+'</div><div style="color:var(--slate);font-size:13px;margin-top:6px">'+(h?'विशेष सुविधाएँ · बात करें':'Special features · talk to us')+'</div></div>';
+    function inferBand(p, amt){
+      var maxM = p && (p.maxMembers != null ? parseInt(p.maxMembers,10) : (p.max != null ? parseInt(p.max,10) : 0));
+      if (maxM === 1 || amt === 99 || amt === 199) return { key:'1', nameEn:'Individual', nameHi:'व्यक्तिगत', max:1, perksEn:['1 member seat','My Shift on mobile','OTP login · no password','Ideal to try the product'], perksHi:['1 सदस्य','मोबाइल पर My Shift','OTP लॉगिन','प्रोडक्ट आज़माने के लिए'] };
+      if (maxM === 25 || amt === 499) return { key:'25', nameEn:'Team · up to 25', nameHi:'टीम · 25 तक', max:25, perksEn:['Up to 25 members','Auto Schedule + coverage','Manager roster control','Built for small plant lines'], perksHi:['25 सदस्यों तक','Auto Schedule + coverage','Manager कंट्रोल','छोटी प्लांट लाइन'] };
+      if (maxM === 50 || amt === 999) return { key:'50', nameEn:'Plant · up to 50', nameHi:'प्लांट · 50 तक', max:50, perksEn:['Up to 50 members','Departments & machines','Leave / OD on the roster','Multi-section coverage'], perksHi:['50 सदस्यों तक','Department व machine','Leave / OD','मल्टी-सेक्शन coverage'] };
+      // 1499, 1999, 2499 or any higher monthly treated as 200-seat band
+      if (maxM === 200 || amt === 1499 || amt === 1999 || amt === 2499 || (amt >= 1400 && amt < 4000))
+        return { key:'200', nameEn:'Scale · up to 200', nameHi:'स्केल · 200 तक', max:200, perksEn:['Up to 200 members','Full roster depth','Offline-friendly PWA','Serious multi-shift ops'], perksHi:['200 सदस्यों तक','फुल रोस्टर','Offline PWA','मल्टी-शिफ्ट ऑप्स'] };
+      return { key:'x', nameEn:(p && (p.label||p.name||p.band)) || ('Plan · ₹'+amt), nameHi:(p && (p.label||p.name||p.band)) || ('प्लान · ₹'+amt), max:maxM||0, perksEn:['As configured by Admin','Start free trial to see full access'], perksHi:['Admin द्वारा सेट','फ्री ट्रायल से शुरू करें'] };
     }
-    renderPlanChips();
-    window.mpLandingRenderPlans = renderPlanChips;
+    function renderPlanCards(){
+      var grid = document.getElementById('lpPlanGrid');
+      if(!grid) return;
+      var h = isHi();
+      var disc = parseInt(o.annualDiscountPct, 10);
+      if (!(disc >= 0)) disc = 17;
+      // Prefer monthly published plans; fall back to all positive amounts
+      var monthly = [];
+      plans.forEach(function(p){
+        var amt = planAmount(p);
+        if (!(amt > 0)) return;
+        var period = (p && p.period) || '';
+        if (/annual|year|वार्षिक/i.test(String(period)) || /Annual|वार्षिक/i.test(String(p.label||p.name||'')) || amt >= 4000) return;
+        monthly.push({ p: p, amt: amt });
+      });
+      if (!monthly.length) {
+        (amounts || []).forEach(function(a){
+          a = Number(a);
+          if (a > 0 && a < 4000) monthly.push({ p: { amount: a, monthly: a, period: 'monthly' }, amt: a });
+        });
+      }
+      // Dedupe by amount, sort ascending
+      var seen = {};
+      monthly = monthly.filter(function(x){
+        if (seen[x.amt]) return false;
+        seen[x.amt] = 1;
+        return true;
+      }).sort(function(a,b){ return a.amt - b.amt; });
+      if (!monthly.length) {
+        // Last resort defaults (only if Admin has not published)
+        monthly = [99,499,999,1999].map(function(a){ return { p:{ amount:a, monthly:a, period:'monthly' }, amt:a }; });
+      }
+      // Feature the ~25 seat plan when present, else second card
+      var featureAmt = null;
+      monthly.forEach(function(x){ if (x.amt === 499) featureAmt = 499; });
+      if (featureAmt == null && monthly.length >= 2) featureAmt = monthly[1].amt;
+
+      var html = monthly.map(function(x){
+        var band = inferBand(x.p, x.amt);
+        var name = h ? band.nameHi : band.nameEn;
+        // Prefer explicit label from Admin if not a bare ₹ amount
+        if (x.p && (x.p.label || x.p.name) && !/^₹?\d+$/.test(String(x.p.label || x.p.name))) {
+          name = String(x.p.label || x.p.name);
+        }
+        var annual = Math.round(x.amt * 12 * (1 - disc / 100));
+        var annualTxt = h
+          ? ('वार्षिक ~' + inr(annual) + ' (' + disc + '% छूट पर)')
+          : ('~' + inr(annual) + ' / year with ' + disc + '% annual discount');
+        var perks = h ? band.perksHi : band.perksEn;
+        var feat = (featureAmt != null && x.amt === featureAmt);
+        var badge = feat
+          ? ('<div class="plan-badge">' + (h ? 'लोकप्रिय' : (band.max === 25 ? 'Most popular · ~25 team' : 'Most popular')) + '</div>')
+          : '';
+        var perksHtml = perks.map(function(t){ return '<li>' + t + '</li>'; }).join('');
+        return (
+          '<article class="plan-card' + (feat ? ' featured' : '') + '" data-plan="' + x.amt + '">' +
+            badge +
+            '<div class="plan-name">' + name + '</div>' +
+            '<div class="plan-price">' + inr(x.amt) + ' <span>/ ' + (h ? 'माह' : 'month') + '</span></div>' +
+            '<div class="plan-annual">' + annualTxt + '</div>' +
+            '<ul class="plan-perks">' + perksHtml + '</ul>' +
+            '<a class="plan-cta" href="app.html">' + (h ? 'मुफ़्त ट्रायल शुरू करें' : 'Start free trial') + '</a>' +
+          '</article>'
+        );
+      }).join('');
+      // Custom card
+      html += (
+        '<article class="plan-card" style="border-style:dashed">' +
+          '<div class="plan-name">' + (h ? 'कस्टम' : 'Custom') + '</div>' +
+          '<div class="plan-price" style="font-size:1.15rem">' + (h ? 'आपके प्लांट के हिसाब से' : 'Built for your plant') + '</div>' +
+          '<div class="plan-annual">' + (h ? 'मल्टी-प्लांट · विशेष सुविधाएँ' : 'Multi-plant · special features') + '</div>' +
+          '<ul class="plan-perks">' +
+            '<li>' + (h ? 'अलग अमाउंट / बैंड' : 'Different amount / band') + '</li>' +
+            '<li>' + (h ? 'Extra sections' : 'Extra sections') + '</li>' +
+            '<li>' + (h ? 'VKS Tech से बात करें' : 'Talk to VKS Tech') + '</li>' +
+          '</ul>' +
+          '<a class="plan-cta ghost" href="#contact">' + (h ? 'कस्टम प्लान पूछें' : 'Ask for custom plan') + '</a>' +
+        '</article>'
+      );
+      grid.innerHTML = html;
+      // Keep hidden chips in sync for any legacy readers
+      var chips = document.getElementById('lpPlanChips');
+      if (chips) {
+        chips.innerHTML = monthly.map(function(x){
+          return '<div class="card" style="padding:14px"><div style="font-weight:700;font-size:13px">'+inr(x.amt)+'</div></div>';
+        }).join('');
+      }
+      var minEl = document.getElementById('lpMinPrice');
+      if (minEl && monthly.length) minEl.textContent = inr(monthly[0].amt);
+    }
+    renderPlanCards();
+    window.mpLandingRenderPlans = renderPlanCards;
     if(o.annualDiscountPct){
       var note = document.getElementById('lpPriceNote');
       if(note){

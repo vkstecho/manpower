@@ -760,7 +760,7 @@ async function publishPublicOfferSnapshot() {
       if (n === 99 || n === 199) return { band: 'Individual (1)', period: 'monthly', maxMembers: 1 };
       if (n === 499) return { band: 'Up to 25', period: 'monthly', maxMembers: 25 };
       if (n === 999) return { band: 'Up to 50', period: 'monthly', maxMembers: 50 };
-      if (n === 1499 || n === 2499) return { band: 'Up to 200', period: 'monthly', maxMembers: 200 };
+      if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return { band: 'Up to 200', period: 'monthly', maxMembers: 200 };
       // Annual ≈ monthly × 12 × (1 - discount). Match common published annuals
       if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return { band: 'Individual (1)', period: 'annual', maxMembers: 1 };
       if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to 25', period: 'annual', maxMembers: 25 };
