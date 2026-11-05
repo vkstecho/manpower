@@ -419,7 +419,7 @@ async function openPaymentSettingsAdmin(){
   window._payMaxMembersByAmountEdit = Object.assign({}, (cfg && cfg.maxMembersByAmount) || {});
   // Seed defaults for known monthly bands if not yet set
   (function seedMm(){
-    var defaults = { '99':1, '199':1, '499':30, '999':60, '1499':200, '1999':200, '2499':200 };
+    var defaults = { '99':1, '199':1, '499':30, '799':60, '999':60, '1499':60, '1999':200, '2499':200, '2999':200 };
     opts.forEach(function(a){
       var k = String(a);
       if(window._payMaxMembersByAmountEdit[k] == null && defaults[k] != null)
@@ -493,7 +493,7 @@ async function openPaymentSettingsAdmin(){
       <div style="font-size:10px;color:var(--muted2);margin-top:4px">Example: ₹99 × 12 × (1−${(cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17}%) = ₹${Math.round(99*12*(1-((cfg&&cfg.defaultDiscountPct!=null)?parseInt(cfg.defaultDiscountPct,10)||17:17)/100))}/year. User sees this % on plan screen.</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-      <button type="button" class="cancel-btn" style="width:auto;padding:8px 10px;margin:0;font-size:11px" onclick="paySeedPlanAmounts()">Seed plan amounts (99/499/999/1499 + annual)</button>
+      <button type="button" class="cancel-btn" style="width:auto;padding:8px 10px;margin:0;font-size:11px" onclick="paySeedPlanAmounts()">Seed annual from current monthly amounts</button>
     </div>
   </div>
 
@@ -583,8 +583,10 @@ function payAmountListRender(){
     } catch (e0) {}
     if(n===99 || n===199) return 'Monthly · Individual (1)';
     if(n===499) return 'Monthly · up to 30';
+    if(n===799) return 'Monthly · up to 60';
     if(n===999) return 'Monthly · up to 60';
-    if(n===1499 || n===2499 || n===1999) return 'Monthly · up to 200';
+    if(n===1499) return 'Monthly · up to 60';
+    if(n===1999 || n===2499 || n===2999) return 'Monthly · up to 200';
     if(n===1045 || (n>900 && n<1200 && n!==999)) return 'Annual · Individual (1)';
     if(n===5269 || (n>=4800 && n<6000)) return 'Annual · up to 30';
     if(n===10549 || (n>=9000 && n<12000)) return 'Annual · up to 60';
@@ -646,19 +648,22 @@ function payAmountListRender(){
 
 
 function paySeedPlanAmounts(){
-  const disc = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
-  const monthly = [99,499,999,1499];
-  const annual = monthly.map(m=>Math.round(m*12*(1-disc/100)));
+  const disc = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'12',10)||12));
+  // Use CURRENT monthly amounts already in the list (not hardcoded old bands).
+  // Prefer amounts that look monthly (< 4000). If list is empty, fall back to recommended bands.
+  let optsNow = Array.isArray(window._payAmountOptionsEdit) ? window._payAmountOptionsEdit.slice() : [];
+  let monthly = optsNow.map(a => parseInt(a,10)).filter(n => n > 0 && n < 4000);
+  if (!monthly.length) monthly = [99, 799, 1499, 2999]; // recommended current bands
+  monthly = [...new Set(monthly)].sort((a,b)=>a-b);
+  const annual = monthly.map(m => Math.round(m * 12 * (1 - disc / 100)));
   const amounts = monthly.concat(annual);
   try{
-    // UI list uses _payAmountOptionsEdit + _payLinksByAmountEdit (NOT _payAmountRows)
-    const opts = Array.isArray(window._payAmountOptionsEdit) ? window._payAmountOptionsEdit.slice() : [];
+    const opts = monthly.slice(); // start from current monthly
     amounts.forEach(a=>{
       const n = parseInt(a,10);
       if(!n) return;
       if(!opts.includes(n) && !opts.includes(String(n))) opts.push(n);
     });
-    // sort monthly first then annual
     opts.sort((a,b)=>parseInt(a,10)-parseInt(b,10));
     window._payAmountOptionsEdit = opts;
     if(!window._payLinksByAmountEdit || typeof window._payLinksByAmountEdit !== 'object')
@@ -667,9 +672,18 @@ function paySeedPlanAmounts(){
       const k = String(a);
       if(window._payLinksByAmountEdit[k] == null) window._payLinksByAmountEdit[k] = '';
     });
+    // Also seed sensible max-members for known bands if missing
+    if(!window._payMaxMembersByAmountEdit || typeof window._payMaxMembersByAmountEdit !== 'object')
+      window._payMaxMembersByAmountEdit = {};
+    const mmDefaults = {'99':1,'199':1,'499':30,'799':60,'999':60,'1499':60,'1999':200,'2499':200,'2999':200};
+    monthly.forEach(m=>{
+      const k = String(m);
+      if(window._payMaxMembersByAmountEdit[k] == null && mmDefaults[k] != null)
+        window._payMaxMembersByAmountEdit[k] = mmDefaults[k];
+    });
     if(typeof payAmountListRender==='function') payAmountListRender();
     else if(typeof renderPayAmountList==='function') renderPayAmountList();
-    toast('✅ Seeded monthly + annual (discount '+disc+'%: '+annual.join(', ')+') — paste Razorpay links');
+    toast('✅ Seeded annual from CURRENT monthly (discount '+disc+'%: '+annual.join(', ')+') — paste Razorpay links');
   }catch(e){ toast('⚠️ '+(e.message||e)); }
 }
 function payAmountListAdd(){

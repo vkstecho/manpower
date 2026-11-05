@@ -421,6 +421,47 @@
     }
     .video-body h3 { font-size: 1.05rem; margin-bottom: 6px; }
     .video-body p { font-size: 14px; color: var(--slate); }
+
+    /* Founder / authority */
+    .founder-block {
+      display: grid; gap: 20px; margin-top: 36px; align-items: center;
+      background: #fff; border: 1px solid var(--border); border-radius: 20px;
+      padding: 24px; box-shadow: var(--shadow);
+    }
+    @media (min-width: 800px) {
+      .founder-block { grid-template-columns: 120px 1fr; padding: 28px 32px; }
+    }
+    .founder-photo {
+      width: 100px; height: 100px; border-radius: 50%; object-fit: cover;
+      border: 3px solid #fff; box-shadow: 0 4px 16px rgba(15,23,42,.12);
+      background: linear-gradient(135deg,#1e293b,#2563eb);
+    }
+    .founder-block h3 { font-size: 1.15rem; margin-bottom: 4px; }
+    .founder-block .role { font-size: 13px; color: var(--slate); margin-bottom: 12px; }
+    .founder-stats {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;
+    }
+    .founder-stats span {
+      font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 999px;
+      background: #f1f5f9; color: var(--navy);
+    }
+    .founder-block p { font-size: 14px; color: var(--navy-2); line-height: 1.55; }
+    .risk-bar {
+      margin-top: 18px; padding: 14px 16px; border-radius: 14px;
+      background: #ecfdf5; border: 1px solid #a7f3d0;
+      font-size: 14px; color: #065f46; text-align: center; font-weight: 600;
+    }
+    .t-card .t-avatar {
+      width: 44px; height: 44px; border-radius: 50%; object-fit: cover;
+      border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1);
+      background: #e2e8f0; flex-shrink: 0;
+    }
+    .t-card .t-who-row { display: flex; align-items: center; gap: 12px; }
+    .t-card .t-path {
+      font-size: 11px; color: var(--slate); margin-top: 8px;
+      padding: 6px 8px; background: #f8fafc; border-radius: 8px;
+    }
+
     .lang-note {
       margin-top: 20px; padding: 14px 16px; border-radius: 12px;
       background: #fff; border: 1px dashed var(--border);
@@ -461,6 +502,7 @@
         <a href="#features" data-i18n="navFeatures">Features</a>
         <a href="#how" data-i18n="navHow">How it works</a>
         <a href="#compare" data-i18n="navWhy">Why Man Power</a>
+        <a href="#proof">People</a>
         <a href="#pricing" data-i18n="navPricing">Pricing</a>
           <a href="#contact" data-i18n="navContact">Contact</a>
           <a href="#faq" data-i18n="navFaq">FAQ</a>
@@ -482,13 +524,18 @@
         <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts in minutes. Check coverage before the day starts — on phone, at any hour. Premium rostering made as easy as a spreadsheet. Built for factories and multi-section plants.</p>
         <div class="hero-actions">
           <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Start free trial</a>
-          <a class="btn btn-white btn-lg" href="#how" data-i18n="seeHow">See how it works</a>
+          <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" rel="noopener" target="_blank">Book 15-min setup call</a>
         </div>
         <div class="hero-meta">
           <span><strong>Excel → roster</strong> in minutes</span>
           <span><strong>Coverage checks</strong> built-in</span>
           <span><strong>Offline-ready</strong> PWA</span>
         </div>
+        <p style="margin-top:14px;font-size:13px;opacity:.9;max-width:520px">
+          Built by a Production Manager who led <strong>60-member</strong> packaging teams —
+          highest-ever single-line output <strong>818 MT</strong>, defects <strong>9% → 0.2%</strong>, lowest conversion cost in department history.
+          <a href="#proof" style="color:#fdba74;font-weight:700">See who grew under the same guidance →</a>
+        </p>
       </div>
       <div class="hero-card">
         <div class="ui-mock">
@@ -749,32 +796,89 @@
     </div>
   </section>
 
-  <!-- SOCIAL / PROOF -->
-  <section class="bg-soft">
+  <!-- AUTHORITY + PROOF -->
+  <section class="bg-soft" id="proof">
     <div class="wrap">
-      <span class="section-label">Real use</span>
-      <h2>Trusted on the floor — not just a pitch deck</h2>
-      <p class="lead">Built for the same pain as Excel: slow updates, no mobile view, zero answer when someone calls at an odd hour.</p>
-      <div class="t-grid">
-        <div class="t-card featured-quote">
+      <span class="section-label">Who built this · Who grew with us</span>
+      <h2>Built by someone who ran the same 60-member lines</h2>
+      <p class="lead">Plant managers buy certainty — not another pretty website. Here is the person behind Man Power, and the careers built under the same VKS Tech guidance.</p>
+
+      <div class="founder-block">
+        <img class="founder-photo" src="testimonials/Images/Vivek_Kumar/avatar.jpg" alt="Vivek Kumar" width="100" height="100" loading="lazy"
+             onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+        <div>
+          <h3>Vivek Kumar</h3>
+          <div class="role">Production Manager (HOD) · Founder, VKS Tech · GLS Polyfilms</div>
+          <div class="founder-stats">
+            <span>9 years packaging production</span>
+            <span>Led 60-member teams</span>
+            <span>818 MT highest line output</span>
+            <span>Defects 9% → 0.2%</span>
+            <span>Lowest conversion cost</span>
+          </div>
+          <p>I built Man Power after living the same weekly Excel chaos, coverage gaps, and odd-hour shift calls. Highest-ever single-line output, defect reduction, and turnaround of shut-down lines taught me what a roster tool must do on the shop floor — not another full HRMS.</p>
+        </div>
+      </div>
+
+      <div class="t-grid" style="margin-top:28px">
+        <div class="t-card">
           <div class="stars">★★★★★</div>
-          <p>“I have been using Man Power for more than six months to manage the schedule of about <strong style="color:#fdba74">30 members at GLS</strong>. Before that I used Excel — it was very time-consuming and almost impossible to maintain on mobile. At any odd hour, if a team member called about a shift change, I had no details. Now I open the app in a blink, check who is available, and it works within seconds.”</p>
-          <div class="t-who">
-            <strong>Shift / operations lead</strong>
-            <span>GLS · ~30 member team · 6+ months live</span>
+          <p>“Started as operator under Vivek sir’s guidance at Uflex Noida. Today I handle planning as Assistant Manager at Sumilon. The shift discipline and planning habits I learnt then are what I use every day.”</p>
+          <div class="t-path">Operator (Uflex Noida) → AM Planning (Sumilon Surat)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/Ajab_Singh/avatar.jpg" alt="Ajab Singh" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>Ajab Singh</strong><span>AM Planning · Sumilon Surat</span></div>
           </div>
         </div>
         <div class="t-card">
           <div class="stars">★★★★★</div>
-          <p>“Coverage gaps show up before the shift starts — not after a machine sits idle. We stopped rebuilding the same Excel every week.”</p>
-          <div class="t-who"><strong>Plant / shift lead</strong> <span>Multi-section line</span></div>
+          <p>“Started as GET at Jindal Nashik under Vivek sir’s mentoring. Today I independently manage shifts as Senior Engineer at Uflex Dharwad.”</p>
+          <div class="t-path">GET (Jindal Nashik) → Senior Engineer (Uflex Dharwad)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/NK_Jena/avatar.jpg" alt="N.K. Jena" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>N.K. Jena</strong><span>Senior Engineer · Uflex Dharwad</span></div>
+          </div>
         </div>
         <div class="t-card">
           <div class="stars">★★★★★</div>
-          <p>“We didn’t need another full HRMS. We needed a roster tool that is easy, fast, and honest about section and machine coverage.”</p>
-          <div class="t-who"><strong>Factory admin</strong> <span>Multi-machine plant</span></div>
+          <p>“We started at the same level in Uflex Noida. Training on Excel automated reports and SAP modules is a big reason I am Deputy Manager at GLS Gurawara today.”</p>
+          <div class="t-path">Same level (Uflex Noida) → Deputy Manager (GLS Gurawara)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/Keshav_Jha/avatar.svg" alt="Keshav Jha" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>Keshav Jha</strong><span>Deputy Manager · GLS Gurawara</span></div>
+          </div>
+        </div>
+        <div class="t-card">
+          <div class="stars">★★★★★</div>
+          <p>“Started as ITI trainee under Vivek sir at Uflex Noida. That practical guidance on machine, process and discipline is still the foundation of how I work as Senior Operator.”</p>
+          <div class="t-path">ITI Trainee (Uflex) → Sr. Operator (Chiripal Jammu)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/Amit/avatar.jpg" alt="Amit" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>Amit</strong><span>Sr. Operator · Chiripal Jammu</span></div>
+          </div>
+        </div>
+        <div class="t-card">
+          <div class="stars">★★★★★</div>
+          <p>“Trained on shift management under Vivek sir at GLS Gurawara. Today I run the shift as Shift Leader — daily discipline and coverage thinking the floor actually needs.”</p>
+          <div class="t-path">Shift training → Shift Leader (GLS Gurawara)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/Ghanshyam/avatar.jpg" alt="Ghanshyam" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>Ghanshyam</strong><span>Shift Leader · GLS Gurawara</span></div>
+          </div>
+        </div>
+        <div class="t-card">
+          <div class="stars">★★★★★</div>
+          <p>“Grew from Senior Team Member to Team Leader at GLS under continuous guidance. Clear targets, process discipline, and how to lead a small team on the floor.”</p>
+          <div class="t-path">Sr. Team Member → Team Leader (GLS)</div>
+          <div class="t-who-row" style="margin-top:12px">
+            <img class="t-avatar" src="testimonials/Images/Anuj/avatar.jpg" alt="Anuj" width="44" height="44" loading="lazy" onerror="this.src='testimonials/Images/placeholder-avatar.svg'" />
+            <div class="t-who"><strong>Anuj</strong><span>Team Leader · GLS Polyfilms</span></div>
+          </div>
         </div>
       </div>
+      <p style="text-align:center;margin-top:22px;font-size:14px">
+        <a href="testimonials/htmls/testimonials.html" style="color:var(--orange);font-weight:700">View all career journeys (Mentor · VKS Tech) →</a>
+      </p>
     </div>
   </section>
 
@@ -783,7 +887,7 @@
     <div class="wrap">
       <span class="section-label">Pricing</span>
       <h2>Premium rostering — priced for plant teams</h2>
-      <p class="lead">Clear monthly bands. Start free, then pick the size that matches your floor. Annual billing saves ~17% when enabled by admin.</p>
+      <p class="lead">Clear monthly bands. Start free, then pick the size that matches your floor. Annual billing saves when discount is enabled by admin (shown on each card).</p>
 
       <div class="plan-grid" id="lpPlanGrid">
         <div class="plan-card" style="grid-column:1/-1;text-align:center;padding:28px;color:var(--slate)">
@@ -793,9 +897,13 @@
 
       <div id="lpPlanChips" style="display:none"></div>
 
+      <div class="risk-bar">
+        Start free trial after login. If the roster still creates more work than it saves after the trial, you simply don’t continue — no pressure.
+        <span id="lpRefundNote" style="display:block;margin-top:6px;font-weight:500;font-size:13px">Cancel &amp; refund window available via Customer Care when enabled by admin.</span>
+      </div>
       <div class="price-note-bar">
         <span id="lpTrialNote">Free trial after login · days set by admin</span>
-        · <span id="lpRefundNote">Cancel &amp; refund window via Customer Care</span>
+        · <a href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">Book 15-min setup call</a>
         · <a href="#contact" style="color:var(--orange);font-weight:700">Custom / multi-plant → talk to us</a>
       </div>
       <p id="lpPriceNote" style="display:none">Published amounts can be updated by Admin; cards above match default product bands.</p>
@@ -830,6 +938,18 @@
           <summary>Can we still use greytHR / Keka for payroll?</summary>
           <p>Yes. Man Power focuses on rostering and coverage. Keep your existing payroll / attendance HRMS if you already use one.</p>
         </details>
+        <details>
+          <summary>What if it doesn’t fit our plant?</summary>
+          <p>Start with the free trial after login. Use real shifts on your phone. If after the trial the roster still creates more work than it saves, you simply don’t continue — no long contract and no pressure.</p>
+        </details>
+        <details>
+          <summary>Can we talk before paying?</summary>
+          <p>Yes. Book a free 15-minute setup call on WhatsApp. We walk through your Excel roster, sections, and machines — no payment needed for the call.</p>
+        </details>
+        <details>
+          <summary>Who built Man Power?</summary>
+          <p>Vivek Kumar — Production Manager (HOD) with 9 years in packaging (UFLEX, JPFL, GLS). Led 60-member teams, delivered highest-ever 818 MT line output and cut critical defects from 9% to 0.2%. Man Power was built from that floor experience under VKS Tech.</p>
+        </details>
       </div>
     </div>
   </section>
@@ -838,12 +958,13 @@
   <section id="contact" class="bg-soft">
     <div class="wrap" style="text-align:center;max-width:640px;margin:0 auto;">
       <span class="section-label">Contact</span>
-      <h2>Custom plan or multi-plant?</h2>
-      <p class="lead">Special features, extra sections, or a different band — talk to VKS Tech. We build for Indian plant operations.</p>
+      <h2>Talk first — or start free</h2>
+      <p class="lead">Custom plan, multi-plant, or just want to see Auto Schedule on your Excel? Book a free 15-minute setup call. No payment needed for the call.</p>
       <div class="hero-actions" style="justify-content:center;margin-top:8px">
-        <a class="btn btn-orange btn-lg" href="app.html">Start free trial</a>
-        <a class="btn btn-ghost btn-lg" href="https://vkstech.com" rel="noopener">VKS Tech</a>
+        <a class="btn btn-orange btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Book 15-min setup call</a>
+        <a class="btn btn-ghost btn-lg" href="app.html">Start free trial</a>
       </div>
+      <p style="margin-top:14px;font-size:13px;color:var(--slate)">Vivek Kumar · +91-8168771239 · VKS Tech · Open to plant teams across India</p>
     </div>
   </section>
 
@@ -851,10 +972,10 @@
   <section class="cta-band">
     <div class="wrap">
       <h2 data-i18n="ctaTitle">Premium rostering that feels as easy as Excel — and works on your phone.</h2>
-      <p data-i18n="ctaSub">Used for months on real plant teams. Start free, schedule in minutes, answer shift calls in seconds.</p>
+      <p data-i18n="ctaSub">Built by a production manager for 60-member plant teams. Start free, or book a 15-minute setup call first — your choice.</p>
       <div class="hero-actions">
         <a class="btn btn-orange btn-lg" href="app.html" rel="noopener"><span data-i18n="ctaStart">Start free on Man Power</span></a>
-        <a class="btn btn-white btn-lg" href="https://vkstech.com" rel="noopener" data-i18n="aboutVks">About VKS Tech</a>
+        <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Book 15-min setup call</a>
       </div>
       <p style="margin-top:18px;font-size:13px;opacity:.75;" data-i18n="ctaMeta">Mobile OTP login · Hindi & English · Built by VKS Tech</p>
     </div>
