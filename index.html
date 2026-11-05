@@ -958,12 +958,12 @@
       }
       var n = amt;
       if (n === 99 || n === 199) return hi ? 'मासिक · व्यक्तिगत (1)' : 'Monthly · Individual (1)';
-      if (n === 499) return hi ? 'मासिक · 25 तक' : 'Monthly · Up to 25';
-      if (n === 999) return hi ? 'मासिक · 50 तक' : 'Monthly · Up to 50';
+      if (n === 499) return hi ? 'मासिक · 30 तक' : 'Monthly · Up to 30';
+      if (n === 999) return hi ? 'मासिक · 60 तक' : 'Monthly · Up to 60';
       if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return hi ? 'मासिक · 200 तक' : 'Monthly · Up to 200';
       if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return hi ? 'वार्षिक · व्यक्तिगत (1)' : 'Annual · Individual (1)';
-      if (n === 5269 || (n >= 4800 && n < 6000)) return hi ? 'वार्षिक · 25 तक' : 'Annual · Up to 25';
-      if (n === 10549 || (n >= 9000 && n < 12000)) return hi ? 'वार्षिक · 50 तक' : 'Annual · Up to 50';
+      if (n === 5269 || (n >= 4800 && n < 6000)) return hi ? 'वार्षिक · 30 तक' : 'Annual · Up to 30';
+      if (n === 10549 || (n >= 9000 && n < 12000)) return hi ? 'वार्षिक · 60 तक' : 'Annual · Up to 60';
       if (n === 15829 || (n >= 14000 && n < 20000)) return hi ? 'वार्षिक · 200 तक' : 'Annual · Up to 200';
       if (n >= 4000) return hi ? 'वार्षिक प्लान' : 'Annual plan';
       return hi ? 'प्लान' : 'Plan';
@@ -1002,8 +1002,8 @@
     function inferBand(p, amt){
       var maxM = p && (p.maxMembers != null ? parseInt(p.maxMembers,10) : (p.max != null ? parseInt(p.max,10) : 0));
       if (maxM === 1 || amt === 99 || amt === 199) return { key:'1', nameEn:'Individual', nameHi:'व्यक्तिगत', max:1, perksEn:['1 member seat','My Shift on mobile','OTP login · no password','Ideal to try the product'], perksHi:['1 सदस्य','मोबाइल पर My Shift','OTP लॉगिन','प्रोडक्ट आज़माने के लिए'] };
-      if (maxM === 25 || amt === 499) return { key:'25', nameEn:'Team · up to 25', nameHi:'टीम · 25 तक', max:25, perksEn:['Up to 25 members','Auto Schedule + coverage','Manager roster control','Built for small plant lines'], perksHi:['25 सदस्यों तक','Auto Schedule + coverage','Manager कंट्रोल','छोटी प्लांट लाइन'] };
-      if (maxM === 50 || amt === 999) return { key:'50', nameEn:'Plant · up to 50', nameHi:'प्लांट · 50 तक', max:50, perksEn:['Up to 50 members','Departments & machines','Leave / OD on the roster','Multi-section coverage'], perksHi:['50 सदस्यों तक','Department व machine','Leave / OD','मल्टी-सेक्शन coverage'] };
+      if (maxM === 30 || maxM === 25 || amt === 499) return { key:'30', nameEn:'Team · up to 30', nameHi:'टीम · 30 तक', max:30, perksEn:['Up to 30 members','Auto Schedule + coverage','Manager roster control','Built for small plant lines'], perksHi:['30 सदस्यों तक','Auto Schedule + coverage','Manager कंट्रोल','छोटी प्लांट लाइन'] };
+      if (maxM === 60 || maxM === 50 || amt === 999) return { key:'60', nameEn:'Plant · up to 60', nameHi:'प्लांट · 60 तक', max:60, perksEn:['Up to 60 members','Departments & machines','Leave / OD on the roster','Multi-section coverage'], perksHi:['60 सदस्यों तक','Department व machine','Leave / OD','मल्टी-सेक्शन coverage'] };
       // 1499, 1999, 2499 or any higher monthly treated as 200-seat band
       if (maxM === 200 || amt === 1499 || amt === 1999 || amt === 2499 || (amt >= 1400 && amt < 4000))
         return { key:'200', nameEn:'Scale · up to 200', nameHi:'स्केल · 200 तक', max:200, perksEn:['Up to 200 members','Full roster depth','Offline-friendly PWA','Serious multi-shift ops'], perksHi:['200 सदस्यों तक','फुल रोस्टर','Offline PWA','मल्टी-शिफ्ट ऑप्स'] };
@@ -1060,7 +1060,7 @@
         var perks = h ? band.perksHi : band.perksEn;
         var feat = (featureAmt != null && x.amt === featureAmt);
         var badge = feat
-          ? ('<div class="plan-badge">' + (h ? 'लोकप्रिय' : (band.max === 25 ? 'Most popular · ~25 team' : 'Most popular')) + '</div>')
+          ? ('<div class="plan-badge">' + (h ? 'लोकप्रिय' : (band.max === 30 || band.max === 25 ? 'Most popular · ~30 team' : 'Most popular')) + '</div>')
           : '';
         var perksHtml = perks.map(function(t){ return '<li>' + t + '</li>'; }).join('');
         return (

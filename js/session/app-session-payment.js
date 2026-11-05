@@ -280,7 +280,7 @@ async function openCustomerCarePage(){
         return { amount: a, label: 'Plan' };
       });
     } catch (e2) {
-      plans = [{amount:99,label:'Individual'},{amount:499,label:'Up to 25'},{amount:999,label:'Up to 50'},{amount:1499,label:'Up to 200'}];
+      plans = [{amount:99,label:'Individual'},{amount:499,label:'Up to 30'},{amount:999,label:'Up to 60'},{amount:1499,label:'Up to 200'}];
     }
   }
   openModal(`<div class="modal-handle"></div>
@@ -416,6 +416,16 @@ async function openPaymentSettingsAdmin(){
   const opts = _getPaymentAmountOptions(cfg);
   window._payAmountOptionsEdit = opts.slice();
   window._payLinksByAmountEdit = Object.assign({}, (cfg && cfg.linksByAmount) || {});
+  window._payMaxMembersByAmountEdit = Object.assign({}, (cfg && cfg.maxMembersByAmount) || {});
+  // Seed defaults for known monthly bands if not yet set
+  (function seedMm(){
+    var defaults = { '99':1, '199':1, '499':30, '999':60, '1499':200, '1999':200, '2499':200 };
+    opts.forEach(function(a){
+      var k = String(a);
+      if(window._payMaxMembersByAmountEdit[k] == null && defaults[k] != null)
+        window._payMaxMembersByAmountEdit[k] = defaults[k];
+    });
+  })();
 
   let userOpts = '<option value="">— Select manager / member —</option>';
   try{
@@ -469,8 +479,8 @@ async function openPaymentSettingsAdmin(){
     <div style="font-size:13px;font-weight:900;margin-bottom:6px">📋 Plans · Monthly + Annual payment links</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.45">
       Categorised plans (same as user login):<br>
-      <b>₹99</b> Individual (1) · <b>₹499</b> up to 25 · <b>₹999</b> up to 50 · <b>₹1499</b> up to 200<br>
-      Also add <b>annual</b> amounts (17% off default): ₹986, ₹4970, ₹9950, ₹14930 — each with its own Razorpay link.
+      <b>₹99</b> Individual (1) · <b>₹499</b> up to 30 · <b>₹999</b> up to 60 · <b>₹1499</b> up to 200<br>
+      Edit <b>Max members</b> next to each amount if you change team size. Annual amounts use the same max.
     </div>
     <div id="pay_amount_list" style="margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
@@ -562,26 +572,60 @@ function payAmountListRender(){
   }
   function planLabel(a){
     const n = Number(a)||0;
+    // Prefer admin-set max members when present
+    try {
+      var mmMap = window._payMaxMembersByAmountEdit || {};
+      var mm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10);
+      if (mm > 0) {
+        if (n >= 4000) return 'Annual · up to ' + mm;
+        return 'Monthly · up to ' + mm;
+      }
+    } catch (e0) {}
     if(n===99 || n===199) return 'Monthly · Individual (1)';
-    if(n===499) return 'Monthly · up to 25';
-    if(n===999) return 'Monthly · up to 50';
-    if(n===1499 || n===2499) return 'Monthly · up to 200';
+    if(n===499) return 'Monthly · up to 30';
+    if(n===999) return 'Monthly · up to 60';
+    if(n===1499 || n===2499 || n===1999) return 'Monthly · up to 200';
     if(n===1045 || (n>900 && n<1200 && n!==999)) return 'Annual · Individual (1)';
-    if(n===5269 || (n>=4800 && n<6000)) return 'Annual · up to 25';
-    if(n===10549 || (n>=9000 && n<12000)) return 'Annual · up to 50';
+    if(n===5269 || (n>=4800 && n<6000)) return 'Annual · up to 30';
+    if(n===10549 || (n>=9000 && n<12000)) return 'Annual · up to 60';
     if(n===15829 || (n>=14000 && n<20000)) return 'Annual · up to 200';
     if(n>=4000) return 'Annual plan';
     return 'Plan';
   }
+  if(!window._payMaxMembersByAmountEdit || typeof window._payMaxMembersByAmountEdit !== 'object')
+    window._payMaxMembersByAmountEdit = {};
+  function defaultMaxForAmount(n){
+    n = Number(n)||0;
+    if(n===99 || n===199) return 1;
+    if(n===499) return 30;
+    if(n===999) return 60;
+    if(n===1499 || n===1999 || n===2499 || (n>=1400 && n<4000)) return 200;
+    if(n===1045 || (n>900 && n<1200 && n!==999)) return 1;
+    if(n===5269 || (n>=4800 && n<6000)) return 30;
+    if(n===10549 || (n>=9000 && n<12000)) return 60;
+    if(n===15829 || (n>=14000 && n<20000)) return 200;
+    return 0;
+  }
   el.innerHTML = opts.map((a,i)=>{
     const url = String(links[String(a)] || links[a] || '').replace(/"/g,'&quot;');
     const short = url ? (url.length>28 ? url.slice(0,28)+'…' : url) : '';
+    var mmMap = window._payMaxMembersByAmountEdit || {};
+    var mmVal = mmMap[String(a)] != null ? mmMap[String(a)] : (mmMap[a] != null ? mmMap[a] : defaultMaxForAmount(a));
+    if(mmMap[String(a)] == null && mmMap[a] == null && mmVal)
+      window._payMaxMembersByAmountEdit[String(a)] = mmVal;
     return `<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px;padding:10px;border-radius:10px;background:#fff;border:1px solid #cbd5e1">
       <div style="min-width:72px">
         <div style="font-weight:900;font-size:14px;color:#0f172a">₹${a}</div>
         <div style="font-size:10px;font-weight:700;color:#64748b">${planLabel(a)}</div>
       </div>
-      <input type="url" class="inp-field" style="flex:1;min-width:160px;margin:0;font-size:12px" placeholder="https://rzp.io/… for ₹${a}"
+      <div style="display:flex;flex-direction:column;gap:2px;min-width:88px">
+        <label style="font-size:9px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:.3px">Max members</label>
+        <input type="number" min="1" max="5000" class="inp-field" style="width:88px;margin:0;font-size:13px;font-weight:800;padding:8px 6px"
+          value="${mmVal || ''}"
+          placeholder="e.g. 30"
+          oninput="if(!window._payMaxMembersByAmountEdit)window._payMaxMembersByAmountEdit={};var v=parseInt(this.value,10);window._payMaxMembersByAmountEdit['${a}']=(v>0?v:'');try{var lab=this.closest('div').parentElement.querySelector('div[style*=min-width] div:last-child');if(lab)lab.textContent=planLabel(${a});}catch(e){}">
+      </div>
+      <input type="url" class="inp-field" style="flex:1;min-width:140px;margin:0;font-size:12px" placeholder="https://rzp.io/… for ₹${a}"
         value="${url}"
         oninput="if(!window._payLinksByAmountEdit)window._payLinksByAmountEdit={};window._payLinksByAmountEdit['${a}']=this.value.trim()">
       <button type="button" onclick="var u=window._payLinksByAmountEdit&&window._payLinksByAmountEdit['${a}'];if(u)window.open(u,'_blank')" title="Open link" style="border:none;background:rgba(16,185,129,.12);color:#059669;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:12px;font-weight:800">↗</button>
@@ -756,18 +800,24 @@ async function publishPublicOfferSnapshot() {
       : (pay.amountOptions || pay.amounts || []);
     function _planMeta(n) {
       n = parseInt(n, 10) || 0;
-      // Standard monthly bands
-      if (n === 99 || n === 199) return { band: 'Individual (1)', period: 'monthly', maxMembers: 1 };
-      if (n === 499) return { band: 'Up to 25', period: 'monthly', maxMembers: 25 };
-      if (n === 999) return { band: 'Up to 50', period: 'monthly', maxMembers: 50 };
-      if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return { band: 'Up to 200', period: 'monthly', maxMembers: 200 };
+      // Prefer admin-set max members (from Payment settings)
+      var overrideMm = 0;
+      try {
+        var mmMap = (pay && pay.maxMembersByAmount) || window._payMaxMembersByAmountEdit || {};
+        overrideMm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10) || 0;
+      } catch (eMm) {}
+      // Standard monthly bands (defaults: 30 / 60 / 200)
+      if (n === 99 || n === 199) return { band: 'Individual (1)', period: 'monthly', maxMembers: overrideMm || 1 };
+      if (n === 499) return { band: 'Up to ' + (overrideMm || 30), period: 'monthly', maxMembers: overrideMm || 30 };
+      if (n === 999) return { band: 'Up to ' + (overrideMm || 60), period: 'monthly', maxMembers: overrideMm || 60 };
+      if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return { band: 'Up to ' + (overrideMm || 200), period: 'monthly', maxMembers: overrideMm || 200 };
       // Annual ≈ monthly × 12 × (1 - discount). Match common published annuals
-      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return { band: 'Individual (1)', period: 'annual', maxMembers: 1 };
-      if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to 25', period: 'annual', maxMembers: 25 };
-      if (n === 10549 || (n >= 9000 && n < 12000)) return { band: 'Up to 50', period: 'annual', maxMembers: 50 };
-      if (n === 15829 || (n >= 14000 && n < 20000)) return { band: 'Up to 200', period: 'annual', maxMembers: 200 };
-      if (n >= 4000) return { band: 'Team', period: 'annual', maxMembers: 0 };
-      return { band: 'Plan', period: 'monthly', maxMembers: 0 };
+      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return { band: 'Individual (1)', period: 'annual', maxMembers: overrideMm || 1 };
+      if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to ' + (overrideMm || 30), period: 'annual', maxMembers: overrideMm || 30 };
+      if (n === 10549 || (n >= 9000 && n < 12000)) return { band: 'Up to ' + (overrideMm || 60), period: 'annual', maxMembers: overrideMm || 60 };
+      if (n === 15829 || (n >= 14000 && n < 20000)) return { band: 'Up to ' + (overrideMm || 200), period: 'annual', maxMembers: overrideMm || 200 };
+      if (n >= 4000) return { band: overrideMm ? ('Up to ' + overrideMm) : 'Team', period: 'annual', maxMembers: overrideMm || 0 };
+      return { band: overrideMm ? ('Up to ' + overrideMm) : 'Plan', period: 'monthly', maxMembers: overrideMm || 0 };
     }
     const plans = (Array.isArray(amounts) ? amounts : []).map(function (a) {
       const n = parseInt(a, 10);
@@ -868,12 +918,23 @@ async function savePaymentSettingsAdmin(){
       if(url) linksByAmount[key] = url;
     });
   }catch(e){}
+  // Collect per-amount max members (team size bands)
+  const maxMembersByAmount = {};
+  try{
+    const mm = window._payMaxMembersByAmountEdit || {};
+    amountOptions.forEach(a=>{
+      const key = String(a);
+      let v = parseInt(mm[key] != null ? mm[key] : mm[a], 10);
+      if(v > 0) maxMembersByAmount[key] = v;
+    });
+  }catch(eMm){}
   try{
     const defaultDiscountPct = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
     const payload = {
       enabled, amount, link, title, message,
       amountOptions,
       linksByAmount,
+      maxMembersByAmount,
       defaultDiscountPct,
       currency: 'INR',
       updatedAt: new Date().toISOString(),

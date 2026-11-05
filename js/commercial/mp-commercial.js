@@ -267,8 +267,8 @@
   function defaultPlans() {
     return [
       { id: 'm1', label: 'Individual (1 member)', maxMembers: 1, monthly: 99, discountPct: null },
-      { id: 'm25', label: 'Up to 25 members', maxMembers: 25, monthly: 499, discountPct: null },
-      { id: 'm50', label: 'Up to 50 members', maxMembers: 50, monthly: 999, discountPct: null },
+      { id: 'm30', label: 'Up to 30 members', maxMembers: 30, monthly: 499, discountPct: null },
+      { id: 'm60', label: 'Up to 60 members', maxMembers: 60, monthly: 999, discountPct: null },
       { id: 'm200', label: 'Up to 200 members', maxMembers: 200, monthly: 1999, discountPct: null },
       { id: 'custom', label: 'Customized plan', custom: true }
     ];
