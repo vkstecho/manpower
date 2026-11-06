@@ -572,27 +572,51 @@ function payAmountListRender(){
   }
   function planLabel(a){
     const n = Number(a)||0;
-    // Prefer admin-set max members when present
+    var opts = window._payAmountOptionsEdit || [];
+    var disc = 12;
     try {
-      var mmMap = window._payMaxMembersByAmountEdit || {};
-      var mm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10);
-      if (mm > 0) {
-        if (n >= 4000) return 'Annual · up to ' + mm;
-        return 'Monthly · up to ' + mm;
+      var dEl = document.getElementById('pay_default_discount');
+      if (dEl && dEl.value != null) disc = Math.min(90, Math.max(0, parseInt(dEl.value, 10) || 12));
+      else if (window._paymentSettingsCache && window._paymentSettingsCache.defaultDiscountPct != null)
+        disc = Math.min(90, Math.max(0, parseInt(window._paymentSettingsCache.defaultDiscountPct, 10) || 12));
+    } catch (eD) {}
+    // Annual if it matches monthly×12×(1−disc) for a smaller amount in the list
+    function isAnnualAmt(n) {
+      var list = (opts || []).map(function(x){ return parseInt(x,10); }).filter(function(x){ return x>0; });
+      for (var i = 0; i < list.length; i++) {
+        var m = list[i];
+        if (m > 0 && m < n && Math.round(m * 12 * (1 - disc / 100)) === n) return true;
       }
+      if (n >= 4000) return true;
+      // Common seeded annuals
+      if (n === 1045 || n === 5269 || n === 10549 || n === 15829 || n === 21109) return true;
+      if ((n > 900 && n < 1200 && n !== 999 && n !== 799) || (n >= 4800 && n < 6000) || (n >= 9000 && n < 12000) || (n >= 14000 && n < 25000)) return true;
+      return false;
+    }
+    var annual = isAnnualAmt(n);
+    var mmMap = window._payMaxMembersByAmountEdit || {};
+    var mm = 0;
+    try {
+      mm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10) || 0;
     } catch (e0) {}
-    if(n===99 || n===199) return 'Monthly · Individual (1)';
-    if(n===499) return 'Monthly · up to 30';
-    if(n===799) return 'Monthly · up to 60';
-    if(n===999) return 'Monthly · up to 60';
-    if(n===1499) return 'Monthly · up to 60';
-    if(n===1999 || n===2499 || n===2999) return 'Monthly · up to 200';
-    if(n===1045 || (n>900 && n<1200 && n!==999)) return 'Annual · Individual (1)';
-    if(n===5269 || (n>=4800 && n<6000)) return 'Annual · up to 30';
-    if(n===10549 || (n>=9000 && n<12000)) return 'Annual · up to 60';
-    if(n===15829 || (n>=14000 && n<20000)) return 'Annual · up to 200';
-    if(n>=4000) return 'Annual plan';
-    return 'Plan';
+    if (mm > 0) {
+      if (mm === 1) return (annual ? 'Annual' : 'Monthly') + ' · Individual (1)';
+      return (annual ? 'Annual' : 'Monthly') + ' · up to ' + mm;
+    }
+    if (annual) {
+      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return 'Annual · Individual (1)';
+      if (n === 5269 || (n >= 4800 && n < 6000)) return 'Annual · up to 30';
+      if (n === 10549 || (n >= 9000 && n < 12000)) return 'Annual · up to 60';
+      if (n === 15829 || n === 21109 || (n >= 14000 && n < 25000)) return 'Annual · up to 200';
+      return 'Annual plan';
+    }
+    if (n === 99 || n === 199) return 'Monthly · Individual (1)';
+    if (n === 499) return 'Monthly · up to 30';
+    if (n === 799) return 'Monthly · up to 60';
+    if (n === 999) return 'Monthly · up to 60';
+    if (n === 1499) return 'Monthly · up to 60';
+    if (n === 1999 || n === 2499 || n === 2999) return 'Monthly · up to 200';
+    return 'Monthly · Plan';
   }
   if(!window._payMaxMembersByAmountEdit || typeof window._payMaxMembersByAmountEdit !== 'object')
     window._payMaxMembersByAmountEdit = {};
@@ -600,8 +624,10 @@ function payAmountListRender(){
     n = Number(n)||0;
     if(n===99 || n===199) return 1;
     if(n===499) return 30;
+    if(n===799) return 60;
     if(n===999) return 60;
-    if(n===1499 || n===1999 || n===2499 || (n>=1400 && n<4000)) return 200;
+    if(n===1499) return 60;
+    if(n===1999 || n===2499 || n===2999 || (n>=1900 && n<4000)) return 200;
     if(n===1045 || (n>900 && n<1200 && n!==999)) return 1;
     if(n===5269 || (n>=4800 && n<6000)) return 30;
     if(n===10549 || (n>=9000 && n<12000)) return 60;
@@ -814,25 +840,41 @@ async function publishPublicOfferSnapshot() {
       : (pay.amountOptions || pay.amounts || []);
     function _planMeta(n) {
       n = parseInt(n, 10) || 0;
-      // Prefer admin-set max members (from Payment settings)
       var overrideMm = 0;
       try {
         var mmMap = (pay && pay.maxMembersByAmount) || window._payMaxMembersByAmountEdit || {};
         overrideMm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10) || 0;
       } catch (eMm) {}
-      // Standard monthly bands (defaults: 30 / 60 / 200)
+      var disc = Math.min(90, Math.max(0, parseInt(pay && pay.defaultDiscountPct, 10) || 12));
+      var amtList = (Array.isArray(amounts) ? amounts : []).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return x > 0; });
+      var isAnnual = false;
+      for (var i = 0; i < amtList.length; i++) {
+        var m = amtList[i];
+        if (m > 0 && m < n && Math.round(m * 12 * (1 - disc / 100)) === n) { isAnnual = true; break; }
+      }
+      if (n >= 4000) isAnnual = true;
+      if (n === 1045 || n === 5269 || n === 10549 || n === 15829 || n === 21109) isAnnual = true;
+
+      if (isAnnual) {
+        var mmA = overrideMm || 0;
+        if (n === 1045 || (n > 900 && n < 1200 && n !== 999 && n !== 799)) return { band: 'Individual (1)', period: 'annual', maxMembers: mmA || 1 };
+        if (overrideMm > 0) return { band: 'Up to ' + overrideMm, period: 'annual', maxMembers: overrideMm };
+        if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to 30', period: 'annual', maxMembers: 30 };
+        if (n === 10549 || (n >= 9000 && n < 12000)) return { band: 'Up to 60', period: 'annual', maxMembers: 60 };
+        if (n === 15829 || n === 21109 || (n >= 14000 && n < 25000)) return { band: 'Up to 200', period: 'annual', maxMembers: 200 };
+        return { band: overrideMm ? ('Up to ' + overrideMm) : 'Team', period: 'annual', maxMembers: overrideMm || 0 };
+      }
+      // Monthly
       if (n === 99 || n === 199) return { band: 'Individual (1)', period: 'monthly', maxMembers: overrideMm || 1 };
       if (n === 499) return { band: 'Up to ' + (overrideMm || 30), period: 'monthly', maxMembers: overrideMm || 30 };
+      if (n === 799) return { band: 'Up to ' + (overrideMm || 60), period: 'monthly', maxMembers: overrideMm || 60 };
       if (n === 999) return { band: 'Up to ' + (overrideMm || 60), period: 'monthly', maxMembers: overrideMm || 60 };
-      if (n === 1499 || n === 1999 || n === 2499 || (n >= 1400 && n < 4000)) return { band: 'Up to ' + (overrideMm || 200), period: 'monthly', maxMembers: overrideMm || 200 };
-      // Annual ≈ monthly × 12 × (1 - discount). Match common published annuals
-      if (n === 1045 || (n > 900 && n < 1200 && n !== 999)) return { band: 'Individual (1)', period: 'annual', maxMembers: overrideMm || 1 };
-      if (n === 5269 || (n >= 4800 && n < 6000)) return { band: 'Up to ' + (overrideMm || 30), period: 'annual', maxMembers: overrideMm || 30 };
-      if (n === 10549 || (n >= 9000 && n < 12000)) return { band: 'Up to ' + (overrideMm || 60), period: 'annual', maxMembers: overrideMm || 60 };
-      if (n === 15829 || (n >= 14000 && n < 20000)) return { band: 'Up to ' + (overrideMm || 200), period: 'annual', maxMembers: overrideMm || 200 };
-      if (n >= 4000) return { band: overrideMm ? ('Up to ' + overrideMm) : 'Team', period: 'annual', maxMembers: overrideMm || 0 };
-      return { band: overrideMm ? ('Up to ' + overrideMm) : 'Plan', period: 'monthly', maxMembers: overrideMm || 0 };
+      if (n === 1499) return { band: 'Up to ' + (overrideMm || 60), period: 'monthly', maxMembers: overrideMm || 60 };
+      if (n === 1999 || n === 2499 || n === 2999 || (n >= 1400 && n < 4000)) return { band: 'Up to ' + (overrideMm || 200), period: 'monthly', maxMembers: overrideMm || 200 };
+      if (overrideMm > 0) return { band: overrideMm === 1 ? 'Individual (1)' : ('Up to ' + overrideMm), period: 'monthly', maxMembers: overrideMm };
+      return { band: 'Plan', period: 'monthly', maxMembers: 0 };
     }
+
     const plans = (Array.isArray(amounts) ? amounts : []).map(function (a) {
       const n = parseInt(a, 10);
       if (!(n > 0)) return null;
@@ -944,11 +986,35 @@ async function savePaymentSettingsAdmin(){
   }catch(eMm){}
   try{
     const defaultDiscountPct = Math.min(90, Math.max(0, parseInt((document.getElementById('pay_default_discount')||{}).value||'17',10)||17));
+    // Build plans[] for user Choose plan (monthly only — skip annual seeded amounts)
+    const plans = [];
+    try {
+      const disc = defaultDiscountPct;
+      function isAnn(n) {
+        for (let i = 0; i < amountOptions.length; i++) {
+          const m = parseInt(amountOptions[i], 10);
+          if (m > 0 && m < n && Math.round(m * 12 * (1 - disc / 100)) === n) return true;
+        }
+        return n >= 4000;
+      }
+      amountOptions.map(a => parseInt(a, 10)).filter(n => n > 0 && !isAnn(n)).sort((a,b)=>a-b).forEach(m => {
+        const mm = parseInt(maxMembersByAmount[String(m)], 10) || 0;
+        let label = 'Plan ₹' + m;
+        if (mm === 1 || m === 99 || m === 199) label = 'Individual (1 member)';
+        else if (mm > 0) label = 'Up to ' + mm + ' members';
+        else if (m === 499) label = 'Up to 30 members';
+        else if (m === 799 || m === 999 || m === 1499) label = 'Up to 60 members';
+        else if (m >= 1999) label = 'Up to 200 members';
+        plans.push({ id: 'm' + m, label, maxMembers: mm || (m <= 199 ? 1 : 0), monthly: m, discountPct: null });
+      });
+      plans.push({ id: 'custom', label: 'Customized plan', custom: true });
+    } catch (ePl) {}
     const payload = {
       enabled, amount, link, title, message,
       amountOptions,
       linksByAmount,
       maxMembersByAmount,
+      plans,
       defaultDiscountPct,
       currency: 'INR',
       updatedAt: new Date().toISOString(),

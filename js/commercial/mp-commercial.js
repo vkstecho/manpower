@@ -275,19 +275,67 @@
   }
 
   function getSubscriptionPlans(cfg) {
-    var fromAdmin =
-      cfg && Array.isArray(cfg.plans) && cfg.plans.length ? cfg.plans : defaultPlans();
-    // Admin defaultDiscountPct ALWAYS wins (user saw 17% because plans had hardcoded 17)
-    var globalDisc = 17;
+    var globalDisc = 12;
     try {
       if (cfg && cfg.defaultDiscountPct != null && cfg.defaultDiscountPct !== '')
         globalDisc = parseInt(cfg.defaultDiscountPct, 10);
-      if (isNaN(globalDisc)) globalDisc = 17;
+      if (isNaN(globalDisc)) globalDisc = 12;
     } catch (e) {}
+    globalDisc = Math.min(90, Math.max(0, globalDisc));
+
+    // Build from admin amountOptions + maxMembersByAmount when available
+    // (this is what Admin edits — not the old hardcoded 499/999/1999 defaults)
+    function plansFromAmounts(cfg) {
+      if (!cfg) return null;
+      var raw = cfg.amountOptions || cfg.amounts || [];
+      var amounts = (Array.isArray(raw) ? raw : String(raw).split(','))
+        .map(function (x) { return parseInt(x, 10); })
+        .filter(function (n) { return n > 0; });
+      if (!amounts.length) return null;
+      var mmMap = cfg.maxMembersByAmount || {};
+      // Treat as annual if it matches monthly×12×(1−disc) for some smaller monthly in the list
+      function isAnnualAmt(n) {
+        for (var i = 0; i < amounts.length; i++) {
+          var m = amounts[i];
+          if (m > 0 && m < n && Math.round(m * 12 * (1 - globalDisc / 100)) === n) return true;
+        }
+        if (n >= 4000) return true;
+        return false;
+      }
+      var monthlyOnly = amounts.filter(function (n) { return !isAnnualAmt(n); });
+      monthlyOnly.sort(function (a, b) { return a - b; });
+      if (!monthlyOnly.length) return null;
+      var out = monthlyOnly.map(function (m) {
+        var mm = parseInt(mmMap[String(m)] != null ? mmMap[String(m)] : mmMap[m], 10) || 0;
+        var label;
+        if (mm === 1 || m === 99 || m === 199) label = 'Individual (1 member)';
+        else if (mm > 0) label = 'Up to ' + mm + ' members';
+        else if (m === 499) label = 'Up to 30 members';
+        else if (m === 799 || m === 999 || m === 1499) label = 'Up to 60 members';
+        else if (m >= 1999) label = 'Up to 200 members';
+        else label = 'Plan ₹' + m;
+        return {
+          id: 'm' + m,
+          label: label,
+          maxMembers: mm || (m === 99 || m === 199 ? 1 : 0),
+          monthly: m,
+          discountPct: null
+        };
+      });
+      out.push({ id: 'custom', label: 'Customized plan', custom: true });
+      return out;
+    }
+
+    var fromAmounts = plansFromAmounts(cfg);
+    var fromAdmin =
+      (cfg && Array.isArray(cfg.plans) && cfg.plans.length ? cfg.plans : null) ||
+      fromAmounts ||
+      defaultPlans();
+
     return fromAdmin.map(function (p) {
       if (p.custom) return p;
       var monthly = parseInt(p.monthly, 10) || 0;
-      var discountPct = globalDisc; // prefer admin setting
+      var discountPct = globalDisc;
       try {
         if (cfg && cfg.planDiscounts && cfg.planDiscounts[String(monthly)] != null) {
           var o = parseInt(cfg.planDiscounts[String(monthly)], 10);

@@ -4,7 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Man Power by VKS Tech — Premium plant shift roster in minutes</title>
-  <meta name="description" content="Premium plant shift & manpower scheduling — as easy as Excel, built for mobile. Auto Schedule, coverage checks, offline PWA. Used for 30+ member teams. Not another full HRMS." />
+  <meta name="description" content="Plant shift roster in minutes — Excel in, Auto Schedule, coverage by machine. Built by a production manager for 60-member teams. Free trial · mobile OTP login · not another full HRMS." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Man Power by VKS Tech — Plant shift roster in minutes" />
+  <meta property="og:description" content="Upload Excel. Auto Schedule. Coverage checks on phone. Built by a production manager for 60-member teams. Free trial · mobile OTP · no card required." />
+  <meta property="og:image" content="assets/icon-512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Man Power — Plant shift roster in minutes" />
+  <meta name="twitter:description" content="Excel in → live roster on phone. Free trial · mobile OTP · no card required." />
+  <meta name="twitter:image" content="assets/icon-512.png" />
   <link rel="icon" type="image/png" href="assets/icon-192.png" />
   <link rel="apple-touch-icon" href="assets/icon-180.png" />
   <meta name="theme-color" content="#0f172a" />
@@ -422,6 +432,140 @@
     .video-body h3 { font-size: 1.05rem; margin-bottom: 6px; }
     .video-body p { font-size: 14px; color: var(--slate); }
 
+
+
+    .cta-guarantee {
+      margin-top: 10px; font-size: 12.5px; font-weight: 600;
+      color: rgba(255,255,255,.72); letter-spacing: .01em;
+    }
+    .cta-guarantee.on-light { color: var(--slate); }
+    .phone-frame {
+      background: #0f172a; border-radius: 28px; padding: 12px 10px 16px;
+      box-shadow: 0 24px 60px rgba(15,23,42,.35);
+      border: 3px solid #1e293b;
+      max-width: 320px; margin: 0 auto;
+    }
+    .phone-notch {
+      width: 96px; height: 8px; border-radius: 999px;
+      background: #334155; margin: 0 auto 12px;
+    }
+    .phone-frame .ui-mock {
+      border-radius: 14px; overflow: hidden;
+    }
+    .video-section.is-empty { display: none !important; }
+    .nav-links a[href="#videos"].is-hidden { display: none !important; }
+    .plan-fallback {
+      grid-column: 1 / -1; text-align: center; padding: 28px 20px;
+      background: #fff; border: 1px dashed var(--border); border-radius: 16px;
+    }
+    .plan-fallback strong { display: block; font-size: 1.05rem; margin-bottom: 8px; }
+    .plan-fallback p { color: var(--slate); font-size: 14px; margin-bottom: 16px; }
+
+    /* Engagement / conversion polish */
+    .btn-primary, .btn-orange {
+      box-shadow: 0 4px 14px rgba(234, 88, 12, .35);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .btn-orange:hover, .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(234, 88, 12, .45);
+    }
+    .btn-orange {
+      animation: ctaPulse 2.8s ease-in-out infinite;
+    }
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: 0 4px 14px rgba(234, 88, 12, .35); }
+      50% { box-shadow: 0 4px 28px rgba(234, 88, 12, .55); }
+    }
+    .hero {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 70% 20%, rgba(37,99,235,.25), transparent 55%),
+        radial-gradient(ellipse 50% 40% at 10% 80%, rgba(234,88,12,.12), transparent 50%);
+      pointer-events: none;
+    }
+    .hero .wrap { position: relative; z-index: 1; }
+    .trust-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-top: 8px;
+    }
+    @media (min-width: 700px) {
+      .trust-stats { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    }
+    .trust-stat {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 14px;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+    .trust-stat strong {
+      display: block;
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.2;
+    }
+    .trust-stat span {
+      font-size: 12px;
+      color: var(--slate);
+      font-weight: 600;
+    }
+    .sticky-cta {
+      display: none;
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      background: rgba(15, 23, 42, .94);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 -8px 32px rgba(0,0,0,.2);
+    }
+    @media (max-width: 800px) {
+      .sticky-cta { display: block; }
+      body { padding-bottom: 84px; }
+    }
+    .sticky-cta-inner {
+      display: flex; gap: 10px; align-items: center; max-width: 520px; margin: 0 auto;
+    }
+    .sticky-cta-inner a {
+      flex: 1; text-align: center; font-weight: 800; font-size: 14px;
+      padding: 14px 12px; border-radius: 12px;
+    }
+    .sticky-cta .sc-main {
+      background: var(--orange); color: #fff;
+      box-shadow: 0 4px 16px rgba(234,88,12,.4);
+    }
+    .sticky-cta .sc-sub {
+      background: rgba(255,255,255,.1); color: #fff; border: 1px solid rgba(255,255,255,.2);
+      flex: 0 0 auto; padding-left: 16px; padding-right: 16px;
+    }
+    .section-label {
+      letter-spacing: .08em;
+    }
+    h2 {
+      letter-spacing: -0.02em;
+    }
+    .hero h1 {
+      letter-spacing: -0.03em;
+    }
+    .login-hint {
+      display: inline-flex; align-items: center; gap: 6px;
+      margin-top: 12px; font-size: 13px; color: rgba(255,255,255,.75);
+    }
+    .login-hint strong { color: #fdba74; }
+    .nav-cta .btn-primary {
+      animation: none;
+      box-shadow: 0 2px 10px rgba(234,88,12,.3);
+    }
+
     /* Founder / authority */
     .founder-block {
       display: grid; gap: 20px; margin-top: 36px; align-items: center;
@@ -510,7 +654,7 @@
       <div class="nav-cta">
         <button type="button" id="landingLangBtn" class="btn btn-ghost" style="min-width:44px;font-weight:800" title="Language" onclick="mpLandingToggleLang()">EN</button>
         <a class="btn btn-ghost" href="app.html" rel="noopener" data-i18n="login">Login</a>
-        <a class="btn btn-primary" href="app.html" rel="noopener" data-i18n="startFree">Start free</a>
+        <a class="btn btn-primary" href="app.html" rel="noopener" data-i18n="startFree">Login free</a>
       </div>
     </div>
   </header>
@@ -520,52 +664,63 @@
     <div class="wrap hero-grid">
       <div>
         <div class="badge" data-i18n="badge">Plant-floor shift & manpower · by VKS Tech</div>
-        <h1 data-i18n-html-key="heroTitleHtml">Shift coverage that works on the <span>shop floor</span> — not another full HRMS.</h1>
-        <p class="hero-sub" data-i18n="heroSub">Upload your Excel. Auto-generate shifts in minutes. Check coverage before the day starts — on phone, at any hour. Premium rostering made as easy as a spreadsheet. Built for factories and multi-section plants.</p>
+        <h1 data-i18n-html-key="heroTitleHtml">Stop rebuilding Excel every week.<br><span>Get a live roster on your phone.</span></h1>
+        <p class="hero-sub" data-i18n="heroSub">Upload your plant Excel once. Auto Schedule fills Day / Night / Off. Coverage check flags short sections and machines before the shift starts — not after a line stops.</p>
         <div class="hero-actions">
-          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Start free trial</a>
-          <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" rel="noopener" target="_blank">Book 15-min setup call</a>
+          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Login · Start free trial</a>
+          <a class="btn btn-white btn-lg" href="#how" data-i18n="seeHow">See how it works</a>
         </div>
         <div class="hero-meta">
+          <span><strong>Mobile OTP</strong> login</span>
           <span><strong>Excel → roster</strong> in minutes</span>
-          <span><strong>Coverage checks</strong> built-in</span>
           <span><strong>Offline-ready</strong> PWA</span>
         </div>
+        <p class="login-hint">No card required to try · <strong>OTP on your phone</strong> · Hindi &amp; English</p>
+        <p class="cta-guarantee">✓ Free trial · Mobile OTP login · No card required</p>
         <p style="margin-top:14px;font-size:13px;opacity:.9;max-width:520px">
           Built by a Production Manager who led <strong>60-member</strong> packaging teams —
-          highest-ever single-line output <strong>818 MT</strong>, defects <strong>9% → 0.2%</strong>, lowest conversion cost in department history.
-          <a href="#proof" style="color:#fdba74;font-weight:700">See who grew under the same guidance →</a>
+          highest-ever <strong>818 MT</strong> line output, defects <strong>9% → 0.2%</strong>.
+          <a href="#proof" style="color:#fdba74;font-weight:700">Real plant careers →</a>
         </p>
       </div>
       <div class="hero-card">
-        <div class="ui-mock">
-          <div class="ui-row">
-            <div class="ui-chip d">D · Day</div>
-            <div class="ui-chip n">N · Night</div>
-            <div class="ui-chip o">O · Off</div>
-            <div class="ui-chip g">G · Gen</div>
+        <div class="phone-frame">
+          <div class="phone-notch"></div>
+          <div class="ui-mock">
+            <div class="ui-row">
+              <div class="ui-chip d">D · Day</div>
+              <div class="ui-chip n">N · Night</div>
+              <div class="ui-chip o">O · Off</div>
+              <div class="ui-chip g">G · Gen</div>
+            </div>
+            <table class="ui-table">
+              <thead>
+                <tr><th data-i18n="department">Department</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Print · M-1</td><td>D</td><td>D</td><td>N</td><td><span class="pill ok">OK</span></td></tr>
+                <tr><td>Lami · M-2</td><td>N</td><td>D</td><td>D</td><td><span class="pill ok">OK</span></td></tr>
+                <tr><td>Slit · M-3</td><td>D</td><td>O</td><td>N</td><td><span class="pill warn">Short</span></td></tr>
+              </tbody>
+            </table>
           </div>
-          <table class="ui-table">
-            <thead>
-              <tr><th data-i18n="department">Department</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Coverage</th></tr>
-            </thead>
-            <tbody>
-              <tr><td>Print · M-1</td><td>D</td><td>D</td><td>N</td><td><span class="pill ok">OK</span></td></tr>
-              <tr><td>Lami · M-2</td><td>N</td><td>D</td><td>D</td><td><span class="pill ok">OK</span></td></tr>
-              <tr><td>Slit · M-3</td><td>D</td><td>O</td><td>N</td><td><span class="pill warn">Short</span></td></tr>
-            </tbody>
-          </table>
+          <p style="margin-top:12px;font-size:12px;opacity:.85;text-align:center;color:#cbd5e1">Coverage flagged before the shift starts</p>
         </div>
-        <p style="margin-top:12px;font-size:13px;opacity:.8;">Auto Schedule flags short coverage by section / machine / responsibility — then you fix weekly offs and re-run.</p>
       </div>
     </div>
   </section>
 
-  <!-- TRUST -->
-  <div class="trust">
+  <!-- TRUST STATS -->
+  <div class="trust" style="padding:32px 0;background:var(--bg)">
     <div class="wrap">
-      <p>Built for Indian plant operations</p>
-      <div class="trust-row">
+      <p style="margin-bottom:16px">Trusted language of Indian plant floors</p>
+      <div class="trust-stats">
+        <div class="trust-stat"><strong>9 yrs</strong><span>Packaging production</span></div>
+        <div class="trust-stat"><strong>60+</strong><span>Member teams led</span></div>
+        <div class="trust-stat"><strong>818 MT</strong><span>Peak line output</span></div>
+        <div class="trust-stat"><strong>0.2%</strong><span>Defects (from 9%)</span></div>
+      </div>
+      <div class="trust-row" style="margin-top:18px">
         <span>Flexible packaging</span>
         <span>Printing & converting</span>
         <span>Multi-machine lines</span>
@@ -577,7 +732,7 @@
 
 
   <!-- VIDEOS -->
-    <section class="video-section" id="videos">
+    <section class="video-section is-empty" id="videos" data-has-video="0">
     <div class="wrap">
       <span class="section-label" data-i18n="videosWatch">WATCH</span>
       <h2 data-i18n="videosTitle">See Auto Schedule in action — then full setup</h2>
@@ -890,8 +1045,11 @@
       <p class="lead">Clear monthly bands. Start free, then pick the size that matches your floor. Annual billing saves when discount is enabled by admin (shown on each card).</p>
 
       <div class="plan-grid" id="lpPlanGrid">
-        <div class="plan-card" style="grid-column:1/-1;text-align:center;padding:28px;color:var(--slate)">
-          Loading plans from Admin…
+        <div class="plan-fallback">
+          <strong>Start free — pick a plan after login</strong>
+          <p>Plans load from Admin. Typical bands: Individual · up to 60 · up to 200. Free trial after mobile OTP login.</p>
+          <a class="btn btn-orange" href="app.html">Login · Start free trial</a>
+          <p class="cta-guarantee on-light" style="margin-top:12px">✓ Free trial · Mobile OTP · No card required</p>
         </div>
       </div>
 
@@ -958,26 +1116,28 @@
   <section id="contact" class="bg-soft">
     <div class="wrap" style="text-align:center;max-width:640px;margin:0 auto;">
       <span class="section-label">Contact</span>
-      <h2>Talk first — or start free</h2>
-      <p class="lead">Custom plan, multi-plant, or just want to see Auto Schedule on your Excel? Book a free 15-minute setup call. No payment needed for the call.</p>
+      <h2>Ready when you are</h2>
+      <p class="lead">Login with mobile OTP and try on your real roster — or book a free 15-minute call if you want a walkthrough first.</p>
       <div class="hero-actions" style="justify-content:center;margin-top:8px">
-        <a class="btn btn-orange btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Book 15-min setup call</a>
-        <a class="btn btn-ghost btn-lg" href="app.html">Start free trial</a>
+        <a class="btn btn-orange btn-lg" href="app.html">Login · Start free trial</a>
+        <a class="btn btn-ghost btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp setup call</a>
       </div>
-      <p style="margin-top:14px;font-size:13px;color:var(--slate)">Vivek Kumar · +91-8168771239 · VKS Tech · Open to plant teams across India</p>
+      <p class="cta-guarantee on-light" style="margin-top:12px">✓ Free trial · Mobile OTP · No card required</p>
+      <p style="margin-top:10px;font-size:13px;color:var(--slate)">Vivek Kumar · +91-8168771239 · VKS Tech · Open to plant teams across India</p>
     </div>
   </section>
 
   <!-- FINAL CTA -->
   <section class="cta-band">
     <div class="wrap">
-      <h2 data-i18n="ctaTitle">Premium rostering that feels as easy as Excel — and works on your phone.</h2>
-      <p data-i18n="ctaSub">Built by a production manager for 60-member plant teams. Start free, or book a 15-minute setup call first — your choice.</p>
+      <h2 data-i18n="ctaTitle">Your next shift roster is one login away.</h2>
+      <p data-i18n="ctaSub">Mobile OTP · free trial · Excel in, coverage out. Built for 60-member plant teams — not another full HRMS.</p>
       <div class="hero-actions">
-        <a class="btn btn-orange btn-lg" href="app.html" rel="noopener"><span data-i18n="ctaStart">Start free on Man Power</span></a>
-        <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Book 15-min setup call</a>
+        <a class="btn btn-orange btn-lg" href="app.html" rel="noopener"><span data-i18n="ctaStart">Login · Start free trial</span></a>
+        <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Or talk 15 min first</a>
       </div>
-      <p style="margin-top:18px;font-size:13px;opacity:.75;" data-i18n="ctaMeta">Mobile OTP login · Hindi & English · Built by VKS Tech</p>
+      <p class="cta-guarantee" style="margin-top:14px">✓ Free trial · Mobile OTP login · No card required</p>
+      <p style="margin-top:10px;font-size:13px;opacity:.75;" data-i18n="ctaMeta">Hindi &amp; English · Built by VKS Tech</p>
     </div>
   </section>
 
@@ -1030,18 +1190,36 @@
   }
   function fillVideo(sel, url, title){
     var card = document.querySelector(sel);
-    if(!card || !url) return;
+    if(!card || !url) return false;
     var frame = card.querySelector('.video-frame');
-    if(!frame) return;
+    if(!frame) return false;
     var emb = ytEmbed(url);
     if(emb){
       frame.innerHTML = '<iframe src="'+emb+'" title="'+(title||'Man Power video')+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>';
     } else {
       frame.innerHTML = '<div class="video-placeholder"><div class="play">▶</div><strong>'+(title||'Watch')+'</strong><span><a style="color:#fdba74" href="'+String(url).replace(/"/g,'')+'" target="_blank" rel="noopener">Open video</a></span></div>';
     }
+    card.setAttribute('data-filled', '1');
+    return true;
   }
+  function showVideosSectionIfAny(has){
+    var sec = document.getElementById('videos');
+    var nav = document.querySelector('.nav-links a[href="#videos"]');
+    if (has) {
+      if (sec) { sec.classList.remove('is-empty'); sec.setAttribute('data-has-video','1'); }
+      if (nav) nav.classList.remove('is-hidden');
+    } else {
+      if (sec) { sec.classList.add('is-empty'); sec.setAttribute('data-has-video','0'); }
+      if (nav) nav.classList.add('is-hidden');
+    }
+  }
+  // Hide Videos nav until we know URLs exist
+  try {
+    var _nv = document.querySelector('.nav-links a[href="#videos"]');
+    if (_nv) _nv.classList.add('is-hidden');
+  } catch (eN) {}
   fetch(URL).then(function(r){ return r.json(); }).then(function(o){
-    if(!o) return;
+    if(!o) { showVideosSectionIfAny(false); return; }
     window._lpOfferCache = o;
     if (typeof window.mpLandingFillVideos === 'function') window.mpLandingFillVideos();
     else {
@@ -1051,8 +1229,15 @@
       var lu = hi ? (o.videoLongUrlHi || o.videoLongUrl) : o.videoLongUrl;
       var st = hi ? (o.videoShortTitleHi || o.videoShortTitle) : o.videoShortTitle;
       var lt = hi ? (o.videoLongTitleHi || o.videoLongTitle) : o.videoLongTitle;
-      fillVideo('.video-grid .video-card:nth-child(1)', su, st || 'Auto Schedule · one click');
-      fillVideo('.video-grid .video-card:nth-child(2)', lu, lt || 'Setup + free trial');
+      var f1 = fillVideo('.video-grid .video-card:nth-child(1)', su, st || 'Auto Schedule · one click');
+      var f2 = fillVideo('.video-grid .video-card:nth-child(2)', lu, lt || 'Setup + free trial');
+      showVideosSectionIfAny(!!(f1 || f2));
+      // Hide empty cards if only one video published
+      try {
+        document.querySelectorAll('.video-grid .video-card').forEach(function(c){
+          if (c.getAttribute('data-filled') !== '1') c.style.display = 'none';
+        });
+      } catch (eH) {}
     }
     function planAmount(p){
       if (p == null) return NaN;
@@ -1233,10 +1418,26 @@
           note.textContent = (note.textContent||'') + extra;
       }
     }
-  }).catch(function(){});
+  }).catch(function(){
+    showVideosSectionIfAny(false);
+    var grid = document.getElementById('lpPlanGrid');
+    if (grid && grid.innerHTML.indexOf('plan-fallback') === -1 && grid.innerHTML.indexOf('plan-card') === -1) {
+      grid.innerHTML = '<div class="plan-fallback"><strong>Start free — pick a plan after login</strong><p>Typical bands: Individual · up to 60 · up to 200. Free trial after mobile OTP.</p><a class="btn btn-orange" href="app.html">Login · Start free trial</a></div>';
+    }
+  });
+
 })();
 </script>
 
 <script src="js/landing-i18n.js"></script>
+
+  <!-- Mobile sticky login CTA -->
+  <div class="sticky-cta" id="stickyCta" role="region" aria-label="Quick start">
+    <div class="sticky-cta-inner">
+      <a class="sc-main" href="app.html" rel="noopener">Login · Free trial</a>
+      <a class="sc-sub" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp</a>
+    </div>
+  </div>
+
 </body>
 </html>
