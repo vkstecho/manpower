@@ -411,25 +411,41 @@
       ')' +
       '</div>';
 
-    if (monthlyLink) {
+    function linkOk(u) {
+      if (typeof _looksLikeFixedPaymentLink === 'function') return _looksLikeFixedPaymentLink(u);
+      return !!(u && /^https?:\/\//i.test(u));
+    }
+    var monthlyOk = monthlyLink && linkOk(monthlyLink);
+    var annualOk = annualLink && linkOk(annualLink);
+    if (monthlyOk) {
       html +=
         '<a class="big-btn" style="display:block;text-align:center;margin-bottom:10px;text-decoration:none;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px" target="_blank" rel="noopener" href="' +
         monthlyLink.replace(/"/g, '&quot;') +
         '">Pay ₹' +
         plan.monthly +
         ' / month</a>';
+    } else if (monthlyLink) {
+      html +=
+        '<div style="padding:10px;border-radius:10px;background:rgba(249,115,22,.1);color:#c2410c;font-size:12px;margin-bottom:10px">Monthly link looks invalid (use full fixed-amount rzp.io link for ₹' +
+        plan.monthly +
+        ')</div>';
     }
-    if (annualLink) {
+    if (annualOk) {
       html +=
         '<a class="big-btn" style="display:block;text-align:center;margin-bottom:10px;text-decoration:none;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:900;padding:14px;border-radius:12px" target="_blank" rel="noopener" href="' +
         annualLink.replace(/"/g, '&quot;') +
         '">Pay ₹' +
         plan.annual +
         ' / year</a>';
-    }
-    if (!monthlyLink && !annualLink) {
+    } else if (annualLink) {
       html +=
-        '<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px;margin-bottom:10px">Payment link not set — contact Admin / WhatsApp ' +
+        '<div style="padding:10px;border-radius:10px;background:rgba(249,115,22,.1);color:#c2410c;font-size:12px;margin-bottom:10px">Annual link looks invalid or incomplete — Admin must paste a <b>fixed-amount</b> Razorpay Payment Link created for exactly ₹' +
+        plan.annual +
+        ' (not razorpay.me/@username). "Amount not valid" means the link was made for a different amount.</div>';
+    }
+    if (!monthlyOk && !annualOk) {
+      html +=
+        '<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px;margin-bottom:10px">Payment link not set or invalid — contact Admin / WhatsApp ' +
         DEFAULT_WA +
         '</div>';
     }

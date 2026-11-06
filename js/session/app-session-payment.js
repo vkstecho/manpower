@@ -130,6 +130,86 @@ function _paymentLinkForAmount(baseLink, amount){
 }
 
 
+
+// ═══════════════════════════════════════════════════════════
+// Plan label helpers (admin Pay-until + team list)
+// ═══════════════════════════════════════════════════════════
+function _planLabelFromAmount(amount, cfg) {
+  const n = parseInt(amount, 10) || 0;
+  if (!n) return null;
+  cfg = cfg || window._paymentSettingsCache || {};
+  let disc = 12;
+  try {
+    if (cfg.defaultDiscountPct != null)
+      disc = Math.min(90, Math.max(0, parseInt(cfg.defaultDiscountPct, 10) || 12));
+  } catch (e) {}
+  const amounts = (typeof _getPaymentAmountOptions === 'function')
+    ? _getPaymentAmountOptions(cfg)
+    : [];
+  const mmMap = (cfg && cfg.maxMembersByAmount) || {};
+  const overrideMm = parseInt(mmMap[String(n)] != null ? mmMap[String(n)] : mmMap[n], 10) || 0;
+
+  function isAnnualAmt(val) {
+    const list = (amounts || []).map(function (x) { return parseInt(x, 10); }).filter(function (x) { return x > 0; });
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      if (m > 0 && m < val && Math.round(m * 12 * (1 - disc / 100)) === val) return true;
+    }
+    if (val >= 4000) return true;
+    if (val === 1045 || val === 5269 || val === 10549 || val === 15829 || val === 21109 || val === 8437 || val === 31669) return true;
+    if ((val > 900 && val < 1200 && val !== 999 && val !== 799) || (val >= 4800 && val < 6000) || (val >= 9000 && val < 12000) || (val >= 14000 && val < 35000)) return true;
+    return false;
+  }
+
+  const annual = isAnnualAmt(n);
+  let maxMembers = overrideMm;
+  let band = '';
+  if (maxMembers === 1 || n === 99 || n === 199 || n === 1045) {
+    band = 'Individual (1 member)';
+    maxMembers = maxMembers || 1;
+  } else if (maxMembers > 0) {
+    band = 'Up to ' + maxMembers + ' members';
+  } else if (n === 499 || n === 799 || n === 8437 || (n >= 4800 && n < 9000)) {
+    band = 'Up to 30 members';
+    maxMembers = 30;
+  } else if (n === 999 || n === 1499 || n === 15829 || (n >= 9000 && n < 20000)) {
+    band = 'Up to 60 members';
+    maxMembers = 60;
+  } else if (n === 1999 || n === 2499 || n === 2999 || n === 31669 || (n >= 1400 && n < 4000) || n >= 20000) {
+    band = 'Up to 200 members';
+    maxMembers = 200;
+  } else {
+    band = 'Plan';
+  }
+  const period = annual ? 'annual' : 'monthly';
+  const periodLabel = annual ? 'Annual' : 'Monthly';
+  return {
+    label: band + ' · ' + periodLabel,
+    band: band,
+    period: period,
+    periodLabel: periodLabel,
+    amount: n,
+    maxMembers: maxMembers
+  };
+}
+window._planLabelFromAmount = _planLabelFromAmount;
+
+function _looksLikeFixedPaymentLink(url) {
+  const u = String(url || '').trim();
+  if (!u) return false;
+  // Incomplete / profile-only pages (common cause of "Amount not valid")
+  if (/^https?:\/\/(www\.)?razorpay\.me\/?$/i.test(u)) return false;
+  if (/razorpay\.me\/@/i.test(u) && !/\/l\//i.test(u)) return false;
+  if (/pay\.me\/@/i.test(u)) return false;
+  // Truncated paste
+  if (/^[\w.-]*ay\.me\//i.test(u) || /^[\w.-]*azorpay\./i.test(u)) return false;
+  // Accept rzp.io short links, payment pages, UPI, generic https
+  if (/^https?:\/\//i.test(u) || /^upi:\/\//i.test(u)) return true;
+  return false;
+}
+window._looksLikeFixedPaymentLink = _looksLikeFixedPaymentLink;
+
+
 // ═══════════════════════════════════════════════════════════
 // CUSTOMER CARE + 7-day refund policy (Admin-editable)
 // ═══════════════════════════════════════════════════════════
@@ -966,14 +1046,23 @@ async function savePaymentSettingsAdmin(){
     : _getPaymentAmountOptions(window._paymentSettingsCache);
   // Collect per-amount links (from live inputs + edit map)
   const linksByAmount = {};
+  const badLinks = [];
   try{
     const map = window._payLinksByAmountEdit || {};
     amountOptions.forEach(a=>{
       const key = String(a);
       let url = String(map[key] || map[a] || '').trim();
-      if(url) linksByAmount[key] = url;
+      if(!url) return;
+      if(typeof _looksLikeFixedPaymentLink === 'function' && !_looksLikeFixedPaymentLink(url)){
+        badLinks.push('₹' + key);
+        return; // do not save broken/incomplete links
+      }
+      linksByAmount[key] = url;
     });
   }catch(e){}
+  if(badLinks.length){
+    toast('⚠️ Skipped invalid payment link(s) for ' + badLinks.join(', ') + ' — use full rzp.io / fixed-amount Razorpay link');
+  }
   // Collect per-amount max members (team size bands)
   const maxMembersByAmount = {};
   try{
