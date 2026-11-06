@@ -194,6 +194,49 @@ function _planLabelFromAmount(amount, cfg) {
 }
 window._planLabelFromAmount = _planLabelFromAmount;
 
+function _formatSubscriptionLine(src, cfg) {
+  src = src || {};
+  cfg = cfg || window._paymentSettingsCache || {};
+  const STANDARD = {1:1, 30:1, 60:1, 200:1};
+  let teamSize = parseInt(src.teamSize != null ? src.teamSize : (src.maxMembers != null ? src.maxMembers : src.planMaxMembers), 10) || 0;
+  let period = src.planPeriod || '';
+  let periodLabel = '';
+  const amt = parseInt(src.paymentAmount, 10) || 0;
+
+  // Derive from amount if period/size missing
+  let meta = null;
+  if (amt && typeof _planLabelFromAmount === 'function') {
+    try { meta = _planLabelFromAmount(amt, cfg); } catch (e) {}
+  }
+  if (!period && meta) period = meta.period;
+  if (!teamSize && meta) teamSize = meta.maxMembers || 0;
+  if (!teamSize && src.planLabel) {
+    const m = String(src.planLabel).match(/(\d+)\s*member/i);
+    if (m) teamSize = parseInt(m[1], 10) || 0;
+    if (/individual/i.test(src.planLabel)) teamSize = teamSize || 1;
+  }
+
+  periodLabel = (period === 'annual') ? 'Annual' : (period === 'monthly' || amt || teamSize ? 'Monthly' : '');
+  if (!periodLabel && meta) periodLabel = meta.periodLabel || (meta.period === 'annual' ? 'Annual' : 'Monthly');
+
+  if (!teamSize && !periodLabel) return '';
+
+  const isCustom = teamSize > 0 && !STANDARD[teamSize];
+  let sizeBit = '';
+  if (teamSize === 1) sizeBit = '1 Member';
+  else if (teamSize > 0) sizeBit = teamSize + ' Members';
+
+  const parts = [];
+  if (periodLabel) parts.push(periodLabel);
+  if (isCustom) parts.push('Custom plan');
+  if (sizeBit) parts.push(sizeBit);
+  // If standard and no custom, e.g. "Monthly · 30 Members"
+  return parts.join(' · ');
+}
+window._formatSubscriptionLine = _formatSubscriptionLine;
+
+
+
 function _looksLikeFixedPaymentLink(url) {
   const u = String(url || '').trim();
   if (!u) return false;

@@ -1730,6 +1730,34 @@ async function showProfile(){
           expiryStr = expiryDate;
         }
       }
+      // Plan / team-size line for Paid till card (e.g. Monthly · Custom plan · 3 Members)
+      try{
+        let planSrc = {};
+        if(mobileKey){
+          const rec2 = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
+          if(rec2) planSrc = Object.assign({}, rec2);
+          try{
+            const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
+            if(ps) planSrc = Object.assign({}, planSrc, ps);
+          }catch(ePs){}
+          // Member inherits manager team size / plan when own missing
+          if((!planSrc.teamSize && !planSrc.maxMembers && !planSrc.paymentAmount) && planSrc.managerId){
+            try{
+              const mid = String(planSrc.managerId).replace(/\D/g,'').slice(-10);
+              const mgr = await fbGet('mobileUsers/' + mid).catch(function(){return null;});
+              if(mgr) planSrc = Object.assign({}, mgr, { paymentPaidUntil: planSrc.paymentPaidUntil || mgr.paymentPaidUntil });
+            }catch(eM){}
+          }
+        }
+        if(SESSION){
+          if(SESSION.paymentAmount && !planSrc.paymentAmount) planSrc.paymentAmount = SESSION.paymentAmount;
+          if(SESSION.planLabel && !planSrc.planLabel) planSrc.planLabel = SESSION.planLabel;
+          if(SESSION.teamSize && !planSrc.teamSize) planSrc.teamSize = SESSION.teamSize;
+        }
+        window._profilePlanLine = (typeof _formatSubscriptionLine === 'function')
+          ? (_formatSubscriptionLine(planSrc, window._paymentSettingsCache || {}) || '')
+          : (planSrc.planLabel || '');
+      }catch(ePlan){ window._profilePlanLine = ''; }
     }catch(ex){}
     const color = !hasExpiry?'#22c55e':daysLeft<=7?'#f43f5e':daysLeft<=15?'#f97316':'#22c55e';
     const icon  = !hasExpiry?'🟢':daysLeft<=0?'🔴':daysLeft<=7?'⚠️':'🟢';
@@ -1788,6 +1816,7 @@ async function showProfile(){
           <div>
             <div style="font-size:22px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif">${msg}</div>
             ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('भुगतान तक: ','Paid till: ')}${expiryStr}</div>`:''}
+            ${(window._profilePlanLine)?`<div style="font-size:12px;font-weight:800;color:#0f172a;margin-top:4px">${String(window._profilePlanLine).replace(/</g,'')}</div>`:''}
           </div>
         </div>
       </div>
