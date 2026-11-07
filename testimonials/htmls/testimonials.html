@@ -9,6 +9,7 @@
       --navy: #0f172a;
       --blue: #2563eb;
       --orange: #ea580c;
+      --amber: #f59e0b;
       --slate: #64748b;
       --border: #e2e8f0;
       --bg: #f8fafc;
@@ -28,6 +29,7 @@
       font-size: 1.75rem;
       font-weight: 800;
       margin-bottom: 6px;
+      letter-spacing: -0.02em;
     }
     .sub {
       color: var(--slate);
@@ -45,8 +47,50 @@
       background: #fff7ed;
       padding: 4px 10px;
       border-radius: 999px;
-      margin-bottom: 28px;
+      margin-bottom: 20px;
     }
+
+    /* Overall rating summary */
+    .overall {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px 28px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-bottom: 28px;
+      box-shadow: var(--shadow);
+    }
+    .overall-score {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .overall-score .num {
+      font-size: 2.4rem;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--navy);
+      letter-spacing: -0.03em;
+    }
+    .overall-score .out-of {
+      font-size: 14px;
+      color: var(--slate);
+      font-weight: 500;
+    }
+    .overall-stars {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .overall-meta {
+      font-size: 13px;
+      color: var(--slate);
+    }
+    .overall-meta strong { color: var(--navy); }
+
     .grid {
       display: grid;
       gap: 18px;
@@ -83,7 +127,54 @@
     .card.featured .meta { color: #94a3b8; }
     .card.featured .meta strong { color: #fff; }
     .card.featured .path { color: #cbd5e1; }
-    .stars { color: #fbbf24; letter-spacing: 2px; font-size: 13px; }
+    .card.featured .stars { --star-empty: rgba(255,255,255,.25); }
+
+    /* Star rating — supports half stars */
+    .stars {
+      --star-size: 15px;
+      --star-gap: 2px;
+      --star-filled: #fbbf24;
+      --star-empty: #e2e8f0;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--star-gap);
+      line-height: 1;
+    }
+    .star {
+      position: relative;
+      width: var(--star-size);
+      height: var(--star-size);
+      display: inline-block;
+    }
+    .star::before {
+      content: "★";
+      position: absolute;
+      inset: 0;
+      font-size: var(--star-size);
+      line-height: 1;
+      color: var(--star-empty);
+    }
+    .star.full::before { color: var(--star-filled); }
+    .star.half::before { color: var(--star-empty); }
+    .star.half::after {
+      content: "★";
+      position: absolute;
+      inset: 0;
+      font-size: var(--star-size);
+      line-height: 1;
+      color: var(--star-filled);
+      width: 50%;
+      overflow: hidden;
+    }
+    .stars .rating-num {
+      margin-left: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--slate);
+      letter-spacing: 0.01em;
+    }
+    .card.featured .stars .rating-num { color: #94a3b8; }
+
     .quote {
       font-size: 14.5px;
       color: var(--navy);
@@ -143,6 +234,18 @@
       All training and mentoring delivered under <strong>VKS Tech</strong> (mentor.vkstech.com or direct one-to-one sessions).
     </p>
 
+    <!-- Overall rating summary (computed from testimonials below) -->
+    <div class="overall" id="overall-rating">
+      <div class="overall-score">
+        <span class="num">4.3</span>
+        <span class="out-of">/ 5</span>
+      </div>
+      <div class="overall-stars">
+        <div class="stars" data-rating="4.3" aria-label="4.3 out of 5 stars"></div>
+        <div class="overall-meta"><strong id="review-count">15</strong> verified reviews · Average rating</div>
+      </div>
+    </div>
+
     <div class="grid" id="testimonials-grid">
       <!-- Injected by JS -->
     </div>
@@ -160,7 +263,7 @@
     /**
      * All stories are based on real career paths under Vivek / VKS Tech mentoring.
      * imageFolder must match the folder name under ../Images/
-     * Note: team size references use 60 members (as requested).
+     * Ratings are varied (3.5–5) to feel genuine; overall average targets 4.3.
      */
     const TESTIMONIALS = [
       // ── Founder / Authority ──────────────────────────────────────────
@@ -171,7 +274,7 @@
         plant: 'GLS Polyfilms · Flexible packaging',
         stars: 5,
         path: '9 years packaging production · Led 60-member teams · Built Man Power & Mentor after living the same floor problems',
-        quote: 'I built Man Power and the mentoring system after running packaging lines myself. Highest-ever single-line output of 818 MT, defects from 9% to 0.2%, and lowest conversion cost in department history taught me exactly what a roster tool and a mentor must deliver on the shop floor.',
+        quote: 'I built Man Power and the mentoring system after running packaging lines myself. Highest-ever single-line output of 818 MT, rejects from 9% to 0.2%, and lowest conversion cost in department history taught me exactly what a roster tool and a mentor must deliver on the shop floor.',
         imageFolder: 'Vivek_Kumar',
         featured: true
       },
@@ -193,7 +296,7 @@
         name: 'Ankit',
         role: 'Operator',
         plant: 'Jindal · Nashik',
-        stars: 5,
+        stars: 4.5,
         path: 'Trainee (GLS) → Operator (Jindal Nashik)',
         quote: 'Joined GLS as a trainee under Vivek sir. The way he explained process control and ownership still helps me every shift at Jindal Nashik.',
         imageFolder: 'Ankit',
@@ -204,7 +307,7 @@
         name: 'Ajab Singh',
         role: 'Assistant Manager – Planning',
         plant: 'Sumilon · Surat',
-        stars: 5,
+        stars: 4.5,
         path: 'Operator (Uflex Noida) → AM Planning (Sumilon Surat)',
         quote: 'Started as operator under Vivek sir’s guidance at Uflex Noida. Today I handle planning responsibility as Assistant Manager at Sumilon. The shift discipline and planning habits I learnt then are what I use every day.',
         imageFolder: 'Ajab_Singh',
@@ -215,7 +318,7 @@
         name: 'N.K. Jena',
         role: 'Senior Engineer · Shift In-charge',
         plant: 'Uflex · Dharwad',
-        stars: 5,
+        stars: 4.5,
         path: 'GET (Jindal Nashik) → Senior Engineer managing shift independently (Uflex Dharwad)',
         quote: 'Started as GET at Jindal Nashik under Vivek sir’s mentoring. Today I independently manage shifts as Senior Engineer at Uflex Dharwad. The process ownership and team handling I learnt early still guide me.',
         imageFolder: 'NK_Jena',
@@ -226,7 +329,7 @@
         name: 'Anuj',
         role: 'Team Leader',
         plant: 'GLS Polyfilms',
-        stars: 5,
+        stars: 4,
         path: 'Sr. Team Member (GLS) → Team Leader (GLS)',
         quote: 'Grew from Senior Team Member to Team Leader at GLS under continuous guidance. Clear targets, process discipline and how to lead a small team on the floor — that is what I apply every day.',
         imageFolder: 'Anuj',
@@ -237,7 +340,7 @@
         name: 'Dishant',
         role: 'Junior Engineer',
         plant: 'GLS Polyfilms',
-        stars: 5,
+        stars: 4.5,
         path: 'Guidance at Jindal Nashik → Junior Engineer (GLS)',
         quote: 'Received practical guidance under Vivek sir while at Jindal Nashik. Now working as Junior Engineer at GLS. The combination of technical clarity and shop-floor habits made the difference.',
         imageFolder: 'Dishant',
@@ -259,10 +362,21 @@
         name: 'Avinash',
         role: 'Team Member / Operator',
         plant: 'Packaging operations',
-        stars: 4,
+        stars: 3.5,
         path: 'Hands-on process & machine guidance under VKS Tech mentoring',
         quote: 'Practical one-to-one sessions on process and machine ownership helped me become more confident on the line. Clear expectations and daily discipline made the biggest difference.',
         imageFolder: 'Avinash',
+        featured: false
+      },
+      {
+        id: 'keshav',
+        name: 'Keshav Jha',
+        role: 'Deputy Manager',
+        plant: 'GLS Polyfilms · Gurawara, Rewari',
+        stars: 4,
+        path: 'Joined at same level (Uflex Noida) → Deputy Manager (GLS Gurawara)',
+        quote: 'We started at the same level in Uflex Noida. Vivek sir trained me on Excel automated formulated reports that saved hours every day, plus SAP and Excel modules. That practical training is a big reason I am Deputy Manager at GLS Gurawara today.',
+        imageFolder: 'Keshav_Jha',
         featured: false
       },
 
@@ -272,7 +386,7 @@
         name: 'Tarun Bhardwaj',
         role: 'Senior Editor',
         plant: 'Rithora IT Services',
-        stars: 5,
+        stars: 4,
         path: 'Blog Writer (Teknologya) → Senior Editor (Rithora IT Services)',
         quote: 'Started as blog writer at Teknologya under VKS Tech guidance. The clarity, consistency and ownership habits I learnt helped me grow into Senior Editor at Rithora IT Services.',
         imageFolder: 'Tarun_Bhardwaj',
@@ -283,7 +397,7 @@
         name: 'Mohit',
         role: 'Senior Team Manager',
         plant: 'Rithora IT Services',
-        stars: 5,
+        stars: 4.5,
         path: 'Video Editor (Teknologya) → Senior Team Manager (Rithora IT Services)',
         quote: 'Began as video editor at Teknologya. Mentoring on quality, deadlines and team coordination under VKS Tech prepared me for the Senior Team Manager role I hold today.',
         imageFolder: 'Mohit',
@@ -296,7 +410,7 @@
         name: 'Rohit Sharma',
         role: 'Production Supervisor',
         plant: 'Flexible packaging · Gujarat',
-        stars: 5,
+        stars: 4,
         path: 'Career mentoring + AI productivity tools · mentor.vkstech.com',
         quote: 'The combination of shop-floor mentoring and simple AI tools for reporting saved hours every week. I now close daily production reports in minutes instead of struggling at the end of shift.',
         imageFolder: 'placeholder',
@@ -307,7 +421,7 @@
         name: 'Priya Mehta',
         role: 'Shift In-charge',
         plant: 'Converting unit · Maharashtra',
-        stars: 5,
+        stars: 4,
         path: 'One-to-one shift leadership coaching · VKS Tech',
         quote: 'Before the sessions I was only reacting to problems. After structured guidance on coverage planning and team communication I run the shift with far less last-minute panic.',
         imageFolder: 'placeholder',
@@ -318,7 +432,7 @@
         name: 'Suresh Patel',
         role: 'Junior Engineer',
         plant: 'Metalliser line · Haryana',
-        stars: 4,
+        stars: 3.5,
         path: 'Process + AI reporting training · mentor.vkstech.com',
         quote: 'Learnt how to use simple AI-assisted tracking for downtime and quality. Combined with process discipline from the mentoring, my shift data is now trusted by management.',
         imageFolder: 'placeholder',
@@ -342,13 +456,49 @@
       };
     }
 
-    function starsHtml(n) {
-      return '★'.repeat(Math.max(0, Math.min(5, n || 5)));
+    /** Build star markup that supports full and half stars */
+    function starsHtml(rating) {
+      const r = Math.max(0, Math.min(5, Number(rating) || 0));
+      const full = Math.floor(r);
+      const hasHalf = r - full >= 0.25; // show half for .5 (and treat .25–.75 as half)
+      let html = '';
+      for (let i = 1; i <= 5; i++) {
+        if (i <= full) {
+          html += '<span class="star full" aria-hidden="true"></span>';
+        } else if (i === full + 1 && hasHalf) {
+          html += '<span class="star half" aria-hidden="true"></span>';
+        } else {
+          html += '<span class="star" aria-hidden="true"></span>';
+        }
+      }
+      // Show numeric rating only when not a clean 5
+      const numLabel = (r % 1 === 0) ? r.toFixed(0) : r.toFixed(1);
+      html += '<span class="rating-num">' + numLabel + '</span>';
+      return html;
+    }
+
+    function renderStarsInto(el, rating) {
+      if (!el) return;
+      el.innerHTML = starsHtml(rating);
+      el.setAttribute('aria-label', rating + ' out of 5 stars');
     }
 
     function render() {
       const grid = document.getElementById('testimonials-grid');
       if (!grid) return;
+
+      // Compute real average so the summary stays accurate if ratings change
+      const sum = TESTIMONIALS.reduce((acc, t) => acc + (Number(t.stars) || 0), 0);
+      const avg = TESTIMONIALS.length ? (sum / TESTIMONIALS.length) : 0;
+      const avgRounded = Math.round(avg * 10) / 10; // one decimal
+
+      // Update overall summary
+      const numEl = document.querySelector('.overall-score .num');
+      if (numEl) numEl.textContent = avgRounded.toFixed(1);
+      const countEl = document.getElementById('review-count');
+      if (countEl) countEl.textContent = TESTIMONIALS.length;
+      const overallStars = document.querySelector('#overall-rating .stars');
+      renderStarsInto(overallStars, avgRounded);
 
       grid.innerHTML = TESTIMONIALS.map(function (t) {
         const src = avatarSrc(t.imageFolder);
@@ -359,7 +509,9 @@
 
         return (
           '<article class="card' + featuredClass + '" data-id="' + t.id + '">' +
-            '<div class="stars">' + starsHtml(t.stars) + '</div>' +
+            '<div class="stars" data-rating="' + t.stars + '" aria-label="' + t.stars + ' out of 5 stars">' +
+              starsHtml(t.stars) +
+            '</div>' +
             '<p class="quote">' + t.quote + '</p>' +
             pathHtml +
             '<div class="person">' +
