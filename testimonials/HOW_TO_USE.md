@@ -117,6 +117,7 @@ You can later extract the array into `testimonials/data.json` and fetch it from 
 - Dishant (Junior Engineer, GLS)
 - Ghanshyam (Shift Leader, GLS Gurawara)
 - Avinash
+- Keshav Jha (Deputy Manager, GLS Gurawara — Excel automated reports + SAP training at Uflex Noida)
 
 **Photos pending** (drop `avatar.jpg` when ready)
 - Tarun Bhardwaj (Senior Editor, Rithora)

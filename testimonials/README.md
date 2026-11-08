@@ -34,6 +34,7 @@ testimonials/
 | Dishant | Guidance at Jindal Nashik → | Junior Engineer, GLS |
 | Ghanshyam | Shift management training → | Shift Leader, GLS Gurawara |
 | Avinash | Process & machine guidance | Operator / Team Member |
+| Keshav Jha | Same level Uflex Noida → Excel/SAP training | Deputy Manager, GLS Gurawara |
 | Tarun Bhardwaj | Blog Writer (Teknologya) → | Senior Editor, Rithora IT Services |
 | Mohit | Video Editor (Teknologya) → | Senior Team Manager, Rithora IT Services |
 

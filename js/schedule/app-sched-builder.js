@@ -1210,7 +1210,7 @@ function autoGenSchedule(monthKey){
     if(nameCmp !== 0) return nameCmp;
     return 0;
   });
-  // Within same section: Senior engineers first (preferred day blocks assigned earlier for coverage)
+  // Within same section: Senior first, then higher skill competence (Competent/Can Train preferred)
   try{
     emps = emps.slice().sort((a,b)=>{
       const sa = String((typeof getEmpSection==='function'?getEmpSection(a):'')||a.section||a.sec||'');
@@ -1218,6 +1218,14 @@ function autoGenSchedule(monthKey){
       if(sa!==sb) return sa.localeCompare(sb);
       const senA = _isSeniorEmp(a)?0:1, senB = _isSeniorEmp(b)?0:1;
       if(senA!==senB) return senA-senB;
+      // Skill-aware preference (optional layer — 0 if no skills filled)
+      try{
+        const scoreFn = (typeof mpSkillScore==='function') ? mpSkillScore : (window.MP_OPS && window.MP_OPS.skillScore);
+        if(typeof scoreFn==='function'){
+          const sc = scoreFn(b) - scoreFn(a);
+          if(sc !== 0) return sc;
+        }
+      }catch(eSkill){}
       return (a.name||'').localeCompare(b.name||'');
     });
   }catch(e){}

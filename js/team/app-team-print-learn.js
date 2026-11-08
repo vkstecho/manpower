@@ -2733,6 +2733,45 @@ function injectLearnModuleButtons(){
       };
     })();
 
+    // Process Checklists
+    (function ensureChecklistsBtn(){
+      var id = 'learnBtnChecklists';
+      var b = document.getElementById(id);
+      if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
+      else if(b.parentNode !== wrap){ wrap.appendChild(b); }
+      b.type = 'button';
+      b.className = 'learn-module-btn';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">✅</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">Process Checklists</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Discipline</span>' +
+        '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, '#ecfdf5', '#10b981');
+      b.onclick = function(){
+        if (typeof openChecklistsHub === 'function') openChecklistsHub();
+        else if (window.MP_OPS && window.MP_OPS.openChecklistsHub) window.MP_OPS.openChecklistsHub();
+      };
+    })();
+
+    // Training assignment → Mentor
+    (function ensureTrainingBtn(){
+      var id = 'learnBtnTrainingAssign';
+      var b = document.getElementById(id);
+      if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
+      else if(b.parentNode !== wrap){ wrap.appendChild(b); }
+      b.type = 'button';
+      b.className = 'learn-module-btn';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">🎓</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">Assign Training</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Mentor</span>' +
+        '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, '#faf5ff', '#a855f7');
+      b.onclick = function(){
+        if (typeof openTrainingAssign === 'function') openTrainingAssign();
+        else if (window.MP_OPS && window.MP_OPS.openTrainingAssign) window.MP_OPS.openTrainingAssign();
+      };
+    })();
+
+
 
     // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
     try{

@@ -317,6 +317,17 @@ async function saveEmployee(empId){
   // Primary write — only this must complete before UI closes
   try{
     await fbUpdate('employees/'+empId, update);
+    // Knowledge-loss alert when marking left/resigned
+    try{
+      const st = String(update.status||'').toLowerCase();
+      if((st==='resigned'||st==='left'||st==='left_team') && e && window.MP_OPS && typeof window.MP_OPS.onEmployeeLeaving==='function'){
+        const merged = Object.assign({}, e, update);
+        window.MP_OPS.onEmployeeLeaving(merged, (typeof L==='function')
+          ? L('स्थिति Left / Resigned पर सेट की गई।','Status set to Left / Resigned.')
+          : 'Status set to Left / Resigned.');
+      }
+    }catch(klErr){ console.warn('[knowledge-loss hook]', klErr); }
+
     // Manager promotion: only when newly made manager (not every edit of existing manager)
     const wasMgr = e && (String(e.role||'').toLowerCase()==='manager' || String(e.accessLevel||'').toLowerCase()==='manager');
     if(newAccess === 'manager' && phoneKey && !wasMgr){
