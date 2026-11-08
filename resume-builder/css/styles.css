@@ -805,3 +805,87 @@
 .template-navy .section-title { border-bottom: 2px solid #1e3a8a; }
 .template-creative .header-name { color: #7c3aed; }
 .template-creative .section-title { color: #7c3aed; border-bottom-color: #e9d5ff; }
+
+/* ===== App chrome: mobile + desktop polish ===== */
+.rb-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background: #f1f5f9;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+}
+.dark .rb-icon-btn {
+  background: #334155;
+}
+.rb-icon-btn:hover {
+  background: #e2e8f0;
+}
+.dark .rb-icon-btn:hover {
+  background: #475569;
+}
+@media (min-width: 640px) {
+  .rb-icon-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+/* Progress area tighter on mobile */
+@media (max-width: 639px) {
+  main.max-w-7xl {
+    padding-top: 0.75rem !important;
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+  #rbMobileTabs {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* When opened inside Man Power iframe — avoid double heavy chrome */
+html.rb-embedded .rb-login-bar {
+  /* keep sync status but more compact */
+}
+html.rb-embedded #rbAppHeader .rb-brand-sub {
+  display: none;
+}
+html.rb-embedded body {
+  /* parent already shows "AI Resume Builder" bar */
+}
+
+/* Safe area for notched phones */
+@supports (padding: env(safe-area-inset-top)) {
+  .rb-login-bar {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+  #rbAppHeader {
+    padding-left: max(0px, env(safe-area-inset-left));
+    padding-right: max(0px, env(safe-area-inset-right));
+  }
+}
+
+/* Prevent long status text from blowing layout */
+#rbLoginStatus {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Desktop: roomier header brand */
+@media (min-width: 1024px) {
+  #rbAppHeader h1 {
+    letter-spacing: -0.02em;
+  }
+}
