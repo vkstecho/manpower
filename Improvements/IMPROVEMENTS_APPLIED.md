@@ -1,31 +1,74 @@
-# Man Power — Improvements applied (v4.0.3 landing)
+# Man Power v4.0.3 — GitHub publish package
 
-## Landing page (conversion) — implemented
+## What’s included
 
-### Authority & social proof
-- Founder block with photo, 9 years, 60-member teams, 818 MT, defects 9%→0.2%
-- Embedded testimonials (Ajab Singh, N.K. Jena, Keshav Jha, Amit, Ghanshyam, Anuj) with real photos and career paths
-- Nav link “People” → `#proof`
-- Link to full `testimonials/htmls/testimonials.html` for all journeys
+### 1. Landing page (conversion)
+- Founder authority block (Vivek Kumar · 9 years · 60-member teams · 818 MT · defects 9%→0.2%)
+- Embedded testimonials with photos + career paths (Ajab Singh, N.K. Jena, Keshav Jha, Amit, Ghanshyam, Anuj, …)
+- Dual CTAs: **Start free trial** + **Book 15-min setup call** (WhatsApp +91-8168771239)
+- Risk-reversal bar under pricing
+- FAQ: fit, talk-before-pay, who built Man Power
+- Nav link **People** → `#proof`
 
-### Dual CTAs (commitment + talk-first)
-- Hero: **Start free trial** + **Book 15-min setup call** (WhatsApp)
-- Contact: call first, then trial
-- Final CTA band: same dual choice
-- Pricing note bar includes setup-call link
+### 2. Admin pricing fixes (`js/session/app-session-payment.js`)
+- Seed button: **Seed annual from current monthly amounts** (not locked to 99/499/999/1499)
+- Annual = current monthly × 12 × (1 − discount%)
+- Max-members defaults: 799→60, 1499→60, 2999→200 (plus existing bands)
+- `planLabel()` supports 799 / 1499 / 2999
 
-### Risk reversal
-- Green risk bar under pricing: trial first; if it doesn’t save work, don’t continue
-- FAQ: “What if it doesn’t fit our plant?” + “Can we talk before paying?” + “Who built Man Power?”
-
-### Pricing admin (from v4.0.2)
-- Seed annual from **current** monthly amounts (not locked to 99/499/999/1499)
-- Max-members defaults: 799→60, 1499→60, 2999→200
-- planLabel fallbacks updated for new bands
-
-### Testimonials pack
-- Reusable `testimonials/` folder for Man Power, Mentor, and website
+### 3. Testimonials pack (`testimonials/`)
+- Reusable across Man Power, Mentor, and vkstech.com
 - See `testimonials/HOW_TO_USE.md`
+- Photos: original uploads (professional passport re-style pending image quota)
 
-## WhatsApp CTA number
-Uses `+91-8168771239` (from resume). Change `wa.me/918168771239` in `index.html` if you prefer another number.
+## After deploy — fix plan mismatch (from your screenshots)
+
+Your live app still showed old seed text and ₹1999 for 200 members while admin had ₹2999. After publishing this build:
+
+1. Admin → Payment settings  
+2. Set amounts + max members (pick **one** consistent set), e.g.  
+   - 99 → 1  
+   - 499 → 30 **or** 799 → 60  
+   - 999 → 60 **or** 1499 → 60  
+   - 1999 → 200 **or** 2999 → 200  
+3. Default annual discount % = 12  
+4. Click **Seed annual from current monthly amounts**  
+5. Paste Razorpay links  
+6. **Save** → **Publish to landing page**  
+7. Hard-refresh app and confirm Choose plan matches admin
+
+## Repo layout suggestion
+
+```
+manpower/   (github.com/vkstecho/manpower)
+├── index.html
+├── app.html
+├── js/
+├── testimonials/
+├── IMPROVEMENTS_APPLIED.md
+└── ...
+```
+
+Unzip this package and push the **contents of** `ManPower-v4.0.1/` to the repo root (or keep the folder name if that matches your hosting).
+
+## v4.0.4 — Pricing display fixes (Nov 2026)
+
+### Problems fixed
+1. **₹1045 shown as Monthly** — annual amounts (monthly×12×discount) are now detected and labeled **Annual · …**
+2. **Admin amount changes not reflected in user Choose plan** — Choose plan was hardcoded to 99/499/999/1999. Now builds from `amountOptions` + `maxMembersByAmount` (and saves a `plans[]` array on Save).
+3. Admin help text no longer lists outdated ₹499/₹999 bands only.
+
+### After deploy
+1. Admin → Payment settings
+2. Confirm monthly amounts + max members (remove stray annual rows from the *primary* story if needed, or keep them — labels will say Annual)
+3. **Save payment settings** (writes `plans[]`)
+4. **Publish to landing page**
+5. Hard-refresh user app → Choose plan must match admin monthly amounts
+
+## v4.0.6 — Landing conversion pack
+
+- Open Graph + Twitter share meta (`assets/icon-512.png`)
+- Video section **hidden** until Admin publishes URLs; empty cards hidden; nav Videos link hidden when empty
+- Pricing never stuck on “Loading…” — fallback with Login CTA
+- Guarantee line on hero, pricing, contact, final CTA: **Free trial · Mobile OTP · No card required**
+- Hero roster mock in **phone frame** for more realistic UI
