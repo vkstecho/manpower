@@ -2564,12 +2564,14 @@ function _learnModuleUrls(){
     // Marketing landing (not mentor.html in iframe — avoids blank white screen on mobile)
     guidance: 'https://mentor.vkstech.com/',
     // PackLink — Packaging Industry Network (live PWA)
-    packlink: 'https://packlink.vkstech.com/'
+    packlink: 'https://packlink.vkstech.com/',
+    // Main VKS Tech website
+    vkstech: 'https://vkstech.com/'
   };
 }
 
 function injectLearnModuleButtons(){
-  // Resume Builder + Mentor cards into #learnModuleSlot
+  // VKS Tech Website (branded) + Resume + Mentor + PackLink into #learnModuleSlot
   try{
     var slot = document.getElementById('learnModuleSlot')
       || document.getElementById('learnMainButtons')
@@ -2638,10 +2640,99 @@ function injectLearnModuleButtons(){
       return b;
     }
 
+    // ── VKS Tech Website — creative branded card (ecosystem home) ──
+    (function ensureVksWebsiteCard(){
+      var id = 'learnBtnVksWebsite';
+      var b = document.getElementById(id);
+      if(!b){
+        b = document.createElement('button');
+        b.id = id;
+        // Insert as FIRST child so it appears at the top
+        if(wrap.firstChild) wrap.insertBefore(b, wrap.firstChild);
+        else wrap.appendChild(b);
+      } else if(b.parentNode !== wrap){
+        wrap.insertBefore(b, wrap.firstChild);
+      }
+      b.type = 'button';
+      b.className = 'learn-module-btn learn-vks-brand-card';
+      b.setAttribute('aria-label', 'Visit VKS Tech Website');
+      b.innerHTML =
+        '<div style="display:flex;align-items:center;gap:14px;width:100%">' +
+          '<img src="assets/vkslogo512.png" alt="VKS Tech" width="48" height="48" ' +
+            'style="width:48px;height:48px;border-radius:14px;object-fit:contain;background:#fff;padding:3px;' +
+            'box-shadow:0 3px 12px rgba(0,0,0,.18);flex-shrink:0" onerror="this.style.display=\'none\'">' +
+          '<div style="flex:1;min-width:0;text-align:left">' +
+            '<div style="font-weight:900;font-size:17px;color:#fff;-webkit-text-fill-color:#fff;letter-spacing:0.3px;line-height:1.2">VKS Tech</div>' +
+            '<div style="font-size:11px;font-weight:700;color:rgba(255,255,255,.85);-webkit-text-fill-color:rgba(255,255,255,.85);margin-top:2px">Technology is power</div>' +
+            '<div style="font-size:10px;font-weight:600;color:rgba(255,255,255,.65);-webkit-text-fill-color:rgba(255,255,255,.65);margin-top:3px">Man Power · Mentor · PackLink · Insights</div>' +
+          '</div>' +
+          '<span style="font-size:20px;color:#fff;font-weight:900;flex-shrink:0">›</span>' +
+        '</div>';
+      b.style.cssText = [
+        'width:100%',
+        'min-height:88px',
+        'padding:16px 18px',
+        'border-radius:18px',
+        'border:2px solid rgba(249,115,22,.55)',
+        'background:linear-gradient(135deg,#1e293b 0%,#0f172a 55%,#1c1917 100%)',
+        'color:#fff',
+        '-webkit-text-fill-color:#fff',
+        'font-family:inherit',
+        'cursor:pointer',
+        'box-shadow:0 8px 24px rgba(15,23,42,.35), 0 0 0 1px rgba(249,115,22,.15)',
+        'display:block',
+        'text-align:left',
+        'position:relative',
+        'overflow:hidden'
+      ].join(';');
+      // Subtle orange accent line at top
+      if(!b.querySelector('.vks-accent-line')){
+        var line = document.createElement('div');
+        line.className = 'vks-accent-line';
+        line.style.cssText = 'position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#f97316,#fb923c,#f97316);pointer-events:none';
+        b.appendChild(line);
+      }
+      b.onclick = function(){
+        try{ if(typeof toast==='function') toast('Opening VKS Tech…'); }catch(e){}
+        var dest = (urls && urls.vkstech) ? urls.vkstech : 'https://vkstech.com/';
+        try{
+          window.open(dest, '_blank', 'noopener,noreferrer');
+        }catch(e2){
+          location.href = dest;
+        }
+      };
+    })();
+
     ensureBtn('learnBtnResumeBuilder', 'AI Resume Builder', '#fef3c7', '#d97706', urls.resume, 'AI Resume Builder', 'assets/resume-icon.jpg');
     ensureBtn('learnBtnOneToOne', 'Mentor — One-to-One Guidance', '#d1fae5', '#059669', urls.guidance, 'Mentor — One-to-One Guidance', 'assets/mentor-icon.jpg');
     // PackLink — real icon from packlink.vkstech.com/Assets/icon-192.png
     ensureBtn('learnBtnPacklink', 'PackLink — Packaging Industry Network', '#ecfdf5', '#0e3b2e', urls.packlink, 'PackLink — Packaging Industry Network', 'assets/packlink-icon.png');
+
+    // Skill Matrix — low-distortion optional competence layer (from blog #91)
+    (function ensureSkillMatrixBtn(){
+      var id = 'learnBtnSkillMatrix';
+      var b = document.getElementById(id);
+      if(!b){
+        b = document.createElement('button');
+        b.id = id;
+        wrap.appendChild(b);
+      } else if(b.parentNode !== wrap){
+        wrap.appendChild(b);
+      }
+      b.type = 'button';
+      b.className = 'learn-module-btn';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">👷</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">Skill Matrix</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Competence</span>' +
+        '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, '#f0f9ff', '#0ea5e9');
+      b.onclick = function(){
+        if (typeof openSkillMatrix === 'function') openSkillMatrix();
+        else if (window.MP_SKILLS && typeof window.MP_SKILLS.openSkillMatrix === 'function') window.MP_SKILLS.openSkillMatrix();
+        else try{ toast('Skill Matrix loading…'); }catch(e){}
+      };
+    })();
+
 
     // Move custom buttons container BELOW main cards (after metrain/supskill/mrskill)
     try{
