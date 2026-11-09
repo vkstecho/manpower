@@ -2752,7 +2752,26 @@ function injectLearnModuleButtons(){
       };
     })();
 
-    // Training assignment → Mentor
+    // Dedicated Shift Handover
+    (function ensureHandoverBtn(){
+      var id = 'learnBtnShiftHandover';
+      var b = document.getElementById(id);
+      if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
+      else if(b.parentNode !== wrap){ wrap.appendChild(b); }
+      b.type = 'button';
+      b.className = 'learn-module-btn';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">🔄</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">Shift Handover</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Quick form</span>' +
+        '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, '#e0f2fe', '#0284c7');
+      b.onclick = function(){
+        if (typeof openShiftHandoverForm === 'function') openShiftHandoverForm();
+        else if (window.MP_OPS && window.MP_OPS.openShiftHandoverForm) window.MP_OPS.openShiftHandoverForm();
+      };
+    })();
+
+    // Training assignment → Mentor (managers assign; members open My Training via same entry if not manager)
     (function ensureTrainingBtn(){
       var id = 'learnBtnTrainingAssign';
       var b = document.getElementById(id);
@@ -2760,14 +2779,47 @@ function injectLearnModuleButtons(){
       else if(b.parentNode !== wrap){ wrap.appendChild(b); }
       b.type = 'button';
       b.className = 'learn-module-btn';
+      var isMgrUser = false;
+      try {
+        if (typeof isAdmin === 'function' && isAdmin()) isMgrUser = true;
+        else if (typeof isAdminOrMgr === 'function' && isAdminOrMgr()) isMgrUser = true;
+        else if (typeof isMgr === 'function' && isMgr()) isMgrUser = true;
+      } catch (e) {}
+      var mainLabel = isMgrUser ? 'Assign Training' : 'My Training';
+      var subLabel = isMgrUser ? 'Mentor' : 'Assigned';
       b.innerHTML = '<span style="font-size:28px;line-height:1">🎓</span>' +
-        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">Assign Training</span>' +
-        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Mentor</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">' + mainLabel + '</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">' + subLabel + '</span>' +
         '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, '#faf5ff', '#a855f7');
       b.onclick = function(){
-        if (typeof openTrainingAssign === 'function') openTrainingAssign();
-        else if (window.MP_OPS && window.MP_OPS.openTrainingAssign) window.MP_OPS.openTrainingAssign();
+        if (isMgrUser) {
+          if (typeof openTrainingAssign === 'function') openTrainingAssign();
+          else if (window.MP_OPS && window.MP_OPS.openTrainingAssign) window.MP_OPS.openTrainingAssign();
+        } else {
+          if (typeof openMyTraining === 'function') openMyTraining();
+          else if (window.MP_OPS && window.MP_OPS.openMyTraining) window.MP_OPS.openMyTraining();
+          else if (typeof openTrainingAssign === 'function') openTrainingAssign();
+        }
+      };
+    })();
+
+    // Always show My Training for members (also visible to managers as self-view)
+    (function ensureMyTrainingBtn(){
+      var id = 'learnBtnMyTraining';
+      var b = document.getElementById(id);
+      if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
+      else if(b.parentNode !== wrap){ wrap.appendChild(b); }
+      b.type = 'button';
+      b.className = 'learn-module-btn';
+      b.innerHTML = '<span style="font-size:28px;line-height:1">📘</span>' +
+        '<span style="flex:1;color:#0f172a;-webkit-text-fill-color:#0f172a;font-weight:900;font-size:17px">My Training</span>' +
+        '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">मेरी ट्रेनिंग</span>' +
+        '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
+      styleBtn(b, '#eff6ff', '#3b82f6');
+      b.onclick = function(){
+        if (typeof openMyTraining === 'function') openMyTraining();
+        else if (window.MP_OPS && window.MP_OPS.openMyTraining) window.MP_OPS.openMyTraining();
       };
     })();
 
