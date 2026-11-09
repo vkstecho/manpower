@@ -1914,8 +1914,8 @@ function openDeleteAccountModal(){
   const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
   const warnMgr = (role==='manager')
     ? ('<div style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.35);border-radius:10px;padding:10px 12px;font-size:12px;color:#fecdd3;margin-bottom:12px;line-height:1.5">⚠️ '
-      + T('Manager: टीम डेटा employees में रह सकता है। पूरा handoff चाहिए तो पहले Leave team / Transfer Manager करें।',
-          'Manager: team employee data may remain. For full handoff use Leave team / Transfer Manager first.')
+      + T('Manager: Account delete करने पर आपकी पूरी टीम (employees + linked mobiles) हटा दी जाएगी। यह वापस नहीं होगा।',
+          'Manager: deleting your account will remove your FULL team (employees + linked mobiles). This cannot be undone.')
       + '</div>')
     : '';
   openModal('<div class="modal-handle"></div>'
@@ -1986,27 +1986,60 @@ async function confirmDeleteMyAccount(){
       }
     }
 
-    // 4) Mark linked employee as left so roster auto-login / rejoin does not skip role select
+    // 4) Manager self-delete → remove FULL team roster + linked mobileUsers under this manager
+    //    Member self-delete → only mark own employee record left
     try{
       const all = (typeof getEmps==='function') ? getEmps() : (window._cache && _cache.employees) || [];
-      const hits = (all||[]).filter(function(e){
+      const role = String(SESSION.role||'').toLowerCase();
+      const isMgr = role==='manager' || role==='admin';
+      const norm = function(p){
+        return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10);
+      };
+      const teamOrSelf = (all||[]).filter(function(e){
         if(!e) return false;
+        // always include own record
         if(empObjId && (e.id===empObjId || e.empId===empObjId)) return true;
-        const ph = (typeof _normMobileKey==='function') ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
-        return ph===mob;
+        const ph = norm(e.phone||e.mobile||'');
+        if(ph && ph===mob) return true;
+        if(!isMgr) return false;
+        // manager cascade: anyone managed by this mobile / emp id
+        const mid = norm(e.managerId||e.managerMobile||e.mgrId||'');
+        if(mid && (mid===mob || (empObjId && mid===norm(empObjId)))) return true;
+        return false;
       });
-      for(var i=0;i<hits.length;i++){
-        var e = hits[i];
+      for(var i=0;i<teamOrSelf.length;i++){
+        var e = teamOrSelf[i];
         if(!e || !e.id) continue;
         try{
-          await fbUpdate('employees/'+e.id, {
-            status: 'left_team',
-            leftAt: new Date().toISOString(),
-            leftReason: 'self_delete_account',
-            forceFreshLogin: true
-          });
-        }catch(err){ console.warn('[deleteAccount] emp', err); }
+          // Prefer hard delete so Team roster does not keep ghosts
+          if(typeof fbRemove==='function') await fbRemove('employees/'+e.id);
+          else await fbSet('employees/'+e.id, null);
+        }catch(err){
+          try{
+            await fbUpdate('employees/'+e.id, {
+              status: 'left_team',
+              leftAt: new Date().toISOString(),
+              leftReason: isMgr ? 'manager_self_delete_cascade' : 'self_delete_account',
+              forceFreshLogin: true
+            });
+          }catch(err2){ console.warn('[deleteAccount] emp', err2); }
+        }
+        // Also remove member mobileUsers that pointed at this manager (not the manager's own — already removed)
+        try{
+          const mph = norm(e.phone||e.mobile||'');
+          if(mph && mph.length===10 && mph!==mob){
+            if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+mph);
+            else await fbSet('mobileUsers/'+mph, null);
+          }
+        }catch(muErr){}
       }
+      // Clear local cache so UI does not keep showing deleted team
+      try{
+        if(window._cache && Array.isArray(_cache.employees)){
+          const drop = new Set(teamOrSelf.map(function(x){ return x && x.id; }).filter(Boolean));
+          _cache.employees = _cache.employees.filter(function(x){ return x && !drop.has(x.id); });
+        }
+      }catch(ce){}
     }catch(e){ console.warn('[deleteAccount] employees', e); }
 
     // 5) Local device password + auth markers for this mobile/emp

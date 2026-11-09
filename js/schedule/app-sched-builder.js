@@ -36,9 +36,25 @@ function openScheduleBuilder(){
     open: (typeof L==='function')?L('📋 Schedule खोलें','📋 Open Schedule'):'📋 Open Schedule',
     cancel: (typeof L==='function')?L('रद्द करें','Cancel'):'Cancel',
   };
-  const secOpts = Object.entries(SEC).map(([k,v])=>{
-    const name = isEn ? (v.label||k) : (v.hi||v.label||k);
-    return `<option value="${k}">${name}</option>`;
+  // Real departments from team roster (Excel), not hardcoded M1/M2 SEC map
+  let teamSecs = [];
+  try{
+    if(typeof _teamFieldValues==='function') teamSecs = _teamFieldValues('section') || [];
+  }catch(e){ teamSecs = []; }
+  if(!teamSecs.length){
+    try{
+      const seen = new Set();
+      (typeof getEmps==='function'?getEmps():[]).forEach(e=>{
+        if(!e || e.status==='resigned' || e.status==='left' || e.status==='left_team') return;
+        const s = (typeof getEmpSection==='function'?getEmpSection(e):'') || e.section || e.sec || '';
+        if(s && String(s).trim()) seen.add(String(s).trim());
+      });
+      teamSecs = [...seen].sort((a,b)=>a.localeCompare(b));
+    }catch(e){}
+  }
+  const secOpts = teamSecs.map(s=>{
+    const v = String(s).replace(/"/g,'&quot;');
+    return `<option value="${v}">${typeof escHtml==='function'?escHtml(s):v}</option>`;
   }).join('');
   
   openModal(`<div class="modal-handle"></div>
@@ -180,7 +196,17 @@ async function loadScheduleBuilder(){
   try{ await loadCustomEmpOrder(); }catch(e){}
 
   let emps = (getEmps() || []).filter(e => e && e.status !== 'resigned');
-  if(secFilter !== 'ALL') emps = emps.filter(e => e.sec === secFilter);
+  if(secFilter && secFilter !== 'ALL'){
+    const want = String(secFilter).trim();
+    const wantN = (typeof _normLabelKey==='function'?_normLabelKey(want):want.toLowerCase());
+    emps = emps.filter(e=>{
+      const s = ((typeof getEmpSection==='function'?getEmpSection(e):'') || e.section || e.sec || '').toString().trim();
+      if(!s) return false;
+      if(s === want) return true;
+      const sn = (typeof _normLabelKey==='function'?_normLabelKey(s):s.toLowerCase());
+      return sn === wantN;
+    });
+  }
 
   // ── Sort: Excel Section → Responsibility → Weekly Off (MON…SUN) → Name ──
   const _WOFF_ORDER = {MON:0,TUE:1,WED:2,THU:3,FRI:4,SAT:5,SUN:6};
@@ -223,7 +249,8 @@ async function loadScheduleBuilder(){
   }).join('');
 
   const rows = emps.map((emp,rowIdx) => {
-    if(!emp || !emp.id) return '';
+    if(!emp) return '';
+    if(!emp.id && !emp.empId && !emp._key) return '';
     // Ensure empSaved is always an array (Firebase converts arrays to objects)
     // Match getBaseShift lookup: emp.id, emp.empId, empCode (schedules may be keyed by code)
     let empSaved = null;
