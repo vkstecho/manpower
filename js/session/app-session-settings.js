@@ -2704,6 +2704,9 @@ function confirmModal(title, message, yesLabel='✅ हाँ', noLabel='रद�
   const _noLabel  = (typeof L==='function'?L(noLabel,'Cancel'):_t(noLabel));
   const _title    = _t(title);
   const _message  = _t(message);
+  // Trusted internal messages may include simple HTML (<b>, <br>, style=). Detect and render safely.
+  const _msgHasHtml = /<[a-z][\s\S]*>/i.test(String(_message||''));
+  const _msgHtml = _msgHasHtml ? String(_message) : escHtml(_message);
   return new Promise(resolve=>{
     const overlay = document.createElement('div');
     overlay.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
@@ -2711,7 +2714,7 @@ function confirmModal(title, message, yesLabel='✅ हाँ', noLabel='रद�
       <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;border-top:1px solid var(--border2);animation:slideUp .25s cubic-bezier(.32,0,.15,1)">
         <div style="width:32px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px"></div>
         <div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;text-align:center">${escHtml(_title)}</div>
-        <div style="font-size:14px;color:var(--muted2);line-height:1.7;text-align:center;margin-bottom:22px">${escHtml(_message)}</div>
+        <div style="font-size:14px;color:var(--muted2);line-height:1.7;text-align:center;margin-bottom:22px">${_msgHtml}</div>
         <button id="_cmYes" style="width:100%;padding:16px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--m1),#c2410c);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(249,115,22,.3)">${escHtml(_yesLabel)}</button>
         <button id="_cmNo"  style="width:100%;padding:14px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">${escHtml(_noLabel)}</button>
       </div>`;

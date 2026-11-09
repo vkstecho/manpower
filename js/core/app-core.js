@@ -62,7 +62,7 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
 }function switchViewCompany(companyId){SESSION.viewCompanyId=companyId&&"ALL"!==companyId?_normCompanyId(companyId):"ALL",saveSession(),toast("ALL"===companyId?L("🌐 सभी Companies दिख रही हैं","🌐 Showing all companies"):L("🏢 अब सिर्फ इस Company का data दिख रहा है","🏢 Showing only this company")),refreshAll()}function _normMobileKey(m){if("function"==typeof normMobileKey)return normMobileKey(m);if("undefined"!=typeof MP_UTILS&&MP_UTILS.normMobileKey)return MP_UTILS.normMobileKey(m);let d=(m||"").toString().replace(/[^0-9]/g,"");return d.length>=12&&d.startsWith("91")&&(d=d.slice(2)),d.length>10&&(d=d.slice(-10)),d}function getEmps(){const all=_cache.employees||[],activeOnly=list=>list.filter(e=>e&&"resigned"!==e.status&&"left"!==e.status&&"left_team"!==e.status&&"removed"!==e.status&&"revoked"!==e.status);if(isAdmin()){const cid=SESSION.viewCompanyId||"ALL";const scoped="ALL"===cid?all:all.filter(e=>_normCompanyId(e.companyId)===cid);return activeOnly(scoped)}if("manager"===SESSION.role&&SESSION.mobile){
   const key=_normMobileKey(SESSION.mobile);
   const selfId=SESSION.empObjId||SESSION.employeeId||"";
-  return activeOnly(all.filter(e=>{
+  const filtered = activeOnly(all.filter(e=>{
     if(!e) return false;
     const mid=_normMobileKey(e.managerId||"");
     // Team linked to this manager by phone
@@ -73,6 +73,22 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
     if(selfId&&e.id===selfId) return true;
     return false;
   }));
+  // Strong de-dup: one row per mobile (primary identity) and per Emp ID
+  const seenMob = new Set(), seenCode = new Set(), out = [];
+  for(const e of filtered){
+    const m = _normMobileKey(e.phone||e.mobile||'');
+    const c = String(e.empId||e.code||'').trim().toUpperCase();
+    if(m && m.length===10){
+      if(seenMob.has(m)) continue;
+      seenMob.add(m);
+    }
+    if(c){
+      if(seenCode.has(c)) continue;
+      seenCode.add(c);
+    }
+    out.push(e);
+  }
+  return out;
 }if("member"===SESSION.role){
 if("left"===SESSION.status||"left_team"===SESSION.status||"revoked"===SESSION.status||"rejected"===SESSION.status){const self=_findOwnEmployeeRecord();return self?[self]:[]}
 // Pending lock only when NO delegated rights — editors must see full team for Schedule

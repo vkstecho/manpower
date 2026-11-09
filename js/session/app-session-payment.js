@@ -1215,7 +1215,7 @@ async function saveUserPaidUntilAdmin(){
 }
 
 // Hydrate paidUntil into SESSION after login
-/** New mobile: auto paidUntil = first login + 30 days (once only). */
+/** New mobile: auto paidUntil = first login + admin freeTrialDays (once only). */
 async function _ensureNewUserPaymentTrial(phone, mu, ps){
   try{
     if(!phone) return null;
@@ -1229,17 +1229,32 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
     if(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate) return null;
     if(src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1) return null;
 
+    // Respect Admin "Free trial days for each NEW user" (settings/appLicense.freeTrialDays)
+    let trialDays = 7; // safe default matching common admin config
+    try{
+      let lic = window._appLicenseCache || null;
+      if(!lic && typeof fbGet === 'function'){
+        try{ lic = await fbGet('settings/appLicense'); }catch(e){}
+      }
+      if(lic && lic.freeTrialDays != null){
+        const n = parseInt(lic.freeTrialDays, 10);
+        if(!isNaN(n) && n >= 1 && n <= 365) trialDays = n;
+      } else if(window.MP_CFG && window.MP_CFG.defaultTrialDays){
+        trialDays = Math.max(1, Math.min(365, parseInt(window.MP_CFG.defaultTrialDays,10)||trialDays));
+      }
+    }catch(e){ console.warn('[payTrial] freeTrialDays read', e && e.message); }
+
     const base = new Date();
-    const end = new Date(base.getFullYear(), base.getMonth(), base.getDate() + 30, 23, 59, 59, 999);
+    const end = new Date(base.getFullYear(), base.getMonth(), base.getDate() + trialDays, 23, 59, 59, 999);
     const iso = end.toISOString();
     const payload = {
       paymentPaidUntil: iso,
       paidUntil: iso,
       paymentTrialGranted: true,
-      paymentTrialDays: 30,
+      paymentTrialDays: trialDays,
       firstLoginAt: (src.firstLoginAt) || base.toISOString(),
       updatedAt: base.toISOString(),
-      paymentUpdatedBy: 'auto_trial_30d'
+      paymentUpdatedBy: 'auto_trial_'+trialDays+'d'
     };
     try{
       await fbSet('paymentStatus/'+phone, Object.assign({}, payload, { mobile: phone, phone: phone }));

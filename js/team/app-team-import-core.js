@@ -105,15 +105,25 @@ async function ensureEmployeesFromImport(items){
     : (SESSION.managerId || '');
 
   const byCode = {};
-  (typeof getEmps === 'function' ? getEmps() : []).forEach(e => {
-    if(e && e.empId) byCode[String(e.empId).trim().toUpperCase()] = e;
-  });
+  const byMobile = {}; // primary identity: last-10 mobile digits
+  const _mobKey = (v) => {
+    if(typeof _normMobileKey === 'function') return _normMobileKey(v || '') || '';
+    return String(v || '').replace(/\D/g, '').slice(-10);
+  };
+  const _indexEmp = (e) => {
+    if(!e) return;
+    if(e.empId) byCode[String(e.empId).trim().toUpperCase()] = e;
+    const m = _mobKey(e.phone || e.mobile || '');
+    if(m && m.length === 10){
+      // Prefer active / same-manager record if collision
+      const prev = byMobile[m];
+      if(!prev || (e.status !== 'left' && e.status !== 'resigned')) byMobile[m] = e;
+    }
+  };
+  (typeof getEmps === 'function' ? getEmps() : []).forEach(_indexEmp);
   // also scan full cache (admin ALL filter may still miss resigned)
   try{
-    (_cache.employees || []).forEach(e => {
-      if(e && e.empId && !byCode[String(e.empId).trim().toUpperCase()])
-        byCode[String(e.empId).trim().toUpperCase()] = e;
-    });
+    (_cache.employees || []).forEach(_indexEmp);
   }catch(e){}
 
   for(let i = 0; i < items.length; i++){
@@ -124,12 +134,40 @@ async function ensureEmployeesFromImport(items){
     const name = String(e.name || code).trim() || code;
     let sec = e.sec || e.section || e.department || '';
     if(!sec) sec = e.machine || 'General';
+    const phone10 = _mobKey(e.mobile || e.phone || '');
     try{
-      const existing = byCode[key];
+      // Strong de-dup: Emp ID OR same mobile under this manager (mobile is primary identity)
+      let existing = byCode[key] || null;
+      if(!existing && phone10 && phone10.length === 10){
+        const byM = byMobile[phone10];
+        if(byM && byM.id){
+          const sameMgr = !mgrId || !byM.managerId || String(byM.managerId) === String(mgrId);
+          if(sameMgr) existing = byM;
+        }
+      }
       if(existing && existing.id){
         out.idsByCode[code] = existing.id;
         out.idsByCode[key] = existing.id;
-        // light touch update name/sec if empty
+        // Update profile fields when re-importing same person (no second row)
+        try{
+          const patch = {};
+          if(name && name !== existing.name) patch.name = name;
+          if(sec) { patch.sec = sec; patch.section = sec; }
+          if(e.machine || e.mc) { patch.machine = e.machine || e.mc; patch.mc = e.machine || e.mc; }
+          if(e.designation) patch.designation = e.designation;
+          if(e.resp || e.responsibility) patch.resp = e.resp || e.responsibility;
+          if(e.woff || e.weeklyOff) patch.woff = e.woff || e.weeklyOff;
+          if(phone10 && phone10.length === 10) { patch.phone = phone10; patch.mobile = phone10; }
+          if(e.salary) patch.monthlySalary = Number(e.salary) || 0;
+          if(e.joiningDate) patch.joiningDate = e.joiningDate;
+          if(e.dob) patch.dob = e.dob;
+          if(mgrId) patch.managerId = mgrId;
+          if(Object.keys(patch).length){
+            await fbUpdate('employees/' + existing.id, patch);
+            Object.assign(existing, patch);
+          }
+        }catch(upErr){ console.warn('[ensureEmployees] update existing', code, upErr); }
+        out.updated = (out.updated || 0) + 1;
         continue;
       }
       const id = 'e' + Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5);
@@ -152,7 +190,7 @@ async function ensureEmployeesFromImport(items){
         importedBy: (SESSION && SESSION.name) || 'import'
       };
       if(mgrId) rec.managerId = mgrId;
-      if(e.mobile || e.phone) rec.phone = String(e.mobile || e.phone).replace(/\D/g, '').slice(-10);
+      if(phone10 && phone10.length === 10){ rec.phone = phone10; rec.mobile = phone10; }
       if(e.salary) rec.monthlySalary = Number(e.salary) || 0;
       if(e.joiningDate) rec.joiningDate = e.joiningDate;
       if(e.dob) rec.dob = e.dob;
@@ -160,11 +198,18 @@ async function ensureEmployeesFromImport(items){
       await fbSet('employees/' + id, rec);
       try{
         if(!_cache.employees) _cache.employees = [];
-        // remove any stale same id
-        _cache.employees = _cache.employees.filter(x => x && x.id !== id);
+        // remove any stale same id / same mobile / same empId
+        _cache.employees = _cache.employees.filter(x => {
+          if(!x) return false;
+          if(x.id === id) return false;
+          if(x.empId && String(x.empId).trim().toUpperCase() === key) return false;
+          if(phone10 && _mobKey(x.phone || x.mobile) === phone10 && (!mgrId || !x.managerId || String(x.managerId)===String(mgrId))) return false;
+          return true;
+        });
         _cache.employees.push(rec);
       }catch(ce){}
       byCode[key] = rec;
+      if(phone10 && phone10.length === 10) byMobile[phone10] = rec;
       out.idsByCode[code] = id;
       out.idsByCode[key] = id;
       out.created++;
@@ -572,7 +617,17 @@ async function confirmBulkImportTeam(){
   const schedByMonth = {}; // mk -> { empId/internalId: [31] }
 
   const empIdToInternal = {};
-  getEmps().forEach(e=>{ if(e.empId) empIdToInternal[String(e.empId).trim()]=e.id; });
+  const byEmpCode = {};
+  const byEmpMobile = {};
+  getEmps().forEach(e=>{
+    if(!e) return;
+    if(e.empId){
+      empIdToInternal[String(e.empId).trim()]=e.id;
+      byEmpCode[String(e.empId).trim().toUpperCase()] = e;
+    }
+    const m = (typeof _normMobileKey==='function'?_normMobileKey(e.phone||e.mobile||''):String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10));
+    if(m && m.length===10) byEmpMobile[m] = e;
+  });
 
   let skippedPhone=0;
   for(let i=0;i<_bulkImportParsed.length;i++){
@@ -580,8 +635,14 @@ async function confirmBulkImportTeam(){
     if(e._skipSave){ skippedPhone++; continue; }
     try{
       let id = e.existingId;
-      // Section from Excel Section column only (already resolved in parse); never designation→MGR
-      let sec = e.sec || '';
+      // Strong match: Emp ID then mobile (primary identity) — never create a second row
+      if(!id){
+        const codeKey = String(e.code||e.empId||'').trim().toUpperCase();
+        const hit = (codeKey && byEmpCode[codeKey]) || (e.mobile && byEmpMobile[String(e.mobile).replace(/\D/g,'').slice(-10)]) || null;
+        if(hit && hit.id) id = hit.id;
+      }
+      // Section from Excel Section/Department column only (already resolved in parse); never designation→MGR
+      let sec = e.sec || e.section || e.department || '';
       if(!sec || (typeof _isRoleOnlySec==='function' && _isRoleOnlySec(sec))){
         const m = (typeof _mapMachineToSec==='function') ? _mapMachineToSec(e.machine, '') : '';
         sec = (m && !(typeof _isRoleOnlySec==='function' && _isRoleOnlySec(m))) ? m : (e.machine || 'General');
@@ -628,6 +689,10 @@ async function confirmBulkImportTeam(){
         }catch(ce){}
         created++;
         empIdToInternal[e.code] = id;
+        try{
+          byEmpCode[String(e.code||'').trim().toUpperCase()] = Object.assign({}, rec, {id:id});
+          if(e.mobile) byEmpMobile[String(e.mobile).replace(/\D/g,'').slice(-10)] = Object.assign({}, rec, {id:id});
+        }catch(_m){}
       }
       saved++;
 

@@ -1402,3 +1402,33 @@ body.light .learn-bar * {
   color: #f8fafc !important;
   border: 1px solid #334155 !important;
 }
+
+/* v4.0.32 — Schedule builder date headers: high-contrast light text */
+#sbGridTable thead th.sb-date-col,
+#sbGridTable thead th.sb-date-col div,
+.sb-thead-sticky th.sb-date-col,
+.sb-thead-sticky th.sb-date-col div {
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  opacity: 1 !important;
+}
+#sbGridTable thead th.sb-date-col[style*="f87171"],
+#sbGridTable thead th.sb-date-col[style*="fda4af"] {
+  color: #fda4af !important;
+  -webkit-text-fill-color: #fda4af !important;
+}
+/* Main schedule sticky date header row */
+#schedStickyHdr,
+#schedStickyHdr th,
+#schedDateHdrWrap,
+#schedDateHdrWrap th,
+.sched-tbl thead th,
+.sched-table thead th {
+  color: #f1f5f9 !important;
+}
+body.light #schedStickyHdr,
+body.light #schedStickyHdr th,
+body.light .sched-tbl thead th,
+body.light .sched-table thead th {
+  color: #0f172a !important;
+}

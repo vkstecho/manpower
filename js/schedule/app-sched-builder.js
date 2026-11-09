@@ -214,7 +214,7 @@ async function loadScheduleBuilder(){
     const dayIdx = d - 1;
     const dow = ['S','M','T','W','T','F','S'][dt.getDay()];
     const sun = dt.getDay()===0;
-    return `<th data-sb-date-col="${d}" class="sb-date-col" style="width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;text-align:center;padding:4px 0 2px;margin:0;border:0;border-right:1px solid rgba(148,163,184,.12);font-size:12px;font-weight:900;color:${sun?'#f87171':'#e2e8f0'};line-height:1.15;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;vertical-align:bottom">
+    return `<th data-sb-date-col="${d}" class="sb-date-col" style="width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;text-align:center;padding:4px 0 2px;margin:0;border:0;border-right:1px solid rgba(148,163,184,.12);font-size:12px;font-weight:900;color:${sun?'#fda4af':'#f8fafc'};line-height:1.15;font-family:system-ui,-apple-system,sans-serif;background:#1e293b;vertical-align:bottom">
       <div style="font-size:13px;font-weight:900;letter-spacing:-0.02em">${d}</div>
       <div style="font-size:10px;font-weight:700;opacity:.9;margin-top:1px">${dow}</div>
       <button type="button" class="sb-col-cp" data-day="${dayIdx}" onclick="event.stopPropagation();_sbColBtnClick(${dayIdx})"
@@ -1324,6 +1324,15 @@ function autoGenSchedule(monthKey){
     }catch(e){ return c; }
   })(configShiftCodes);
   if(!rotationOrder.length){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
+  if(!emps || !emps.length){
+    toast(L('⚠️ कोई कर्मचारी नहीं — पहले Team import करें या Filter हटाएँ','⚠️ No employees — import Team first or clear filters'));
+    return;
+  }
+  const sbTbodyCheck = document.getElementById('sb_tbody');
+  if(!sbTbodyCheck || !sbTbodyCheck.querySelector('[data-empid]')){
+    toast(L('⚠️ Schedule grid खाली है — महीने चुनकर Open Schedule फिर Auto Generate','⚠️ Schedule grid empty — open month schedule then Auto Generate'));
+    return;
+  }
 
   const nextShiftAfter = (lastSh)=>{
     if(!lastSh) return rotationOrder[0];
