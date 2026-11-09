@@ -75,6 +75,109 @@ window._assertCanAddToRoster = _assertCanAddToRoster;
 // ════════════════════════════════════════
 let _bulkImportParsed = [];
 
+
+/** Create missing employee records so Team + Schedule both show the same people.
+ *  items: [{ name, empId/code, sec, machine, phone/mobile, designation, resp, woff }]
+ *  Returns { created, updated, failed }
+ */
+async function ensureEmployeesFromImport(items){
+  items = items || [];
+  const out = { created: 0, updated: 0, failed: 0, idsByCode: {} };
+  if(!items.length) return out;
+  try{
+    if(typeof _ensureWriteAuth === 'function' && !(await _ensureWriteAuth())){
+      console.warn('[ensureEmployees] write auth failed');
+      return out;
+    }
+  }catch(e){}
+
+  let cid = '';
+  try{
+    cid = (typeof myCompanyId === 'function') ? myCompanyId() : (SESSION.companyId || '');
+  }catch(e){}
+  if(!cid || String(cid).toUpperCase() === 'ALL'){
+    cid = SESSION.companyId || SESSION.company || 'default';
+    if(String(cid).toUpperCase() === 'ALL') cid = 'default';
+  }
+  const label = SESSION.company || SESSION.companyLabel || cid || '';
+  const mgrId = (SESSION.role === 'manager' && SESSION.mobile)
+    ? (typeof _normMobileKey === 'function' ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile))
+    : (SESSION.managerId || '');
+
+  const byCode = {};
+  (typeof getEmps === 'function' ? getEmps() : []).forEach(e => {
+    if(e && e.empId) byCode[String(e.empId).trim().toUpperCase()] = e;
+  });
+  // also scan full cache (admin ALL filter may still miss resigned)
+  try{
+    (_cache.employees || []).forEach(e => {
+      if(e && e.empId && !byCode[String(e.empId).trim().toUpperCase()])
+        byCode[String(e.empId).trim().toUpperCase()] = e;
+    });
+  }catch(e){}
+
+  for(let i = 0; i < items.length; i++){
+    const e = items[i] || {};
+    const code = String(e.empId || e.code || '').trim();
+    if(!code) continue;
+    const key = code.toUpperCase();
+    const name = String(e.name || code).trim() || code;
+    let sec = e.sec || e.section || e.department || '';
+    if(!sec) sec = e.machine || 'General';
+    try{
+      const existing = byCode[key];
+      if(existing && existing.id){
+        out.idsByCode[code] = existing.id;
+        out.idsByCode[key] = existing.id;
+        // light touch update name/sec if empty
+        continue;
+      }
+      const id = 'e' + Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5);
+      const rec = {
+        id: id,
+        name: name,
+        empId: code,
+        sec: sec,
+        section: sec,
+        mc: e.machine || e.mc || '',
+        machine: e.machine || e.mc || '',
+        designation: e.designation || '',
+        resp: e.resp || e.responsibility || '',
+        woff: e.woff || e.weeklyOff || 'SUN',
+        status: 'active',
+        ms: Array(31).fill(''),
+        companyId: cid,
+        companyLabel: label,
+        importedAt: new Date().toISOString(),
+        importedBy: (SESSION && SESSION.name) || 'import'
+      };
+      if(mgrId) rec.managerId = mgrId;
+      if(e.mobile || e.phone) rec.phone = String(e.mobile || e.phone).replace(/\D/g, '').slice(-10);
+      if(e.salary) rec.monthlySalary = Number(e.salary) || 0;
+      if(e.joiningDate) rec.joiningDate = e.joiningDate;
+      if(e.dob) rec.dob = e.dob;
+
+      await fbSet('employees/' + id, rec);
+      try{
+        if(!_cache.employees) _cache.employees = [];
+        // remove any stale same id
+        _cache.employees = _cache.employees.filter(x => x && x.id !== id);
+        _cache.employees.push(rec);
+      }catch(ce){}
+      byCode[key] = rec;
+      out.idsByCode[code] = id;
+      out.idsByCode[key] = id;
+      out.created++;
+    }catch(err){
+      console.error('[ensureEmployees]', code, err);
+      out.failed++;
+    }
+  }
+  return out;
+}
+window.ensureEmployeesFromImport = ensureEmployeesFromImport;
+
+
 function openBulkImportTeam(){
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">📊 Import Full Team from Excel</div>
@@ -82,7 +185,7 @@ function openBulkImportTeam(){
     <b style="color:var(--text)">Minimum:</b> Name + Emp ID/E Code (2 columns is enough to start).<br>
     <b style="color:var(--text)">Optional:</b> Department, Machine, Designation, Responsibility, Mobile, Salary, Weekly Off, Joining Date, Date of Birth, and daily shift columns (e.g. 01-09-2026).<br>
     Only columns present in your file are updated — you can upload just 3 columns if you want.</div>
-  <button class="cancel-btn" style="margin-bottom:12px" onclick="downloadBulkImportTemplate()">⬇️ Sample Template Download करें</button>
+  <button class="cancel-btn" style="margin-bottom:12px" onclick="downloadBulkImportTemplate()">⬇️ ${typeof L==='function'?L('Sample Template Download करें','Download Sample Template'):'Download Sample Template'}</button>
   <input type="file" id="bulkImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBulkImportFile(this.files[0])">
   <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 Choose Excel/CSV File</button>
   <div id="bulkImportPreview" style="margin-top:14px"></div>
@@ -106,8 +209,32 @@ function handleBulkImportFile(file){
 
   const parseWorkbook=(data)=>{
     const wb=XLSX.read(data,{type:'array',cellDates:true});
-    const sheet=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+    let sheetName=wb.SheetNames[0];
+    try{
+      const prefer=wb.SheetNames.find(n=>/^(team|roster|employees|members)$/i.test(String(n||'').trim()))
+        || wb.SheetNames.find(n=>/team|roster|employee|member/i.test(String(n||'')));
+      if(prefer) sheetName=prefer;
+    }catch(x){}
+    const sheet=wb.Sheets[sheetName];
+    // sheet_to_json with header row — if first rows look like instructions (no Name header), try next rows via header:1 path in processor
+    let rows=XLSX.utils.sheet_to_json(sheet,{defval:''});
+    // If empty or no name-like keys, fall back to header:1 and find header row
+    if(!rows.length || !Object.keys(rows[0]||{}).some(k=>/name|emp\s*id|code/i.test(String(k)))){
+      const raw=XLSX.utils.sheet_to_json(sheet,{header:1,defval:''});
+      let hi=0;
+      for(let i=0;i<Math.min(raw.length,30);i++){
+        const cells=(raw[i]||[]).map(c=>String(c||'').trim().toLowerCase());
+        if(cells.some(c=>c==='name') && cells.some(c=>/emp\s*id|e\s*code|emp\s*code|^code$/.test(c))){ hi=i; break; }
+      }
+      const header=raw[hi]||[];
+      rows=[];
+      for(let r=hi+1;r<raw.length;r++){
+        const row=raw[r]||[];
+        const obj={};
+        header.forEach((h,ci)=>{ if(h!=null && String(h).trim()!=='') obj[String(h).trim()]=row[ci]; });
+        if(Object.keys(obj).length) rows.push(obj);
+      }
+    }
     _processBulkImportRows(rows);
   };
 
@@ -118,7 +245,7 @@ function handleBulkImportFile(file){
         const s=document.createElement('script');
         s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
         s.onload=()=>parseWorkbook(new Uint8Array(e.target.result));
-        s.onerror=()=>{ previewEl.innerHTML='<div style="color:var(--lv);padding:12px">❌ Library load नहीं हुई। Internet जांचें।</div>'; };
+        s.onerror=()=>{ previewEl.innerHTML='<div style="color:var(--lv);padding:12px">'+(typeof L==='function'?L('❌ Library load नहीं हुई। Internet जांचें।','❌ Could not load Excel library. Check internet.'):'❌ Could not load Excel library.')+'</div>'; };
         document.head.appendChild(s);
       }else{
         parseWorkbook(new Uint8Array(e.target.result));
@@ -425,9 +552,21 @@ async function confirmBulkImportTeam(){
   }catch(e){}
   _bulkImportInProgress=true;
 
-  const cid = (typeof myCompanyId==='function') ? myCompanyId() : (SESSION.companyId||'');
-  const label = SESSION.company || SESSION.companyLabel || '';
+  let cid = (typeof myCompanyId==='function') ? myCompanyId() : (SESSION.companyId||'');
+  if(!cid || String(cid).toUpperCase()==='ALL'){
+    cid = SESSION.companyId || SESSION.company || 'default';
+    if(String(cid).toUpperCase()==='ALL') cid = 'default';
+  }
+  const label = SESSION.company || SESSION.companyLabel || cid || '';
   const mgrId = (SESSION.role==='manager' && SESSION.mobile) ? _normMobileKey(SESSION.mobile) : (SESSION.managerId||'');
+
+  try{
+    if(typeof _ensureWriteAuth==='function' && !(await _ensureWriteAuth())){
+      _bulkImportInProgress=false;
+      toast(typeof L==='function'?L('❌ OTP verify करें फिर Import करें','❌ Verify OTP then Import'):'❌ Verify OTP then Import');
+      return;
+    }
+  }catch(e){}
 
   let saved=0, updated=0, created=0, failed=0, registered=0;
   const schedByMonth = {}; // mk -> { empId/internalId: [31] }
@@ -470,12 +609,23 @@ async function confirmBulkImportTeam(){
         // Update existing — merge only provided fields
         const patch = { ...rec };
         await fbUpdate('employees/'+id, patch);
+        try{
+          if(_cache.employees){
+            const ix = _cache.employees.findIndex(x => x && x.id === id);
+            if(ix >= 0) _cache.employees[ix] = Object.assign({}, _cache.employees[ix], patch);
+          }
+        }catch(ce){}
         updated++;
       } else {
         id = 'e'+Date.now().toString(36)+i+Math.random().toString(36).slice(2,5);
         rec.id = id;
         rec.ms = Array(31).fill('');
         await fbSet('employees/'+id, rec);
+        try{
+          if(!_cache.employees) _cache.employees = [];
+          _cache.employees = _cache.employees.filter(x => x && x.id !== id);
+          _cache.employees.push(Object.assign({}, rec));
+        }catch(ce){}
         created++;
         empIdToInternal[e.code] = id;
       }
@@ -561,11 +711,27 @@ async function confirmBulkImportTeam(){
   _bulkImportParsed=[];
   _bulkImportInProgress=false;
   closeModal();
-  toast(`✅ Team import: ${created} new, ${updated} updated` +
-    (monthsSaved?`, ${monthsSaved} month(s) schedule`:``) +
-    (registered?`, ${registered} login ready`:``) +
-    (failed?`, ${failed} failed`:``));
+  if(created===0 && updated===0){
+    toast(typeof L==='function'
+      ? L('❌ कोई member save नहीं हुआ — OTP/permission जाँचें या Console देखें','❌ No members saved — check OTP/permission or Console')
+      : '❌ No members saved — check OTP/permission');
+  } else {
+    toast(`✅ Team import: ${created} new, ${updated} updated` +
+      (monthsSaved?`, ${monthsSaved} month(s) schedule`:``) +
+      (registered?`, ${registered} login ready`:``) +
+      (failed?`, ${failed} failed`:``));
+  }
+  try{
+    if(typeof fbGet==='function'){
+      const snap = await fbGet('employees');
+      if(snap && typeof snap==='object'){
+        const list = Object.keys(snap).map(k => Object.assign({id:k}, snap[k]||{}));
+        if(list.length) _cache.employees = list;
+      }
+    }
+  }catch(e){ console.warn('[import] reload employees', e); }
   try{ renderTeam(); }catch(e){}
+  try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
   try{ refreshAll(); }catch(e){}
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
 }
