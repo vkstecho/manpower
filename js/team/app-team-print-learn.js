@@ -2710,6 +2710,13 @@ function injectLearnModuleButtons(){
 
     // Skill Matrix — low-distortion optional competence layer (from blog #91)
     (function ensureSkillMatrixBtn(){
+      try {
+        if (window.mpIsFeatureOn && !window.mpIsFeatureOn('skillMatrix')) {
+          var old = document.getElementById('learnBtnSkillMatrix');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          return;
+        }
+      } catch (e) {}
       var id = 'learnBtnSkillMatrix';
       var b = document.getElementById(id);
       if(!b){
@@ -2735,6 +2742,13 @@ function injectLearnModuleButtons(){
 
     // Process Checklists
     (function ensureChecklistsBtn(){
+      try {
+        if (window.mpIsFeatureOn && !window.mpIsFeatureOn('checklists')) {
+          var old = document.getElementById('learnBtnChecklists');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          return;
+        }
+      } catch (e) {}
       var id = 'learnBtnChecklists';
       var b = document.getElementById(id);
       if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
@@ -2754,6 +2768,13 @@ function injectLearnModuleButtons(){
 
     // Dedicated Shift Handover
     (function ensureHandoverBtn(){
+      try {
+        if (window.mpIsFeatureOn && !window.mpIsFeatureOn('shiftHandover')) {
+          var old = document.getElementById('learnBtnShiftHandover');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          return;
+        }
+      } catch (e) {}
       var id = 'learnBtnShiftHandover';
       var b = document.getElementById(id);
       if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
@@ -2773,6 +2794,13 @@ function injectLearnModuleButtons(){
 
     // Training assignment → Mentor (managers assign; members open My Training via same entry if not manager)
     (function ensureTrainingBtn(){
+      try {
+        if (window.mpIsFeatureOn && !window.mpIsFeatureOn('training')) {
+          var old = document.getElementById('learnBtnTrainingAssign');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          return;
+        }
+      } catch (e) {}
       var id = 'learnBtnTrainingAssign';
       var b = document.getElementById(id);
       if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }
@@ -2806,6 +2834,13 @@ function injectLearnModuleButtons(){
 
     // Always show My Training for members (also visible to managers as self-view)
     (function ensureMyTrainingBtn(){
+      try {
+        if (window.mpIsFeatureOn && !window.mpIsFeatureOn('training')) {
+          var old = document.getElementById('learnBtnMyTraining');
+          if (old && old.parentNode) old.parentNode.removeChild(old);
+          return;
+        }
+      } catch (e) {}
       var id = 'learnBtnMyTraining';
       var b = document.getElementById(id);
       if(!b){ b = document.createElement('button'); b.id = id; wrap.appendChild(b); }

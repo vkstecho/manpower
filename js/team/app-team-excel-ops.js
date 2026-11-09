@@ -755,10 +755,14 @@ async function openTabVisibilitySettings(){
   // Load current settings
   let guestTabs = {};
   let workerTabsHidden = {};
+  let featureFlags = { skillMatrix: true, checklists: true, shiftHandover: true, training: true };
   try{
     guestTabs = (await fbGet('settings/guestTabs')) || {};
     workerTabsHidden = (await fbGet('settings/workerTabsHidden')) || {};
+    const ff = await fbGet('settings/featureFlags');
+    if(ff && typeof ff === 'object') featureFlags = Object.assign(featureFlags, ff);
   }catch(e){}
+  try{ if(window.MP_OPS && window.MP_OPS.loadFeatureFlags) featureFlags = Object.assign(featureFlags, await window.MP_OPS.loadFeatureFlags()); }catch(e){}
 
   const guestRows = GUEST_TOGGLEABLE.map(id => {
     const m = TAB_META[id];
@@ -842,9 +846,59 @@ async function openTabVisibilitySettings(){
         </div>
       </div>
 
+
+      <div style="font-size:10px;font-weight:900;color:rgba(249,115,22,.9);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px">🧩 Competence features (on / off)</div>
+      <div style="background:var(--card);border-radius:12px;padding:0 12px;margin-bottom:16px">
+        ${['skillMatrix','checklists','shiftHandover','training'].map(fid => {
+          const labels = {
+            skillMatrix: {ico:'👷', en:'Skill Matrix', hi:'स्किल मैट्रिक्स'},
+            checklists: {ico:'✅', en:'Process Checklists', hi:'प्रोसेस चेकलिस्ट'},
+            shiftHandover: {ico:'🔄', en:'Shift Handover', hi:'शिफ्ट हैंडओवर'},
+            training: {ico:'🎓', en:'Training / Mentor assign', hi:'ट्रेनिंग / मेंटर असाइन'}
+          };
+          const Lbl = labels[fid];
+          const on = featureFlags[fid] !== false;
+          return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+            <span style="font-size:18px">${Lbl.ico}</span>
+            <div style="flex:1">
+              <div style="font-size:13px;font-weight:800;color:#fff">${Lbl.en}</div>
+              <div style="font-size:10px;color:var(--muted2)">${Lbl.hi}</div>
+            </div>
+            <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+              <input type="checkbox" ${on?'checked':''} style="opacity:0;width:0;height:0"
+                onchange="toggleCompetenceFeature('${fid}', this.checked)">
+              <span style="position:absolute;inset:0;border-radius:12px;transition:.2s;background:${on?'#22c55e':'rgba(255,255,255,.15)'}"></span>
+              <span style="position:absolute;top:3px;left:${on?'23':'3'}px;width:18px;height:18px;border-radius:50%;background:#fff;transition:.2s"></span>
+            </label>
+          </div>`;
+        }).join('')}
+      </div>
+
       <button onclick="closeModal()" style="width:100%;padding:13px;background:linear-gradient(135deg,#a855f7,#7c3aed);border:none;border-radius:12px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;font-family:inherit">✅ Done</button>
     </div>
   `);
+}
+
+
+async function toggleCompetenceFeature(key, isOn){
+  try{
+    let flags = { skillMatrix: true, checklists: true, shiftHandover: true, training: true };
+    try{
+      const raw = await fbGet('settings/featureFlags');
+      if(raw && typeof raw === 'object') flags = Object.assign(flags, raw);
+    }catch(e){}
+    flags[key] = !!isOn;
+    await fbSet('settings/featureFlags', flags);
+    try{
+      if(window.MP_OPS && typeof window.MP_OPS.saveFeatureFlags === 'function'){
+        await window.MP_OPS.saveFeatureFlags(flags);
+      }
+    }catch(e){}
+    toast((isOn?'✅ ':'🚫 ') + String(key) + (isOn ? ' ON' : ' OFF'));
+    try{ if(typeof injectLearnModuleButtons === 'function') injectLearnModuleButtons(); }catch(e){}
+  }catch(e){
+    toast('❌ ' + (e && e.message || e));
+  }
 }
 
 async function updateTabToggle(role, tabId, isOn){

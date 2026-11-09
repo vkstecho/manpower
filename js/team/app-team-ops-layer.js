@@ -1010,6 +1010,7 @@
           '<button type="button" id="hoBack" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-weight:800;cursor:pointer;font-family:inherit">← ' + _L('वापस', 'Back') + '</button>' +
           '<div style="flex:1;min-width:140px"><div style="font-weight:900;font-size:15px;color:var(--text)">' + _L('शिफ्ट हैंडओवर', 'Shift Handover') + '</div>' +
           '<div style="font-size:10px;color:var(--muted2)">' + _L('शिफ्ट एंड क्विक फॉर्म · फोटो वैकल्पिक', 'Shift-end quick form · photo optional') + '</div></div>' +
+          '<button type="button" id="hoHistoryBtn" style="background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.35);border-radius:10px;padding:7px 10px;color:#38bdf8;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">📋 ' + _L('इतिहास', 'History') + '</button>' +
           (_canManage() ? '<button type="button" id="hoEditFields" style="background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.4);border-radius:10px;padding:7px 10px;color:#f97316;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">✏️ ' + _L('फ़ील्ड', 'Fields') + '</button>' : '') +
         '</div>' +
         '<div style="flex:1;overflow:auto;padding:14px;-webkit-overflow-scrolling:touch">' +
@@ -1033,6 +1034,8 @@
 
       document.body.appendChild(ov);
       document.getElementById('hoBack').onclick = function () { ov.remove(); };
+      var histBtn = document.getElementById('hoHistoryBtn');
+      if (histBtn) histBtn.onclick = function () { openHandoverHistory(_canManage() ? 'team' : 'mine'); };
       var editBtn = document.getElementById('hoEditFields');
       if (editBtn) editBtn.onclick = function () { openHandoverFieldEditor(); };
 
@@ -1128,6 +1131,196 @@
   }
 
   /** Banner near shift end on Home — optional soft prompt */
+
+  async function loadShiftHandovers() {
+    try {
+      if (typeof fbGet === 'function') {
+        var raw = await fbGet('shiftHandovers');
+        if (!raw || typeof raw !== 'object') return [];
+        return Object.keys(raw).map(function (k) {
+          var v = raw[k] || {};
+          v.id = v.id || k;
+          return v;
+        }).sort(function (a, b) {
+          return String(b.completedAt || b.date || '').localeCompare(String(a.completedAt || a.date || ''));
+        });
+      }
+    } catch (e) { console.warn('[handovers]', e); }
+    return [];
+  }
+
+  function openHandoverDetail(rec) {
+    if (!rec) return;
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:975;background:var(--bg);display:flex;flex-direction:column';
+    var when = rec.completedAt ? new Date(rec.completedAt).toLocaleString() : (rec.date || '—');
+    var fieldsHtml = '';
+    loadHandoverFields().then(function (fields) {
+      var labelOf = {};
+      fields.forEach(function (f) { labelOf[f.id] = _L(f.labelHi || f.label, f.label); });
+      var answers = rec.answers || {};
+      Object.keys(answers).forEach(function (fid) {
+        var lab = labelOf[fid] || fid;
+        var val = answers[fid] || '—';
+        fieldsHtml += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px">' +
+          '<div style="font-size:11px;font-weight:800;color:var(--muted2);margin-bottom:4px">' + _esc(lab) + '</div>' +
+          '<div style="font-size:14px;color:var(--text);line-height:1.45;white-space:pre-wrap">' + _esc(val) + '</div></div>';
+      });
+      if (!Object.keys(answers).length) {
+        fieldsHtml = '<div style="color:var(--muted2);padding:20px;text-align:center">' + _L('कोई फ़ील्ड नहीं', 'No field answers') + '</div>';
+      }
+      var photo = rec.photo
+        ? '<div style="margin-top:8px"><div style="font-size:11px;font-weight:800;color:var(--muted2);margin-bottom:6px">' + _L('फोटो', 'Photo') + '</div>' +
+          '<img src="' + rec.photo + '" alt="" style="max-width:100%;border-radius:12px;border:1px solid var(--border)"></div>'
+        : '';
+      ov.innerHTML =
+        '<div style="padding:12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">' +
+          '<button type="button" id="hoDetBack" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-weight:800;cursor:pointer;font-family:inherit">← ' + _L('वापस', 'Back') + '</button>' +
+          '<div style="flex:1"><div style="font-weight:900;font-size:15px;color:var(--text)">' + _L('हैंडओवर विवरण', 'Handover detail') + '</div>' +
+          '<div style="font-size:10px;color:var(--muted2)">' + _esc(when) + '</div></div></div>' +
+        '<div style="flex:1;overflow:auto;padding:14px">' +
+          '<div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.5">' +
+            '<b>' + _L('द्वारा', 'By') + ':</b> ' + _esc(rec.outgoingName || rec.completedBy || '—') +
+            (rec.section ? ' · <b>' + _L('विभाग', 'Section') + ':</b> ' + _esc(rec.section) : '') +
+            (rec.shift ? ' · <b>' + _L('शिफ्ट', 'Shift') + ':</b> ' + _esc(rec.shift) : '') +
+          '</div>' +
+          fieldsHtml + photo +
+          (rec.incomingNames && rec.incomingNames.length
+            ? '<div style="margin-top:12px;font-size:12px;color:var(--muted2)"><b>' + _L('सूचित', 'Notified') + ':</b> ' + _esc((rec.incomingNames || []).join(', ')) + '</div>'
+            : '') +
+        '</div>';
+      document.body.appendChild(ov);
+      document.getElementById('hoDetBack').onclick = function () { ov.remove(); };
+    });
+  }
+
+  /** mode: 'mine' | 'team' */
+  function openHandoverHistory(mode) {
+    mode = mode || (_canManage() ? 'team' : 'mine');
+    var ov = document.createElement('div');
+    ov.id = 'handoverHistory';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:970;background:var(--bg);display:flex;flex-direction:column';
+    var title = mode === 'team'
+      ? _L('टीम हैंडओवर इतिहास', 'Team handover history')
+      : _L('मेरे हैंडओवर', 'My handovers');
+    ov.innerHTML =
+      '<div style="padding:12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+        '<button type="button" id="hoHistBack" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-weight:800;cursor:pointer;font-family:inherit">← ' + _L('वापस', 'Back') + '</button>' +
+        '<div style="flex:1;min-width:120px"><div style="font-weight:900;font-size:15px;color:var(--text)">' + title + '</div>' +
+        '<div style="font-size:10px;color:var(--muted2)">' + _L('पुरानी तारीख का पूरा विवरण देखें', 'View full detail for any past date') + '</div></div>' +
+        (_canManage()
+          ? '<button type="button" id="hoHistMine" style="padding:7px 10px;border-radius:10px;border:1px solid var(--border2);background:var(--card2);color:var(--text);font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">' + _L('मेरे', 'Mine') + '</button>' +
+            '<button type="button" id="hoHistTeam" style="padding:7px 10px;border-radius:10px;border:1px solid rgba(14,165,233,.4);background:rgba(14,165,233,.12);color:#0ea5e9;font-size:11px;font-weight:800;cursor:pointer;font-family:inherit">' + _L('टीम', 'Team') + '</button>'
+          : '') +
+      '</div>' +
+      '<div id="hoHistBody" style="flex:1;overflow:auto;padding:14px;color:var(--muted2);text-align:center;padding-top:40px">' + _L('लोड हो रहा है…', 'Loading…') + '</div>';
+    document.body.appendChild(ov);
+    document.getElementById('hoHistBack').onclick = function () { ov.remove(); };
+    var mineBtn = document.getElementById('hoHistMine');
+    var teamBtn = document.getElementById('hoHistTeam');
+    if (mineBtn) mineBtn.onclick = function () { ov.remove(); openHandoverHistory('mine'); };
+    if (teamBtn) teamBtn.onclick = function () { ov.remove(); openHandoverHistory('team'); };
+
+    loadShiftHandovers().then(function (rows) {
+      var body = document.getElementById('hoHistBody');
+      if (!body) return;
+      var me = _currentEmp();
+      var meId = me && me.id ? String(me.id) : '';
+      var meName = me && me.name ? String(me.name) : '';
+      var who = '';
+      try { who = String(_who() || ''); } catch (e) {}
+      var filtered = rows;
+      if (mode !== 'team' || !_canManage()) {
+        filtered = rows.filter(function (r) {
+          if (meId && String(r.outgoingEmpId || '') === meId) return true;
+          if (meName && String(r.outgoingName || '') === meName) return true;
+          if (who && String(r.completedBy || '').indexOf(who) >= 0) return true;
+          return false;
+        });
+      }
+      if (!filtered.length) {
+        body.innerHTML = '<div style="padding:40px 16px">' + _L('कोई हैंडओवर नहीं मिला', 'No handovers found') + '</div>';
+        return;
+      }
+      body.style.textAlign = 'left';
+      body.style.paddingTop = '14px';
+      body.innerHTML = filtered.slice(0, 80).map(function (r, idx) {
+        var when = r.completedAt ? new Date(r.completedAt).toLocaleString() : (r.date || '—');
+        var preview = '';
+        try {
+          var ans = r.answers || {};
+          var first = Object.keys(ans).map(function (k) { return ans[k]; }).filter(Boolean)[0];
+          preview = first ? String(first).slice(0, 80) : '';
+        } catch (e) {}
+        return '<button type="button" class="ho-hist-row" data-i="' + idx + '" style="width:100%;text-align:left;padding:14px;margin-bottom:10px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--text);cursor:pointer;font-family:inherit">' +
+          '<div style="display:flex;justify-content:space-between;gap:8px">' +
+            '<div style="font-weight:800;font-size:14px">' + _esc(r.outgoingName || r.completedBy || '—') + '</div>' +
+            '<div style="font-size:11px;color:var(--muted2);white-space:nowrap">' + _esc(when) + '</div>' +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2);margin-top:4px">' +
+            (r.section ? _esc(r.section) + ' · ' : '') + (r.shift ? _L('शिफ्ट', 'Shift') + ' ' + _esc(r.shift) : '') +
+            (r.photo ? ' · 📷' : '') +
+          '</div>' +
+          (preview ? '<div style="font-size:12px;margin-top:6px;color:var(--muted2)">' + _esc(preview) + (preview.length >= 80 ? '…' : '') + '</div>' : '') +
+        '</button>';
+      }).join('');
+      body.querySelectorAll('.ho-hist-row').forEach(function (btn) {
+        btn.onclick = function () {
+          var i = parseInt(btn.getAttribute('data-i'), 10);
+          openHandoverDetail(filtered[i]);
+        };
+      });
+    });
+  }
+
+  // Feature flags (Admin can turn competence modules on/off)
+  var DEFAULT_FEATURE_FLAGS = {
+    skillMatrix: true,
+    checklists: true,
+    shiftHandover: true,
+    training: true
+  };
+  var _featureFlagsCache = null;
+
+  async function loadFeatureFlags() {
+    try {
+      if (typeof fbGet === 'function') {
+        var raw = await fbGet('settings/featureFlags');
+        if (raw && typeof raw === 'object') {
+          _featureFlagsCache = Object.assign({}, DEFAULT_FEATURE_FLAGS, raw);
+          return Object.assign({}, _featureFlagsCache);
+        }
+      }
+    } catch (e) {}
+    _featureFlagsCache = Object.assign({}, DEFAULT_FEATURE_FLAGS);
+    return Object.assign({}, _featureFlagsCache);
+  }
+
+  function getFeatureFlagsSync() {
+    return _featureFlagsCache ? Object.assign({}, _featureFlagsCache) : Object.assign({}, DEFAULT_FEATURE_FLAGS);
+  }
+
+  async function saveFeatureFlags(flags) {
+    _featureFlagsCache = Object.assign({}, DEFAULT_FEATURE_FLAGS, flags || {});
+    try {
+      if (typeof fbSet === 'function') await fbSet('settings/featureFlags', _featureFlagsCache);
+      try { toast(_L('✅ फीचर सेटिंग सेव', '✅ Feature settings saved')); } catch (e) {}
+      return true;
+    } catch (e) {
+      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      return false;
+    }
+  }
+
+  function isFeatureOn(key) {
+    var f = getFeatureFlagsSync();
+    if (f[key] === false) return false;
+    return true;
+  }
+
+  // Warm cache
+  setTimeout(function () { try { loadFeatureFlags(); } catch (e) {} }, 1500);
+
   function maybeShowHandoverPrompt() {
     try {
       var done = localStorage.getItem('mp_handover_done_' + _todayStr());
@@ -1172,7 +1365,13 @@
     markTrainingComplete: markTrainingComplete,
     openShiftHandoverForm: openShiftHandoverForm,
     openHandoverFieldEditor: openHandoverFieldEditor,
+    openHandoverHistory: openHandoverHistory,
+    openHandoverDetail: openHandoverDetail,
     findIncomingOperators: findIncomingOperators,
+    loadFeatureFlags: loadFeatureFlags,
+    saveFeatureFlags: saveFeatureFlags,
+    isFeatureOn: isFeatureOn,
+    getFeatureFlagsSync: getFeatureFlagsSync,
     MENTOR_MODULES: MENTOR_MODULES
   };
 
@@ -1182,7 +1381,9 @@
   global.openMyTraining = openMyTraining;
   global.openShiftHandoverForm = openShiftHandoverForm;
   global.openHandoverFieldEditor = openHandoverFieldEditor;
+  global.openHandoverHistory = openHandoverHistory;
   global.mpSkillScore = skillScore;
+  global.mpIsFeatureOn = isFeatureOn;
 
   // Wrap approveLeave when available — flag long leaves (3+ days) for knowledge-loss
   (function wrapApproveLeave(){
