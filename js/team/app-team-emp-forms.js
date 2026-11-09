@@ -1061,21 +1061,56 @@ async function _confirmDeleteAllWithOtp(){
   let removed = 0, failed = 0;
   const mgrKey = (_deleteAllMobile || SESSION.mobile) ? _normMobileKey(_deleteAllMobile || SESSION.mobile) : '';
 
+  const removedIds = new Set();
+  const removedCodes = new Set();
   for(const emp of team){
     try{
       // safety: only own team
       if(mgrKey && emp.managerId && emp.managerId !== mgrKey) continue;
-      await fbRemove('employees/'+emp.id);
-      // clear from local cache if present
       try{
-        if(_cache && _cache.employees && _cache.employees[emp.id]) delete _cache.employees[emp.id];
-      }catch(e){}
+        if(typeof fbRemove === 'function') await fbRemove('employees/'+emp.id);
+        else await fbSet('employees/'+emp.id, null);
+      }catch(rmErr){
+        // fallback null write
+        try{ await fbSet('employees/'+emp.id, null); }catch(e2){ throw rmErr; }
+      }
+      removedIds.add(String(emp.id));
+      if(emp.empId) removedCodes.add(String(emp.empId).trim().toUpperCase());
       removed++;
     }catch(e){
       failed++;
       console.error('delete member', emp.id, e);
     }
   }
+  // _cache.employees is an ARRAY — must filter, not delete by id key
+  try{
+    if(_cache && Array.isArray(_cache.employees)){
+      _cache.employees = _cache.employees.filter(e => {
+        if(!e) return false;
+        if(removedIds.has(String(e.id))) return false;
+        if(e.empId && removedCodes.has(String(e.empId).trim().toUpperCase())) return false;
+        // also drop any remaining roster under this manager
+        if(mgrKey && e.managerId && String(e.managerId) === String(mgrKey) && !removedIds.has(String(e.id))){
+          // keep only if delete failed for this one
+          return true;
+        }
+        return true;
+      });
+      // Second pass: drop all that we successfully removed by manager scope
+      if(removed > 0 && failed === 0 && mgrKey){
+        _cache.employees = _cache.employees.filter(e => {
+          if(!e) return false;
+          if(removedIds.has(String(e.id))) return false;
+          if(e.empId && removedCodes.has(String(e.empId).trim().toUpperCase())) return false;
+          const mid = (typeof _normMobileKey==='function'?_normMobileKey(e.managerId||''):String(e.managerId||''));
+          if(mid && mid === mgrKey) return false; // full wipe of this manager's roster on total success
+          return true;
+        });
+      }
+    } else if(_cache && _cache.employees && typeof _cache.employees === 'object'){
+      removedIds.forEach(id => { try{ delete _cache.employees[id]; }catch(e){} });
+    }
+  }catch(e){ console.warn('[deleteAll] cache cleanup', e); }
 
   // Optional: strip schedule entries for deleted emp ids (best-effort)
   try{

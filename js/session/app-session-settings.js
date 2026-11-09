@@ -49,6 +49,16 @@ function _renderShiftSettingsModal(){
   };
   const hadAnyActive = (d.shifts||[]).some(s=>s && s.active===true);
   const savedCodes = new Set(Object.keys(byCode));
+  // When UI language is English, map known Hindi default labels → English
+  const _langEn = (typeof _lang !== 'undefined' && _lang && String(_lang).toLowerCase() !== 'hi');
+  const _hiToEnLabel = {
+    'दिन शिफ्ट':'Day Shift','दिन':'Day Shift','दिन (7AM-7PM)':'Day Shift',
+    'रात शिफ्ट':'Night Shift','रात':'Night Shift','रात (7PM-7AM)':'Night Shift',
+    'साप्ताहिक छुट्टी':'Weekly Off','साप्ताहिक अवकाश':'Weekly Off',
+    'लीव':'Leave','छुट्टी':'Leave','जनरल':'General Shift','जनरल शिफ्ट':'General Shift',
+    'कम्प ऑफ':'Comp Off','हाफ डे':'Half Day','अनुपस्थित':'Absent','हॉलिडे':'Holiday',
+    'अन्य विभाग':'Other Dept','गेट पास':'Gate Pass'
+  };
   d.shifts = std.map(s=>{
     const prev = _getPrev(s.code);
     let active = s.active;
@@ -56,9 +66,18 @@ function _renderShiftSettingsModal(){
       if(prev.active===true || prev.active===false) active = !!prev.active;
       else if(!hadAnyActive && savedCodes.size && s.kind==='work') active = savedCodes.has(String(s.code).toUpperCase());
     }
+    let label = (prev && prev.label) || s.label;
+    if(_langEn && label){
+      const mapped = _hiToEnLabel[String(label).trim()];
+      if(mapped) label = mapped;
+      // pure Devanagari default for D/N → English std
+      else if(/[\u0900-\u097F]/.test(String(label)) && (s.code==='D'||s.code==='N'||s.code==='O'||s.code==='L'||s.code==='G')){
+        label = s.label;
+      }
+    }
     return {
       code: s.code,
-      label: (prev && prev.label) || s.label,
+      label: label,
       start: (prev && prev.start) || s.start,
       end: (prev && prev.end) || s.end,
       active,
@@ -113,7 +132,7 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
     ✅ <b>Work shifts</b> tick = Auto Schedule rotate + legend.<br>
     ✅ <b>Status legends</b> (O L CO Ab ½ H GP…) tick = keyboard, picker & schedule legend.<br>
-    Manager अपने team के लिए नाम और visibility बदल सकता है।
+    ${L('Manager अपने team के लिए नाम और visibility बदल सकता है।','Manager can change names and visibility for their own team.')}
   </div>
   <div id="ss_shiftTimings">${_renderShiftTimingRows()}</div>
   <div style="font-size:11px;color:#64748b;margin:8px 0 14px;line-height:1.45">
@@ -394,7 +413,7 @@ function _renderDynamicMinRows(kind){
   if(!_shiftDraft.minByField[kind]) _shiftDraft.minByField[kind]={};
   const vals = (typeof _teamFieldValues==='function') ? _teamFieldValues(kind) : [];
   if(!vals.length){
-    return '<div style="grid-column:1/-1;font-size:11px;color:#64748b;padding:8px">No values yet — Team Excel upload करें</div>';
+    return '<div style="grid-column:1/-1;font-size:11px;color:#64748b;padding:8px">'+(typeof L==='function'?L('अभी कोई value नहीं — Team Excel upload करें','No values yet — upload Team Excel first'):'No values yet — upload Team Excel first')+'</div>';
   }
   return vals.map(v=>{
     const cur = _shiftDraft.minByField[kind][v];

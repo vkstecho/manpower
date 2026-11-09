@@ -1225,16 +1225,12 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
       if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(phone)) return null;
     }catch(e){}
     const src = Object.assign({}, mu || {}, ps || {});
-    // Already has paid-until or trial was granted before → do not overwrite Admin dates
-    if(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate) return null;
-    if(src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1) return null;
-
-    // Respect Admin "Free trial days for each NEW user" (settings/appLicense.freeTrialDays)
-    let trialDays = 7; // safe default matching common admin config
+    // Resolve Admin freeTrialDays (settings/appLicense)
+    let trialDays = 7; // default when Admin has not set (matches common config)
     try{
       let lic = window._appLicenseCache || null;
       if(!lic && typeof fbGet === 'function'){
-        try{ lic = await fbGet('settings/appLicense'); }catch(e){}
+        try{ lic = await fbGet('settings/appLicense'); if(lic) window._appLicenseCache = lic; }catch(e){}
       }
       if(lic && lic.freeTrialDays != null){
         const n = parseInt(lic.freeTrialDays, 10);
@@ -1243,6 +1239,47 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
         trialDays = Math.max(1, Math.min(365, parseInt(window.MP_CFG.defaultTrialDays,10)||trialDays));
       }
     }catch(e){ console.warn('[payTrial] freeTrialDays read', e && e.message); }
+
+    const byAuto = String(src.paymentUpdatedBy||'').indexOf('auto_trial') === 0
+      || src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1;
+
+    // Already on an auto trial: clamp paidUntil down to Admin freeTrialDays from firstLoginAt
+    // (fixes managers who got 30d before Admin set 7d — never lengthen paid Admin grants)
+    if(byAuto && (src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate)){
+      try{
+        const startIso = src.firstLoginAt || src.createdAt || null;
+        const start = startIso ? new Date(startIso) : new Date();
+        if(!isNaN(start.getTime())){
+          const endClamp = new Date(start.getFullYear(), start.getMonth(), start.getDate() + trialDays, 23, 59, 59, 999);
+          const cur = new Date(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate);
+          if(!isNaN(cur.getTime()) && endClamp.getTime() < cur.getTime() - 60000){
+            const iso = endClamp.toISOString();
+            const payload = {
+              paymentPaidUntil: iso,
+              paidUntil: iso,
+              paymentTrialGranted: true,
+              paymentTrialDays: trialDays,
+              firstLoginAt: start.toISOString(),
+              updatedAt: new Date().toISOString(),
+              paymentUpdatedBy: 'auto_trial_clamp_'+trialDays+'d'
+            };
+            try{ await fbSet('paymentStatus/'+phone, Object.assign({}, payload, { mobile: phone, phone: phone })); }catch(e){}
+            try{ await fbUpdate('mobileUsers/'+phone, payload); }catch(e){}
+            try{
+              if(window._cache && window._cache.mobileUsers && window._cache.mobileUsers[phone]){
+                Object.assign(window._cache.mobileUsers[phone], payload);
+              }
+            }catch(e){}
+            return payload;
+          }
+        }
+      }catch(e){ console.warn('[payTrial] clamp', e && e.message); }
+      return null; // already has trial end — do not extend
+    }
+
+    // Manual / Admin paid-until without auto flag → never overwrite
+    if(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate) return null;
+    if(src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1) return null;
 
     const base = new Date();
     const end = new Date(base.getFullYear(), base.getMonth(), base.getDate() + trialDays, 23, 59, 59, 999);
