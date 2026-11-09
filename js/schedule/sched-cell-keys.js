@@ -346,7 +346,7 @@
         sessionStorage.setItem('mp_kb_hint3', '1');
         _toast(
           _L(
-            '⌨️ Tab=अगला · Shift+Tab=पिछला · Shift+↑↓←→=सेलेक्ट',
+            (typeof L==='function'?L('⌨️ Tab=अगला · Shift+Tab=पिछला · Shift+↑↓←→=सेलेक्ट','⌨️ Tab=next · Shift+Tab=prev · Shift+arrows=select'):'⌨️ Tab=next · Shift+Tab=prev · Shift+arrows=select'),
             '⌨️ Tab=next · Shift+Tab=prev · Shift+Arrows=select'
           )
         );

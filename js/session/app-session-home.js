@@ -23,12 +23,12 @@ async function renderHome(){
       const roster = document.getElementById('homeRoster');
       if(roster) roster.innerHTML = `<div class="hm-empty" style="padding:14px;margin:8px 0;border-radius:12px;border:1px dashed rgba(234,179,8,.5);background:rgba(234,179,8,.08)">
         <div style="font-weight:900;color:var(--text);margin-bottom:6px">⏳ Manager approval pending</div>
-        <div style="font-size:12px;color:var(--muted2);line-height:1.5">आप Manager की approval का इंतज़ार कर रहे हैं। अभी सिर्फ <b>अपनी शिफ्ट</b>, <b>Learn &amp; Grow</b> और <b>To-Do</b> उपलब्ध हैं। Team schedule / Leave / Reports Manager approve के बाद खुलेंगे।</div>
+        <div style="font-size:12px;color:var(--muted2);line-height:1.5">${typeof L==='function'?L('आप Manager की approval का इंतज़ार कर रहे हैं। अभी सिर्फ <b>अपनी शिफ्ट</b>, <b>Learn &amp; Grow</b> और <b>To-Do</b> उपलब्ध हैं। Team schedule / Leave / Reports Manager approve के बाद खुलेंगे।','Waiting for Manager approval. Only <b>My Shift</b>, <b>Learn &amp; Grow</b> and <b>To-Do</b> are available for now. Team schedule / Leave / Reports open after approval.'):'Waiting for Manager approval.'}</div>
       </div>`;
     }catch(e){}
   }
 
-  const emps=getEmps().filter(e=>e.status!=='resigned' && Array.isArray(e.ms) && e.ms.length > 0);
+  const emps=getEmps().filter(e=>e&&e.status!=='resigned'&&e.status!=='left'&&e.status!=='left_team'&&e.status!=='removed');
   const stillLoading = _cache.employees === null;
   const en = (_lang !== 'hi');
 
@@ -137,7 +137,7 @@ async function renderHome(){
   }
   const _hst = document.getElementById('homeSectionTitle');
   if(_hst) _hst.textContent = en
-    ? ("Today's Shift — " + (secNames.join(' · ') || 'All sections'))
+    ? ("Today's Shift — " + (secNames.join(' · ') || 'All departments'))
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
   // Build one summary card per Excel Section
@@ -371,7 +371,9 @@ async function updateHomeTodoSummary(){
     const metaEl = document.getElementById('homeTodoMeta');
     const badgeEl = document.getElementById('homeTodoPendingBadge');
     
-    if(titleEl) titleEl.textContent = pending > 0 ? `${pending} काम बाकी` : 'सब काम पूरा!';
+    if(titleEl) titleEl.textContent = pending > 0
+      ? (typeof L==='function'?L(`${pending} काम बाकी`, `${pending} tasks left`):`${pending} tasks left`)
+      : (typeof L==='function'?L('सब काम पूरा!','All tasks done!'):'All tasks done!');
     if(metaEl) metaEl.textContent = `${done} done` + (urgent > 0 ? ` · ${urgent} urgent` : '') + ` · Total ${todos.length}`;
     if(badgeEl){
       badgeEl.textContent = pending;
@@ -409,7 +411,7 @@ async function submitHomeTodo(){
     if(assigneeId && assigneeId !== SESSION.empObjId){
       try{
         await fbPush('userNotifications/'+assigneeId,{
-          title:'📌 नया काम assign हुआ',
+          title:(typeof L==='function'?L('📌 नया काम assign हुआ','📌 New task assigned'):'📌 New task assigned'),
           body: title + (SESSION.name?' — '+SESSION.name:''),
           read:false, at:new Date().toISOString()
         });

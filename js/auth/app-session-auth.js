@@ -301,13 +301,13 @@ function _openQuickPhoneReauth(mobile10){
         <div style="width:36px;height:4px;background:#475569;border-radius:2px;margin:0 auto 14px"></div>
         <div style="font-size:17px;font-weight:900;color:#fff;margin-bottom:6px">🔐 Phone verify (one time)</div>
         <div style="font-size:13px;color:#94a3b8;line-height:1.5;margin-bottom:14px">
-          इस <b>device/browser</b> पर एक बार Phone OTP चाहिए। <b style="color:#e2e8f0">Logout नहीं</b> · Laptop और Mobile दोनों चल सकते हैं (हर device पर अलग से एक बार OTP)।
+          ${typeof L==='function'?L('इस <b>device/browser</b> पर एक बार Phone OTP चाहिए। <b style="color:#e2e8f0">Logout नहीं</b> · Laptop और Mobile दोनों चल सकते हैं (हर device पर अलग से एक बार OTP)।','One-time Phone OTP is required on this <b>device/browser</b>. <b style="color:#e2e8f0">No logout</b> · Laptop and Mobile both work (OTP once per device).'):'One-time Phone OTP is required on this device.'}
         </div>
         <div style="font-size:12px;color:#7dd3fc;margin-bottom:10px">📱 +91 ${mobile10}</div>
         <div id="reauthRecaptcha" style="min-height:1px"></div>
         <button type="button" id="reauthSendBtn" onclick="_reauthSendOtp('${mobile10}')"
           style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:15px;cursor:pointer;margin-bottom:10px">
-          OTP भेजें
+          ${typeof L==='function'?L('OTP भेजें','Send OTP'):'Send OTP'}
         </button>
         <input id="reauthOtpInput" type="tel" inputmode="numeric" maxlength="6" autocomplete="one-time-code" name="one-time-code"
           placeholder="6-digit OTP" style="display:none;width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1.5px solid #60a5fa;background:#1e3251;color:#fff;font-size:22px;letter-spacing:8px;text-align:center;margin-bottom:10px">
@@ -340,7 +340,7 @@ async function _reauthSendOtp(mobile10){
     const vbtn = document.getElementById('reauthVerifyBtn');
     if(inp){ inp.style.display = 'block'; inp.focus(); }
     if(vbtn) vbtn.style.display = 'block';
-    if(btn){ btn.textContent = 'OTP फिर भेजें'; btn.disabled = false; }
+    if(btn){ btn.textContent = (typeof L==='function'?L('OTP फिर भेजें','Resend OTP'):'Resend OTP'); btn.disabled = false; }
     toast(L('✅ OTP भेज दिया','✅ OTP sent'));
     if(typeof _startWebOtpListen === 'function'){
       _startWebOtpListen('reauthOtpInput', code=>{
@@ -349,15 +349,15 @@ async function _reauthSendOtp(mobile10){
     }
   }catch(e){
     if(err) err.textContent = '❌ '+(_fbOtpErrorMessage?_fbOtpErrorMessage(e):(e.message||e));
-    if(btn){ btn.disabled = false; btn.textContent = 'OTP भेजें'; }
+    if(btn){ btn.disabled = false; btn.textContent = (typeof L==='function'?L('OTP भेजें','Send OTP'):'Send OTP'); }
   }
 }
 
 async function _reauthVerifyOtp(){
   const err = document.getElementById('reauthErr');
   const code = (document.getElementById('reauthOtpInput')?.value||'').replace(/\D/g,'').slice(0,6);
-  if(code.length!==6){ if(err) err.textContent='⚠️ 6 अंक OTP डालें'; return; }
-  if(!_reauthConfirm){ if(err) err.textContent='⚠️ पहले OTP भेजें'; return; }
+  if(code.length!==6){ if(err) err.textContent=(typeof L==='function'?L('⚠️ 6 अंक OTP डालें','⚠️ Enter 6-digit OTP'):'⚠️ Enter 6-digit OTP'); return; }
+  if(!_reauthConfirm){ if(err) err.textContent=(typeof L==='function'?L('⚠️ पहले OTP भेजें','⚠️ Send OTP first'):'⚠️ Send OTP first'); return; }
   try{
     if(err) err.textContent = '⏳ Verify…';
     await _fbVerifyPhoneOtp(_reauthConfirm, code);

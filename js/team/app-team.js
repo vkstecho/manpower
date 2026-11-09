@@ -581,7 +581,7 @@ async function exportSalaryCost(){
   </div>
 </div>
 <table>
-<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Mobile</th><th>Section</th><th>Salary</th><th>Ab Days</th><th>Deduction</th><th>Cost (Net)</th></tr></thead>
+<thead><tr><th>#</th><th>Code</th><th>Name</th><th>Mobile</th><th>Department</th><th>Salary</th><th>Ab Days</th><th>Deduction</th><th>Cost (Net)</th></tr></thead>
 <tbody>${rowsHtml}</tbody>
 </table>
 <p class="sub">Generated ${genAt} by ${d.generatedBy||''} · © Man Power · VKS Tech</p>

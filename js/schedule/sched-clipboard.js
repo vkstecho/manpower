@@ -515,7 +515,7 @@
       if (!origin) {
         _toast(
           _L(
-            '⚠️ पेस्ट के लिए एक cell पर क्लिक करें',
+            (typeof L==='function'?L('⚠️ पेस्ट के लिए एक cell पर क्लिक करें','⚠️ Click a cell to paste'):'⚠️ Click a cell to paste'),
             '⚠️ Click one target cell, then Paste'
           )
         );

@@ -25,8 +25,8 @@ function openScheduleBuilder(){
   const lb = {
     title: (typeof L==='function')?L('📋 Schedule Builder','📋 Schedule Builder'):'📋 Schedule Builder',
     month: (typeof L==='function')?L('महीना चुनें','Select Month'):'Select Month',
-    section: (typeof L==='function')?L('विभाग','Department'):'Section',
-    allSec: (typeof L==='function')?L('सभी विभाग','All Departments'):'All Sections',
+    section: (typeof L==='function')?L('विभाग','Department'):'Department',
+    allSec: (typeof L==='function')?L('सभी विभाग','All Departments'):'All Departments',
     dateRange: (typeof L==='function')?L('तारीख रेंज','Date Range'):'Date Range',
     fullMonth: (typeof L==='function')?L('📅 पूरा महीना','📅 Full Month'):'📅 Full Month',
     customDates: (typeof L==='function')?L('🗓️ कस्टम तारीख','🗓️ Custom Dates'):'🗓️ Custom Dates',
@@ -1493,14 +1493,20 @@ function autoGenSchedule(monthKey){
     generated++;
   });
 
-  let msg = `✅ ${generated} कर्मचारियों की Schedule auto-generate हो गई!`;
-  if(leaveProtected > 0) msg += ` · 🛡️ ${leaveProtected} approved leave दिन सुरक्षित`;
-  if(preserved > 0) msg += ` · ${preserved} मौजूदा shifts रखीं`;
+  let msg = (typeof L==='function')
+    ? L(`✅ ${generated} कर्मचारियों की Schedule auto-generate हो गई!`, `✅ Auto-generated schedule for ${generated} employees!`)
+    : `✅ Auto-generated schedule for ${generated} employees!`;
+  if(leaveProtected > 0) msg += (typeof L==='function')
+    ? L(` · 🛡️ ${leaveProtected} approved leave दिन सुरक्षित`, ` · 🛡️ ${leaveProtected} approved leave day(s) protected`)
+    : ` · 🛡️ ${leaveProtected} approved leave day(s) protected`;
+  if(preserved > 0) msg += (typeof L==='function')
+    ? L(` · ${preserved} मौजूदा shifts रखीं`, ` · ${preserved} existing shifts kept`)
+    : ` · ${preserved} existing shifts kept`;
   try{
     const nSen = emps.filter(e=>_isSeniorEmp(e)).length;
     if(nSen) msg += (typeof L==='function'?L(` · 👔 ${nSen} Senior → Day (D/A) priority`,` · 👔 ${nSen} Senior → Day (D/A) priority`):'');
   }catch(e){}
-  msg += ' Save करें।';
+  msg += (typeof L==='function'?L(' Save करें।',' Save to apply.'):' Save to apply.');
   toast(msg);
 
   try{
@@ -1521,7 +1527,7 @@ function _runCoverageCheckAfterAutoGen(monthKey, yr, mo, daysInMonth){
     // Soft success hint when everything is balanced
     try{
       if(report && report.groupsChecked > 0){
-        toast(L('✅ Coverage OK — Section/Machine/Resp में हर शिफ्ट पर लोग उपलब्ध','✅ Coverage OK — people available on every shift per group'));
+        toast(L('✅ Coverage OK — Department/Machine/Resp में हर शिफ्ट पर लोग उपलब्ध','✅ Coverage OK — people available on every shift per group'));
       }
     }catch(e){}
     return;
@@ -2090,18 +2096,16 @@ function _confirmLeaveOverride(cell, empId, dayIdx, dateStr){
   openModal(`<div class="modal-handle"></div>
     <div style="text-align:center;padding:10px 0">
       <div style="font-size:40px;margin-bottom:10px">⚠️</div>
-      <div style="font-size:18px;font-weight:900;color:var(--lv);margin-bottom:6px">Approved Leave है!</div>
+      <div style="font-size:18px;font-weight:900;color:var(--lv);margin-bottom:6px">${typeof L==='function'?L('Approved Leave है!','Approved Leave!'):'Approved Leave!'}</div>
       <div style="font-size:13px;color:var(--muted2);margin-bottom:4px"><b style="color:#fff">${empName}</b></div>
-      <div style="font-size:13px;color:var(--muted2);margin-bottom:16px">${fmtD} को approved छुट्टी है</div>
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:16px">${typeof L==='function'?L(fmtD+' को approved छुट्टी है', 'Approved leave on '+fmtD):('Approved leave on '+fmtD)}</div>
       <div style="background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:var(--lv);line-height:1.6">
-        🛡️ इस दिन की approved leave है।<br>
-        अगर बदलना है तो पहले <b>Leave Section</b> में reject करें,<br>
-        फिर यहाँ shift change करें।
+        ${typeof L==='function'?L('🛡️ इस दिन की approved leave है।<br>अगर बदलना है तो पहले <b>Leave Section</b> में reject करें,<br>फिर यहाँ shift change करें।','🛡️ This day has an approved leave.<br>To change it, reject the leave in <b>Leave</b> first,<br>then change the shift here.'):'🛡️ This day has an approved leave.'}
       </div>
       <button class="big-btn" onclick="closeModal();_forceOverrideLeaveCell('${empId}',${dayIdx})" style="margin-bottom:8px;background:linear-gradient(135deg,#dc2626,#9f1239)">
-        ⚠️ फिर भी बदलें (Leave हटेगी)
+        ${typeof L==='function'?L('⚠️ फिर भी बदलें (Leave हटेगी)','⚠️ Change anyway (leave will be cleared)'):'⚠️ Change anyway (leave will be cleared)'}
       </button>
-      <button class="cancel-btn" onclick="closeModal()">रहने दो — Leave रखो</button>
+      <button class="cancel-btn" onclick="closeModal()">${typeof L==='function'?L('रहने दो — Leave रखो','Keep leave — cancel'):'Keep leave — cancel'}</button>
     </div>`);
 }
 

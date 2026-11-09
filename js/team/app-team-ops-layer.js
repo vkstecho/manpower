@@ -1016,7 +1016,7 @@
         '<div style="flex:1;overflow:auto;padding:14px;-webkit-overflow-scrolling:touch">' +
           '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:14px;font-size:12px;color:var(--text);line-height:1.5">' +
             '<div><b>' + _L('आप', 'You') + ':</b> ' + _esc((me && me.name) || _who() || '—') + ' · ' + _L('शिफ्ट', 'Shift') + ' <b>' + _esc(mySh) + '</b>' +
-            (sec ? ' · ' + _L('विभाग', 'Section') + ' <b>' + _esc(sec) + '</b>' : '') + '</div>' +
+            (sec ? ' · ' + _L('विभाग', 'Department') + ' <b>' + _esc(sec) + '</b>' : '') + '</div>' +
             '<div style="margin-top:6px;color:var(--muted2)"><b>' + _L('अगली शिफ्ट (सूचना)', 'Incoming (notify)') + ':</b> ' +
               _esc(incomingNames || _L('स्वतः खोज — सेव पर', 'Auto-detect on save')) + '</div>' +
           '</div>' +
@@ -1181,7 +1181,7 @@
         '<div style="flex:1;overflow:auto;padding:14px">' +
           '<div style="font-size:13px;color:var(--text);margin-bottom:12px;line-height:1.5">' +
             '<b>' + _L('द्वारा', 'By') + ':</b> ' + _esc(rec.outgoingName || rec.completedBy || '—') +
-            (rec.section ? ' · <b>' + _L('विभाग', 'Section') + ':</b> ' + _esc(rec.section) : '') +
+            (rec.section ? ' · <b>' + _L('विभाग', 'Department') + ':</b> ' + _esc(rec.section) : '') +
             (rec.shift ? ' · <b>' + _L('शिफ्ट', 'Shift') + ':</b> ' + _esc(rec.shift) : '') +
           '</div>' +
           fieldsHtml + photo +
