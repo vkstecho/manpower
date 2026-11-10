@@ -1198,7 +1198,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       const vInv = await _fbMakeRecaptcha(cid, key, 'invisible');
       const confInv = await withTimeout(
         window._fbSignInWithPhoneNumber(window._fbAuth, phone, vInv),
-        25000,
+        8000,
         'OTP timed out'
       );
       hideDesktopRc();
@@ -1214,6 +1214,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     toast(typeof L==='function'
       ? L('🔐 नीचे Security checkbox ✓ करें — tick के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
       : '🔐 Tick the security checkbox below — then OTP will send');
+    try{ if(typeof window._mpSetOtpBtnCaptchaWait==='function') window._mpSetOtpBtnCaptchaWait(); }catch(eBtn){}
     try{
       var barCid = 'recaptcha-container-desktop-bar';
       var barKey = key + '_visibleBar';
@@ -1274,10 +1275,21 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       window[barKey] = verifier;
       try{
         if(typeof verifier.render === 'function'){
-          await verifier.render();
+          await Promise.race([
+            verifier.render(),
+            new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('reCAPTCHA render timeout')); }, 12000); })
+          ]);
         }
       }catch(eRender){
         console.warn('[recaptcha desktop bar render]', eRender);
+        // Ensure user is not stuck with blank white box
+        try{
+          var hFail = document.getElementById(barCid);
+          if(hFail && !hFail.querySelector('iframe')){
+            hFail.innerHTML = '<div style="color:#b91c1c;font-size:12px;text-align:center;padding:12px;font-weight:700">Security check failed to load.<br>Refresh page or allow google.com cookies, then try again.</div>';
+          }
+        }catch(eH){}
+        throw Object.assign(new Error('reCAPTCHA did not load — refresh page / check authorized domains'), { code: 'auth/captcha-render-failed' });
       }
 
       // Reinforce visibility after render (never reparent — that kills the widget)

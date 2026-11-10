@@ -736,7 +736,7 @@ function toggleLeftMembers(){
   if(_leftMembersOpen) renderLeftMembers();
 }
 
-async function renderLeftMembers(){
+async async function renderLeftMembers(){
   const listEl = document.getElementById('leftMembersList');
   if(!listEl) return;
 
@@ -746,10 +746,34 @@ async function renderLeftMembers(){
   const raw = await fbGet('leftEmployees').catch(() => null);
   let leftList = raw ? Object.entries(raw).map(([k,v]) => ({...v, _fbKey:k, id:k})) : [];
 
+  // Scope: Manager sees only THEIR left members; Admin sees company-scoped
+  const _leftBelongsHere = (rec) => {
+    if(!rec) return false;
+    try{
+      if(typeof isAdmin === 'function' && isAdmin()){
+        const cid = (SESSION && SESSION.viewCompanyId) || 'ALL';
+        if(!cid || cid === 'ALL') return true;
+        const n = (typeof _normCompanyId==='function') ? _normCompanyId(rec.companyId||rec.company||'') : String(rec.companyId||rec.company||'').toLowerCase();
+        const want = (typeof _normCompanyId==='function') ? _normCompanyId(cid) : String(cid).toLowerCase();
+        // Strict: missing company does not match a specific company filter
+        if(!n || n === 'default') return false;
+        return n === want;
+      }
+      if(SESSION && SESSION.role === 'manager' && SESSION.mobile){
+        const key = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+        const mid = (typeof _normMobileKey==='function') ? _normMobileKey(rec.managerId||rec.managerMobile||rec.mgrId||'') : String(rec.managerId||'').replace(/\D/g,'').slice(-10);
+        if(mid && mid === key) return true;
+        // Legacy rows without managerId: do NOT show (prevents cross-manager leak)
+        return false;
+      }
+    }catch(e){}
+    return false;
+  };
+  leftList = leftList.filter(_leftBelongsHere);
+
   // Source 2: full employee cache (NOT getEmps — that hides left/resigned for managers)
   const LEFT_STATUSES = new Set(['resigned','left','left_team','removed','revoked']);
   const allEmps = (_cache.employees || []).concat(
-    // getEmps may still hold some in edge cases
     (typeof getEmps==='function' ? getEmps() : [])
   );
   const seenIds = new Set(leftList.map(l => l.id || l._fbKey).filter(Boolean));
@@ -758,7 +782,7 @@ async function renderLeftMembers(){
     if(seenIds.has(e.id)) return;
     const st = String(e.status||'').toLowerCase();
     if(!LEFT_STATUSES.has(st) && e.active !== false) return;
-    if(!LEFT_STATUSES.has(st) && e.active !== false) return;
+    if(!_leftBelongsHere(e)) return;
     seenIds.add(e.id);
     leftList.push({
       ...e,
@@ -776,11 +800,20 @@ async function renderLeftMembers(){
       Object.entries(mu).forEach(([k,v])=>{
         if(!v) return;
         const st = String(v.status||'').toLowerCase();
-        const leftish = LEFT_STATUSES.has(st) || v.demotedReason==='manager_transferred' && (st==='left'||st==='left_team'||v.leftAt);
         // Only if explicitly left — not mere demote to member still active
         if(!LEFT_STATUSES.has(st) && !v.leftAt) return;
         const id = v.empObjId || v.employeeId || ('mu_'+k);
         if(seenIds.has(id) || seenIds.has(k)) return;
+        const cand = {
+          id,
+          name: v.name || k,
+          phone: v.mobile || v.phone || k,
+          mobile: v.mobile || v.phone || k,
+          managerId: v.managerId || v.managerMobile || '',
+          companyId: v.company || v.companyId || '',
+          company: v.company || ''
+        };
+        if(!_leftBelongsHere(cand)) return;
         seenIds.add(id);
         leftList.push({
           id,
@@ -904,18 +937,25 @@ let _deleteAllMobile = ''; // mobile used for this OTP session
 
 /** Resolve a 10-digit manager mobile from SESSION / emp / known contacts */
 function _resolveManagerMobile(){
-  let m = String(SESSION.mobile||'').replace(/\D/g,'');
-  if(m.length === 10) return m;
+  // Always last-10 digits. SESSION.mobile is often "+91XXXXXXXXXX" (12 digits) —
+  // old length===10 check failed and wrongly fell through to support UPI number.
+  const dig10 = (v) => {
+    const d = String(v||'').replace(/\D/g,'');
+    return d.length >= 10 ? d.slice(-10) : '';
+  };
+  let m = dig10(SESSION.mobile) || dig10(SESSION.phone);
+  if(m) return m;
+  // Login-time phone (most reliable for who is actually signed in)
+  try{ m = dig10(localStorage.getItem('mp_device_phone')); if(m) return m; }catch(e){}
+  try{ m = dig10(localStorage.getItem('mp_login_mobile')); if(m) return m; }catch(e){}
   try{
-    const emp = myEmp();
+    const emp = (typeof myEmp==='function') ? myEmp() : null;
     if(emp){
-      m = String(emp.phone || emp.mobile || '').replace(/\D/g,'');
-      if(m.length === 10) return m;
+      m = dig10(emp.phone || emp.mobile);
+      if(m) return m;
     }
   }catch(e){}
-  // Optional org contact from CFG (no person-specific hardcode)
-  m = String((CFG && CFG.contactVivek)||'').replace(/\D/g,'').slice(-10);
-  if(m.length === 10) return m;
+  // NEVER use CFG.contactVivek / support UPI for security OTP
   return '';
 }
 
@@ -955,12 +995,12 @@ async function startDeleteAllMembersFlow(){
   );
   if(!ok) return;
 
+  mobile = String(mobile||'').replace(/\D/g,'').slice(-10);
   _deleteAllMobile = mobile;
-  // Persist to session if it was resolved from fallback
-  if(!SESSION.mobile || String(SESSION.mobile).replace(/\D/g,'').length !== 10){
-    SESSION.mobile = mobile;
-    try{ saveSession(); }catch(e){}
-  }
+  // Always keep session mobile as 10-digit login identity
+  SESSION.mobile = mobile;
+  try{ saveSession(); }catch(e){}
+  try{ localStorage.setItem('mp_login_mobile', mobile); }catch(e){}
   await _openDeleteAllOtpModal(team.length, mobile);
 }
 

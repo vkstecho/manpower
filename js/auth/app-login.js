@@ -182,6 +182,11 @@ function _onOtpInput(val){
 }
 
 async function _sendOTP(isResend){
+  // Prevent double-click / concurrent OTP sends (button stuck on Sending…)
+  if(window._mpOtpSendInFlight){
+    try{ toast(L('⏳ OTP पहले से भेज रहे हैं — Security check पूरा करें','⏳ OTP already sending — complete the security check')); }catch(e){}
+    return;
+  }
   // Device-OTP overlay uses same button id sometimes — route if employee flow active
   if(_otpEmp && document.getElementById('otpLoginOverlay')?.style.display !== 'none'
       && document.getElementById('otpLoginOverlay')?.style.display !== ''){
@@ -195,11 +200,20 @@ async function _sendOTP(isResend){
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
 
+  window._mpOtpSendInFlight = true;
   // Instant UI feedback — was delayed until after several Firebase reads
   const sendBtn = document.getElementById('sendOtpBtn');
+  const stickyBtn = document.getElementById('loginStickyCta');
   const _btnPrev = sendBtn ? sendBtn.innerHTML : '';
-  if(sendBtn){ sendBtn.disabled = true; sendBtn.style.opacity = '0.7'; sendBtn.innerHTML = '⏳ Sending…'; }
+  if(sendBtn){
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.7';
+    sendBtn.style.pointerEvents = 'none';
+    sendBtn.innerHTML = '⏳ Sending…';
+  }
+  if(stickyBtn){ stickyBtn.disabled = true; stickyBtn.style.opacity = '0.7'; }
   const _restoreBtn = ()=>{
+    window._mpOtpSendInFlight = false;
     if(!sendBtn) return;
     const mob = (document.getElementById('loginMobile')?.value||'').replace(/\D/g,'');
     const ok = mob.length === 10;
@@ -207,8 +221,24 @@ async function _sendOTP(isResend){
     sendBtn.style.opacity = ok ? '1' : '.5';
     sendBtn.style.pointerEvents = ok ? 'auto' : 'none';
     sendBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
-    sendBtn.innerHTML = _btnPrev || 'Send OTP 💬';
+    // Prefer current language label over stale HTML
+    try{
+      sendBtn.innerHTML = (typeof L==='function')
+        ? L('OTP भेजें 💬','Send OTP 💬')
+        : (_btnPrev || 'Send OTP 💬');
+    }catch(e){ sendBtn.innerHTML = _btnPrev || 'Send OTP 💬'; }
+    if(stickyBtn){ stickyBtn.disabled = !ok; stickyBtn.style.opacity = ok ? '1' : '.5'; }
   };
+  const _setBtnCaptchaWait = ()=>{
+    if(!sendBtn) return;
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.85';
+    sendBtn.style.pointerEvents = 'none';
+    sendBtn.innerHTML = (typeof L==='function')
+      ? L('🔐 Security check पूरा करें','🔐 Complete security check')
+      : '🔐 Complete security check';
+  };
+  try{ window._mpSetOtpBtnCaptchaWait = _setBtnCaptchaWait; }catch(e){}
 
   // ── One parallel fetch (was 2–4 sequential RTDB reads → slow) ──
   let userData = null, dRec = null;
@@ -286,13 +316,14 @@ async function _sendOTP(isResend){
     // Stay on step 1 until Firebase accepts the send (captcha must be done first on desktop)
     try{ showStep(1); }catch(e){}
     if(_desk){
+      try{ _setBtnCaptchaWait(); }catch(e){}
       toast(L('🔐 नीचे Security checkbox ✓ करें — tick के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
       try{ if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container'); }catch(e){}
-      try{ if(typeof _fbWarmDesktopRecaptcha==='function') _fbWarmDesktopRecaptcha('recaptcha-container', '_fbRecaptchaWarm'); }catch(e){}
+      // Do NOT warm a second verifier while send is in flight — causes blank/stuck captcha
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
-    // Do NOT open Enter OTP / "Sending OTP…" until captcha + Firebase succeed
+    // Do NOT open Enter OTP until captcha + Firebase succeed
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     // Only now move to OTP entry
     showStep(2);

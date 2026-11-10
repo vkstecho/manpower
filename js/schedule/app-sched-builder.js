@@ -2198,33 +2198,62 @@ async function saveScheduleBuilder(monthKey){
 
 
 /** Count A/B/C/D/N (and G/O) in Auto Schedule grid — same codes as main Schedule */
+/** Date-wise shift counts (same idea as main Schedule totals row) */
 function _sbUpdateShiftCounts(){
   try{
     const box = document.getElementById('sbShiftCounts');
     if(!box) return;
-    const cells = document.querySelectorAll('#sb_tbody .shc');
-    const codes = ['A','B','C','D','N','G','O'];
-    const counts = {A:0,B:0,C:0,D:0,N:0,G:0,O:0};
-    cells.forEach(function(el){
+    const dayNums = [];
+    document.querySelectorAll('#sb_tbody .shc').forEach(function(el){
+      const d = parseInt(el.getAttribute('data-day'), 10);
+      if(!isNaN(d) && dayNums.indexOf(d) < 0) dayNums.push(d);
+    });
+    dayNums.sort(function(a,b){ return a-b; });
+    const codes = ['A','B','C','D','N','O'];
+    const colors = {A:'#16a34a',B:'#db2777',C:'#0891b2',D:'#f59e0b',N:'#4f46e5',O:'#64748b'};
+    // Per-day counts
+    const byDay = {};
+    dayNums.forEach(function(d){ byDay[d] = {A:0,B:0,C:0,D:0,N:0,O:0}; });
+    document.querySelectorAll('#sb_tbody .shc').forEach(function(el){
+      const d = parseInt(el.getAttribute('data-day'), 10);
+      if(isNaN(d) || !byDay[d]) return;
       let v = (el.getAttribute('data-shift') || el.textContent || '').toString().trim().toUpperCase();
-      if(v === 'C/O' || v === 'CO') return;
-      if(v === '0' || v === '—' || v === '-' || v === '') return;
-      // cell may show letter inside
-      if(v.length > 1){
-        const m = v.match(/[ABCDNGO]/);
-        if(m) v = m[0];
-      }
-      if(counts.hasOwnProperty(v)) counts[v]++;
+      if(!v || v==='—' || v==='-' || v==='0') return;
+      if(v==='C/O'||v==='CO') return;
+      if(v.length>1){ const m=v.match(/[ABCDNO]/); if(m) v=m[0]; }
+      if(byDay[d][v] != null) byDay[d][v]++;
     });
-    const colors = {A:'#16a34a',B:'#db2777',C:'#0891b2',D:'#f59e0b',N:'#4f46e5',G:'#0284c7',O:'#64748b'};
-    const parts = codes.filter(function(c){ return counts[c] > 0 || ['A','B','C','D','N'].indexOf(c) >= 0; }).map(function(c){
-      return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:'+colors[c]+'22;color:'+colors[c]+';border:1px solid '+colors[c]+'55">'
-        + '<b>'+c+'</b> '+counts[c]+'</span>';
+    // Compact UI: show day chips for work totals + summary of A/B/C like schedule footer
+    let html = '<div style="width:100%;overflow:auto;-webkit-overflow-scrolling:touch">';
+    html += '<div style="display:flex;gap:4px;align-items:flex-end;min-width:max-content;padding-bottom:2px">';
+    // Header labels column
+    html += '<div style="position:sticky;left:0;background:var(--bg);z-index:2;padding-right:6px;font-size:10px;font-weight:800;color:var(--muted2);line-height:1.35">'
+      + '<div style="height:16px"></div>'
+      + codes.map(function(c){ return '<div style="color:'+colors[c]+'">'+c+'</div>'; }).join('')
+      + '<div style="color:var(--text)">Σ</div></div>';
+    dayNums.forEach(function(d){
+      const c = byDay[d];
+      const total = (c.A||0)+(c.B||0)+(c.C||0)+(c.D||0)+(c.N||0);
+      html += '<div style="text-align:center;min-width:28px;font-size:10px;font-weight:800;line-height:1.35">'
+        + '<div style="color:var(--muted2);height:16px">'+d+'</div>'
+        + codes.map(function(code){
+            const n = c[code]||0;
+            return '<div style="color:'+colors[code]+'">'+(n||'·')+'</div>';
+          }).join('')
+        + '<div style="color:var(--text)">'+total+'</div></div>';
     });
-    const totalWork = counts.A+counts.B+counts.C+counts.D+counts.N;
-    box.innerHTML = '<span style="color:var(--muted2);margin-right:4px">'+(typeof L==='function'?L('शिफ्ट गिनती','Shift counts')+' · ':'Shift counts · ')+'</span>'
-      + parts.join('')
-      + '<span style="margin-left:6px;color:var(--text)">Σ '+(typeof L==='function'?L('काम','Work'):'Work')+': <b>'+totalWork+'</b></span>';
+    html += '</div></div>';
+    // Also keep global totals strip
+    const g={A:0,B:0,C:0,D:0,N:0,O:0};
+    dayNums.forEach(function(d){ codes.forEach(function(code){ g[code]+=(byDay[d][code]||0); }); });
+    const work=g.A+g.B+g.C+g.D+g.N;
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;align-items:center">'
+      + '<span style="color:var(--muted2);font-size:11px;font-weight:800">'+(typeof L==='function'?L('कुल','Total'):'Total')+'</span>'
+      + codes.filter(function(c){return c!=='O'||g.O;}).map(function(c){
+          return '<span style="display:inline-flex;gap:3px;padding:2px 7px;border-radius:999px;background:'+colors[c]+'22;color:'+colors[c]+';border:1px solid '+colors[c]+'55;font-size:11px;font-weight:800"><b>'+c+'</b> '+g[c]+'</span>';
+        }).join('')
+      + '<span style="font-size:11px;font-weight:800;color:var(--text)">Σ Work: '+work+'</span></div>';
+    box.innerHTML = html;
   }catch(e){ console.warn('[sb counts]', e); }
 }
 try{ window._sbUpdateShiftCounts = _sbUpdateShiftCounts; }catch(e){}

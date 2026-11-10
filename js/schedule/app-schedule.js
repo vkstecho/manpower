@@ -487,22 +487,46 @@ try{
           if(pv.paymentAmount)mu.paymentAmount=pv.paymentAmount;
           if(pv.planLabel)mu.planLabel=pv.planLabel;
           if(pv.planPeriod)mu.planPeriod=pv.planPeriod;
-          if(pv.planMaxMembers!=null)mu.planMaxMembers=pv.planMaxMembers;
+          if(pv.planMaxMembers!=null){ mu.planMaxMembers=pv.planMaxMembers; if(!mu.teamSize) mu.teamSize=pv.planMaxMembers; }
           if(pv.teamSize!=null)mu.teamSize=pv.teamSize;
           if(pv.maxMembers!=null)mu.maxMembers=pv.maxMembers;
-          // Always prefer Pay-until from paymentStatus over stale validTill
-          if(pv.paymentPaidUntil||pv.paidUntil){
-            mu.paymentPaidUntil=pv.paymentPaidUntil||pv.paidUntil;
-            mu.paidUntil=pv.paidUntil||pv.paymentPaidUntil;
-            mu.validTill=pv.paymentPaidUntil||pv.paidUntil;
-          } else if(pv.validTill&&!mu.validTill){
-            mu.validTill=pv.validTill;
+          // ALWAYS overwrite validTill with payment paid-until (single source of truth)
+          if(pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate){
+            var _until=pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate;
+            mu.paymentPaidUntil=_until;
+            mu.paidUntil=_until;
+            mu.paymentPaidUntilDate=pv.paymentPaidUntilDate||String(_until).slice(0,10);
+            mu.validTill=_until; // force badge days-left to match Manager login
           }
         }
       });
     });
   }
 }catch(_pm){}
+// Permanent validity fix: for each manager, prefer paymentStatus/{10digit} over stale mobileUsers.validTill
+try{
+  var _normP=function(p){return typeof _normMobileKey==="function"?_normMobileKey(p):String(p||"").replace(/\D/g,"").slice(-10)};
+  var _payCache=window._paymentStatusCache||{};
+  Object.keys(data).forEach(function(mk){
+    var mu=data[mk]; if(!mu||String(mu.role||"").toLowerCase()!=="manager") return;
+    var ph=_normP(mk)||_normP(mu.mobile||mu.phone);
+    if(!ph||ph.length!==10) return;
+    var pv=_payCache[ph]||_payCache["+91"+ph]||_payCache[mk]||null;
+    if(pv&&typeof pv==="object"){
+      if(pv.paymentPaidUntil||pv.paidUntil){
+        mu.paymentPaidUntil=pv.paymentPaidUntil||pv.paidUntil;
+        mu.paidUntil=pv.paidUntil||pv.paymentPaidUntil;
+        mu.validTill=mu.paymentPaidUntil;
+      }
+      if(pv.teamSize!=null) mu.teamSize=pv.teamSize;
+      if(pv.planMaxMembers!=null) mu.planMaxMembers=pv.planMaxMembers;
+      if(pv.maxMembers!=null) mu.maxMembers=pv.maxMembers;
+      if(pv.planLabel) mu.planLabel=pv.planLabel;
+      if(pv.planPeriod) mu.planPeriod=pv.planPeriod;
+      if(pv.paymentAmount) mu.paymentAmount=pv.paymentAmount;
+    }
+  });
+}catch(_hyd){}
 const allRaw=Object.entries(data),viewCid=SESSION.viewCompanyId||"ALL",mgrKeyNorm=k=>"function"==typeof _normMobileKey?_normMobileKey(k):String(k||"").replace(/\D/g,"").slice(-10),managers=allRaw.filter(([k,v])=>{if(!v||"manager"!==v.role||"rejected"===v.status||"removed"===v.status||"left"===v.status||"left_team"===v.status||"demoted"===v.status)return!1;if(v.demotedReason==="manager_transferred")return!1;if(!viewCid||"ALL"===viewCid)return!0;const n=_normCompanyId(v.company||v.companyId||v.companyLabel||"");const want=_normCompanyId(viewCid);if(!want||want==="ALL")return!0;/* STRICT: only same company — do not show empty/default managers under other companies */return n&&n===want;});
 // After handoff: also treat roster-owners as managers even if mobileUsers.role was not updated (PERMISSION partial fail)
 try{
@@ -599,8 +623,18 @@ try{
   }
 }catch(_e){}
 let extra="";
-// Prefer payment paid-until (what Admin set in Pay until) over stale validTill
-const until=u.paymentPaidUntil||u.paidUntil||u.paymentPaidUntilDate||u.validTill||"";
+// Single source of truth: payment paid-until; validTill only if no payment date
+let until=u.paymentPaidUntil||u.paidUntil||u.paymentPaidUntilDate||"";
+if(!until) until=u.validTill||"";
+// If both exist and differ by >2 days, always use the earlier (stricter) date
+try{
+  const a=u.paymentPaidUntil||u.paidUntil||u.paymentPaidUntilDate;
+  const b=u.validTill;
+  if(a&&b){
+    const da=new Date(a).getTime(), db=new Date(b).getTime();
+    if(!isNaN(da)&&!isNaN(db)) until=new Date(Math.min(da,db)).toISOString();
+  }
+}catch(_u){}
 if(("approved"===u.status||!u.status||"Active"===label)&&until){
   const daysLeft=Math.ceil((new Date(until)-new Date)/864e5);
   extra=daysLeft>=0?` · ${daysLeft}d left`:" · Expired";

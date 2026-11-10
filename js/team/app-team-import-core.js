@@ -188,9 +188,23 @@ async function ensureEmployeesFromImport(items){
           if(e.joiningDate) patch.joiningDate = e.joiningDate;
           if(e.dob) patch.dob = e.dob;
           if(mgrId) patch.managerId = mgrId;
+          // Re-activate left/resigned rows when same Emp ID is imported again
+          const st = String(existing.status||'').toLowerCase();
+          if(st === 'left' || st === 'left_team' || st === 'resigned' || st === 'removed' || st === 'revoked' || existing.active === false){
+            patch.status = 'active';
+            patch.active = true;
+            patch.leftAt = null;
+            patch.leftReason = null;
+            patch.returnedAt = new Date().toISOString();
+          }
           if(Object.keys(patch).length){
             await fbUpdate('employees/' + existing.id, patch);
             Object.assign(existing, patch);
+            try{
+              // Drop from leftEmployees archive if present
+              if(typeof fbRemove === 'function') await fbRemove('leftEmployees/' + existing.id);
+              else if(typeof fbSet === 'function') await fbSet('leftEmployees/' + existing.id, null);
+            }catch(_lr){}
           }
         }catch(upErr){ console.warn('[ensureEmployees] update existing', code, upErr); }
         out.updated = (out.updated || 0) + 1;
