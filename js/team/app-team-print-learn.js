@@ -473,13 +473,24 @@ function openLearnScreen(){
   try{
     const el = document.getElementById('learnScreen');
     if(!el){
-      try{ toast(L("Learn screen missing — please refresh","Learn screen missing — please refresh")); }catch(e){}
+      try{ toast(typeof L==='function' ? L("Learn screen missing — please refresh","Learn screen missing — please refresh") : "Learn screen missing — please refresh"); }catch(e){}
       return;
     }
-    // Force visible on all devices (esp. member mobile where CSS/z-index can hide it)
+    // Always visible for every role (Manager / Member / Admin) on mobile + desktop
     el.classList.add('show');
-    el.style.cssText = (el.style.cssText||'') + ';display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;z-index:900!important;position:fixed!important;inset:0!important;';
-    // Always show main module list (resume previous section hide)
+    try{
+      el.style.setProperty('display','block','important');
+      el.style.setProperty('visibility','visible','important');
+      el.style.setProperty('opacity','1','important');
+      el.style.setProperty('pointer-events','auto','important');
+      el.style.setProperty('z-index','1200','important');
+      el.style.setProperty('position','fixed','important');
+      el.style.setProperty('left','0','important');
+      el.style.setProperty('right','0','important');
+      el.style.setProperty('top','0','important');
+      el.style.setProperty('bottom','0','important');
+      el.style.setProperty('inset','0','important');
+    }catch(eStyle){}
     try{
       const mb = document.getElementById('learnMainButtons');
       if(mb){ mb.style.display = 'block'; mb.style.visibility = 'visible'; mb.style.opacity = '1'; }
@@ -489,12 +500,15 @@ function openLearnScreen(){
       });
     }catch(e0){}
     try{ document.body.classList.add('learn-open'); }catch(e){}
-    try{ renderLearnScreen(); }catch(e){ console.error('[learn] renderLearnScreen', e); }
+    try{ if(typeof renderLearnScreen==='function') renderLearnScreen(); }catch(e){ console.error('[learn] renderLearnScreen', e); }
     try{ if(typeof injectLearnModuleButtons==='function') injectLearnModuleButtons(); }catch(e1){}
     try{ if(typeof renderLearnCustomButtons==='function') renderLearnCustomButtons(); }catch(e2){}
+    try{ if(typeof applyLearnModuleVisibility==='function') applyLearnModuleVisibility(); }catch(e3){}
+    // Scroll to top so content is visible on mobile
+    try{ el.scrollTop = 0; }catch(e4){}
   }catch(e){
     console.error('[learn] openLearnScreen', e);
-    try{ toast(L("Could not open Learn & Grow","Could not open Learn & Grow")); }catch(x){}
+    try{ toast(typeof L==='function' ? L("Could not open Learn & Grow","Could not open Learn & Grow") : "Could not open Learn & Grow"); }catch(x){}
   }
 }
 function closeLearnScreen(){

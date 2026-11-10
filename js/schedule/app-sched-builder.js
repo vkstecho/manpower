@@ -375,34 +375,42 @@ async function loadScheduleBuilder(){
         </div>
         <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:4px 8px;cursor:pointer;font-size:11px;flex-shrink:0">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
-      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px;min-height:0"></div>
-      <!-- Toolbar: Clear / Sequence / Auto Generate + Save / Cancel (moved up from bottom) -->
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-        <div id="sbCellLegend" style="font-size:11px;color:#94a3b8;flex:1;min-width:80px;line-height:1.3">${(typeof L==='function')?L('🖱️ Drag · Double-tap = Copy','🖱️ Drag · Double-tap = Copy'):'🖱️ Drag · Double-tap = Copy'}</div>
+      <!-- Row 2: sub-filter pills + compact actions (Save/Cancel small, next to Auto Generate) -->
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+        <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;flex:1;min-width:0"></div>
+        <div id="sbCellLegend" style="font-size:10px;color:#94a3b8;white-space:nowrap;line-height:1.2">${(typeof L==='function')?L('🖱️ Drag · Double-tap = Copy','🖱️ Drag · Double-tap = Copy'):'🖱️ Drag · Double-tap = Copy'}</div>
         <button type="button" onclick="clearScheduleBuilderGrid()"
-          style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:10px;
-          color:#fb7185;font-size:12px;font-weight:800;padding:7px 10px;cursor:pointer;white-space:nowrap;
-          display:flex;align-items:center;gap:4px;font-family:inherit">
+          style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:8px;
+          color:#fb7185;font-size:11px;font-weight:800;padding:5px 9px;cursor:pointer;white-space:nowrap;
+          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0">
           🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
         </button>
         <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
           title="Auto Generate sequence: Department / Machine / Designation / Responsibility"
-          style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:140px">
+          style="font-size:11px;font-weight:700;padding:5px 7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:130px;flex:0 0 auto">
           <option value="section">Sequence: Department</option>
           <option value="machine">Sequence: Machine</option>
           <option value="designation">Sequence: Designation</option>
           <option value="responsibility">Sequence: Responsibility</option>
         </select>
+        <button type="button" id="sbSaveBtn" onclick="saveScheduleBuilder('${monthKey}')"
+          style="background:linear-gradient(135deg,#ea580c,#c2410c);border:none;border-radius:8px;
+          color:#fff;font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
+          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0;height:auto;width:auto">
+          💾 ${(typeof L==='function')?L('Save','Save'):'Save'}
+        </button>
+        <button type="button" id="sbCancelBtn" onclick="closeModal()"
+          style="background:var(--card);border:1px solid var(--border2);border-radius:8px;
+          color:var(--muted2);font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
+          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0;height:auto;width:auto">
+          ${(typeof L==='function')?L('रद्द','Cancel'):'Cancel'}
+        </button>
         <button type="button" onclick="autoGenSchedule('${monthKey}')"
-          style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
-          color:#fff;font-size:12px;font-weight:800;padding:7px 12px;cursor:pointer;white-space:nowrap;
-          display:flex;align-items:center;gap:4px;font-family:inherit">
+          style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;
+          color:#fff;font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
+          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0">
           🤖 ${(typeof L==='function')?L('Auto बनाएं','Auto Generate'):'Auto Generate'}
         </button>
-        <button type="button" class="submit-btn" style="flex:0 0 auto;min-height:36px!important;padding:7px 14px!important;font-size:12px;border-radius:10px"
-          onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save','Save'):'Save'}</button>
-        <button type="button" class="cancel-btn" style="flex:0 0 auto;min-height:36px!important;padding:7px 12px!important;font-size:12px;border-radius:10px"
-          onclick="closeModal()">${(typeof L==='function')?L('रद्द','Cancel'):'Cancel'}</button>
       </div>
     </div>
     <div id="sbToolbar" style="display:none"></div>

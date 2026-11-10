@@ -34,18 +34,24 @@ function _isPaymentExemptUser(){
 }
 
 function _getUserPaidUntilDate(){
-  // Prefer session cache hydrated at login; fallback fields
+  // Use the LATEST of all known access-end dates (paymentPaidUntil / paidUntil / validTill).
+  // Admin may set any of these; earlier code sometimes kept an old payment date and ignored a newer validTill.
   try{
     const candidates = [
       SESSION && SESSION.paymentPaidUntil,
       SESSION && SESSION.paidUntil,
-      window._userPaymentPaidUntil
+      SESSION && SESSION.validTill,
+      window._userPaymentPaidUntil,
+      window._userValidTill
     ];
+    let best = null;
     for(const c of candidates){
       if(!c) continue;
       const d = new Date(c);
-      if(!isNaN(d.getTime())) return d;
+      if(isNaN(d.getTime())) continue;
+      if(!best || d.getTime() > best.getTime()) best = d;
     }
+    return best;
   }catch(e){}
   return null;
 }
@@ -56,22 +62,32 @@ async function _refreshUserPaidUntilFromServer(){
     if(!SESSION || !SESSION.mobile) return null;
     const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
     if(!mobileKey || mobileKey.length < 10) return null;
-    let paidIso = '';
+    const cands = [];
     try{
       const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
-      if(ps) paidIso = ps.paymentPaidUntil || ps.paidUntil || ps.paymentPaidUntilDate || ps.validTill || '';
+      if(ps){
+        [ps.paymentPaidUntil, ps.paidUntil, ps.paymentPaidUntilDate, ps.validTill].forEach(function(x){ if(x) cands.push(x); });
+      }
     }catch(e){}
-    if(!paidIso){
-      try{
-        const rec = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
-        if(rec) paidIso = rec.paymentPaidUntil || rec.paidUntil || rec.validTill || '';
-      }catch(e){}
-    }
-    if(paidIso){
-      SESSION.paymentPaidUntil = paidIso;
-      SESSION.paidUntil = paidIso;
-      window._userPaymentPaidUntil = paidIso;
-      return new Date(paidIso);
+    try{
+      const rec = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
+      if(rec){
+        [rec.paymentPaidUntil, rec.paidUntil, rec.validTill].forEach(function(x){ if(x) cands.push(x); });
+      }
+    }catch(e){}
+    let bestIso = null, bestTs = 0;
+    cands.forEach(function(c){
+      const d = new Date(c);
+      if(isNaN(d.getTime())) return;
+      if(d.getTime() >= bestTs){ bestTs = d.getTime(); bestIso = (typeof c === 'string' ? c : d.toISOString()); }
+    });
+    if(bestIso){
+      SESSION.paymentPaidUntil = bestIso;
+      SESSION.paidUntil = bestIso;
+      SESSION.validTill = bestIso;
+      window._userPaymentPaidUntil = bestIso;
+      window._userValidTill = bestIso;
+      return new Date(bestIso);
     }
   }catch(e){}
   return null;
@@ -521,45 +537,41 @@ async function saveCustomerCareAdmin(){
 
 
 function openPaymentRequiredModal(attemptedTab){
-  _loadPaymentSettings(false).then(async cfg=>{
-    if(cfg && cfg.enabled === false){
-      _goTabDirect(attemptedTab);
-      return;
-    }
-    // Prefer per-user amount; fallback to global
-    let amount = null;
-    try{
-      amount = parseInt(SESSION && SESSION.paymentAmount || window._userPaymentAmount || 0, 10) || null;
-    }catch(e){}
-    if(!amount){
-      try{
-        await _hydrateUserPaymentStatus();
-        amount = parseInt(SESSION && SESSION.paymentAmount || window._userPaymentAmount || 0, 10) || null;
-      }catch(e){}
-    }
-    if(!amount) amount = (cfg && cfg.amount) || 999;
-
-    const link = (typeof _resolvePaymentLink==='function')
-      ? _resolvePaymentLink(cfg, amount)
-      : _paymentLinkForAmount((cfg && cfg.link) || '', amount);
-    const title = 'Pay ₹'+amount+' / month';
-    const msg = (cfg && cfg.message) || 'After payment, WhatsApp UTR + your registered mobile to +91-8929394920. Access is enabled within a few minutes.';
-    const until = _getUserPaidUntilDate();
-    const untilStr = until ? until.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
-    const linkBtn = link
-      ? `<a href="${link.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
-      : `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px">Payment link not set — contact Admin</div>`;
-    // Load customer care for refund notice (non-blocking defaults)
-    let cc = window._customerCareCache || null;
-    try{ cc = await _loadCustomerCare(false); }catch(e){ cc = _defaultCustomerCare(); }
-    if(!cc) cc = _defaultCustomerCare();
-    const days = parseInt(cc.refundDays,10)||7;
-    const refundBox = `<div style="margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);text-align:left">
+  // Always re-hydrate before showing paywall — Admin may have just extended validTill / paymentPaidUntil
+  Promise.resolve()
+    .then(async function(){
+      try{ await _hydrateUserPaymentStatus(); }catch(e){}
+      try{ await _loadPaymentSettings(false); }catch(e){}
+      // If access is now valid, do NOT show paywall — open the requested tab
+      if(_paymentGateAllows(attemptedTab || 'home')){
+        try{
+          if(typeof _goTabDirect === 'function') _goTabDirect(attemptedTab || 'home');
+          else if(typeof goTab === 'function') goTab(attemptedTab || 'home');
+        }catch(e){}
+        return;
+      }
+      const cfg = await _loadPaymentSettings(true);
+      const amount = (SESSION && SESSION.paymentAmount) || (cfg && cfg.amount) || 799;
+      const link = (typeof _resolvePaymentLink === 'function')
+        ? _resolvePaymentLink(cfg, amount)
+        : ((cfg && cfg.link) || '');
+      const title = (cfg && cfg.title) || ('Pay ₹' + amount + ' / month');
+      const msg = (cfg && cfg.message) || 'Subscribe to continue using Schedule, Team, Leave and other tabs.';
+      const until = _getUserPaidUntilDate();
+      const untilStr = until ? until.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'}) : '';
+      const linkBtn = link
+        ? `<a href="${link.replace(/"/g,'&quot;')}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:12px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px">💳 Pay ₹${amount} / month</a>`
+        : `<div style="margin-top:12px;padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px">Payment link not set — contact Admin</div>`;
+      let cc = window._customerCareCache || null;
+      try{ cc = await _loadCustomerCare(false); }catch(e){ cc = _defaultCustomerCare(); }
+      if(!cc) cc = _defaultCustomerCare();
+      const days = parseInt(cc.refundDays,10)||7;
+      const refundBox = `<div style="margin-top:12px;padding:12px;border-radius:12px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.08);text-align:left">
       <div style="font-size:12px;font-weight:900;color:#16a34a;margin-bottom:4px">↩️ ${days}-day cancel & refund</div>
       <div style="font-size:11px;color:var(--text);line-height:1.45;margin-bottom:8px">${escHtml(String(cc.refundPolicy||'').slice(0,280))}</div>
       <button type="button" onclick="closeModal();openCustomerCarePage()" style="border:none;background:transparent;color:#38bdf8;font-weight:800;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">🎧 Customer Care / Request refund ›</button>
     </div>`;
-    openModal(`<div class="modal-handle"></div>
+      openModal(`<div class="modal-handle"></div>
       <div style="text-align:center;padding:8px 0 4px">
         <div style="font-size:42px;margin-bottom:8px">💳</div>
         <div class="modal-title" style="margin-bottom:6px">${title}</div>
@@ -569,9 +581,8 @@ function openPaymentRequiredModal(attemptedTab){
         ${refundBox}
         <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal();goTab('home')">← Back to Home</button>
       </div>`);
-  }).catch(()=>{
-    toast('Payment check failed');
-  });
+    })
+    .catch(function(){ toast('Payment check failed'); });
 }
 
 
@@ -1230,6 +1241,7 @@ async function saveUserPaidUntilAdmin(){
     const payload = {
       paymentPaidUntil: iso,
       paidUntil: iso,
+      validTill: iso,
       updatedAt: new Date().toISOString(),
       paymentUpdatedBy: (SESSION && (SESSION.name||SESSION.mobile)) || 'admin'
     };
@@ -1440,14 +1452,30 @@ async function _hydrateUserPaymentStatus(){
       }
     }catch(e){}
 
+    // Merge sources; prefer LATEST access date across paymentPaidUntil / paidUntil / validTill
     const src = Object.assign({}, mu || {}, ps || {});
     if(mu || ps){
-      const until = src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate || null;
-      if(until){
-        SESSION.paymentPaidUntil = until;
-        window._userPaymentPaidUntil = until;
+      const dateCands = [
+        src.paymentPaidUntil, src.paidUntil, src.paymentPaidUntilDate, src.validTill,
+        mu && mu.paymentPaidUntil, mu && mu.paidUntil, mu && mu.validTill,
+        ps && ps.paymentPaidUntil, ps && ps.paidUntil, ps && ps.validTill
+      ];
+      let bestIso = null, bestTs = 0;
+      dateCands.forEach(function(c){
+        if(!c) return;
+        const d = new Date(c);
+        if(isNaN(d.getTime())) return;
+        if(d.getTime() >= bestTs){ bestTs = d.getTime(); bestIso = (typeof c === 'string' ? c : d.toISOString()); }
+      });
+      if(bestIso){
+        SESSION.paymentPaidUntil = bestIso;
+        SESSION.paidUntil = bestIso;
+        SESSION.validTill = bestIso;
+        window._userPaymentPaidUntil = bestIso;
+        window._userValidTill = bestIso;
       } else {
         SESSION.paymentPaidUntil = null;
+        SESSION.paidUntil = null;
         window._userPaymentPaidUntil = null;
       }
       const amt = parseInt(src.paymentAmount || src.subscriptionAmount || 0, 10);

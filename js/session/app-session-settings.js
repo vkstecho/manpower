@@ -1732,12 +1732,25 @@ async function showProfile(){
           if(rec){
             const fromMu = rec.paymentPaidUntil || rec.paidUntil || '';
             const vt = rec.validTill || '';
-            // Use earliest of payment vs validTill if both exist
+            // Use LATEST of payment vs validTill (Admin extension must unlock access)
             if(fromMu && vt){
               const a=new Date(fromMu).getTime(), b=new Date(vt).getTime();
-              paidIso = paidIso || (a&&b ? (a<b?fromMu:vt) : (fromMu||vt));
+              const pick = (a&&b ? (a>b?fromMu:vt) : (fromMu||vt));
+              if(!paidIso) paidIso = pick;
+              else {
+                const cur = new Date(paidIso).getTime();
+                const p = new Date(pick).getTime();
+                if(p > cur) paidIso = pick;
+              }
             } else {
-              paidIso = paidIso || fromMu || vt || '';
+              const cand = fromMu || vt || '';
+              if(cand){
+                if(!paidIso) paidIso = cand;
+                else {
+                  const cur = new Date(paidIso).getTime(), p = new Date(cand).getTime();
+                  if(p > cur) paidIso = cand;
+                }
+              }
             }
             if(!paidIso && rec.managerId){
               try{
