@@ -435,9 +435,9 @@ async function loadScheduleBuilder(){
       <button type="button" id="sbCountsToggle" onclick="window._sbToggleShiftCounts && window._sbToggleShiftCounts()"
         style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 4px;background:transparent;border:none;cursor:pointer;color:var(--muted2);font-size:11px;font-weight:800">
         <span>${(typeof L==='function')?L('शिफ्ट काउंट (A/B/C/Σ)','Shift counts (A/B/C/Σ)'):'Shift counts (A/B/C/Σ)'}</span>
-        <span id="sbCountsToggleIcon">▲</span>
+        <span id="sbCountsToggleIcon">▼</span>
       </button>
-      <div id="sbShiftCounts" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 2px 6px;font-size:11px;font-weight:800"></div>
+      <div id="sbShiftCounts" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 2px 6px;font-size:11px;font-weight:800"></div>
     </div>
     <!-- Bottom footer removed — Save/Cancel now in top toolbar -->
     <div id="sbFooterBar" style="display:none"></div>`);
@@ -2276,7 +2276,8 @@ function _sbUpdateShiftCounts(){
   }catch(e){ console.warn('[sb counts]', e); }
 }
 
-window._sbCountsOpen = true;
+// Default: collapsed (user can expand when needed)
+window._sbCountsOpen = false;
 window._sbToggleShiftCounts = function(){
   try{
     window._sbCountsOpen = !window._sbCountsOpen;
@@ -2289,15 +2290,18 @@ window._sbToggleShiftCounts = function(){
 };
 try{
   const pref = localStorage.getItem('mp_sb_counts_open');
-  if(pref === '0'){
+  // Only expand if user previously chose open ('1'). Default / missing / '0' → collapsed
+  if(pref === '1'){
+    window._sbCountsOpen = true;
+  } else {
     window._sbCountsOpen = false;
-    setTimeout(function(){
-      const box = document.getElementById('sbShiftCounts');
-      const icon = document.getElementById('sbCountsToggleIcon');
-      if(box) box.style.display = 'none';
-      if(icon) icon.textContent = '▼';
-    }, 50);
   }
+  setTimeout(function(){
+    const box = document.getElementById('sbShiftCounts');
+    const icon = document.getElementById('sbCountsToggleIcon');
+    if(box) box.style.display = window._sbCountsOpen ? 'flex' : 'none';
+    if(icon) icon.textContent = window._sbCountsOpen ? '▲' : '▼';
+  }, 50);
 }catch(e){}
 
 try{ window._sbUpdateShiftCounts = _sbUpdateShiftCounts; }catch(e){}

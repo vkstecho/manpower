@@ -511,6 +511,7 @@ function openLearnScreen(){
     try{ toast(typeof L==='function' ? L("Could not open Learn & Grow","Could not open Learn & Grow") : "Could not open Learn & Grow"); }catch(x){}
   }
 }
+window.openLearnScreen = openLearnScreen;
 function closeLearnScreen(){
   try{
     const el = document.getElementById('learnScreen');
@@ -1579,7 +1580,7 @@ function renderContentLibrary(){
   if(!cl) return;
 
   if(!list.length){
-    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">${L('अभी कोई content नहीं है','No content yet')}<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
+    cl.innerHTML = '<div class="empty"><div class="empty-icon">📚</div><div class="empty-text">'+(typeof L==='function'?L('अभी कोई content नहीं है','No content yet'):'No content yet')+'<br><span style="font-size:11px;color:var(--muted)">Admin जल्द add करेंगे</span></div></div>';
     return;
   }
 
