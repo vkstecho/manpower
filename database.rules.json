@@ -268,6 +268,21 @@
       ".read": true,
       ".write": "auth != null",
       ".validate": "newData.hasChildren(['updatedAt']) && (!newData.hasChild('trialDays') || newData.child('trialDays').isNumber()) && (!newData.hasChild('annualDiscountPct') || newData.child('annualDiscountPct').isNumber()) && (!newData.hasChild('refundDays') || newData.child('refundDays').isNumber()) && (!newData.hasChild('paymentEnabled') || newData.child('paymentEnabled').isBoolean())"
+    },
+    "accountBackups": {
+      "$mobile": {
+        ".read": "auth != null && ((auth.token.admin === true || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true) || (auth.token.phone_number != null && (auth.token.phone_number.replace('+91','') === $mobile || auth.token.phone_number === '+91'+$mobile)))",
+        ".write": "auth != null && ((auth.token.admin === true || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true) || (auth.token.phone_number != null && (auth.token.phone_number.replace('+91','') === $mobile || auth.token.phone_number === '+91'+$mobile)) || root.child('mobileUsers').child($mobile).child('role').val() === 'manager')",
+        "$backupId": {
+          ".validate": "newData.hasChildren(['mobile','deletedAt']) || !newData.exists()"
+        }
+      }
+    },
+    "accountBackupIndex": {
+      "$mobile": {
+        ".read": "auth != null && ((auth.token.admin === true || auth.token.phone_number === '+918929397949' || root.child('admins').child(auth.uid).val() === true) || (auth.token.phone_number != null && (auth.token.phone_number.replace('+91','') === $mobile || auth.token.phone_number === '+91'+$mobile)))",
+        ".write": "auth != null"
+      }
     }
   }
 }

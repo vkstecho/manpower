@@ -1,4 +1,4 @@
-/* Man Power — Service Worker v5.0.0
+/* Man Power — Service Worker v5.0.1
    Strategies:
    - Precache app shell + JS/CSS/icons/partials on install
    - HTML / navigation: network-first → cache fallback (fresh when online)
@@ -6,7 +6,7 @@
    - Firebase / Google / external APIs: never intercept (live data)
    - Keeps mp-integrity cache (session token) across version bumps
 */
-const SW_VERSION = '5.0.0';
+const SW_VERSION = '5.0.1';
 const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '');
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 
@@ -24,6 +24,7 @@ const PRECACHE = [
   './js/auth/app-session-auth.js',
   './js/session/app-session-nav.js',
   './js/session/app-session-settings.js',
+  './js/session/app-account-backup.js',
   './js/session/app-session-home.js',
   './js/session/app-session-payment.js',
   './js/auth/app-login-session.js',

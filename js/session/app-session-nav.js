@@ -381,6 +381,20 @@ function doLogout(){
     if(logoutBtn){ logoutBtn.style.opacity='.5'; logoutBtn.style.pointerEvents='none'; logoutBtn.querySelector('.pa-label').textContent=L('🚪 Logout हो रहा है...','🚪 Logging out...'); }
     toast(L('🚪 Logout हो रहा है...','🚪 Logging out...'));
   }catch(e){}
+  // Clear reCAPTCHA widgets so next login is not blocked by a stuck challenge
+  try{
+    ['_fbRecaptchaNew','_fbRecaptchaWarm','_fbRecaptcha','_fbRecaptchaDevice','_fbRecaptchaDelAll'].forEach(function(k){
+      try{ if(typeof _fbClearRecaptcha==='function') _fbClearRecaptcha(k); }catch(x){}
+    });
+    ['recaptcha-container','recaptcha-container-device','recaptcha-container-delall','reauthRecaptcha','recaptcha-container-deleted-backup'].forEach(function(cid){
+      try{
+        var host=document.getElementById(cid);
+        if(host){ host.innerHTML=''; host.style.cssText=(host.style.cssText||'')+';min-height:0;height:auto;overflow:visible;'; }
+      }catch(x){}
+    });
+    try{ window._loginConfirmResult=null; }catch(x){}
+    try{ window._fbRecaptchaVerifier=null; }catch(x){}
+  }catch(e){}
 
   // ── 2. Clear ALL session stores synchronously — do this FIRST ──
   try{ localStorage.removeItem('mp_session'); }catch(e){}

@@ -1060,6 +1060,18 @@ async function _confirmDeleteAllWithOtp(){
   const team = getEmps();
   let removed = 0, failed = 0;
   const mgrKey = (_deleteAllMobile || SESSION.mobile) ? _normMobileKey(_deleteAllMobile || SESSION.mobile) : '';
+  try{
+    if(typeof backupBeforeAccountDelete==='function'){
+      await backupBeforeAccountDelete({
+        mobile: mgrKey || (SESSION.mobile||''),
+        deletedBy: SESSION.name || 'manager',
+        reason: 'delete_all_members',
+        company: SESSION.company || SESSION.companyId || '',
+        managerName: SESSION.name || '',
+        employees: team.slice()
+      });
+    }
+  }catch(_bak){ console.warn('[deleteAll] backup', _bak); }
 
   const removedIds = new Set();
   const removedCodes = new Set();

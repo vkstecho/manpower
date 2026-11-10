@@ -1959,6 +1959,19 @@ async function confirmDeleteMyAccount(){
     const empObjId = SESSION.empObjId || SESSION.empId || '';
     const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
 
+    // 0) Backup team + schedules before wipe (6-month retention)
+    try{
+      if(typeof backupBeforeAccountDelete==='function'){
+        await backupBeforeAccountDelete({
+          mobile: mob,
+          deletedBy: SESSION.name || SESSION.role || 'self',
+          reason: (String(SESSION.role||'').toLowerCase()==='manager') ? 'manager_self_delete' : 'self_delete_account',
+          company: SESSION.company || SESSION.companyId || '',
+          managerName: SESSION.name || ''
+        });
+      }
+    }catch(bakErr){ console.warn('[deleteAccount] backup', bakErr); }
+
     // 1) Remove mobile registration (critical — next login becomes NEW)
     try{ await fbRemove('mobileUsers/'+mob); }catch(e){
       try{ await fbSet('mobileUsers/'+mob, null); }catch(e2){
