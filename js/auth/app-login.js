@@ -1312,6 +1312,38 @@ async function _submitManagerReg(){
     try{ showStep(1); }catch(e){}
     return;
   }
+  // Free trial days + 200 team size from Admin license settings
+  let accessDefaults = {
+    trialDays: 7,
+    validTill: new Date(Date.now()+7*86400000).toISOString(),
+    paymentPaidUntil: new Date(Date.now()+7*86400000).toISOString(),
+    paidUntil: new Date(Date.now()+7*86400000).toISOString(),
+    teamSize: 200,
+    maxMembers: 200,
+    planMaxMembers: 200,
+    planPeriod: 'monthly',
+    planLabel: 'Monthly · Up to 200 members',
+    paymentTrialGranted: true,
+    paymentTrialDays: 7,
+    paymentUpdatedBy: 'auto_trial_reg'
+  };
+  try{
+    if(typeof _newManagerAccessDefaults === 'function'){
+      accessDefaults = await _newManagerAccessDefaults();
+    } else if(typeof _getAdminFreeTrialDays === 'function'){
+      const td = await _getAdminFreeTrialDays();
+      const end = new Date(); end.setHours(23,59,59,999); end.setDate(end.getDate()+td);
+      const iso = end.toISOString();
+      accessDefaults.validTill = iso;
+      accessDefaults.paymentPaidUntil = iso;
+      accessDefaults.paidUntil = iso;
+      accessDefaults.trialDays = td;
+      accessDefaults.paymentTrialDays = td;
+      accessDefaults.paymentUpdatedBy = 'auto_trial_'+td+'d_reg';
+      accessDefaults.planLabel = 'Monthly · Up to 200 members';
+    }
+  }catch(eAcc){ console.warn('[mgrReg] access defaults', eAcc); }
+
   const userData={
     role:'manager',
     name,
@@ -1322,7 +1354,18 @@ async function _submitManagerReg(){
     status:'approved',
     registeredAt:new Date().toISOString(),
     autoApproved:true,
-    validTill: new Date(Date.now()+365*86400000).toISOString(),
+    validTill: accessDefaults.validTill,
+    paymentPaidUntil: accessDefaults.paymentPaidUntil,
+    paidUntil: accessDefaults.paidUntil,
+    teamSize: accessDefaults.teamSize || 200,
+    maxMembers: accessDefaults.maxMembers || 200,
+    planMaxMembers: accessDefaults.planMaxMembers || 200,
+    planPeriod: accessDefaults.planPeriod || 'monthly',
+    planLabel: accessDefaults.planLabel || 'Monthly · Up to 200 members',
+    paymentTrialGranted: true,
+    paymentTrialDays: accessDefaults.paymentTrialDays || accessDefaults.trialDays || 7,
+    paymentUpdatedBy: accessDefaults.paymentUpdatedBy || 'auto_trial_reg',
+    firstLoginAt: new Date().toISOString(),
     forceFreshLogin: null,
     removedAt: null,
     removedBy: null
@@ -1330,6 +1373,29 @@ async function _submitManagerReg(){
   try{
     // Overwrite any leftover deleted/removed tombstone so re-login works
     await fbSet('mobileUsers/'+mobile, userData);
+    // Mirror paymentStatus so Admin list / Pay gate match trial
+    try{
+      if(typeof fbSet === 'function'){
+        await fbSet('paymentStatus/'+mobile, {
+          mobile: mobile,
+          phone: mobile,
+          name: name,
+          paymentPaidUntil: userData.paymentPaidUntil,
+          paidUntil: userData.paidUntil,
+          validTill: userData.validTill,
+          teamSize: 200,
+          maxMembers: 200,
+          planMaxMembers: 200,
+          planPeriod: 'monthly',
+          planLabel: userData.planLabel,
+          paymentTrialGranted: true,
+          paymentTrialDays: userData.paymentTrialDays,
+          firstLoginAt: userData.firstLoginAt,
+          paymentUpdatedBy: userData.paymentUpdatedBy,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }catch(ePay){ console.warn('[mgrReg] paymentStatus', ePay); }
 
     const notifBody = name+' joined as Manager\nCompany: '+comp+'\nDept: '+dept+'\nMobile: '+(_loginMobile||mobile);
     try{

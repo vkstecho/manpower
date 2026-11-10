@@ -1,7 +1,9 @@
 {
   "name": "manpower-functions",
-  "description": "Man Power Cloud Functions — Custom Claims",
-  "engines": { "node": "20" },
+  "description": "Man Power Cloud Functions \u2014 Custom Claims",
+  "engines": {
+    "node": "26"
+  },
   "main": "index.js",
   "scripts": {
     "deploy": "firebase deploy --only functions"

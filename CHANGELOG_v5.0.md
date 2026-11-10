@@ -30,3 +30,26 @@
 
 ## Not a full rewrite
 Core Firebase schema, OTP login, Auto Schedule engine, and commercial plans are unchanged in behaviour except for the fixes above.
+
+
+## v5.0.1 (this build)
+- **Admin company filter**: selecting GLS / Telecom shows only that company's managers (empty/default company no longer leaks into every company)
+- **Upload Schedule Excel**: imports Weekly Off, Responsibility, Mobile, Designation, Machine, Salary, DOJ, DOB the same way as Team import; updates existing members
+- **Upload status** messages language-aware (EN/HI)
+- **reCAPTCHA**: cleared on logout so re-login is less likely to stick on a broken challenge
+- **Delete backups**: before self-delete / Admin Delete Manager+Team / Delete All Members, snapshot roster + schedules to `accountBackups/{mobile}/{id}` (6 months)
+- **Admin → Deleted backups**: search by mobile, OTP to that number, download Excel by delete date
+
+
+## v5.0.2
+- Auto Schedule: less top chrome, more rows visible; bottom **A/B/C/D/N shift counts** (live)
+- Admin company filter: `_companyMatchesView` strict (no empty/default leak); toast shows company id; hierarchy re-renders on switch
+- Manager badge: always show **Team Size · N Members**; days left prefers **Pay until** date (not stale validTill)
+- Team Size save also sets planLabel / planMaxMembers for list display
+- Cloud Functions `engines.node` → **26** (fixes deploy rejection of Node 20)
+
+
+## v5.0.3
+- **New Manager registration**: auto-grants **Team Size 200** and **free trial days** from Admin → License settings (`settings/appLicense.freeTrialDays`)
+- Writes both `mobileUsers` and `paymentStatus` so Team badge + Pay gate match
+- `_ensureNewUserPaymentTrial` also sets planMaxMembers/teamSize **200** on first trial grant

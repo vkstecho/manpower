@@ -1216,6 +1216,51 @@ async function saveUserPaidUntilAdmin(){
 
 // Hydrate paidUntil into SESSION after login
 /** New mobile: auto paidUntil = first login + admin freeTrialDays (once only). */
+
+/** Admin free-trial days from settings/appLicense (fallback 7) */
+async function _getAdminFreeTrialDays(){
+  let trialDays = 7;
+  try{
+    let lic = window._appLicenseCache || null;
+    if(!lic && typeof fbGet === 'function'){
+      try{ lic = await fbGet('settings/appLicense'); if(lic) window._appLicenseCache = lic; }catch(e){}
+    }
+    if(lic && lic.freeTrialDays != null){
+      const n = parseInt(lic.freeTrialDays, 10);
+      if(!isNaN(n) && n >= 1 && n <= 365) trialDays = n;
+    } else if(window.MP_CFG && window.MP_CFG.defaultTrialDays){
+      trialDays = Math.max(1, Math.min(365, parseInt(window.MP_CFG.defaultTrialDays,10)||trialDays));
+    }
+  }catch(e){}
+  return trialDays;
+}
+/** Defaults for newly registered managers */
+async function _newManagerAccessDefaults(){
+  const trialDays = await _getAdminFreeTrialDays();
+  const end = new Date();
+  end.setHours(23,59,59,999);
+  end.setDate(end.getDate() + trialDays);
+  const iso = end.toISOString();
+  return {
+    trialDays: trialDays,
+    validTill: iso,
+    paymentPaidUntil: iso,
+    paidUntil: iso,
+    teamSize: 200,
+    maxMembers: 200,
+    planMaxMembers: 200,
+    planPeriod: 'monthly',
+    planLabel: 'Monthly · Up to 200 members',
+    paymentTrialGranted: true,
+    paymentTrialDays: trialDays,
+    paymentUpdatedBy: 'auto_trial_'+trialDays+'d_reg'
+  };
+}
+try{
+  window._getAdminFreeTrialDays = _getAdminFreeTrialDays;
+  window._newManagerAccessDefaults = _newManagerAccessDefaults;
+}catch(e){}
+
 async function _ensureNewUserPaymentTrial(phone, mu, ps){
   try{
     if(!phone) return null;
@@ -1287,11 +1332,18 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
     const payload = {
       paymentPaidUntil: iso,
       paidUntil: iso,
+      validTill: iso,
       paymentTrialGranted: true,
       paymentTrialDays: trialDays,
       firstLoginAt: (src.firstLoginAt) || base.toISOString(),
       updatedAt: base.toISOString(),
-      paymentUpdatedBy: 'auto_trial_'+trialDays+'d'
+      paymentUpdatedBy: 'auto_trial_'+trialDays+'d',
+      // New managers: full trial roster capacity (Admin can lower later)
+      teamSize: parseInt(src.teamSize,10) || 200,
+      maxMembers: parseInt(src.maxMembers,10) || 200,
+      planMaxMembers: parseInt(src.planMaxMembers,10) || 200,
+      planPeriod: src.planPeriod || 'monthly',
+      planLabel: src.planLabel || ('Monthly · Up to '+(parseInt(src.teamSize,10)||200)+' members')
     };
     try{
       await fbSet('paymentStatus/'+phone, Object.assign({}, payload, { mobile: phone, phone: phone }));

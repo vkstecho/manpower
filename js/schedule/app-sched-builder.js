@@ -363,19 +363,19 @@ async function loadScheduleBuilder(){
   const totalTableW = _sbNameW + dayNums.length * _sbColW;
 
   openModal(`<div class="modal-handle"></div>
-    <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:6px;flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="modal-title" style="margin:0;font-size:18px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
-        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:5px 10px;cursor:pointer;font-size:12px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
+    <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:4px;flex-shrink:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div class="modal-title" style="margin:0;font-size:16px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
+        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:4px 8px;cursor:pointer;font-size:11px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
-      <div id="sbPrimaryFilterRow" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <div id="sbPrimaryFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
         <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px">Filter</span>
         <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Department</button>
         <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machines</button>
         <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
         <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
       </div>
-      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px;min-height:28px"></div>
+      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px;min-height:22px"></div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         <div id="sbCellLegend" style="font-size:12px;color:#94a3b8;flex:1;min-width:120px;line-height:1.35">${(typeof L==='function')?L('🖱️ Drag से चुनें · Double-tap = Copy','🖱️ Drag to select · Double-tap = Copy'):'🖱️ Drag to select · Double-tap = Copy'}</div>
         <button type="button" onclick="clearScheduleBuilderGrid()"
@@ -402,7 +402,7 @@ async function loadScheduleBuilder(){
     </div>
     <div id="sbToolbar" style="display:none"></div>
     <!-- Single scroll container: thead + tbody share columns → no laptop misalignment -->
-    <div id="sbBodyScroll" style="flex:1 1 auto;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px;border:1px solid var(--border2);border-radius:8px">
+    <div id="sbBodyScroll" style="flex:1 1 auto;min-height:180px;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:4px;border:1px solid var(--border2);border-radius:8px">
       <table id="sbGridTable" style="border-collapse:collapse;border-spacing:0;table-layout:fixed;width:${totalTableW}px;min-width:${totalTableW}px;max-width:${totalTableW}px">
         <colgroup>
           <col style="width:${_sbNameW}px">
@@ -417,12 +417,25 @@ async function loadScheduleBuilder(){
         <tbody id="sb_tbody">${rows}</tbody>
       </table>
     </div>
-    <div id="sbFooterBar" style="display:flex;gap:10px;flex-shrink:0;position:sticky;bottom:0;z-index:10;background:var(--bg);padding-top:8px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))">
+    <div id="sbShiftCounts" style="flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 2px 4px;border-top:1px solid var(--border2);font-size:11px;font-weight:800"></div>
+    <div id="sbFooterBar" style="display:flex;gap:10px;flex-shrink:0;position:sticky;bottom:0;z-index:10;background:var(--bg);padding-top:6px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))">
       <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save करें','Save'):'Save'}</button>
       <button class="cancel-btn" style="flex:1" onclick="closeModal()">${(typeof L==='function')?L('रद्द करें','Cancel'):'Cancel'}</button>
     </div>`);
+  try{ if(typeof _sbUpdateShiftCounts==='function') _sbUpdateShiftCounts(); }catch(e){}
   try{ _sbLockLandscape(true); }catch(e){}
   setTimeout(initSBSelection, 50);
+  setTimeout(function(){ try{ _sbUpdateShiftCounts(); }catch(e){} }, 100);
+
+  try{
+    const tb = document.getElementById('sb_tbody');
+    if(tb && !tb._sbCountObs){
+      tb._sbCountObs = true;
+      const mo = new MutationObserver(function(){ try{ _sbUpdateShiftCounts(); }catch(e){} });
+      mo.observe(tb, {childList:true, subtree:true, characterData:true, attributes:true});
+    }
+  }catch(e){}
+
   setTimeout(_sbPositionStickyTableHeader, 60);
   setTimeout(()=>{ try{ _sbRefreshRowColButtons(); }catch(e){} }, 80);
   setTimeout(()=>{
@@ -2182,3 +2195,36 @@ async function saveScheduleBuilder(monthKey){
   }
 }
 
+
+
+/** Count A/B/C/D/N (and G/O) in Auto Schedule grid — same codes as main Schedule */
+function _sbUpdateShiftCounts(){
+  try{
+    const box = document.getElementById('sbShiftCounts');
+    if(!box) return;
+    const cells = document.querySelectorAll('#sb_tbody .shc');
+    const codes = ['A','B','C','D','N','G','O'];
+    const counts = {A:0,B:0,C:0,D:0,N:0,G:0,O:0};
+    cells.forEach(function(el){
+      let v = (el.getAttribute('data-shift') || el.textContent || '').toString().trim().toUpperCase();
+      if(v === 'C/O' || v === 'CO') return;
+      if(v === '0' || v === '—' || v === '-' || v === '') return;
+      // cell may show letter inside
+      if(v.length > 1){
+        const m = v.match(/[ABCDNGO]/);
+        if(m) v = m[0];
+      }
+      if(counts.hasOwnProperty(v)) counts[v]++;
+    });
+    const colors = {A:'#16a34a',B:'#db2777',C:'#0891b2',D:'#f59e0b',N:'#4f46e5',G:'#0284c7',O:'#64748b'};
+    const parts = codes.filter(function(c){ return counts[c] > 0 || ['A','B','C','D','N'].indexOf(c) >= 0; }).map(function(c){
+      return '<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:'+colors[c]+'22;color:'+colors[c]+';border:1px solid '+colors[c]+'55">'
+        + '<b>'+c+'</b> '+counts[c]+'</span>';
+    });
+    const totalWork = counts.A+counts.B+counts.C+counts.D+counts.N;
+    box.innerHTML = '<span style="color:var(--muted2);margin-right:4px">'+(typeof L==='function'?L('शिफ्ट गिनती','Shift counts')+' · ':'Shift counts · ')+'</span>'
+      + parts.join('')
+      + '<span style="margin-left:6px;color:var(--text)">Σ '+(typeof L==='function'?L('काम','Work'):'Work')+': <b>'+totalWork+'</b></span>';
+  }catch(e){ console.warn('[sb counts]', e); }
+}
+try{ window._sbUpdateShiftCounts = _sbUpdateShiftCounts; }catch(e){}
