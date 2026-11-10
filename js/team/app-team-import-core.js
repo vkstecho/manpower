@@ -13,16 +13,24 @@ async function _getMyTeamSizeLimit(){
       : String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
     if(!mob) return 25;
     let lim = null;
+    let planLim = null;
     for(const path of ['mobileUsers/'+mob,'managers/'+mob,'users/'+mob]){
       try{
         const rec = await fbGet(path);
-        if(rec && (rec.teamSize!=null || rec.maxMembers!=null)){
-          lim = parseInt(rec.teamSize!=null ? rec.teamSize : rec.maxMembers, 10);
-          if(lim>0) break;
+        if(!rec || typeof rec!=='object') continue;
+        // Admin-set team size wins
+        if(rec.teamSize!=null || rec.maxMembers!=null){
+          const n = parseInt(rec.teamSize!=null ? rec.teamSize : rec.maxMembers, 10);
+          if(n>0){ lim = n; break; }
+        }
+        // Payment / plan band (e.g. Monthly · 200 Members)
+        if(planLim==null){
+          const p = parseInt(rec.planMaxMembers!=null ? rec.planMaxMembers : (rec.planMembers!=null?rec.planMembers:0), 10);
+          if(p>0) planLim = p;
         }
       }catch(e){}
     }
-    if(!lim || lim<1) lim = 25;
+    if(!lim || lim<1) lim = (planLim && planLim>0) ? planLim : 25;
     return lim;
   }catch(e){ return 25; }
 }
@@ -82,12 +90,30 @@ let _bulkImportParsed = [];
  */
 async function ensureEmployeesFromImport(items){
   items = items || [];
-  const out = { created: 0, updated: 0, failed: 0, idsByCode: {} };
+  const out = { created: 0, updated: 0, failed: 0, idsByCode: {}, blocked: false };
   if(!items.length) return out;
   try{
     if(typeof _ensureWriteAuth === 'function' && !(await _ensureWriteAuth())){
       console.warn('[ensureEmployees] write auth failed');
       return out;
+    }
+  }catch(e){}
+  // Pre-count how many NEW rows this import would create (not updates)
+  try{
+    if(typeof _assertCanAddToRoster === 'function'){
+      // Rough upper bound: allow through; exact de-dup happens below. Soft check on length.
+      const approxNew = items.length;
+      // Only hard-block when roster already over limit and import is pure add-heavy
+      const lim = (typeof _getMyTeamSizeLimit==='function') ? await _getMyTeamSizeLimit() : 25;
+      const cur = (typeof _countMyActiveRoster==='function') ? _countMyActiveRoster() : 0;
+      if(cur > lim){
+        // Already over — still allow updates of existing, but toast once
+        try{ toast((typeof L==='function')
+          ? L('⚠️ Team limit '+lim+' — roster में '+cur+' हैं। नए members skip हो सकते हैं।','⚠️ Team limit '+lim+' — roster has '+cur+'. New members may be skipped.')
+          : ('⚠️ Team limit '+lim+', roster '+cur)); }catch(e){}
+      }
+      out._teamLimit = lim;
+      out._teamCurrent = cur;
     }
   }catch(e){}
 
@@ -155,8 +181,8 @@ async function ensureEmployeesFromImport(items){
           if(sec) { patch.sec = sec; patch.section = sec; }
           if(e.machine || e.mc) { patch.machine = e.machine || e.mc; patch.mc = e.machine || e.mc; }
           if(e.designation) patch.designation = e.designation;
-          if(e.resp || e.responsibility) patch.resp = e.resp || e.responsibility;
-          if(e.woff || e.weeklyOff) patch.woff = e.woff || e.weeklyOff;
+          if(e.resp || e.responsibility){ const rr=e.resp || e.responsibility; patch.resp=rr; patch.responsibility=rr; }
+          if(e.woff || e.weeklyOff){ const w=String(e.woff||e.weeklyOff||'').trim(); if(w) patch.woff=w; }
           if(phone10 && phone10.length === 10) { patch.phone = phone10; patch.mobile = phone10; }
           if(e.salary) patch.monthlySalary = Number(e.salary) || 0;
           if(e.joiningDate) patch.joiningDate = e.joiningDate;
@@ -170,6 +196,17 @@ async function ensureEmployeesFromImport(items){
         out.updated = (out.updated || 0) + 1;
         continue;
       }
+      // Enforce team size for truly new members
+      try{
+        const lim = out._teamLimit != null ? out._teamLimit : ((typeof _getMyTeamSizeLimit==='function')? await _getMyTeamSizeLimit(): 25);
+        const cur = (typeof _countMyActiveRoster==='function') ? _countMyActiveRoster() : 0;
+        const alreadyCreated = out.created || 0;
+        if(cur + alreadyCreated >= lim){
+          out.failed = (out.failed||0)+1;
+          out.blocked = true;
+          continue;
+        }
+      }catch(limErr){}
       const id = 'e' + Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5);
       const rec = {
         id: id,
@@ -181,7 +218,8 @@ async function ensureEmployeesFromImport(items){
         machine: e.machine || e.mc || '',
         designation: e.designation || '',
         resp: e.resp || e.responsibility || '',
-        woff: e.woff || e.weeklyOff || 'SUN',
+        responsibility: e.resp || e.responsibility || '',
+        woff: (function(){ const w=String(e.woff||e.weeklyOff||'').trim(); return w || 'SUN'; })(),
         status: 'active',
         ms: Array(31).fill(''),
         companyId: cid,

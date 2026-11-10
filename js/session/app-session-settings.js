@@ -1989,7 +1989,9 @@ async function confirmDeleteMyAccount(){
     // 4) Manager self-delete → remove FULL team roster + linked mobileUsers under this manager
     //    Member self-delete → only mark own employee record left
     try{
-      const all = (typeof getEmps==='function') ? getEmps() : (window._cache && _cache.employees) || [];
+      const all = (window._cache && Array.isArray(_cache.employees) && _cache.employees.length)
+        ? _cache.employees.slice()
+        : ((typeof getEmps==='function') ? getEmps() : []);
       const role = String(SESSION.role||'').toLowerCase();
       const isMgr = role==='manager' || role==='admin';
       const norm = function(p){
@@ -2674,14 +2676,16 @@ function goTab(t){
     }
   }
 
-  // Warn if leaving schedule tab with unsaved changes
+  // Warn if leaving schedule tab with unsaved changes (i18n)
   if(_currentTab==='schedule' && t!=='schedule' && Object.keys(_pendingShiftChanges).length>0){
     const n = Object.keys(_pendingShiftChanges).length;
+    const _L = (typeof L==='function') ? L : function(hi,en){ return (typeof _lang!=='undefined' && _lang && _lang!=='hi') ? (en||hi) : (hi||en); };
     confirmModal(
-      `${n} बदलाव Unsaved हैं!`,
-      `आपने ${n} shift${n>1?'s':''} बदले हैं जो अभी save नहीं हुए।<br><br>क्या बिना save किए जाना चाहते हैं?`,
-      '🚪 हाँ, बिना Save जाएं',
-      '← Schedule पर रहें'
+      _L(n+' बदलाव Unsaved हैं!', n+' Unsaved change'+(n>1?'s':'')+'!'),
+      _L('आपने '+n+' shift'+(n>1?'s':'')+' बदले हैं जो अभी save नहीं हुए।<br><br>क्या बिना save किए जाना चाहते हैं?',
+         'You changed '+n+' shift'+(n>1?'s':'')+' that are not saved yet.<br><br>Leave without saving?'),
+      _L('🚪 हाँ, बिना Save जाएं','🚪 Yes, leave without Save'),
+      _L('← Schedule पर रहें','← Stay on Schedule')
     ).then(ok => {
       if(ok){
         _pendingShiftChanges = {};

@@ -436,6 +436,7 @@ async function confirmTeamExcelUpdate(){
       if(p.machine) updateObj.mc=p.machine;
       if(p.doj) updateObj.joiningDate=p.doj;
       if(p.woff) updateObj.woff=p.woff;
+      if(p.responsibility||p.resp){ updateObj.resp=p.responsibility||p.resp; updateObj.responsibility=p.responsibility||p.resp; }
       if(p.salary) updateObj.monthlySalary=p.salary;
 
       if(Object.keys(updateObj).length>0){
@@ -2705,8 +2706,8 @@ function _updateSaveBar(){
     return `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px">
       <span style="display:inline-flex;width:30px;height:26px;background:${bg};border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex-shrink:0">${cellDisp(e.newShift)}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.empName)}</div>
-        <div style="font-size:11px;color:var(--muted2)">${fmtD}</div>
+        <div style="font-size:13px;font-weight:800;color:#f0fdf4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.empName)}</div>
+        <div style="font-size:11px;color:#bbf7d0">${fmtD}</div>
       </div>
       <button onclick="removePendingChange('${escHtml(e.empId)}','${e.date}')" style="background:none;border:none;color:var(--lv);font-size:16px;cursor:pointer;padding:4px;flex-shrink:0">✕</button>
     </div>`;
@@ -4387,7 +4388,9 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   try{ if(typeof pushSchedUndoSnapshot==='function') pushSchedUndoSnapshot(); }catch(e){}
   _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
 
-  const cellEl = document.querySelector(`td[data-cellkey="${empId}_${date}"]`);
+  // Prefer exact empId+date (keyboard + click); fallback to legacy data-cellkey
+  let cellEl = document.querySelector(`td[data-empid="${empId}"][data-date="${date}"]`)
+    || document.querySelector(`td[data-cellkey="${empId}_${date}"]`);
   if(cellEl){
     cellEl.dataset.pending = key;
     cellEl.dataset.origShift = currentShift;
