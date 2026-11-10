@@ -460,8 +460,19 @@ var RB_PRINT_EN = {
 
     // Reset classes
     paper.className = `resume-paper template-${tpl}`;
+    // Photo only when toggle ON and image present (all 16 layouts supported via unified CSS)
     if (data.includePhoto && data.photoData) paper.classList.add('with-photo');
     if (data.compact || tpl === 'compact' || tpl === 'ats') paper.classList.add('compact');
+    // Soft guidance: ATS layouts + photo
+    try {
+      const atsSet = { ats:1, minimalist:1, compact:1 };
+      if (data.includePhoto && data.photoData && atsSet[tpl] && !window._rbAtsPhotoWarned) {
+        window._rbAtsPhotoWarned = true;
+        if (typeof showToast === 'function') {
+          showToast('ATS tip: photo is optional — portals often prefer text-only resumes');
+        }
+      }
+    } catch (e) {}
 
     // Force one-page polish class
     paper.classList.add('one-page');

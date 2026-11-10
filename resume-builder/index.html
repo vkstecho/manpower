@@ -234,6 +234,9 @@
                   <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-500 peer-checked:bg-primary-600"></div>
                 </label>
               </div>
+              <p id="photoHint" class="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed mb-3">
+                Skip photo for online / ATS applications (safer for portals). Use a passport photo only if the employer asks, or for local / Gulf biodata-style CVs.
+              </p>
               <div id="photoUploadArea" class="hidden">
                 <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                   <div class="flex flex-col items-center justify-center pt-5 pb-6">
@@ -381,25 +384,25 @@
           </h3>
           <div class="grid grid-cols-2 gap-2">
             <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mb-1">ATS-safe · single page</div>
-            <button type="button" data-template="ats" data-pack="ats" class="template-btn active-template">ATS Clean</button>
-            <button type="button" data-template="executive" data-pack="pro" class="template-btn">Executive</button>
-            <button type="button" data-template="minimalist" data-pack="ats" class="template-btn">Minimalist</button>
-            <button type="button" data-template="classic" data-pack="pro" class="template-btn">Classic Pro</button>
+            <button type="button" data-template="ats" data-pack="ats" data-ats="1" class="template-btn active-template">ATS Clean <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="executive" data-pack="pro" data-photo="1" class="template-btn">Executive <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="minimalist" data-pack="ats" data-ats="1" class="template-btn">Minimalist <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="classic" data-pack="pro" data-photo="1" class="template-btn">Classic Pro <span class="tpl-badge photo">Photo OK</span></button>
             <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Role packs</div>
-            <button type="button" data-template="fresher" data-pack="fresher" class="template-btn">Fresher</button>
-            <button type="button" data-template="technical" data-pack="plant" class="template-btn">Technical / Plant</button>
-            <button type="button" data-template="manager" data-pack="manager" class="template-btn">Manager</button>
-            <button type="button" data-template="academic" data-pack="academic" class="template-btn">Academic</button>
+            <button type="button" data-template="fresher" data-pack="fresher" data-photo="1" class="template-btn">Fresher <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="technical" data-pack="plant" data-photo="1" class="template-btn">Technical / Plant <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="manager" data-pack="manager" data-photo="1" class="template-btn">Manager <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="academic" data-pack="academic" data-photo="1" class="template-btn">Academic <span class="tpl-badge photo">Photo OK</span></button>
             <div class="text-[10px] font-bold uppercase tracking-wide text-slate-400 col-span-full mt-2 mb-1">Premium layouts</div>
-            <button type="button" data-template="modern" data-pack="pro" class="template-btn">Modern Bold</button>
-            <button type="button" data-template="elegant" data-pack="pro" class="template-btn">Elegant Serif</button>
-            <button type="button" data-template="creative" data-pack="creative" class="template-btn">Creative</button>
-            <button type="button" data-template="twocolumn" data-pack="pro" class="template-btn">Two-Column</button>
-            <button type="button" data-template="sidebar" data-pack="pro" class="template-btn">Sidebar Pro</button>
-            <button type="button" data-template="compact" data-pack="ats" class="template-btn">Compact 1-Page</button>
-            <button type="button" data-template="navy" data-pack="pro" class="template-btn">Navy Professional</button>
-            <button type="button" data-template="timeline" data-pack="pro" class="template-btn">Timeline</button>
-            <p class="col-span-full text-[11px] text-slate-500 mt-2 leading-relaxed">All 16 layouts target <b>one A4 page</b>. Prefer <b>ATS Clean / Minimalist / Compact</b> when applying through online portals (simple text, clear headings).</p>
+            <button type="button" data-template="modern" data-pack="pro" data-photo="1" class="template-btn">Modern Bold <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="elegant" data-pack="pro" data-photo="1" class="template-btn">Elegant Serif <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="creative" data-pack="creative" data-photo="1" class="template-btn">Creative <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="twocolumn" data-pack="pro" data-photo="1" class="template-btn">Two-Column <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="sidebar" data-pack="pro" data-photo="1" class="template-btn">Sidebar Pro <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="compact" data-pack="ats" data-ats="1" class="template-btn">Compact 1-Page <span class="tpl-badge ats">ATS</span></button>
+            <button type="button" data-template="navy" data-pack="pro" data-photo="1" class="template-btn">Navy Professional <span class="tpl-badge photo">Photo OK</span></button>
+            <button type="button" data-template="timeline" data-pack="pro" data-photo="1" class="template-btn">Timeline <span class="tpl-badge photo">Photo OK</span></button>
+            <p class="col-span-full text-[11px] text-slate-500 mt-2 leading-relaxed">All 16 layouts target <b>one A4 page</b>. <span class="tpl-badge ats">ATS</span> = best without photo for online portals. <span class="tpl-badge photo">Photo OK</span> = works cleanly with or without passport photo. Default is <b>no photo</b>.</p>
           <div id="templatePreviewMini" class="mt-4 p-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 col-span-full">
             <div class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Layout preview (sample)</div>
             <div id="tplPreviewFrame" class="bg-white dark:bg-slate-800 rounded-lg shadow-inner p-3 text-[9px] leading-tight text-slate-700 dark:text-slate-200 min-h-[120px] border border-slate-100 dark:border-slate-700">

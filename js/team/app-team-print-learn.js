@@ -483,7 +483,7 @@ function openLearnScreen(){
       el.style.setProperty('visibility','visible','important');
       el.style.setProperty('opacity','1','important');
       el.style.setProperty('pointer-events','auto','important');
-      el.style.setProperty('z-index','1200','important');
+      el.style.setProperty('z-index','900','important');
       el.style.setProperty('position','fixed','important');
       el.style.setProperty('left','0','important');
       el.style.setProperty('right','0','important');
@@ -2748,10 +2748,13 @@ function injectLearnModuleButtons(){
         '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Competence</span>' +
         '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, '#f0f9ff', '#0ea5e9');
-      b.onclick = function(){
-        if (typeof openSkillMatrix === 'function') openSkillMatrix();
-        else if (window.MP_SKILLS && typeof window.MP_SKILLS.openSkillMatrix === 'function') window.MP_SKILLS.openSkillMatrix();
-        else try{ toast('Skill Matrix loading…'); }catch(e){}
+      b.onclick = function(ev){
+        try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+        try{
+          if (typeof openSkillMatrix === 'function') { openSkillMatrix(); return; }
+          if (window.MP_SKILLS && typeof window.MP_SKILLS.openSkillMatrix === 'function') { window.MP_SKILLS.openSkillMatrix(); return; }
+          toast('Skill Matrix not loaded — refresh page');
+        }catch(err){ console.error(err); try{ toast('Skill Matrix error'); }catch(e){} }
       };
     })();
 
@@ -2775,9 +2778,13 @@ function injectLearnModuleButtons(){
         '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Discipline</span>' +
         '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, '#ecfdf5', '#10b981');
-      b.onclick = function(){
-        if (typeof openChecklistsHub === 'function') openChecklistsHub();
-        else if (window.MP_OPS && window.MP_OPS.openChecklistsHub) window.MP_OPS.openChecklistsHub();
+      b.onclick = function(ev){
+        try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+        try{
+          if (typeof openChecklistsHub === 'function') { openChecklistsHub(); return; }
+          if (window.MP_OPS && window.MP_OPS.openChecklistsHub) { window.MP_OPS.openChecklistsHub(); return; }
+          toast('Checklists not loaded — refresh page');
+        }catch(err){ console.error(err); try{ toast('Checklists error'); }catch(e){} }
       };
     })();
 
@@ -2801,9 +2808,13 @@ function injectLearnModuleButtons(){
         '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">Quick form</span>' +
         '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, '#e0f2fe', '#0284c7');
-      b.onclick = function(){
-        if (typeof openShiftHandoverForm === 'function') openShiftHandoverForm();
-        else if (window.MP_OPS && window.MP_OPS.openShiftHandoverForm) window.MP_OPS.openShiftHandoverForm();
+      b.onclick = function(ev){
+        try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+        try{
+          if (typeof openShiftHandoverForm === 'function') { openShiftHandoverForm(); return; }
+          if (window.MP_OPS && window.MP_OPS.openShiftHandoverForm) { window.MP_OPS.openShiftHandoverForm(); return; }
+          toast('Shift Handover not loaded — refresh page');
+        }catch(err){ console.error(err); try{ toast('Handover error'); }catch(e){} }
       };
     })();
 
@@ -2867,9 +2878,13 @@ function injectLearnModuleButtons(){
         '<span style="font-size:11px;font-weight:700;color:#64748b;margin-right:6px">मेरी ट्रेनिंग</span>' +
         '<span style="font-size:22px;color:#0f172a;font-weight:900">›</span>';
       styleBtn(b, '#eff6ff', '#3b82f6');
-      b.onclick = function(){
-        if (typeof openMyTraining === 'function') openMyTraining();
-        else if (window.MP_OPS && window.MP_OPS.openMyTraining) window.MP_OPS.openMyTraining();
+      b.onclick = function(ev){
+        try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+        try{
+          if (typeof openMyTraining === 'function') { openMyTraining(); return; }
+          if (window.MP_OPS && window.MP_OPS.openMyTraining) { window.MP_OPS.openMyTraining(); return; }
+          toast('My Training not loaded — refresh page');
+        }catch(err){ console.error(err); try{ toast('Training error'); }catch(e){} }
       };
     })();
 

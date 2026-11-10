@@ -279,7 +279,7 @@
 
     var ov = document.createElement('div');
     ov.id = 'checklistsHub';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:960;background:var(--bg,#0a0f1a);display:flex;flex-direction:column;overflow:hidden';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1300;background:var(--bg,#0a0f1a);display:flex;flex-direction:column;overflow:hidden';
 
     ov.innerHTML =
       '<div style="display:flex;align-items:center;gap:6px;padding:10px 12px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap">' +
@@ -324,7 +324,7 @@
   function openChecklistHistory() {
     var ov = document.createElement('div');
     ov.id = 'checklistHistory';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:970;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1310;background:var(--bg);display:flex;flex-direction:column';
     ov.innerHTML =
       '<div style="padding:12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">' +
         '<button type="button" id="clHistBack" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-weight:800;cursor:pointer;font-family:inherit">← ' + _L('वापस', 'Back') + '</button>' +
@@ -375,7 +375,7 @@
 
   function openChecklistRunner(cl) {
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:970;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1310;background:var(--bg);display:flex;flex-direction:column';
     var items = (cl.items || []).map(function (it) {
       return '<label style="display:flex;gap:12px;align-items:flex-start;padding:14px;margin-bottom:8px;border-radius:12px;background:var(--card);border:1px solid var(--border);cursor:pointer">' +
         '<input type="checkbox" class="cl-item-check" data-id="' + _esc(it.id) + '" style="width:20px;height:20px;margin-top:2px;accent-color:#22c55e;flex-shrink:0">' +
@@ -437,7 +437,7 @@
         };
       });
       var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:1320;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
       ov.innerHTML =
         '<div style="width:100%;max-width:520px;max-height:92vh;background:var(--panel);border-radius:18px 18px 0 0;display:flex;flex-direction:column">' +
           '<div style="padding:14px 16px;border-bottom:1px solid var(--border);font-weight:900;font-size:15px;color:var(--text)">' +
@@ -587,18 +587,76 @@
     var emp = _findEmpById(empId);
     if (!emp) return false;
     var list = Array.isArray(emp.trainingAssignments) ? emp.trainingAssignments.slice() : [];
+    var completedAt = new Date().toISOString();
     list = list.map(function (t) {
       if (t.moduleId === moduleId) {
-        return Object.assign({}, t, { status: 'completed', completedAt: new Date().toISOString() });
+        return Object.assign({}, t, { status: 'completed', completedAt: completedAt });
       }
       return t;
     });
     emp.trainingAssignments = list;
+    var ok = false;
     try {
-      if (typeof fbUpdate === 'function') await fbUpdate('employees/' + emp.id, { trainingAssignments: list });
+      if (typeof fbUpdate === 'function') {
+        await fbUpdate('employees/' + emp.id, { trainingAssignments: list });
+        ok = true;
+      }
+    } catch (e) {
+      // Members often cannot write employees/* — fall back to trainingCompletions path
+      ok = false;
+    }
+    try {
+      if (typeof fbSet === 'function') {
+        await fbSet('trainingCompletions/' + String(emp.id) + '_' + String(moduleId), {
+          empId: emp.id,
+          moduleId: moduleId,
+          status: 'completed',
+          completedAt: completedAt,
+          completedBy: _who()
+        });
+        ok = true;
+      }
+    } catch (e2) {}
+    if (ok) {
       try { toast(_L('✅ ट्रेनिंग पूर्ण चिह्नित', '✅ Marked complete')); } catch (e) {}
       return true;
-    } catch (e) { return false; }
+    }
+    try { toast(_L('❌ सेव नहीं हो सका — अनुमति जाँचें', '❌ Could not save — check permissions')); } catch (e) {}
+    return false;
+  }
+
+  async function _mergeTrainingCompletions(emp) {
+    if (!emp || !emp.id) return emp;
+    try {
+      if (typeof fbGet !== 'function') return emp;
+      var raw = await fbGet('trainingCompletions');
+      if (!raw || typeof raw !== 'object') return emp;
+      var list = Array.isArray(emp.trainingAssignments) ? emp.trainingAssignments.slice() : [];
+      Object.keys(raw).forEach(function (k) {
+        var r = raw[k];
+        if (!r || String(r.empId) !== String(emp.id)) return;
+        if (r.status !== 'completed') return;
+        var found = false;
+        list = list.map(function (t) {
+          if (t.moduleId === r.moduleId) {
+            found = true;
+            return Object.assign({}, t, { status: 'completed', completedAt: r.completedAt || t.completedAt });
+          }
+          return t;
+        });
+        if (!found && r.moduleId) {
+          list.push({
+            moduleId: r.moduleId,
+            title: r.title || r.moduleId,
+            status: 'completed',
+            completedAt: r.completedAt,
+            assignedAt: r.completedAt
+          });
+        }
+      });
+      emp.trainingAssignments = list;
+    } catch (e) {}
+    return emp;
   }
 
   function _currentEmpForSession() {
@@ -628,7 +686,23 @@
     var emp = _currentEmpForSession();
     var ov = document.createElement('div');
     ov.id = 'myTrainingHub';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:960;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1300;background:var(--bg);display:flex;flex-direction:column';
+    // Merge member completions written outside employees/* (permission fallback)
+    if (emp) {
+      try {
+        _mergeTrainingCompletions(emp).then(function (e2) {
+          if (!e2) return;
+          emp = e2;
+          try {
+            var body = document.getElementById('myTrainingBody');
+            if (!body) return;
+            var assigns2 = Array.isArray(emp.trainingAssignments) ? emp.trainingAssignments : [];
+            // soft refresh list if still open
+            if (typeof window._renderMyTrainingBody === 'function') window._renderMyTrainingBody(body, emp, assigns2, ov);
+          } catch (eR) {}
+        });
+      } catch (eM) {}
+    }
     var assigns = (emp && Array.isArray(emp.trainingAssignments)) ? emp.trainingAssignments : [];
 
     var bodyHtml;
@@ -695,7 +769,7 @@
     var emps = _emps();
     var ov = document.createElement('div');
     ov.id = 'trainingAssignHub';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:960;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1300;background:var(--bg);display:flex;flex-direction:column';
     ov.innerHTML =
       '<div style="padding:12px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center">' +
         '<button type="button" id="trBack" style="background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;color:var(--text);font-weight:800;cursor:pointer;font-family:inherit">← ' + _L('वापस', 'Back') + '</button>' +
@@ -742,7 +816,7 @@
         var modId = chip.getAttribute('data-mod');
         var st = chip.getAttribute('data-status');
         var sheet = document.createElement('div');
-        sheet.style.cssText = 'position:fixed;inset:0;z-index:990;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center';
+        sheet.style.cssText = 'position:fixed;inset:0;z-index:1330;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center';
         sheet.innerHTML =
           '<div style="width:100%;max-width:400px;background:var(--panel);border-radius:16px 16px 0 0;padding:16px">' +
             '<div style="font-weight:900;font-size:14px;color:var(--text);margin-bottom:12px">' + _L('असाइनमेंट विकल्प', 'Assignment options') + '</div>' +
@@ -914,7 +988,7 @@
         return { id: f.id, label: f.label || '', labelHi: f.labelHi || '' };
       });
       var ov = document.createElement('div');
-      ov.style.cssText = 'position:fixed;inset:0;z-index:980;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:1320;background:rgba(0,0,0,.5);display:flex;align-items:flex-end;justify-content:center';
       ov.innerHTML =
         '<div style="width:100%;max-width:520px;max-height:92vh;background:var(--panel);border-radius:18px 18px 0 0;display:flex;flex-direction:column">' +
           '<div style="padding:14px 16px;border-bottom:1px solid var(--border);font-weight:900;font-size:15px;color:var(--text)">' +
@@ -990,7 +1064,7 @@
     loadHandoverFields().then(function (fields) {
       var ov = document.createElement('div');
       ov.id = 'shiftHandoverForm';
-      ov.style.cssText = 'position:fixed;inset:0;z-index:965;background:var(--bg);display:flex;flex-direction:column';
+      ov.style.cssText = 'position:fixed;inset:0;z-index:1305;background:var(--bg);display:flex;flex-direction:column';
 
       var sec = me ? _sectionOf(me) : '';
       var mySh = me ? (_shiftOf(me, _todayStr()) || '—') : '—';
@@ -1152,7 +1226,7 @@
   function openHandoverDetail(rec) {
     if (!rec) return;
     var ov = document.createElement('div');
-    ov.style.cssText = 'position:fixed;inset:0;z-index:975;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1315;background:var(--bg);display:flex;flex-direction:column';
     var when = rec.completedAt ? new Date(rec.completedAt).toLocaleString() : (rec.date || '—');
     var fieldsHtml = '';
     loadHandoverFields().then(function (fields) {
@@ -1199,7 +1273,7 @@
     mode = mode || (_canManage() ? 'team' : 'mine');
     var ov = document.createElement('div');
     ov.id = 'handoverHistory';
-    ov.style.cssText = 'position:fixed;inset:0;z-index:970;background:var(--bg);display:flex;flex-direction:column';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:1310;background:var(--bg);display:flex;flex-direction:column';
     var title = mode === 'team'
       ? _L('टीम हैंडओवर इतिहास', 'Team handover history')
       : _L('मेरे हैंडओवर', 'My handovers');

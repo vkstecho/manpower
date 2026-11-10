@@ -497,7 +497,7 @@
 
     var view = document.createElement('div');
     view.id = 'skillMatrixView';
-    view.style.cssText = 'position:fixed;inset:0;z-index:950;background:var(--bg,#0a0f1a);display:flex;flex-direction:column;overflow:hidden;';
+    view.style.cssText = 'position:fixed;inset:0;z-index:1300;background:var(--bg,#0a0f1a);display:flex;flex-direction:column;overflow:hidden;';
 
     var header = document.createElement('div');
     header.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg2,#111d2e);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;';
