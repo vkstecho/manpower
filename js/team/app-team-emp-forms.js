@@ -736,7 +736,7 @@ function toggleLeftMembers(){
   if(_leftMembersOpen) renderLeftMembers();
 }
 
-async async function renderLeftMembers(){
+async function renderLeftMembers(){
   const listEl = document.getElementById('leftMembersList');
   if(!listEl) return;
 

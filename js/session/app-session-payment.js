@@ -50,6 +50,34 @@ function _getUserPaidUntilDate(){
   return null;
 }
 
+/** Live refresh of paidUntil from paymentStatus / mobileUsers (used when SESSION is stale after Admin sets validity). */
+async function _refreshUserPaidUntilFromServer(){
+  try{
+    if(!SESSION || !SESSION.mobile) return null;
+    const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+    if(!mobileKey || mobileKey.length < 10) return null;
+    let paidIso = '';
+    try{
+      const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
+      if(ps) paidIso = ps.paymentPaidUntil || ps.paidUntil || ps.paymentPaidUntilDate || ps.validTill || '';
+    }catch(e){}
+    if(!paidIso){
+      try{
+        const rec = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
+        if(rec) paidIso = rec.paymentPaidUntil || rec.paidUntil || rec.validTill || '';
+      }catch(e){}
+    }
+    if(paidIso){
+      SESSION.paymentPaidUntil = paidIso;
+      SESSION.paidUntil = paidIso;
+      window._userPaymentPaidUntil = paidIso;
+      return new Date(paidIso);
+    }
+  }catch(e){}
+  return null;
+}
+window._refreshUserPaidUntilFromServer = _refreshUserPaidUntilFromServer;
+
 function _paymentGateAllows(tab){
   const t = String(tab||'').toLowerCase();
   // Always free tabs (+ Learn & Grow overlay is never paywalled)
@@ -64,6 +92,25 @@ function _paymentGateAllows(tab){
     const end = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59, 999);
     if(end.getTime() >= Date.now()) return true;
   }
+  // SESSION may be stale after Admin sets validity — kick a background live refresh
+  // so next navigation / retry unlocks without forcing logout.
+  try{
+    if(typeof _refreshUserPaidUntilFromServer === 'function'){
+      const lastTry = window._paidUntilRefreshAt || 0;
+      if(Date.now() - lastTry > 8000){
+        window._paidUntilRefreshAt = Date.now();
+        _refreshUserPaidUntilFromServer().then(function(d){
+          if(d){
+            try{
+              // Soft-refresh UI that depends on paid status
+              if(typeof renderProfileCard === 'function') renderProfileCard();
+              if(typeof renderHome === 'function') renderHome();
+            }catch(e){}
+          }
+        }).catch(function(){});
+      }
+    }
+  }catch(e){}
   // Settings not loaded: use last known local flag (default ON after admin saved once)
   if(!cfg){
     try{

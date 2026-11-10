@@ -364,29 +364,30 @@ async function loadScheduleBuilder(){
 
   openModal(`<div class="modal-handle"></div>
     <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:4px;flex-shrink:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <div class="modal-title" style="margin:0;font-size:16px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em">📅 ${rangeLabel}</div>
-        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:4px 8px;cursor:pointer;font-size:11px">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
+      <!-- Title + primary filter chips + Change on ONE row (saves vertical space) -->
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+        <div class="modal-title" style="margin:0;font-size:15px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap">📅 ${rangeLabel}</div>
+        <div id="sbPrimaryFilterRow" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1;min-width:0">
+          <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Department</button>
+          <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machines</button>
+          <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
+          <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
+        </div>
+        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:4px 8px;cursor:pointer;font-size:11px;flex-shrink:0">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
-      <div id="sbPrimaryFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
-        <span style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.4px">Filter</span>
-        <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Department</button>
-        <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machines</button>
-        <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
-        <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:11px;font-weight:800;padding:5px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
-      </div>
-      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px;min-height:22px"></div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-        <div id="sbCellLegend" style="font-size:12px;color:#94a3b8;flex:1;min-width:120px;line-height:1.35">${(typeof L==='function')?L('🖱️ Drag से चुनें · Double-tap = Copy','🖱️ Drag to select · Double-tap = Copy'):'🖱️ Drag to select · Double-tap = Copy'}</div>
+      <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:4px;min-height:0"></div>
+      <!-- Toolbar: Clear / Sequence / Auto Generate + Save / Cancel (moved up from bottom) -->
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        <div id="sbCellLegend" style="font-size:11px;color:#94a3b8;flex:1;min-width:80px;line-height:1.3">${(typeof L==='function')?L('🖱️ Drag · Double-tap = Copy','🖱️ Drag · Double-tap = Copy'):'🖱️ Drag · Double-tap = Copy'}</div>
         <button type="button" onclick="clearScheduleBuilderGrid()"
           style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:10px;
-          color:#fb7185;font-size:12px;font-weight:800;padding:8px 12px;cursor:pointer;white-space:nowrap;
-          display:flex;align-items:center;gap:5px;font-family:inherit">
+          color:#fb7185;font-size:12px;font-weight:800;padding:7px 10px;cursor:pointer;white-space:nowrap;
+          display:flex;align-items:center;gap:4px;font-family:inherit">
           🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
         </button>
         <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
           title="Auto Generate sequence: Department / Machine / Designation / Responsibility"
-          style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:150px">
+          style="font-size:11px;font-weight:700;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:140px">
           <option value="section">Sequence: Department</option>
           <option value="machine">Sequence: Machine</option>
           <option value="designation">Sequence: Designation</option>
@@ -394,10 +395,14 @@ async function loadScheduleBuilder(){
         </select>
         <button type="button" onclick="autoGenSchedule('${monthKey}')"
           style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
-          color:#fff;font-size:12px;font-weight:800;padding:8px 14px;cursor:pointer;white-space:nowrap;
-          display:flex;align-items:center;gap:5px;font-family:inherit">
+          color:#fff;font-size:12px;font-weight:800;padding:7px 12px;cursor:pointer;white-space:nowrap;
+          display:flex;align-items:center;gap:4px;font-family:inherit">
           🤖 ${(typeof L==='function')?L('Auto बनाएं','Auto Generate'):'Auto Generate'}
         </button>
+        <button type="button" class="submit-btn" style="flex:0 0 auto;min-height:36px!important;padding:7px 14px!important;font-size:12px;border-radius:10px"
+          onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save','Save'):'Save'}</button>
+        <button type="button" class="cancel-btn" style="flex:0 0 auto;min-height:36px!important;padding:7px 12px!important;font-size:12px;border-radius:10px"
+          onclick="closeModal()">${(typeof L==='function')?L('रद्द','Cancel'):'Cancel'}</button>
       </div>
     </div>
     <div id="sbToolbar" style="display:none"></div>
@@ -417,11 +422,17 @@ async function loadScheduleBuilder(){
         <tbody id="sb_tbody">${rows}</tbody>
       </table>
     </div>
-    <div id="sbShiftCounts" style="flex-shrink:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:6px 2px 4px;border-top:1px solid var(--border2);font-size:11px;font-weight:800"></div>
-    <div id="sbFooterBar" style="display:flex;gap:10px;flex-shrink:0;position:sticky;bottom:0;z-index:10;background:var(--bg);padding-top:6px;padding-bottom:max(4px,env(safe-area-inset-bottom,0px))">
-      <button class="submit-btn" style="flex:1" onclick="saveScheduleBuilder('${monthKey}')">💾 ${(typeof L==='function')?L('Save करें','Save'):'Save'}</button>
-      <button class="cancel-btn" style="flex:1" onclick="closeModal()">${(typeof L==='function')?L('रद्द करें','Cancel'):'Cancel'}</button>
-    </div>`);
+    <!-- Collapsible A/B/C/G/O/Σ counts row -->
+    <div id="sbShiftCountsWrap" style="flex-shrink:0;border-top:1px solid var(--border2)">
+      <button type="button" id="sbCountsToggle" onclick="window._sbToggleShiftCounts && window._sbToggleShiftCounts()"
+        style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 4px;background:transparent;border:none;cursor:pointer;color:var(--muted2);font-size:11px;font-weight:800">
+        <span>${(typeof L==='function')?L('शिफ्ट काउंट (A/B/C/Σ)','Shift counts (A/B/C/Σ)'):'Shift counts (A/B/C/Σ)'}</span>
+        <span id="sbCountsToggleIcon">▲</span>
+      </button>
+      <div id="sbShiftCounts" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 2px 6px;font-size:11px;font-weight:800"></div>
+    </div>
+    <!-- Bottom footer removed — Save/Cancel now in top toolbar -->
+    <div id="sbFooterBar" style="display:none"></div>`);
   try{ if(typeof _sbUpdateShiftCounts==='function') _sbUpdateShiftCounts(); }catch(e){}
   try{ _sbLockLandscape(true); }catch(e){}
   setTimeout(initSBSelection, 50);
@@ -2256,4 +2267,29 @@ function _sbUpdateShiftCounts(){
     box.innerHTML = html;
   }catch(e){ console.warn('[sb counts]', e); }
 }
+
+window._sbCountsOpen = true;
+window._sbToggleShiftCounts = function(){
+  try{
+    window._sbCountsOpen = !window._sbCountsOpen;
+    const box = document.getElementById('sbShiftCounts');
+    const icon = document.getElementById('sbCountsToggleIcon');
+    if(box) box.style.display = window._sbCountsOpen ? 'flex' : 'none';
+    if(icon) icon.textContent = window._sbCountsOpen ? '▲' : '▼';
+    try{ localStorage.setItem('mp_sb_counts_open', window._sbCountsOpen ? '1' : '0'); }catch(e){}
+  }catch(e){}
+};
+try{
+  const pref = localStorage.getItem('mp_sb_counts_open');
+  if(pref === '0'){
+    window._sbCountsOpen = false;
+    setTimeout(function(){
+      const box = document.getElementById('sbShiftCounts');
+      const icon = document.getElementById('sbCountsToggleIcon');
+      if(box) box.style.display = 'none';
+      if(icon) icon.textContent = '▼';
+    }, 50);
+  }
+}catch(e){}
+
 try{ window._sbUpdateShiftCounts = _sbUpdateShiftCounts; }catch(e){}

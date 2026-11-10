@@ -476,14 +476,14 @@ function openLearnScreen(){
       try{ toast(L("Learn screen missing — please refresh","Learn screen missing — please refresh")); }catch(e){}
       return;
     }
+    // Force visible on all devices (esp. member mobile where CSS/z-index can hide it)
     el.classList.add('show');
-    el.style.display = 'block';
-    el.style.zIndex = '900';
+    el.style.cssText = (el.style.cssText||'') + ';display:block!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;z-index:900!important;position:fixed!important;inset:0!important;';
     // Always show main module list (resume previous section hide)
     try{
       const mb = document.getElementById('learnMainButtons');
-      if(mb){ mb.style.display = 'block'; mb.style.visibility = 'visible'; }
-      ['learnMetTrainView','learnComingSoonView','learnSupSkillView','learnMetCostView','learnMRSkillView','learnExcelExpertView','learnMSAIView','learnMRMPresView','learnKPIDashboardView'].forEach(function(id){
+      if(mb){ mb.style.display = 'block'; mb.style.visibility = 'visible'; mb.style.opacity = '1'; }
+      ['learnMetTrainView','learnComingSoonView','learnSupSkillView','learnMetCostView','learnMRSkillView','learnExcelExpertView','learnMSAIView','learnMRMPresView','learnKPIDashboardView','learnTimeStudyView'].forEach(function(id){
         var v = document.getElementById(id);
         if(v){ v.style.display = 'none'; }
       });

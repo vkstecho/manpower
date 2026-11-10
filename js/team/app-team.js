@@ -211,28 +211,56 @@ function _renderTeamImpl(search=''){
 
   // ── Left / Resigned Members Section ──
   // Merge: firebase leftEmployees path + status='resigned' employees from main table
+  // Count is manager-scoped (same rules as renderLeftMembers)
   const leftSec = document.getElementById('leftMembersSection');
   if(leftSec){
     const shouldShow = (isAdmin() || isMgr()) && _teamSec === 'ALL' && !search;
     leftSec.style.display = shouldShow ? 'block' : 'none';
     if(shouldShow){
-      // Also collect status='resigned' employees from main employees cache
-      const resignedFromCache = getEmps().filter(e => e.status === 'resigned' || e.status === 'left');
-      
-      // Get count from firebase leftEmployees + cache resigned
       const countEl = document.getElementById('leftMemberCount');
-      fbGet('leftEmployees').then(raw => {
-        const fbCount = raw ? Object.keys(raw).length : 0;
-        // Merged count: firebase left + cache resigned that aren't already in firebase left
-        const totalLeft = fbCount + resignedFromCache.filter(e => {
-          // Don't double-count if same empId exists in leftEmployees
-          const empId = e.empId || e.id;
-          return !raw || !Object.values(raw).some(v => v.empId === empId || v.empCode === empId);
-        }).length;
-        if(countEl) countEl.textContent = totalLeft || resignedFromCache.length;
-      }).catch(()=>{ 
-        if(countEl) countEl.textContent = resignedFromCache.length;
-      });
+      const LEFT_STATUSES = new Set(['resigned','left','left_team','removed','revoked']);
+      const _leftBelongsHere = (rec) => {
+        if(!rec) return false;
+        try{
+          if(typeof isAdmin === 'function' && isAdmin()){
+            const cid = (SESSION && SESSION.viewCompanyId) || 'ALL';
+            if(!cid || cid === 'ALL') return true;
+            const n = (typeof _normCompanyId==='function') ? _normCompanyId(rec.companyId||rec.company||'') : String(rec.companyId||rec.company||'').toLowerCase();
+            const want = (typeof _normCompanyId==='function') ? _normCompanyId(cid) : String(cid).toLowerCase();
+            if(!n || n === 'default') return false;
+            return n === want;
+          }
+          if(SESSION && SESSION.role === 'manager' && SESSION.mobile){
+            const key = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+            const mid = (typeof _normMobileKey==='function') ? _normMobileKey(rec.managerId||rec.managerMobile||rec.mgrId||'') : String(rec.managerId||'').replace(/\D/g,'').slice(-10);
+            if(mid && mid === key) return true;
+            return false; // legacy rows without managerId: do not show
+          }
+        }catch(e){}
+        return false;
+      };
+      (async () => {
+        try{
+          const raw = await fbGet('leftEmployees').catch(()=>null);
+          let leftList = raw ? Object.entries(raw).map(([k,v]) => ({...v, id:k})) : [];
+          leftList = leftList.filter(_leftBelongsHere);
+          // also from employee cache (status left/resigned) — managers only see their own
+          const seen = new Set(leftList.map(e => String(e.id||e.empId||e.empCode||'')));
+          (getEmps()||[]).forEach(e => {
+            if(!e) return;
+            const st = String(e.status||'').toLowerCase();
+            if(!LEFT_STATUSES.has(st) && !e.leftAt) return;
+            if(!_leftBelongsHere(e)) return;
+            const id = String(e.id||e.empId||e.empCode||'');
+            if(id && seen.has(id)) return;
+            if(id) seen.add(id);
+            leftList.push(e);
+          });
+          if(countEl) countEl.textContent = leftList.length;
+        }catch(err){
+          if(countEl) countEl.textContent = '0';
+        }
+      })();
     }
   }
 
