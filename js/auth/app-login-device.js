@@ -1161,8 +1161,8 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       new Error(label||'OTP timed out'), { code: 'auth/timeout' })), ms))
   ]);
 
-  // ── DESKTOP: invisible first (same success path as phone when domain is trusted),
-  // then visible checkbox fallback. Never reuse warm one-shot verifiers.
+  // ── DESKTOP: visible checkbox FIRST (invisible was hanging on "Sending…" for many browsers).
+  // Never reuse warm one-shot verifiers.
   if(isDesktop){
     const hideDesktopRc = ()=>{
       try{
@@ -1190,25 +1190,8 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       window._fbRecaptchaWarmSolved = false;
     }catch(e){}
 
-    // 1) Invisible — no checkbox; works when authorized domain + browser OK (matches mobile success)
-    try{
-      toast(typeof L==='function'
-        ? L('⏳ OTP भेजा जा रहा है…','⏳ Sending OTP…')
-        : '⏳ Sending OTP…');
-      const vInv = await _fbMakeRecaptcha(cid, key, 'invisible');
-      const confInv = await withTimeout(
-        window._fbSignInWithPhoneNumber(window._fbAuth, phone, vInv),
-        8000,
-        'OTP timed out'
-      );
-      hideDesktopRc();
-      return confInv;
-    }catch(errInv){
-      console.warn('[otp] desktop invisible failed', errInv && (errInv.code||errInv.message||errInv));
-      _fbClearRecaptcha(key);
-    }
-
-    // 2) Visible checkbox — fixed bottom bar so it cannot be missed / covered
+    // Visible checkbox — fixed bottom bar (primary path on laptop)
+    // (was step 2; invisible-first caused endless Sending… when Google challenge delayed)
     // z-index below Google's challenge (~2e9). Unique host id avoids conflict with
     // body #recaptcha-container and stops _fbEnsureRecaptchaHost moving widget to inline.
     toast(typeof L==='function'

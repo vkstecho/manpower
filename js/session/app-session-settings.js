@@ -1716,21 +1716,42 @@ async function showProfile(){
     try{
       let paidIso = '';
       const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+      // 0) paymentStatus (Admin Pay-until) — single source of truth
+      if(mobileKey){
+        try{
+          const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
+          if(ps) paidIso = ps.paymentPaidUntil || ps.paidUntil || ps.paymentPaidUntilDate || ps.validTill || '';
+        }catch(ePs){}
+      }
       // 1) SESSION cache
-      paidIso = SESSION.paymentPaidUntil || SESSION.paidUntil || window._userPaymentPaidUntil || '';
-      // 2) mobileUsers record (manager or member)
-      if(!paidIso && mobileKey){
-        const rec = await fbGet('mobileUsers/' + mobileKey);
-        if(rec){
-          paidIso = rec.paymentPaidUntil || rec.paidUntil || rec.validTill || '';
-          // Member: fall back to manager's paid-until (team subscription)
-          if(!paidIso && rec.managerId){
-            try{
-              const mgr = await fbGet('mobileUsers/' + String(rec.managerId).replace(/\D/g,'').slice(-10));
-              if(mgr) paidIso = mgr.paymentPaidUntil || mgr.paidUntil || '';
-            }catch(e2){}
+      if(!paidIso) paidIso = SESSION.paymentPaidUntil || SESSION.paidUntil || window._userPaymentPaidUntil || '';
+      // 2) mobileUsers — prefer payment fields; only then validTill
+      if(mobileKey){
+        try{
+          const rec = await fbGet('mobileUsers/' + mobileKey);
+          if(rec){
+            const fromMu = rec.paymentPaidUntil || rec.paidUntil || '';
+            const vt = rec.validTill || '';
+            // Use earliest of payment vs validTill if both exist
+            if(fromMu && vt){
+              const a=new Date(fromMu).getTime(), b=new Date(vt).getTime();
+              paidIso = paidIso || (a&&b ? (a<b?fromMu:vt) : (fromMu||vt));
+            } else {
+              paidIso = paidIso || fromMu || vt || '';
+            }
+            if(!paidIso && rec.managerId){
+              try{
+                const mid = String(rec.managerId).replace(/\D/g,'').slice(-10);
+                const psM = await fbGet('paymentStatus/'+mid).catch(function(){return null;});
+                if(psM) paidIso = psM.paymentPaidUntil || psM.paidUntil || '';
+                if(!paidIso){
+                  const mgr = await fbGet('mobileUsers/' + mid);
+                  if(mgr) paidIso = mgr.paymentPaidUntil || mgr.paidUntil || '';
+                }
+              }catch(e2){}
+            }
           }
-        }
+        }catch(eMu){}
       }
       // 3) deviceApprovals fallback
       if(!paidIso){

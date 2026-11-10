@@ -503,7 +503,7 @@ try{
     });
   }
 }catch(_pm){}
-// Permanent validity fix: for each manager, prefer paymentStatus/{10digit} over stale mobileUsers.validTill
+// Permanent validity fix: paymentStatus overwrites stale mobileUsers.validTill (e.g. 52d vs expired Oct 29)
 try{
   var _normP=function(p){return typeof _normMobileKey==="function"?_normMobileKey(p):String(p||"").replace(/\D/g,"").slice(-10)};
   var _payCache=window._paymentStatusCache||{};
@@ -513,10 +513,13 @@ try{
     if(!ph||ph.length!==10) return;
     var pv=_payCache[ph]||_payCache["+91"+ph]||_payCache[mk]||null;
     if(pv&&typeof pv==="object"){
-      if(pv.paymentPaidUntil||pv.paidUntil){
-        mu.paymentPaidUntil=pv.paymentPaidUntil||pv.paidUntil;
-        mu.paidUntil=pv.paidUntil||pv.paymentPaidUntil;
-        mu.validTill=mu.paymentPaidUntil;
+      var until=pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate||pv.validTill||"";
+      if(until){
+        mu.paymentPaidUntil=until;
+        mu.paidUntil=until;
+        mu.paymentPaidUntilDate=String(until).slice(0,10);
+        // Overwrite long stale validTill so badge matches Manager "Paid till"
+        mu.validTill=until;
       }
       if(pv.teamSize!=null) mu.teamSize=pv.teamSize;
       if(pv.planMaxMembers!=null) mu.planMaxMembers=pv.planMaxMembers;
@@ -527,6 +530,43 @@ try{
     }
   });
 }catch(_hyd){}
+// If list/cache missed some managers, fetch paymentStatus/{phone} then re-render once
+try{
+  if(!window._mpPayStatusPatchRunning){
+    var _normP2=function(p){return typeof _normMobileKey==="function"?_normMobileKey(p):String(p||"").replace(/\D/g,"").slice(-10)};
+    var _need=[];
+    Object.keys(data).forEach(function(mk){
+      var mu=data[mk]; if(!mu||String(mu.role||"").toLowerCase()!=="manager") return;
+      var ph=_normP2(mk)||_normP2(mu.mobile||mu.phone);
+      if(!ph||ph.length!==10) return;
+      if(!(mu.paymentPaidUntil||mu.paidUntil||mu.paymentPaidUntilDate)) _need.push(ph);
+    });
+    if(_need.length && typeof fbGet==="function"){
+      window._mpPayStatusPatchRunning=true;
+      Promise.all(_need.slice(0,40).map(function(ph){
+        return fbGet("paymentStatus/"+ph).catch(function(){return null;}).then(function(pv){
+          if(!pv||typeof pv!=="object") return;
+          window._paymentStatusCache=window._paymentStatusCache||{};
+          window._paymentStatusCache[ph]=pv;
+          Object.keys(data).forEach(function(mk){
+            var mu=data[mk]; if(!mu) return;
+            var mph=_normP2(mk)||_normP2(mu.mobile||mu.phone);
+            if(mph!==ph) return;
+            var until=pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate||"";
+            if(until){ mu.paymentPaidUntil=until; mu.paidUntil=until; mu.validTill=until; }
+            if(pv.teamSize!=null) mu.teamSize=pv.teamSize;
+            if(pv.planMaxMembers!=null) mu.planMaxMembers=pv.planMaxMembers;
+            if(pv.planLabel) mu.planLabel=pv.planLabel;
+            if(pv.planPeriod) mu.planPeriod=pv.planPeriod;
+          });
+        });
+      })).then(function(){
+        window._mpPayStatusPatchRunning=false;
+        try{ if(typeof renderAdminTeamHierarchy==="function") renderAdminTeamHierarchy(); }catch(eR){}
+      }).catch(function(){ window._mpPayStatusPatchRunning=false; });
+    }
+  }
+}catch(_pf){}
 const allRaw=Object.entries(data),viewCid=SESSION.viewCompanyId||"ALL",mgrKeyNorm=k=>"function"==typeof _normMobileKey?_normMobileKey(k):String(k||"").replace(/\D/g,"").slice(-10),managers=allRaw.filter(([k,v])=>{if(!v||"manager"!==v.role||"rejected"===v.status||"removed"===v.status||"left"===v.status||"left_team"===v.status||"demoted"===v.status)return!1;if(v.demotedReason==="manager_transferred")return!1;if(!viewCid||"ALL"===viewCid)return!0;const n=_normCompanyId(v.company||v.companyId||v.companyLabel||"");const want=_normCompanyId(viewCid);if(!want||want==="ALL")return!0;/* STRICT: only same company — do not show empty/default managers under other companies */return n&&n===want;});
 // After handoff: also treat roster-owners as managers even if mobileUsers.role was not updated (PERMISSION partial fail)
 try{
@@ -590,7 +630,31 @@ const managerPhoneSet=new Set(managers.map(([k,v])=>mgrKeyNorm(k||v.mobile||v.ph
     return false;
   });
 }catch(ex){console.warn('[hierarchy] roster-derive',ex)}
-managerKeys=new Set(managers.map(([k])=>mgrKeyNorm(k))),managerKeySet=new Set(managers.map(([k])=>k)),uncategorised=allRaw.filter(([k,v])=>{if(!v||"rejected"===v.status||"removed"===v.status)return!1;const role=String(v.role||"").toLowerCase();if("manager"===role||"admin"===role)return!1;if(viewCid&&"ALL"!==viewCid&&!_companyMatchesView(v.company,viewCid))return!1;const p=mgrKeyNorm(k||v.mobile||v.phone);if(managerKeys.has(p))return!1;const mk=mgrKeyNorm(v.managerId||v.managerMobile||"");return!v.managerId&&!v.managerMobile||!managerKeys.has(mk)&&!managerKeySet.has(v.managerId)});if(!managers.length&&!uncategorised.length)return void(el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+("function"==typeof L?L("कोई registered Manager/Member नहीं","No registered Manager/Member"):"No registered Manager/Member")+"</div>");let html=`<div style="display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px"><button type="button" onclick="adminRepairManagerHierarchy()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#7c3aed;font-weight:800;cursor:pointer">🔧 Repair managers list</button><button type="button" onclick="adminRemoveOrphanMembers()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.1);color:#f43f5e;font-weight:800;cursor:pointer">🧹 Remove orphans</button><button type="button" onclick="typeof openDeletedAccountsBackupModal===\'function\'&&openDeletedAccountsBackupModal()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(14,165,233,.45);background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:800;cursor:pointer">💾 Deleted backups</button></div>`+managers.map(([mgrKey,mgr])=>{const mk=mgrKeyNorm(mgrKey),mgrMob=mgrKeyNorm(mgr.mobile||mgr.phone||mk),members=allRaw.filter(([k,v])=>{if(!v||"rejected"===v.status||"removed"===v.status)return!1;const role=String(v.role||"").toLowerCase();if("manager"===role||"admin"===role)return!1;const mid=mgrKeyNorm(v.managerId||v.managerMobile||v.mgrId||"");if((!mid||mid!==mk&&mid!==mgrMob)&&(!v.managerId||String(v.managerId)!==String(mgrKey)&&mgrKeyNorm(v.managerId)!==mk))return!1;if(viewCid&&"ALL"!==viewCid){const mc=_normCompanyId(v.company||"");if(mc&&"default"!==mc&&mc!==_normCompanyId(viewCid))return!1}return!0});let rosterCount=0;try{const empsAll=("function"==typeof getEmps?getEmps():_cache.employees||[])||[],seenMob=new Set(members.map(([k,v])=>mgrKeyNorm(v.mobile||v.phone||k)));empsAll.forEach(e=>{if(!e||"resigned"===e.status||"left"===e.status||"left_team"===e.status||"removed"===e.status)return;const emid=mgrKeyNorm(e.managerId||"");if(!emid||emid!==mk&&emid!==mgrMob)return;if(viewCid&&"ALL"!==viewCid){const mc=_normCompanyId(e.companyId||e.company||"");if(mc&&"default"!==mc&&mc!==_normCompanyId(viewCid))return}const emMob=mgrKeyNorm(e.phone||e.mobile||"");emMob&&seenMob.has(emMob)||rosterCount++})}catch(e){}const statusBadge=_mobileStatusBadge(mgr),noMemLbl="function"==typeof L?L("इस Manager के अंतर्गत कोई Member नहीं","No members under this Manager"):"No members under this Manager",membersHtml=members.length?members.map(([memKey,mem])=>`\n          <div class="adm-mem-row" style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">\n            <div style="flex:1;min-width:120px">\n              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${escHtml(String(mem.name||"").replace(/</g,""))}</div>\n              <div style="font-size:11px;color:#64748b">📱 ${escHtml(mem.mobile||mem.phone||memKey)}</div>\n            </div>\n            ${_mobileStatusBadge(mem)}\n            ${_mobileActionButtons(memKey,mem.name,mem.status)}\n          </div>`).join(""):`<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`,expLbl="function"==typeof L?L("📅 Expiry (team)","📅 Expiry (team)"):"📅 Expiry (team)",delLbl="function"==typeof L?L("🗑️ Delete Manager + Team","🗑️ Delete Manager + Team"):"🗑️ Delete Manager + Team",safeName=("function"==typeof L&&L("members","members"),String(mgr.name||"").replace(/'/g,"\\'").replace(/</g,"")),safeKey=String(mgrKey).replace(/'/g,"\\'");return`\n      <div class="card adm-mgr-card team-fold" data-open="0" style="margin-bottom:12px;padding:0;overflow:hidden">\n        <div class="team-fold-hdr" style="padding:12px;background:rgba(249,115,22,.06);cursor:pointer;user-select:none"\n          onclick="if(!event.target.closest('button,a,input')){ const b=this.parentElement; const body=b.querySelector('.team-fold-body'); const chev=this.querySelector('.team-fold-chev'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'block'; if(chev)chev.textContent=open?'▶':'▼'; b.setAttribute('data-open',open?'0':'1'); }">\n          <div style="display:flex;align-items:flex-start;gap:8px">\n            <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px;line-height:22px">▶</span>\n            <div style="flex:1;min-width:0">\n              <div style="font-size:15px;font-weight:900;color:var(--text);line-height:1.25">👔 ${safeName}</div>\n              <div style="font-size:12px;font-weight:700;color:var(--m1,#f97316);margin-top:2px">${members.length} ${"function"==typeof L?L("मोबाइल","mobile"):"mobile"}${void 0!==rosterCount&&rosterCount?" · "+rosterCount+" "+("function"==typeof L?L("रोस्टर में","in roster"):"in roster"):""}</div>\n              <div style="font-size:11px;color:#64748b;margin-top:3px;word-break:break-all">📱 ${escHtml(mgr.mobile||mgr.phone||mgrKey)}</div>\n              <div style="font-size:11px;color:#64748b">🏢 ${escHtml(mgr.company||"—")}</div>\n            </div>\n            <div style="flex-shrink:0">${statusBadge}</div>\n          </div>\n          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" onclick="event.stopPropagation()">\n            ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}\n            ${members.length?`<button type="button" onclick="event.stopPropagation();openAdminSetExpiryModal('${safeKey}','${safeName}',true)" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer">${expLbl}</button>`:""}\n            <button type="button" onclick="event.stopPropagation();openAdminSetPaymentModal('${safeKey}','${safeName}',true)" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(16,185,129,.45);background:rgba(16,185,129,.12);color:#059669;font-weight:800;cursor:pointer">💳 Pay until</button>\n            <button type="button" onclick="event.stopPropagation();confirmDeleteManagerWithTeam('${safeKey}','${safeName}',${members.length})" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.5);background:rgba(244,63,94,.14);color:#f43f5e;font-weight:800;cursor:pointer;position:relative;z-index:2">${delLbl}</button>\n          </div>\n        </div>\n        <div class="team-fold-body" style="display:none">${membersHtml}</div>\n      </div>`}).join("");uncategorised.length&&(html+=`\n      <div style="font-size:12px;font-weight:800;color:#f97316;letter-spacing:.5px;margin:18px 0 8px">\n        ❓ UNCATEGORISED <span style="color:#64748b;font-weight:600">(${uncategorised.length})</span>\n      </div>\n      <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden;border-color:rgba(249,115,22,.3)">\n        ${uncategorised.map(([memKey,mem])=>`\n          <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">\n            <div style="flex:1;min-width:120px">\n              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${escHtml(String(mem.name||"").replace(/</g,""))}</div>\n              <div style="font-size:11px;color:#64748b">📱 ${escHtml(mem.mobile||mem.phone||memKey)} · 🏢 ${escHtml(mem.company||"—")}</div>\n            </div>\n            ${_mobileStatusBadge(mem)}\n            ${_mobileActionButtons(memKey,mem.name,mem.status)}\n          </div>`).join("")}\n      </div>`),el.innerHTML=html})}).catch(err=>{console.error("[renderAdminTeamHierarchy]",err),el.innerHTML='<div class="empty-text" style="padding:12px;color:#f43f5e">Failed to load managers</div>'})):block.style.display="none")}function _mobileStatusBadge(u){u=u||{};const[color,label]={approved:["#22c55e","Active"],revoked:["#f43f5e","Revoked"],pending:["#f97316","Pending"]}[u.status]||["#64748b",u.status||"—"];
+managerKeys=new Set(managers.map(([k])=>mgrKeyNorm(k))),managerKeySet=new Set(managers.map(([k])=>k)),uncategorised=allRaw.filter(([k,v])=>{if(!v||"rejected"===v.status||"removed"===v.status)return!1;const role=String(v.role||"").toLowerCase();if("manager"===role||"admin"===role)return!1;if(viewCid&&"ALL"!==viewCid&&!_companyMatchesView(v.company,viewCid))return!1;const p=mgrKeyNorm(k||v.mobile||v.phone);if(managerKeys.has(p))return!1;const mk=mgrKeyNorm(v.managerId||v.managerMobile||"");return!v.managerId&&!v.managerMobile||!managerKeys.has(mk)&&!managerKeySet.has(v.managerId)});if(!managers.length&&!uncategorised.length)return void(el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+("function"==typeof L?L("कोई registered Manager/Member नहीं","No registered Manager/Member"):"No registered Manager/Member")+"</div>");let html=`<div style="display:flex;justify-content:flex-end;flex-wrap:wrap;gap:6px;margin-bottom:8px"><button type="button" onclick="adminRepairManagerHierarchy()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(124,58,237,.4);background:rgba(124,58,237,.12);color:#7c3aed;font-weight:800;cursor:pointer">🔧 Repair managers list</button><button type="button" onclick="adminRemoveOrphanMembers()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.1);color:#f43f5e;font-weight:800;cursor:pointer">🧹 Remove orphans</button><button type="button" onclick="typeof openDeletedAccountsBackupModal===\'function\'&&openDeletedAccountsBackupModal()" style="font-size:11px;padding:8px 12px;border-radius:8px;border:1px solid rgba(14,165,233,.45);background:rgba(14,165,233,.12);color:#0ea5e9;font-weight:800;cursor:pointer">💾 Deleted backups</button></div>`+managers.map(([mgrKey,mgr])=>{const mk=mgrKeyNorm(mgrKey),mgrMob=mgrKeyNorm(mgr.mobile||mgr.phone||mk),members=allRaw.filter(([k,v])=>{if(!v||"rejected"===v.status||"removed"===v.status)return!1;const role=String(v.role||"").toLowerCase();if("manager"===role||"admin"===role)return!1;const mid=mgrKeyNorm(v.managerId||v.managerMobile||v.mgrId||"");if((!mid||mid!==mk&&mid!==mgrMob)&&(!v.managerId||String(v.managerId)!==String(mgrKey)&&mgrKeyNorm(v.managerId)!==mk))return!1;if(viewCid&&"ALL"!==viewCid){const mc=_normCompanyId(v.company||"");if(mc&&"default"!==mc&&mc!==_normCompanyId(viewCid))return!1}return!0});let rosterCount=0;try{const empsAll=("function"==typeof getEmps?getEmps():_cache.employees||[])||[],seenMob=new Set(members.map(([k,v])=>mgrKeyNorm(v.mobile||v.phone||k)));empsAll.forEach(e=>{if(!e||"resigned"===e.status||"left"===e.status||"left_team"===e.status||"removed"===e.status)return;const emid=mgrKeyNorm(e.managerId||"");if(!emid||emid!==mk&&emid!==mgrMob)return;if(viewCid&&"ALL"!==viewCid){const mc=_normCompanyId(e.companyId||e.company||"");if(mc&&"default"!==mc&&mc!==_normCompanyId(viewCid))return}const emMob=mgrKeyNorm(e.phone||e.mobile||"");emMob&&seenMob.has(emMob)||rosterCount++})}catch(e){}const statusBadge=_mobileStatusBadge(mgr),noMemLbl="function"==typeof L?L("इस Manager के अंतर्गत कोई Member नहीं","No members under this Manager"):"No members under this Manager",membersHtml=members.length?members.map(([memKey,mem])=>`\n          <div class="adm-mem-row" style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">\n            <div style="flex:1;min-width:120px">\n              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${escHtml(String(mem.name||"").replace(/</g,""))}</div>\n              <div style="font-size:11px;color:#64748b">📱 ${escHtml(mem.mobile||mem.phone||memKey)}</div>\n            </div>\n            ${_mobileStatusBadge(mem)}\n            ${_mobileActionButtons(memKey,mem.name,mem.status)}\n          </div>`).join(""):`<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`,expLbl="function"==typeof L?L("📅 Expiry (team)","📅 Expiry (team)"):"📅 Expiry (team)",delLbl="function"==typeof L?L("🗑️ Delete Manager + Team","🗑️ Delete Manager + Team"):"🗑️ Delete Manager + Team",safeName=("function"==typeof L&&L("members","members"),String(mgr.name||"").replace(/'/g,"\\'").replace(/</g,"")),safeKey=String(mgrKey).replace(/'/g,"\\'");return`\n      <div class="card adm-mgr-card team-fold" data-open="0" style="margin-bottom:12px;padding:0;overflow:hidden">\n        <div class="team-fold-hdr" style="padding:12px;background:rgba(249,115,22,.06);cursor:pointer;user-select:none"\n          onclick="if(!event.target.closest('button,a,input')){ const b=this.parentElement; const body=b.querySelector('.team-fold-body'); const chev=this.querySelector('.team-fold-chev'); if(!body)return; const open=body.style.display!=='none'; body.style.display=open?'none':'block'; if(chev)chev.textContent=open?'▶':'▼'; b.setAttribute('data-open',open?'0':'1'); }">\n          <div style="display:flex;align-items:flex-start;gap:8px">\n            <span class="team-fold-chev" style="font-size:12px;color:var(--muted2);width:14px;line-height:22px">▶</span>\n            <div style="flex:1;min-width:0">\n              <div style="font-size:15px;font-weight:900;color:var(--text);line-height:1.25">👔 ${safeName}</div>\n              <div style="font-size:12px;font-weight:700;color:var(--m1,#f97316);margin-top:2px">${members.length} ${"function"==typeof L?L("मोबाइल","mobile"):"mobile"}${void 0!==rosterCount&&rosterCount?" · "+rosterCount+" "+("function"==typeof L?L("रोस्टर में","in roster"):"in roster"):""}</div>\n              <div style="font-size:11px;color:#64748b;margin-top:3px;word-break:break-all">📱 ${escHtml(mgr.mobile||mgr.phone||mgrKey)}</div>\n              <div style="font-size:11px;color:#64748b">🏢 ${escHtml(mgr.company||"—")}</div>\n            </div>\n            <div style="flex-shrink:0">${statusBadge}</div>\n          </div>\n          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px" onclick="event.stopPropagation()">\n            ${_mobileActionButtons(mgrKey,mgr.name,mgr.status)}\n            ${members.length?`<button type="button" onclick="event.stopPropagation();openAdminSetExpiryModal('${safeKey}','${safeName}',true)" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer">${expLbl}</button>`:""}\n            <button type="button" onclick="event.stopPropagation();openAdminSetPaymentModal('${safeKey}','${safeName}',true)" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(16,185,129,.45);background:rgba(16,185,129,.12);color:#059669;font-weight:800;cursor:pointer">💳 Pay until</button>\n            <button type="button" onclick="event.stopPropagation();confirmDeleteManagerWithTeam('${safeKey}','${safeName}',${members.length})" style="font-size:11px;padding:7px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.5);background:rgba(244,63,94,.14);color:#f43f5e;font-weight:800;cursor:pointer;position:relative;z-index:2">${delLbl}</button>\n          </div>\n        </div>\n        <div class="team-fold-body" style="display:none">${membersHtml}</div>\n      </div>`}).join("");uncategorised.length&&(html+=`\n      <div style="font-size:12px;font-weight:800;color:#f97316;letter-spacing:.5px;margin:18px 0 8px">\n        ❓ UNCATEGORISED <span style="color:#64748b;font-weight:600">(${uncategorised.length})</span>\n      </div>\n      <div class="card" style="margin-bottom:12px;padding:0;overflow:hidden;border-color:rgba(249,115,22,.3)">\n        ${uncategorised.map(([memKey,mem])=>`\n          <div style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">\n            <div style="flex:1;min-width:120px">\n              <div style="font-size:13px;font-weight:700;color:var(--text)">👤 ${escHtml(String(mem.name||"").replace(/</g,""))}</div>\n              <div style="font-size:11px;color:#64748b">📱 ${escHtml(mem.mobile||mem.phone||memKey)} · 🏢 ${escHtml(mem.company||"—")}</div>\n            </div>\n            ${_mobileStatusBadge(mem)}\n            ${_mobileActionButtons(memKey,mem.name,mem.status)}\n          </div>`).join("")}\n      </div>`),el.innerHTML=html})}).catch(err=>{console.error("[renderAdminTeamHierarchy]",err),el.innerHTML='<div class="empty-text" style="padding:12px;color:#f43f5e">Failed to load managers</div>'})):block.style.display="none")}
+/** Single source of truth for plan end date (Admin badge + Manager pay card). */
+function _resolvePaidUntilMs(u){
+  if(!u || typeof u !== 'object') return 0;
+  const parse = (v)=>{
+    if(!v) return 0;
+    // YYYY-MM-DD → end of that day local
+    const s = String(v).trim();
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+      const t = new Date(s+'T23:59:59').getTime();
+      return isNaN(t)?0:t;
+    }
+    const t = new Date(s).getTime();
+    return isNaN(t)?0:t;
+  };
+  const candidates = [
+    u.paymentPaidUntil, u.paidUntil, u.paymentPaidUntilDate,
+    u.validTill, u.validUntil, u.expiry, u.expiresAt
+  ].map(parse).filter(x=>x>0);
+  if(!candidates.length) return 0;
+  // Strictest = earliest end date (expired wins over stale long validTill)
+  return Math.min.apply(null, candidates);
+}
+try{ window._resolvePaidUntilMs = _resolvePaidUntilMs; }catch(e){}
+function _mobileStatusBadge(u){u=u||{};const[color,label]={approved:["#22c55e","Active"],revoked:["#f43f5e","Revoked"],pending:["#f97316","Pending"]}[u.status]||["#64748b",u.status||"—"];
 let planBit="";
 try{
   // Always prefer explicit teamSize / maxMembers on the manager record
@@ -623,21 +687,17 @@ try{
   }
 }catch(_e){}
 let extra="";
-// Single source of truth: payment paid-until; validTill only if no payment date
-let until=u.paymentPaidUntil||u.paidUntil||u.paymentPaidUntilDate||"";
-if(!until) until=u.validTill||"";
-// If both exist and differ by >2 days, always use the earlier (stricter) date
-try{
-  const a=u.paymentPaidUntil||u.paidUntil||u.paymentPaidUntilDate;
-  const b=u.validTill;
-  if(a&&b){
-    const da=new Date(a).getTime(), db=new Date(b).getTime();
-    if(!isNaN(da)&&!isNaN(db)) until=new Date(Math.min(da,db)).toISOString();
+const _untilMs = (typeof _resolvePaidUntilMs==='function') ? _resolvePaidUntilMs(u) : 0;
+if(_untilMs){
+  const daysLeft=Math.ceil((_untilMs - Date.now())/864e5);
+  if(daysLeft>=0){
+    extra=` · ${daysLeft}d left`;
+  } else {
+    // Force Expired label when paid-until / validTill already passed
+    label = 'Expired';
+    color = '#ef4444';
+    extra = '';
   }
-}catch(_u){}
-if(("approved"===u.status||!u.status||"Active"===label)&&until){
-  const daysLeft=Math.ceil((new Date(until)-new Date)/864e5);
-  extra=daysLeft>=0?` · ${daysLeft}d left`:" · Expired";
 }
 const planPrefix=planBit?`${planBit} · `:"";
 return`<span style="font-size:10px;background:${color}22;color:${color};padding:3px 7px;border-radius:5px;font-weight:700;white-space:nowrap">${planPrefix}${label}${extra}</span>`}

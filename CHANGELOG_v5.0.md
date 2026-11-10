@@ -53,3 +53,27 @@ Core Firebase schema, OTP login, Auto Schedule engine, and commercial plans are 
 - **New Manager registration**: auto-grants **Team Size 200** and **free trial days** from Admin → License settings (`settings/appLicense.freeTrialDays`)
 - Writes both `mobileUsers` and `paymentStatus` so Team badge + Pay gate match
 - `_ensureNewUserPaymentTrial` also sets planMaxMembers/teamSize **200** on first trial grant
+
+
+## v5.0.4
+- **Left Members isolation**: Manager sees only own left members (managerId match); Admin company filter is strict — no cross-manager leak
+- **Excel import**: re-activates left/resigned employees with same Emp ID; removes leftEmployees archive row
+- **Auto Schedule counts**: **date-wise** A/B/C/D/N/O grid + totals (aligned with Schedule section)
+- **Validity permanent**: Admin badge uses `paymentStatus` paid-until as single source of truth; overwrites stale `validTill` (fixes 365d vs 7d)
+
+
+## v5.0.5
+- **OTP Send stuck on "Sending…"**: concurrent-send guard; button shows "Complete security check" while captcha runs; always restores on fail/success
+- Desktop invisible reCAPTCHA timeout **8s** then visible checkbox (was 25s hang)
+- Visible captcha **render timeout 12s** + clear error if blank white box (domain/cookies)
+- Stop warming second verifier during in-flight send (blank/stuck captcha race)
+
+
+## v5.0.6
+- **Delete team OTP wrong number**: `_resolveManagerMobile` treated `+91XXXXXXXXXX` as invalid (length≠10) and fell back to support UPI **8168771239** (`CFG.contactVivek`). Now always uses last-10 of login SESSION / device phone; **never** support contact for security OTP.
+
+
+## v5.0.7
+- **SUNITA validity mismatch**: Admin showed Active 52d while Manager showed expired 29 Oct — `paymentStatus` list read was denied (only `$phone` rule), so Admin used stale `mobileUsers.validTill`. Fixed rules + per-phone paymentStatus fetch + badge uses earliest paid-until.
+- **Desktop OTP**: skip invisible captcha; show visible checkbox first (stops endless Sending…)
+- Manager profile Paid-till reads `paymentStatus/{mobile}` first
