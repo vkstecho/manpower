@@ -152,6 +152,20 @@ function _sbUpdateDayOptions(){
 }
 
 const WOFF_DOW = {SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6};
+function _sbEmpKey(emp){
+  if(!emp) return '';
+  return String(emp.id || emp.empId || emp._key || emp.empCode || emp.code || '').trim();
+}
+function _sbNormWoff(w){
+  const s = String(w||'').trim().toUpperCase();
+  if(!s) return '';
+  if(WOFF_DOW[s] != null) return s;
+  const three = s.slice(0,3);
+  if(WOFF_DOW[three] != null) return three;
+  const map = {SUNDAY:'SUN',MONDAY:'MON',TUESDAY:'TUE',WEDNESDAY:'WED',THURSDAY:'THU',FRIDAY:'FRI',SATURDAY:'SAT'};
+  return map[s] || three;
+}
+
 
 async function loadScheduleBuilder(){
   try{
@@ -317,10 +331,10 @@ async function loadScheduleBuilder(){
       const cls = val ? cellClass(val) : '';
       const isWoffDay = empWoffDow !== -1 && new Date(yr, mo-1, d).getDay() === empWoffDow;
       const leaveStyle = isLeaveDate ? 'outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5);' : '';
-      const leaveClick = isLeaveDate ? ` onclick="_confirmLeaveOverride(this,'${emp.id}',${dayIdx},'${dateStr}')"` : '';
+      const leaveClick = isLeaveDate ? ` onclick="_confirmLeaveOverride(this,'${_sbEmpKey(emp)}',${dayIdx},'${dateStr}')"` : '';
       return `<td style="padding:0;margin:0;border:0;border-right:1px solid rgba(148,163,184,.06);width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
         <div class="shc ${cls}" style="width:100%;height:28px;font-size:12px;font-weight:800;cursor:pointer;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
-          data-empid="${emp.id}" data-day="${dayIdx}" data-row="${rowIdx}" data-val="${val}" data-isleave="${isLeaveDate?'1':'0'}">
+          data-empid="${_sbEmpKey(emp)}" data-day="${dayIdx}" data-row="${rowIdx}" data-val="${val}" data-isleave="${isLeaveDate?'1':'0'}">
           ${val ? cellDisp(val) : '—'}
         </div>
       </td>`;
@@ -932,78 +946,25 @@ function clearScheduleBuilderGrid(){
  */
 function _empIsGeneralOnly(emp, schedule, dayFrom, dayTo, yr, mo, configShiftCodes){
   if(!emp) return false;
+  // Only explicit manager / fixed-G workers stay on General Shift for Auto Generate.
+  // Do NOT infer G-only from sparse history — that locked whole teams onto G.
   try{
-    if(emp.sec === 'MGR'
-      || emp.isTeamManager === true
-      || String(emp.accessLevel||'').toLowerCase()==='manager'
-      || String(emp.role||'').toLowerCase()==='manager'
-      || (typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp))){
-      return true;
-    }
+    if(emp.sec === 'MGR' || emp.isTeamManager === true) return true;
+    if(String(emp.accessLevel||'').toLowerCase()==='manager') return true;
+    if(String(emp.role||'').toLowerCase()==='manager') return true;
+    if(typeof isManagerSelfRecord==='function' && isManagerSelfRecord(emp)) return true;
   }catch(e){}
-  // Explicit field on employee (if set)
   try{
-    const fixed = String(emp.fixedShift || emp.defaultShift || emp.shiftType || emp.shift || '').trim().toUpperCase();
+    const fixed = String(emp.fixedShift || emp.defaultShift || emp.shiftType || '').trim().toUpperCase();
+    // NOTE: do not use emp.shift — that often holds a single day code and is not a fixed assignment
     if(fixed === 'G' || fixed === 'GENERAL' || fixed === 'GEN') return true;
   }catch(e){}
-
-  const rot = new Set((configShiftCodes || ['D','N']).map(String));
-  let gCount = 0, rotCount = 0;
-
-  // 1) Current month schedule array (builder / loaded)
-  if(Array.isArray(schedule)){
-    const from = Math.max(0, (dayFrom||1)-1);
-    const to = Math.min(schedule.length-1, (dayTo||schedule.length)-1);
-    for(let i = from; i <= to; i++){
-      const sh = String(schedule[i]||'').trim().toUpperCase();
-      if(!sh || sh === '—' || sh === 'O' || sh === 'L' || sh === 'H' || sh === 'AB' || sh === 'C/O' || sh === 'CO' || sh === 'HLF' || sh === 'OD') continue;
-      if(sh === 'G' || sh === 'GP') gCount++;
-      else if(rot.has(sh) || rot.has(schedule[i])) rotCount++;
-    }
-  }
-
-  // 2) Saved schedules: this month + previous month
   try{
-    const fb = (typeof getSchedules==='function' ? getSchedules() : {}) || {};
-    const keys = [];
-    if(emp.id) keys.push(emp.id);
-    if(emp.empId) keys.push(String(emp.empId).trim());
-    const months = [
-      yr+'_'+String(mo).padStart(2,'0'),
-      (mo===1 ? (yr-1)+'_12' : yr+'_'+String(mo-1).padStart(2,'0'))
-    ];
-    months.forEach(mk=>{
-      const sched = fb[mk];
-      if(!sched) return;
-      let row = null;
-      for(const k of keys){ if(k && sched[k] != null){ row = sched[k]; break; } }
-      if(!row) return;
-      const len = Array.isArray(row) ? row.length : 31;
-      for(let i=0;i<len;i++){
-        const sh = String((Array.isArray(row)?row[i]:(row[i]!=null?row[i]:row[String(i)]))||'').trim().toUpperCase();
-        if(!sh || sh==='—' || sh==='O' || sh==='L' || sh==='H' || sh==='AB' || sh==='C/O' || sh==='CO') continue;
-        if(sh==='G' || sh==='GP') gCount++;
-        else if(rot.has(sh)) rotCount++;
-      }
-    });
+    const des = String(emp.designation||emp.desig||'').toLowerCase();
+    if(/\bgeneral\s*shift\b/.test(des) || des === 'general' || des === 'g shift') return true;
   }catch(e){}
-
-  // Pure G worker: has G and no D/N/A/B/C history
-  if(gCount > 0 && rotCount === 0) return true;
-
-  // Last work shift before range was G (include G in the search set)
-  try{
-    const codesWithG = ['G'].concat(configShiftCodes || ['D','N']);
-    const lastInfo = findLastWorkShiftBeforeDate(emp, yr, mo, dayFrom||1, codesWithG);
-    if(lastInfo && String(lastInfo.shift||'').toUpperCase() === 'G'){
-      // Only lock to G if they were not also on rotation recently
-      if(rotCount === 0) return true;
-    }
-  }catch(e){}
-
   return false;
 }
-
 
 /** Primary filter: section | designation | machine | responsibility */
 function _sbSetPrimaryFilter(prim){
@@ -1267,7 +1228,7 @@ function autoGenSchedule(monthKey){
   if(!sbTbody){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
 
   const firstEmp = emps[0];
-  const testCells = firstEmp ? sbTbody.querySelectorAll(`[data-empid="${firstEmp.id}"]`) : [];
+  const testCells = firstEmp ? sbTbody.querySelectorAll(`[data-empid="${_sbEmpKey(firstEmp)}"]`) : [];
   if(!testCells.length){ toast(L('⚠️ पहले Schedule खोलें','⚠️ Open schedule first')); return; }
 
   // Full month by default (Auto Generate fills every day to month-end).
@@ -1325,30 +1286,33 @@ function autoGenSchedule(monthKey){
   };
 
   // Active rotation codes from Shift Settings (e.g. D+N or A+B+C)
-  const configShiftCodes = (typeof getActiveRotationCodes==='function') ? getActiveRotationCodes() : ['D','N'];
-  // Per-manager Auto rotation mode (Shift Settings):
-  //  sequential = A→B→C or A→B→C→D (natural tick order)
-  //  plant      = A→C→B (3) or A→D→C→B (4) — classic plant interleave (default)
+  // Work codes only (never G) — tick-box active shifts + saved rotation sequence
+  let configShiftCodes = (typeof getActiveRotationCodes==='function') ? getActiveRotationCodes() : ['D','N'];
+  configShiftCodes = (configShiftCodes || []).map(x=>String(x).toUpperCase()).filter(c => ['D','N','A','B','C'].includes(c));
   const rotationOrder = (function(codes){
-    const c = (codes || []).slice().map(x=>String(x).toUpperCase());
+    let c = (codes || []).slice().map(x=>String(x).toUpperCase()).filter(x => ['D','N','A','B','C'].includes(x));
     try{
       const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
-      // Custom sequence from Shift Settings boxes (e.g. A,D,B,C)
-      let seq = Array.isArray(cfg.autoRotationSequence) ? cfg.autoRotationSequence.map(x=>String(x).toUpperCase().trim()).filter(Boolean) : null;
+      // Custom sequence from Shift Settings (e.g. A → C → B) — prefer this always
+      let seq = Array.isArray(cfg.autoRotationSequence)
+        ? cfg.autoRotationSequence.map(x=>String(x).toUpperCase().trim()).filter(x => ['D','N','A','B','C'].includes(x))
+        : null;
       if(seq && seq.length){
-        // Keep only codes that are active, preserve manager order
+        // Prefer sequence order; if ticks empty/stale still use sequence
         const active = new Set(c);
-        const filtered = seq.filter(x=>active.has(x));
+        const filtered = active.size ? seq.filter(x=>active.has(x)) : seq;
         if(filtered.length) return filtered;
+        return seq; // sequence wins over empty filter
       }
+      if(!c.length) c = ['A','B','C'];
       const m = String(cfg.autoRotationMode || cfg.rotationMode || 'plant').toLowerCase();
       if(m === 'sequential' || m === 'abc' || m === 'order' || c.length <= 2) return c;
       if(m === 'custom') return c;
-      // plant: 1st → last → … → 2nd
+      // plant: 1st → last → … → 2nd  (A,B,C → A,C,B)
       const out = [c[0]];
       for(let i = c.length - 1; i >= 1; i--) out.push(c[i]);
       return out;
-    }catch(e){ return c; }
+    }catch(e){ return c.length ? c : ['A','B','C']; }
   })(configShiftCodes);
   if(!rotationOrder.length){ toast(L('⚠️ Auto के लिए कम से कम 1 shift tick करें (D/N या A/B/C)','⚠️ Tick at least 1 shift for Auto (D/N or A/B/C)')); return; }
   if(!emps || !emps.length){
@@ -1377,11 +1341,12 @@ function autoGenSchedule(monthKey){
   let preserved = 0;
 
   emps.forEach(emp => {
-    const cells = sbTbody.querySelectorAll(`[data-empid="${emp.id}"]`);
+    const cells = sbTbody.querySelectorAll(`[data-empid="${_sbEmpKey(emp)}"]`);
     if(!cells.length) return;
     const cellsArr = Array.from(cells).sort((a,b)=>(+a.dataset.day)-(+b.dataset.day));
 
-    const woffDow = (emp.woff && WOFF_DOW[emp.woff] !== undefined) ? WOFF_DOW[emp.woff] : -1;
+    const _woffKey = (typeof _sbNormWoff==='function'?_sbNormWoff(emp.woff):String(emp.woff||'').toUpperCase().slice(0,3));
+    const woffDow = (_woffKey && WOFF_DOW[_woffKey] !== undefined) ? WOFF_DOW[_woffKey] : -1;
     const isMgrEmp = emp.sec === 'MGR'
       || emp.isTeamManager === true
       || String(emp.accessLevel||'').toLowerCase()==='manager'
@@ -1392,7 +1357,10 @@ function autoGenSchedule(monthKey){
     // Full-month schedule array (index 0 = day 1)
     const schedule = Array.from({length: daysInMonth}, (_, i) => {
       const cell = cellsArr.find(c => +c.dataset.day === i);
-      return cell ? (cell.dataset.val || '') : '';
+      if(!cell) return '';
+      const v = String(cell.dataset.val || '').trim();
+      if(!v || v === '—' || v === '-') return '';
+      return v;
     });
 
     // General-only (Manager OR person whose schedule is G): G on work days, O on weekly off
@@ -1413,7 +1381,7 @@ function autoGenSchedule(monthKey){
         }
         schedule[d-1] = (woffDow !== -1 && dow === woffDow) ? 'O' : 'G';
       }
-      _applyScheduleToGrid(emp.id, schedule, cells, empLeaves, yr, mo);
+      _applyScheduleToGrid(_sbEmpKey(emp), schedule, cells, empLeaves, yr, mo);
       generated++;
       return;
     }
@@ -1516,7 +1484,7 @@ function autoGenSchedule(monthKey){
       schedule[d-1] = currentBlockShift;
     }
 
-    _applyScheduleToGrid(emp.id, schedule, cells, empLeaves, yr, mo);
+    _applyScheduleToGrid(_sbEmpKey(emp), schedule, cells, empLeaves, yr, mo);
     generated++;
   });
 
