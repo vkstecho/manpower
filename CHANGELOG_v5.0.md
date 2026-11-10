@@ -77,3 +77,7 @@ Core Firebase schema, OTP login, Auto Schedule engine, and commercial plans are 
 - **SUNITA validity mismatch**: Admin showed Active 52d while Manager showed expired 29 Oct — `paymentStatus` list read was denied (only `$phone` rule), so Admin used stale `mobileUsers.validTill`. Fixed rules + per-phone paymentStatus fetch + badge uses earliest paid-until.
 - **Desktop OTP**: skip invisible captcha; show visible checkbox first (stops endless Sending…)
 - Manager profile Paid-till reads `paymentStatus/{mobile}` first
+
+
+## v5.0.8
+- **Desktop OTP auth/argument-error**: reCAPTCHA host had HTML placeholder (Firebase requires empty div) and `signInWithPhoneNumber` ran before user ticked the box. Fixed: empty container, wait for captcha callback, then send OTP.

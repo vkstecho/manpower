@@ -1045,6 +1045,11 @@ async function _fbMakeRecaptcha(containerId, storeKey, size){
   const wantSize = size || 'invisible';
   const isVisible = (wantSize === 'normal');
   _fbEnsureRecaptchaHost(containerId, isVisible);
+  // Firebase requires the container element to be EMPTY
+  try{
+    const el = document.getElementById(containerId);
+    if(el) el.innerHTML = '';
+  }catch(eClr){}
   const params = {
     size: wantSize,
     callback: ()=>{},
@@ -1227,7 +1232,14 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         : '🔐 Security check — tick the box, then wait for OTP';
       bar.innerHTML = '<div class="rc-bar-title" style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
 
-      // Dedicated host only for this bar (unique id)
+      // Loading label OUTSIDE the Firebase host (container MUST be empty)
+      var loadLbl = document.createElement('div');
+      loadLbl.id = 'rcDesktopBarLoad';
+      loadLbl.style.cssText = 'color:#94a3b8;font-size:12px;text-align:center;font-weight:600;min-height:20px';
+      loadLbl.textContent = 'Loading security check…';
+      bar.appendChild(loadLbl);
+
+      // Dedicated EMPTY host only for this bar (Firebase RecaptchaVerifier requires empty div)
       var host = document.createElement('div');
       host.id = barCid;
       host.className = 'rc-visible';
@@ -1239,17 +1251,32 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         'overflow:visible','flex-shrink:0','box-sizing:border-box',
         'position:relative','left:auto','bottom:auto','transform:none','z-index:5'
       ].join(';');
-      // Placeholder so user sees a white box while Google script loads
-      host.innerHTML = '<div style="color:#64748b;font-size:12px;text-align:center;line-height:70px;font-weight:600">Loading security check…</div>';
+      // IMPORTANT: do NOT put placeholder HTML inside host — causes auth/argument-error
       bar.appendChild(host);
 
       // Create verifier directly on bar host — do NOT call _fbEnsureRecaptchaHost
-      // (that path prefers #recaptcha-inline and was emptying this bar)
       _fbClearRecaptcha(barKey);
+      var _captchaSolved = false;
+      var _captchaResolve = null;
+      var _captchaPromise = new Promise(function(res){ _captchaResolve = res; });
       var params = {
         size: 'normal',
-        callback: function(){},
-        'expired-callback': function(){ try{ window[barKey]=null; }catch(e){} }
+        callback: function(){
+          _captchaSolved = true;
+          try{ if(_captchaResolve) _captchaResolve(true); }catch(e){}
+          try{
+            var lb = document.getElementById('rcDesktopBarLoad');
+            if(lb){ lb.style.color='#22c55e'; lb.textContent = '✓ Verified — sending OTP…'; }
+          }catch(e2){}
+        },
+        'expired-callback': function(){
+          _captchaSolved = false;
+          try{ window[barKey]=null; }catch(e){}
+          try{
+            var lb = document.getElementById('rcDesktopBarLoad');
+            if(lb){ lb.style.color='#fbbf24'; lb.textContent = 'Expired — tick the box again'; }
+          }catch(e3){}
+        }
       };
       if(!window._fbRecaptchaVerifierClass){
         throw new Error('reCAPTCHA not ready — reload page');
@@ -1260,17 +1287,20 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         if(typeof verifier.render === 'function'){
           await Promise.race([
             verifier.render(),
-            new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('reCAPTCHA render timeout')); }, 12000); })
+            new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('reCAPTCHA render timeout')); }, 15000); })
           ]);
         }
+        try{
+          var lbOk = document.getElementById('rcDesktopBarLoad');
+          if(lbOk){ lbOk.textContent = 'Tick “I’m not a robot”, then wait for OTP'; lbOk.style.color='#fbbf24'; }
+        }catch(eL){}
       }catch(eRender){
         console.warn('[recaptcha desktop bar render]', eRender);
-        // Ensure user is not stuck with blank white box
         try{
           var hFail = document.getElementById(barCid);
-          if(hFail && !hFail.querySelector('iframe')){
-            hFail.innerHTML = '<div style="color:#b91c1c;font-size:12px;text-align:center;padding:12px;font-weight:700">Security check failed to load.<br>Refresh page or allow google.com cookies, then try again.</div>';
-          }
+          var lbF = document.getElementById('rcDesktopBarLoad');
+          if(lbF) lbF.innerHTML = '<span style="color:#f87171">Security check failed to load. Refresh page, allow google.com cookies, confirm domain in Firebase → Authentication → Settings → Authorized domains.</span>';
+          if(hFail) hFail.innerHTML = '';
         }catch(eH){}
         throw Object.assign(new Error('reCAPTCHA did not load — refresh page / check authorized domains'), { code: 'auth/captcha-render-failed' });
       }
@@ -1322,10 +1352,23 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       setTimeout(_forceRcVisibleInBar, 1200);
       setTimeout(_forceRcVisibleInBar, 2500);
 
+      // Wait until user ticks the box (Firebase visible captcha) — prevents auth/argument-error
+      if(!_captchaSolved){
+        try{
+          await Promise.race([
+            _captchaPromise,
+            new Promise(function(_, rej){
+              setTimeout(function(){ rej(Object.assign(new Error('Tick the security checkbox at the bottom'), {code:'auth/captcha-timeout'})); }, 90000);
+            })
+          ]);
+        }catch(eWait){
+          throw eWait;
+        }
+      }
       const confVis = await withTimeout(
         window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier),
-        90000,
-        'Tick the checkbox in the box at the bottom of the screen'
+        30000,
+        'Sending OTP…'
       );
       hideDesktopRc();
       try{ _fbClearRecaptcha(barKey); }catch(e){}
