@@ -2048,7 +2048,10 @@ window.__sectionsReady = (async function loadSections(){
 <script src="js/auth/app-login-device.js?v=400020"></script>
 <script src="js/auth/app-session-auth.js?v=400020"></script>
 <script src="js/session/app-session-nav.js?v=400020"></script>
-<script src="js/session/app-session-settings.js?v=5011"></script>
+<script src="js/session/app-session-settings-shift.js?v=5100"></script>
+<script src="js/session/app-session-settings-profile.js?v=5100"></script>
+<script src="js/session/app-session-settings-security.js?v=5100"></script>
+<script src="js/session/app-session-settings.js?v=5100"></script>
 <script src="js/session/app-account-backup.js?v=500001"></script>
 <script src="js/session/app-session-home.js?v=400020"></script>
 <script src="js/session/app-session-payment.js?v=5012"></script>
@@ -2063,18 +2066,21 @@ window.__sectionsReady = (async function loadSections(){
 <script>
 (function(){
   var heavy = [
-    'js/i18n/i18n_ml.js?v=400020',
-    'js/schedule/app-schedule.js?v=400031',
-    'js/team/app-team.js?v=5011',
-    'js/team/app-team-import-core.js?v=400031',
-    'js/team/app-team-emp-forms.js?v=5011',
-    'js/team/app-team-excel-ops.js?v=400020',
-    'js/schedule/app-sched-builder.js?v=5012',
-    'js/team/app-team-import.js?v=400020',
-    'js/schedule/sched-offline-queue.js?v=400020',
-    'js/schedule/sched-clipboard.js?v=400020',
-    'js/schedule/sched-undo.js?v=400020',
-    'js/schedule/sched-cell-keys.js?v=400020'
+    'js/i18n/i18n_ml.js?v=5100',
+    'js/i18n/i18n_dict.js?v=5100',
+    'js/schedule/app-schedule.js?v=5100',
+    'js/team/app-team.js?v=5100',
+    'js/team/app-team-import-core.js?v=5100',
+    'js/team/app-team-emp-forms.js?v=5100',
+    'js/team/app-team-excel-ops.js?v=5100',
+    'js/schedule/sched-shift-edit.js?v=5100',
+    'js/schedule/app-sched-builder.js?v=5100',
+    'js/schedule/sched-auto-coverage.js?v=5100',
+    'js/team/app-team-import.js?v=5100',
+    'js/schedule/sched-offline-queue.js?v=5100',
+    'js/schedule/sched-clipboard.js?v=5100',
+    'js/schedule/sched-undo.js?v=5100',
+    'js/schedule/sched-cell-keys.js?v=5100'
   ];
   function loadHeavy(){
     if(window.__mpHeavyLoaded) return;

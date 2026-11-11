@@ -1,4 +1,4 @@
-/* Man Power — Service Worker v5.0.15
+/* Man Power — Service Worker v5.1.0
    Strategies:
    - Precache app shell + JS/CSS/icons/partials on install
    - HTML / navigation: network-first → cache fallback (fresh when online)
@@ -6,7 +6,7 @@
    - Firebase / Google / external APIs: never intercept (live data)
    - Keeps mp-integrity cache (session token) across version bumps
 */
-const SW_VERSION = '5.0.15';
+const SW_VERSION = '5.1.0';
 const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '');
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 
@@ -23,6 +23,9 @@ const PRECACHE = [
   './js/auth/app-login-device.js',
   './js/auth/app-session-auth.js',
   './js/session/app-session-nav.js',
+  './js/session/app-session-settings-shift.js',
+  './js/session/app-session-settings-profile.js',
+  './js/session/app-session-settings-security.js',
   './js/session/app-session-settings.js',
   './js/session/app-account-backup.js',
   './js/session/app-session-home.js',
@@ -33,7 +36,10 @@ const PRECACHE = [
   './js/team/app-team-import-core.js',
   './js/team/app-team-emp-forms.js',
   './js/team/app-team-excel-ops.js',
+  './js/schedule/sched-shift-edit.js',
+  './js/i18n/i18n_dict.js',
   './js/schedule/app-sched-builder.js',
+  './js/schedule/sched-auto-coverage.js',
   './js/team/app-team-import.js',
   './js/team/app-team-print-learn.js',
   './js/schedule/sched-offline-queue.js',

@@ -1835,7 +1835,7 @@ async function submitNewEmpReg(code){
   if(!phone||phone.length<10){ if(errEl) errEl.textContent='❌ 10 digit mobile number डालें'; return; }
   if(!window._nrSelfieData){ if(errEl) errEl.textContent='❌ Selfie लें'; return; }
   const btn=document.getElementById('nrBtn');
-  if(btn){btn.innerHTML='⏳ Upload हो रहा है...';btn.style.opacity='0.7';btn.style.pointerEvents='none';}
+  if(btn){btn.innerHTML=(typeof L==='function'?L('⏳ अपलोड हो रहा है...','⏳ Uploading...'):'⏳ Uploading...');btn.style.opacity='0.7';btn.style.pointerEvents='none';}
   if(errEl) errEl.textContent='';
   try{
     // Upload selfie — non-blocking if storage not enabled

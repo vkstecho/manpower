@@ -726,7 +726,7 @@ async function _verifyOTP(){
   if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
   if(!_loginConfirmResult){ toast(L('⚠️ OTP पहले भेजें','⚠️ Send OTP first')); return; }
   try{
-    toast(L('⏳ Verify हो रहा है...','⏳ Verifying...'));
+    toast(L('⏳ सत्यापित हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
     toast('✅ Mobile Verified!');
     try{
@@ -1243,7 +1243,7 @@ function _watchApprovalStatus(mobile){
         }
         return true;
       }
-      toast(L('✅ Approve हो गया! Login हो रहा है...','✅ Approved! Logging in...'));
+      toast(L('✅ स्वीकृत! लॉगिन हो रहा है...','✅ Approved! Logging in...'));
       _launchAsNewUser(userData);
       return true;
     }else if(userData.status==='rejected'){
