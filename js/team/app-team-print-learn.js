@@ -171,16 +171,69 @@ async function _execPrint(){
     });
   });
 
-  // Summary rows D/N/L + Total Manpower (filtered roster)
+  // Summary rows — mirror on-screen schedule counts (active work codes + status with counts)
   const printedEmps=PRINT_GROUPS.flatMap(g=>allEmps.filter(g.filter));
-  ['D','N','L'].forEach(s=>{
-    const lbRow=s==='D'?'☀️ Day':s==='N'?'🌙 Night':'🏖️ Leave';
-    const cl=s==='D'?'#b45309':s==='N'?'#3730a3':'#be123c';
-    tbodyHtml+=`<tr style="border-top:2px solid #334155">
-      <td style="font-size:9px;font-weight:800;color:${cl};padding:3px 6px;background:#f8fafc;border-right:2px solid #334155">${lbRow}</td>
-      ${dates.map(d=>{
-        const cnt=printedEmps.filter(e=>{const sh=getShift(e,d);return s==='L'?(sh==='L'||sh==='Ab'):sh===s;}).length;
-        return `<td style="text-align:center;font-weight:900;font-size:10px;color:${cl};border:1px solid #e2e8f0">${cnt||'—'}</td>`;
+  const _pColor = {
+    D:{cl:'#b45309', icon:'☀️', lab:'Day'},
+    N:{cl:'#3730a3', icon:'🌙', lab:'Night'},
+    A:{cl:'#15803d', icon:'🅰️', lab:'A Shift'},
+    B:{cl:'#be185d', icon:'🅱️', lab:'B Shift'},
+    C:{cl:'#0e7490', icon:'©️', lab:'C Shift'},
+    G:{cl:'#1d4ed8', icon:'🔵', lab:'General Shift'},
+    O:{cl:'#64748b', icon:'😴', lab:'Weekly Off'},
+    L:{cl:'#be123c', icon:'🏖️', lab:'Leave'},
+    'C/O':{cl:'#7c3aed', icon:'♻️', lab:'Comp Off'},
+    H:{cl:'#c2410c', icon:'🎉', lab:'Holiday'},
+    OD:{cl:'#0d9488', icon:'🏢', lab:'Other Dept'},
+    GP:{cl:'#6d28d9', icon:'🛂', lab:'Gate Pass'},
+    HLF:{cl:'#c2410c', icon:'½', lab:'Half Day'},
+    Ab:{cl:'#991b1b', icon:'🚫', lab:'Absent'}
+  };
+  // Prefer live shift config order; always include G/O/L when present in grid
+  let _pCodes = [];
+  try{
+    const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+    const fromCfg = (cfg.shifts||[]).filter(s=>s && s.active!==false).map(s=>String(s.code||'').toUpperCase()).filter(Boolean);
+    _pCodes = fromCfg.length ? fromCfg.slice() : ['D','N','G','A','B','C'];
+  }catch(e){ _pCodes = ['D','N','G','A','B','C']; }
+  // Ensure status codes checked
+  ['O','L','G','C/O','H','OD','GP','HLF','Ab'].forEach(c=>{ if(_pCodes.indexOf(c)<0) _pCodes.push(c); });
+  // De-dupe
+  _pCodes = _pCodes.filter(function(c,i,a){ return a.indexOf(c)===i; });
+
+  function _printShiftMatch(sh, code){
+    if(!sh) return false;
+    const up = String(sh).toUpperCase();
+    const c = String(code).toUpperCase();
+    if(c==='L') return up==='L' || up==='AB';
+    if(c==='C/O' || c==='CO') return up==='C/O' || up==='CO';
+    if(typeof shiftCountsToward==='function'){
+      try{ return shiftCountsToward(sh, code) > 0; }catch(e){}
+    }
+    return up === c;
+  }
+
+  let _pFirstSum = true;
+  _pCodes.forEach(function(code){
+    const dayCounts = dates.map(function(d){
+      return printedEmps.filter(function(e){ return _printShiftMatch(getShift(e,d), code); }).length;
+    });
+    if(!dayCounts.some(function(n){ return n>0; })) return; // skip empty rows (same as on-screen)
+    const meta = _pColor[code] || _pColor[String(code).toUpperCase()] || {cl:'#475569', icon:'•', lab:code};
+    // Prefer config label for work codes
+    let lab = meta.lab;
+    try{
+      const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
+      const sh = (cfg.shifts||[]).find(s=>String(s.code||'').toUpperCase()===String(code).toUpperCase());
+      if(sh && sh.label && String(sh.label).trim()) lab = String(sh.label).trim();
+      if(String(code).toUpperCase()==='G' && (!lab || lab==='G' || /^general$/i.test(lab))) lab = 'General Shift';
+    }catch(e){}
+    const border = _pFirstSum ? 'border-top:2px solid #334155;' : '';
+    _pFirstSum = false;
+    tbodyHtml += `<tr style="${border}">
+      <td style="font-size:9px;font-weight:800;color:${meta.cl};padding:3px 6px;background:#f8fafc;border-right:2px solid #334155">${meta.icon} ${lab}</td>
+      ${dayCounts.map(function(cnt){
+        return `<td style="text-align:center;font-weight:900;font-size:10px;color:${meta.cl};border:1px solid #e2e8f0">${cnt||'—'}</td>`;
       }).join('')}
     </tr>`;
   });
