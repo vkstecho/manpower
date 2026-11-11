@@ -101,3 +101,23 @@ Largest files: `js/team/app-team-excel-ops.js`, `js/session/app-session-settings
 - **App login (domain root):** `index.html`
 - **Marketing tour:** `landing/index.html` → URL `/landing/`
 - CTAs on marketing page point to `../` (app)
+
+
+---
+
+## 6. v5.1.0 module split (do not load whole files)
+
+| Concern | File(s) |
+|---------|---------|
+| Excel upload / holiday list (shrunk) | `js/team/app-team-excel-ops.js` |
+| i18n dictionary + toast | `js/i18n/i18n_dict.js` |
+| Pending save bar, leave, C-Off, OD, WA | `js/schedule/sched-shift-edit.js` |
+| Schedule builder grid UI | `js/schedule/app-sched-builder.js` |
+| Auto Schedule + coverage | `js/schedule/sched-auto-coverage.js` |
+| Shift settings modal | `js/session/app-session-settings-shift.js` |
+| Profile / leave quota / holidays | `js/session/app-session-settings-profile.js` |
+| Security + delete account | `js/session/app-session-settings-security.js` |
+| Settings core (company / helpers) | `js/session/app-session-settings.js` |
+| Smoke tests | `tests/smoke.js` (`node tests/smoke.js`) |
+
+**Auth rules (v5.1.0):** `database.rules.json` no longer hard-codes admin phone. Prefer `auth.token.admin` / `auth.token.manager` + `admins/{uid}` / `managers/{uid}`. Bootstrap: call Cloud Function `syncMyClaims` after OTP so JWT carries claims.
