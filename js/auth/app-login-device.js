@@ -1146,12 +1146,15 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     throw new Error('Invalid phone number');
   }
 
-  // Fast signOut of anonymous only (cap 800ms) — don't block OTP
+  // Fast signOut of anonymous / mismatched phone (cap 800ms) — don't block OTP.
+  // Skip when caller opts out (e.g. Admin deleted-backup OTP) so SESSION stays alive.
   try{
-    const cu = window._fbAuth && window._fbAuth.currentUser;
-    if(cu && (cu.isAnonymous || (cu.phoneNumber && (cu.phoneNumber||'').replace(/\D/g,'').slice(-10) !== phone.replace(/\D/g,'').slice(-10)))){
-      if(window._fbSignOut){
-        await Promise.race([window._fbSignOut(), new Promise(r=>setTimeout(r, 800))]);
+    if(!window._mpSkipOtpSignOut){
+      const cu = window._fbAuth && window._fbAuth.currentUser;
+      if(cu && (cu.isAnonymous || (cu.phoneNumber && (cu.phoneNumber||'').replace(/\D/g,'').slice(-10) !== phone.replace(/\D/g,'').slice(-10)))){
+        if(window._fbSignOut){
+          await Promise.race([window._fbSignOut(), new Promise(r=>setTimeout(r, 800))]);
+        }
       }
     }
   }catch(e){ console.warn('[otp] signOut before phone', e); }

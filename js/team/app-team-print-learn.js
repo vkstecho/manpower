@@ -215,6 +215,8 @@ async function _execPrint(){
   </span>`).join('');
 
   // ── Build printable div for html2canvas JPEG download ──
+  // Embed logo as data-URL so html2canvas always captures VKS Tech mark (no path/CORS miss)
+  const _vksLogoSrc = (await _loadVksLogoDataUrl()) || 'assets/vkslogo512.png';
   const imgWidth = orientation === 'landscape' ? 1400 : 900;
 
   const printDiv = document.createElement('div');
@@ -224,7 +226,7 @@ async function _execPrint(){
   printDiv.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-bottom:10px;border-bottom:3px solid #1e293b">
       <div style="display:flex;align-items:center;gap:12px">
-        <img src="vkslogo512.png" crossorigin="anonymous" alt="VKS Tech" style="width:52px;height:52px;border-radius:12px;object-fit:contain;background:#fff;border:1px solid #e2e8f0;padding:2px" onerror="this.style.display='none'"/>
+        <img src="${_vksLogoSrc}" crossorigin="anonymous" alt="VKS Tech" style="width:56px;height:56px;border-radius:12px;object-fit:contain;background:#fff;border:1.5px solid #e2e8f0;padding:3px;box-shadow:0 2px 8px rgba(15,23,42,.12)" onerror="this.onerror=null;this.src='assets/vkslogo512.png'"/>
         <div>
           <div style="font-size:18px;font-weight:900;color:#1e293b;line-height:1.15;letter-spacing:0.2px">VKS Tech — Technology is power</div>
           <div style="font-size:10px;color:#64748b;font-weight:600">vkstech.com · Made by VKS Tech</div>
@@ -249,7 +251,7 @@ async function _execPrint(){
     </table>
     <div style="display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:8px;padding-top:6px;border-top:2px solid #e2e8f0">${legendHtml}</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:10px;color:#64748b;font-weight:600">
-      <img src="vkslogo512.png" crossorigin="anonymous" alt="VKS Tech" style="width:16px;height:16px;border-radius:4px;object-fit:contain" onerror="this.style.display='none'"/>
+      <img src="${_vksLogoSrc}" crossorigin="anonymous" alt="VKS Tech" style="width:18px;height:18px;border-radius:4px;object-fit:contain" onerror="this.onerror=null;this.src='assets/vkslogo512.png'"/>
       <span>Made by <b style="color:#1e293b">VKS Tech</b> · vkstech.com</span>
     </div>`;
 
@@ -294,17 +296,28 @@ async function _execPrint(){
 // ════════════════════════════════════════
 /** Load logo as data-URL for Excel branding (same asset as print). */
 async function _loadVksLogoDataUrl(){
-  try{
-    const res = await fetch('vkslogo512.png', { cache: 'force-cache' });
-    if(!res.ok) return null;
-    const blob = await res.blob();
-    return await new Promise((resolve)=>{
-      const fr = new FileReader();
-      fr.onload = ()=> resolve(fr.result);
-      fr.onerror = ()=> resolve(null);
-      fr.readAsDataURL(blob);
-    });
-  }catch(e){ return null; }
+  // Prefer assets/ path; fall back to root for older deploys
+  const candidates = [
+    'assets/vkslogo512.png',
+    './assets/vkslogo512.png',
+    'vkslogo512.png',
+    './vkslogo512.png'
+  ];
+  for(const url of candidates){
+    try{
+      const res = await fetch(url, { cache: 'force-cache' });
+      if(!res.ok) continue;
+      const blob = await res.blob();
+      const dataUrl = await new Promise((resolve)=>{
+        const fr = new FileReader();
+        fr.onload = ()=> resolve(fr.result);
+        fr.onerror = ()=> resolve(null);
+        fr.readAsDataURL(blob);
+      });
+      if(dataUrl) return dataUrl;
+    }catch(e){}
+  }
+  return null;
 }
 
 /**
