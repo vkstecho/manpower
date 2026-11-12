@@ -399,12 +399,12 @@ function openExtendAccessModal(){
   const defaultDate = new Date(Date.now()+365*86400000).toISOString().slice(0,10);
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">⏳ Access Extend / Expiry</div>
-  <div class="field"><label>कर्मचारी</label>
+  <div class="field"><label>${typeof L==='function'?L('कर्मचारी','Employee'):'Employee'}</label>
     <select class="inp-field" id="ext_emp">${empOptions}</select></div>
   <div class="field"><label>Exact expiry date</label>
     <input type="date" class="inp-field" id="ext_date" value="${defaultDate}">
   </div>
-  <div class="field"><label>या कितने दिन?</label>
+  <div class="field"><label>${typeof L==='function'?L('या कितने दिन?','Or how many days?'):'Or how many days?'}</label>
     <select class="inp-field" id="ext_days" onchange="(function(s){var d=new Date();d.setDate(d.getDate()+parseInt(s.value||365,10));var el=document.getElementById('ext_date');if(el)el.value=d.toISOString().slice(0,10);})(this)">
       <option value="365" selected>${L('365 दिन (1 साल) — Standard','365 days (1 year) — Standard')}</option>
       <option value="180">${L('180 दिन (6 महीने)','180 days (6 months)')}</option>

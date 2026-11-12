@@ -440,7 +440,7 @@ async function saveAllShiftChanges(opts){
         }
         errEl.style.cssText = 'background:rgba(244,63,94,.18);border:1.5px solid #f43f5e;border-radius:10px;padding:10px 12px;margin-bottom:10px;color:#fecdd3;font-size:12px;font-weight:800;line-height:1.45';
         if(isPerm){
-          errEl.innerHTML = '⛔ <b>'+friendlyFbError({message:'PERMISSION_DENIED'})+'</b><br>Firebase में anonymous session है। <b>Logout की ज़रूरत नहीं</b> — नीचे से Phone verify करें, फिर Save।'
+          errEl.innerHTML = '⛔ <b>'+friendlyFbError({message:'PERMISSION_DENIED'})+'</b><br>'+ (typeof L==='function'?L('Firebase में anonymous session है। Logout की ज़रूरत नहीं — Phone verify करें, फिर Save।','Firebase has an anonymous session. No logout needed — verify phone, then Save.'):'Firebase has an anonymous session. No logout needed — verify phone, then Save.') +''
             + '<br><button type="button" onclick="_retrySaveAfterReauth()" style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#f97316;color:#fff;font-weight:900;cursor:pointer">🔐 Phone verify &amp; retry Save</button>';
         } else {
           errEl.innerHTML = '⛔ Save error: '+String(msg).replace(/</g,'&lt;');
@@ -721,12 +721,12 @@ function _sendWASequential(queue, index){
       <button id="_waSendBtn"
         style="width:100%;padding:16px;border-radius:13px;border:none;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(37,211,102,.3)">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        WhatsApp भेजें — ${escHtml(emp.name.split(' ')[0])}
+        ${typeof L==='function'?L('WhatsApp भेजें','Send WhatsApp'):'Send WhatsApp'} — ${escHtml(emp.name.split(' ')[0])}
       </button>
 
       <button id="_waSkipBtn"
         style="width:100%;padding:13px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">
-        ${remaining > 0 ? `⏭️ Skip — अगला (${remaining} बाकी)` : '✅ बंद करें'}
+        ${remaining > 0 ? ((typeof L==='function'?L('⏭️ Skip — अगला','⏭️ Skip — next'):'⏭️ Skip — next')+' ('+remaining+')') : (typeof L==='function'?L('✅ बंद करें','✅ Done'):'✅ Done')}
       </button>
     </div>`;
 
@@ -847,7 +847,7 @@ async function openLeaveReasonModal(empId, empName, date, currentShift){
   const QUICK_REASONS = typeOpts; // used below as objects
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">🌴 ${(typeof L==='function'?L('Leave का कारण','Leave reason'):'Leave reason')}</div>
+    <div class="modal-title">🌴 ${(typeof L==='function'?L('छुट्टी का कारण','Leave reason'):'Leave reason')}</div>
     <div style="text-align:center;padding:4px 0 12px">
       <div style="font-size:16px;font-weight:900;color:#fff">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD} — Leave (L)</div>
@@ -865,12 +865,12 @@ async function openLeaveReasonModal(empId, empName, date, currentShift){
     </div>
     <input type="hidden" id="lrTypeCode" value="CL">
     <div class="field" style="margin-bottom:4px">
-      <label style="color:var(--lv)">Leave Type / कारण * (अनिवार्य)</label>
+      <label style="color:var(--lv)">${typeof L==='function'?L('Leave Type / कारण * (अनिवार्य)','Leave type / reason * (required)'):'Leave type / reason * (required)'}</label>
       <textarea id="lrReasonText" rows="2"
         style="border-color:rgba(244,63,94,.3);width:100%;padding:10px;background:var(--card);
         border:2px solid rgba(244,63,94,.3);border-radius:10px;color:var(--text);font-size:14px;
         font-family:inherit;resize:none;outline:none"
-        placeholder="Leave का कारण लिखें..."
+        placeholder="${typeof L==='function'?L('Leave का कारण लिखें...','Write leave reason...'):'Write leave reason...'}"
         oninput="this.style.borderColor=this.value.trim()?'var(--border2)':'rgba(244,63,94,.3)'"></textarea>
     </div>
     <div class="field" style="margin-bottom:4px">
@@ -893,9 +893,9 @@ async function openLeaveReasonModal(empId, empName, date, currentShift){
     </div>
     <button class="submit-btn" style="margin-top:10px"
       onclick="confirmLeaveWithReason('${empId}','${empName}','${date}','${currentShift}')">
-      ✅ Leave Mark करें
+      ${typeof L==='function'?L('✅ Leave Mark करें','✅ Mark Leave'):'✅ Mark Leave'}
     </button>
-    <button class="cancel-btn" onclick="editShiftCell('${empId}','${empName}','${date}','${currentShift}')">← वापस</button>`);
+    <button class="cancel-btn" onclick="editShiftCell('${empId}','${empName}','${date}','${currentShift}')">← ${typeof L==='function'?L('वापस','Back'):'Back'}</button>`);
 }
 
 function selectLRChip(btn, reason, typeCode){
@@ -1135,7 +1135,7 @@ function editShiftCell(empId, empName, date, currentShift){
   const effectiveCurrent = alreadyPending ? alreadyPending.newShift : currentShift;
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">✏️ Shift चुनें</div>
+    <div class="modal-title">✏️ ${typeof L==='function'?L('Shift चुनें','Select shift'):'Select shift'}</div>
     <div style="text-align:center;padding:6px 0 14px">
       <div style="font-size:17px;font-weight:900;color:#fff">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD}</div>
@@ -1162,7 +1162,7 @@ function editShiftCell(empId, empName, date, currentShift){
     <button onclick="resetShiftOverride('${empId}','${date}')"
       style="width:100%;padding:11px;background:none;border:1px solid var(--border2);
       border-radius:10px;color:var(--muted);font-size:12px;cursor:pointer;margin:12px 0 4px">
-      🔄 Original पर Reset करें
+      ${typeof L==='function'?L('🔄 Original पर Reset करें','🔄 Reset to original'):'🔄 Reset to original'}
     </button>
     <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
@@ -1269,9 +1269,9 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
         </div>
       </div>
 
-      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">किस दिन काम किया था? * <span style="font-weight:600;color:#f97316">(31 दिन की सीमा)</span></div>
+      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">${typeof L==='function'?L('किस दिन काम किया था?','Which day did they work?'):'Which day did they work?'} * <span style="font-weight:600;color:#f97316">${typeof L==='function'?L('(31 दिन की सीमा)','(within 31 days)'):'(within 31 days)'}</span></div>
       <div id="coWorkedDateSel" style="margin-bottom:14px">
-        ${dateOpts.length===0?'<div style="color:#fca5a5;font-size:14px;padding:10px;background:rgba(244,63,94,.12);border-radius:8px;border:1px solid rgba(244,63,94,.3)">⚠️ पिछले 31 दिनों में कोई W-Off/Holiday पर Duty नहीं मिली जो C-Off के योग्य हो</div>':''}
+        ${dateOpts.length===0?('<div style="color:#fca5a5;font-size:14px;padding:10px;background:rgba(244,63,94,.12);border-radius:8px;border:1px solid rgba(244,63,94,.3)">'+ (typeof L==='function'?L('⚠️ पिछले 31 दिनों में कोई W-Off/Holiday पर Duty नहीं मिली जो C-Off के योग्य हो','⚠️ No eligible W-Off/Holiday duty in the last 31 days for C-Off'):'⚠️ No eligible W-Off/Holiday duty in the last 31 days for C-Off') +'</div>'):''}
         <input type="hidden" id="coWorkedDate" value="">
         <input type="hidden" id="coWorkedIsHoli" value="">
         <input type="hidden" id="coWorkedHoliName" value="">
@@ -1295,22 +1295,22 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
         </div>
       </div>
 
-      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">कारण / Reason *</div>
+      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">${typeof L==='function'?L('कारण *','Reason *'):'Reason *'}</div>
       <div id="coReasonArea" style="margin-bottom:14px">
         <div id="coReasonBtns" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px">
-          <button onclick="selectCoReason(this,'W-Off पर बुलाया गया')" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🔔 W-Off पर बुलाया</button>
-          <button onclick="selectCoReason(this,'Holiday पर काम किया')" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🎉 Holiday काम किया</button>
-          <button onclick="selectCoReason(this,'Extra shift ली')" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">⏰ Extra Shift</button>
+          <button onclick="selectCoReason(this,(typeof L==='function'?L((typeof L==='function'?L('W-Off पर बुलाया गया','Called on weekly off'):'Called on weekly off'),'Called on weekly off'):'Called on weekly off'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🔔 W-Off पर बुलाया</button>
+          <button onclick="selectCoReason(this,(typeof L==='function'?L('Holiday पर काम किया','Worked on holiday'):'Worked on holiday'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🎉 Holiday काम किया</button>
+          <button onclick="selectCoReason(this,(typeof L==='function'?L('Extra shift ली','Took extra shift'):'Took extra shift'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">⏰ Extra Shift</button>
           <button onclick="selectCoReason(this,'Emergency duty')" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🚨 Emergency</button>
         </div>
-        <input id="coReasonText" placeholder="या कारण लिखें..." style="width:100%;padding:12px;border-radius:10px;background:#0f172a !important;border:1.5px solid #475569;color:#fff !important;font-size:15px;box-sizing:border-box;font-weight:600">
+        <input id="coReasonText" placeholder="${typeof L==='function'?L('या कारण लिखें...','Or write reason...'):'Or write reason...'}" style="width:100%;padding:12px;border-radius:10px;background:#0f172a !important;border:1.5px solid #475569;color:#fff !important;font-size:15px;box-sizing:border-box;font-weight:600">
       </div>
 
       <div id="coSummary" style="display:none;background:rgba(113,63,18,.15);border:1px solid rgba(253,230,138,.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#fde68a;line-height:1.7"></div>
 
       <div style="display:flex;gap:10px">
         <button onclick="document.getElementById('compOffModal')?.remove()" style="flex:1;padding:13px;border-radius:10px;border:1px solid #334155;background:none;color:#64748b;font-size:14px;cursor:pointer">रद्द करें</button>
-        <button onclick="confirmCompOff('${empId}','${empName}','${coDate}','${currentShift}')" style="flex:2;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#713f12,#92400e);color:#fde68a;font-size:14px;font-weight:900;cursor:pointer">✅ C-Off Mark करें</button>
+        <button onclick="confirmCompOff('${empId}','${empName}','${coDate}','${currentShift}')" style="flex:2;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#713f12,#92400e);color:#fde68a;font-size:14px;font-weight:900;cursor:pointer">${typeof L==='function'?L('✅ C-Off Mark करें','✅ Mark C-Off'):'✅ Mark C-Off'}</button>
       </div>
     </div>`;
   document.body.appendChild(modalDiv);
@@ -1334,7 +1334,7 @@ function selectCoDate(card, val, isHoli, holiName, isWoff){
   // Auto-fill reason
   if(isHoli && holiName){
     const re = document.getElementById('coReasonText');
-    if(re && !re.value) re.value = holiName+' पर काम किया';
+    if(re && !re.value) re.value = (holiName+((typeof L==='function'?L(' पर काम किया',' — worked'):' — worked')));
   }
   updateCoSummary();
 }
@@ -1350,7 +1350,7 @@ function onCoWorkedDateChange(){
     const holiName = '';
     if(isHoli && holiName){
       const reasonEl = document.getElementById('coReasonText');
-      if(reasonEl && !reasonEl.value) reasonEl.value = holiName+' पर काम किया';
+      if(reasonEl && !reasonEl.value) reasonEl.value = (holiName+((typeof L==='function'?L(' पर काम किया',' — worked'):' — worked')));
       // Highlight the Holiday reason button
       document.querySelectorAll('#coReasonBtns button').forEach(b=>{
         if(b.textContent.includes('Holiday')) b.click();
@@ -1381,8 +1381,8 @@ function updateCoSummary(){
     const wdFmt = new Date(workedDate).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
     summaryEl.style.display='block';
     summaryEl.innerHTML=`<b>📋 C-Off Summary:</b><br>
-      काम किया: ${isHoli?'🎉 '+holiName+' — ':'📅 W-OFF — '}${wdFmt}<br>
-      ${reason?'कारण: '+reason:''}`;
+      ${typeof L==='function'?L('काम किया: ','Worked: '):'Worked: '}${isHoli?'🎉 '+holiName+' — ':'📅 W-OFF — '}${wdFmt}<br>
+      ${reason?((typeof L==='function'?L('कारण: ','Reason: '):'Reason: ')+reason):''}`;
   } else {
     summaryEl.style.display='none';
   }
@@ -1394,7 +1394,7 @@ function confirmCompOff(empId, empName, coDate, currentShift){
   const reason = document.getElementById('coReasonText')?.value?.trim()||'';
   
   if(!workedDate||workedDate==='OTHER'){
-    alert('कृपया वो दिन चुनें जब काम किया था'); return;
+    alert(typeof L==='function'?L('कृपया वो दिन चुनें जब काम किया था','Please select the day they worked'):'Please select the day they worked'); return;
   }
   
   // Get holiday name if applicable (stored in hidden field by selectCoDate)
@@ -1405,7 +1405,7 @@ function confirmCompOff(empId, empName, coDate, currentShift){
   
   // Stage the C/O with metadata
   stageSingleShiftChange(empId, empName, coDate, currentShift, 'C/O', {
-    workedDate, reason: reason||(holiName?holiName+' पर काम किया':'W-Off पर काम किया'), holiName
+    workedDate, reason: reason||(holiName?(holiName+((typeof L==='function'?L(' पर काम किया',' — worked'):' — worked'))):(typeof L==='function'?L('W-Off पर काम किया','Worked on weekly off'):'Worked on weekly off')), holiName
   });
 }
 
@@ -1426,22 +1426,22 @@ function openODDetails(empId, empName, odDate, currentShift){
       </div>
     </div>
     <div class="field">
-      <label>किस Machine / Department में गए? *</label>
+      <label>${typeof L==='function'?L('किस Machine / Department में गए? *','Which machine / department? *'):'Which machine / department? *'}</label>
       <select class="inp-field" id="odDept">
-        <option value="">-- चुनें --</option>
+        <option value="">${typeof L==='function'?L('-- चुनें --','-- Select --'):'-- Select --'}</option>
         ${machineOpts}
-        <option value="__OTHER__">✏️ Other (type करें)</option>
+        <option value="__OTHER__">${typeof L==='function'?L('✏️ Other (type करें)','✏️ Other (type)'):'✏️ Other (type)'}</option>
       </select>
     </div>
     <div id="odCustomDeptWrap" style="display:none" class="field">
-      <label>Department / Machine का नाम</label>
+      <label>${typeof L==='function'?L('Department / Machine का नाम','Department / machine name'):'Department / machine name'}</label>
       <input class="inp-field" id="odCustomDept" placeholder="e.g. Packing, Store, M-9">
     </div>
     <div class="field">
-      <label>कारण (Reason)</label>
+      <label>${typeof L==='function'?L('कारण (Reason)','Reason'):'Reason'}</label>
       <input class="inp-field" id="odReason" placeholder="e.g. Manpower shortage, Training">
     </div>
-    <button class="submit-btn" onclick="submitOD('${empId}','${empName}','${odDate}','${currentShift}')">✅ OD Mark करें</button>
+    <button class="submit-btn" onclick="submitOD('${empId}','${empName}','${odDate}','${currentShift}')">${typeof L==='function'?L('✅ OD Mark करें','✅ Mark OD'):'✅ Mark OD'}</button>
     <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
   setTimeout(()=>{
     const sel=document.getElementById('odDept');
@@ -1845,7 +1845,7 @@ async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, 
 
     toast(isEn
       ? ('✅ Request sent to Manager — wait for approval')
-      : ('✅ Manager को request भेज दी — Approve के बाद shift अपडेट होगी'));
+      : (typeof L==='function'?L('✅ Manager को request भेज दी — Approve के बाद shift अपडेट होगी','✅ Request sent to manager — shift updates after approval'):'✅ Request sent to manager — shift updates after approval'));
     // WhatsApp to manager if template enabled (in-app already sent above)
     try{
       await _notifyMappedManagerAfterMemberAction('shift', {

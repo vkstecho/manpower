@@ -568,7 +568,7 @@ function openEditInstructions(){
     </div>`).join('');
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">✏️ निर्देश संपादित करें</div>
+    <div class="modal-title">✏️ ${typeof L==='function'?L('निर्देश संपादित करें','Edit instructions'):'Edit instructions'}</div>
     <div id="instEditBody" style="max-height:60vh;overflow-y:auto;padding-right:4px">
       ${sectionsHTML}
       <button onclick="addInstSection()" style="background:rgba(56,189,248,.1);border:1.5px dashed rgba(56,189,248,.3);border-radius:10px;padding:10px;width:100%;color:#38bdf8;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;font-family:inherit">➕ नया Section जोड़ें</button>
@@ -616,7 +616,7 @@ function addInstSection(){
   div.style.cssText = 'background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:12px';
   div.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <input placeholder="📌 Section का नाम" id="isec_title_${newKey}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
+      <input placeholder="${typeof L==='function'?L('📌 Section का नाम','📌 Section name'):'📌 Section name'}" id="isec_title_${newKey}" style="background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:7px 10px;color:var(--text);font-size:13px;font-weight:700;width:calc(100% - 60px);font-family:inherit">
       <button onclick="this.closest('[style*=border-radius]').remove()" style="background:rgba(244,63,94,.15);border:none;color:#f43f5e;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;flex-shrink:0;margin-left:6px">🗑️</button>
     </div>
     <div id="isec_items_${newKey}"></div>

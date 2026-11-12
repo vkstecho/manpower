@@ -1774,13 +1774,13 @@ function showNewEmpRegistrationForm(code){
       <div id="nrErr" style="color:#f43f5e;font-size:13px;text-align:center;min-height:18px;margin-bottom:8px"></div>
       <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px;
         padding:10px 14px;margin-bottom:14px;font-size:12px;color:#94a3b8;line-height:1.8;text-align:center">
-        ✅ Submit करने पर Admin को <b style="color:#25D366">WhatsApp</b> notification जाएगी
+        ${typeof L==='function'?L('✅ Submit करने पर Admin को WhatsApp notification जाएगी','✅ On Submit, Admin gets a WhatsApp notification'):'✅ On Submit, Admin gets a WhatsApp notification'}
       </div>
       <button id="nrBtn" onclick="submitNewEmpReg('${code}')"
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#a855f7);
                border:none;border-radius:13px;color:#fff;font-size:17px;font-weight:900;
                cursor:pointer;margin-bottom:10px;opacity:.4;pointer-events:none;font-family:inherit">
-        📲 Submit &rarr; WhatsApp से Admin को जाएगी
+        ${typeof L==='function'?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp goes to Admin'):'📲 Submit → WhatsApp goes to Admin'}
       </button>
       <button onclick="document.getElementById('newRegOverlay').style.display='none';showStep(2);"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;

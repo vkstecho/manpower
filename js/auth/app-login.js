@@ -1006,7 +1006,7 @@ async function _checkUserAfterOTP(){
             await _launchAsNewUser(userData);
           }catch(e){
             console.error('[otp] pending member launch', e);
-            showPendingBox('आपका Member registration <b>pending</b> है। Manager approve होने तक सीमित access।<br><br>कृपया page refresh करके दोबारा OTP try करें।');
+            showPendingBox(L('आपका Member registration <b>pending</b> है। Manager approve होने तक सीमित access।<br><br>कृपया page refresh करके दोबारा OTP try करें।','Your member registration is <b>pending</b>. Limited access until manager approves.<br><br>Please refresh and try OTP again.'));
           }
           setTimeout(()=>{ try{ _watchApprovalStatus(mobile); }catch(e){} }, 800);
           return;
@@ -1015,11 +1015,11 @@ async function _checkUserAfterOTP(){
         const rLabel=userData.role==='manager'?'Manager':'Member';
         const name = userData.name || mobile;
         const msg = userData.role==='manager'
-          ? ('आपका <b>Manager</b> registration (<b>'+name+'</b>) Admin approval का इंतज़ार कर रहा है।')
-          : ('आपका registration (<b>'+name+'</b>) approval का इंतज़ार कर रहा है।');
+          ? L('आपका <b>Manager</b> registration (<b>'+name+'</b>) Admin approval का इंतज़ार कर रहा है।','Your <b>Manager</b> registration (<b>'+name+'</b>) is waiting for Admin approval.')
+          : L('आपका registration (<b>'+name+'</b>) approval का इंतज़ार कर रहा है।','Your registration (<b>'+name+'</b>) is waiting for approval.');
         try{
           const pendMsg=document.getElementById('pendingMsg');
-          if(pendMsg) pendMsg.innerHTML=msg+'<br><br>'+(userData.role==='manager'?'VKS Tech Admin वेरिफाई करेगा।':'आपका Manager अप्रूव करेगा।');
+          if(pendMsg) pendMsg.innerHTML=msg+'<br><br>'+(userData.role==='manager'?L('VKS Tech Admin वेरिफाई करेगा।','VKS Tech Admin will verify.'):L('आपका Manager अप्रूव करेगा।','Your manager will approve.'));
           showStep('pending');
         }catch(e){
           showPendingBox(msg);
@@ -1331,14 +1331,14 @@ async function _submitManagerReg(){
   }
   // No invite code — any new manager can self-register after OTP (auto-approved)
   if(!_loginMobile){
-    if(errEl){ errEl.textContent='❌ Mobile session lost — OTP दोबारा verify करें'; errEl.classList.add('show'); }
+    if(errEl){ errEl.textContent=L('❌ Mobile session lost — OTP दोबारा verify करें','❌ Mobile session lost — verify OTP again'); errEl.classList.add('show'); }
     toast('❌ Mobile session lost — go back and verify OTP again');
     try{ showStep(1); }catch(e){}
     return;
   }
   const mobile=_loginMobile.replace('+91','').replace(/[^0-9]/g,'');
   if(mobile.length!==10){
-    if(errEl){ errEl.textContent='❌ Invalid mobile — OTP दोबारा करें'; errEl.classList.add('show'); }
+    if(errEl){ errEl.textContent=L('❌ Invalid mobile — OTP दोबारा करें','❌ Invalid mobile — try OTP again'); errEl.classList.add('show'); }
     toast('❌ Invalid mobile');
     try{ showStep(1); }catch(e){}
     return;
@@ -1930,7 +1930,7 @@ function onCodeInput(val){
       if(match)
         hint.innerHTML='<span style="color:var(--green)">✅ '+match.name+' — '+(secName(match.sec)||'Man Power')+'</span>';
       else
-        hint.innerHTML='<span style="color:#f97316">🔆 नया Employee — Registration होगा</span>';
+        hint.innerHTML='<span style="color:#f97316">'+L('🔆 नया Employee — Registration होगा','🔆 New employee — registration required')+'</span>';
     }
   } else {
     if(btn){ btn.style.opacity='.5'; btn.style.pointerEvents='none'; }

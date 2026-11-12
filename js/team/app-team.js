@@ -405,8 +405,8 @@ function renderSalaryCost(){
 
   if(rows.length === 0){
     tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted2);font-size:13px">
-      ⚠️ किसी employee की Monthly Salary upload नहीं है।<br>
-      <span style="font-size:11px">Team tab → Excel Update → Monthly Salary column add करें</span>
+      ${L('⚠️ किसी employee की Monthly Salary upload नहीं है।','⚠️ No employee has Monthly Salary uploaded.')}<br>
+      <span style="font-size:11px">${L('Team tab → Excel Update → Monthly Salary column add करें','Team tab → Excel Update → add Monthly Salary column')}</span>
     </div>`;
     return;
   }
@@ -650,7 +650,7 @@ async function loadDeviceInfoForCard(empId, empName){
     const daysLeft=Math.ceil((expDate-Date.now())/86400000);
     const expColor=daysLeft<7?'#f43f5e':daysLeft<30?'#f97316':'#22c55e';
     el.innerHTML=`${accessBadge}<span style="color:#38bdf8">📱 Registered</span>
-      &nbsp;·&nbsp;<span style="color:${expColor};font-weight:900">${daysLeft>0?daysLeft+' दिन बाकी':'⚠️ EXPIRED'}</span>
+      &nbsp;·&nbsp;<span style="color:${expColor};font-weight:900">${daysLeft>0?(daysLeft+(typeof L==='function'?L(' दिन बाकी',' days left'):' days left')):'⚠️ EXPIRED'}</span>
       &nbsp;·&nbsp;<span style="color:#64748b;font-size:10px">${expDate.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}</span>`;
   }catch(e){
     el.innerHTML='<span style="color:#64748b">📵 No device info</span>';
@@ -825,7 +825,7 @@ function showEmpNcrs(empId){
       <div style="width:42px;height:42px;border-radius:10px;background:rgba(244,63,94,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚠️</div>
       <div>
         <div style="font-size:17px;font-weight:900;color:#fff">${escHtml(emp.name)}</div>
-        <div style="font-size:12px;color:var(--lv)">${L("कुल","Total")} ${ncrs.length} NCR दर्ज हैं</div>
+        <div style="font-size:12px;color:var(--lv)">${L("कुल","Total")} ${ncrs.length} ${L("NCR दर्ज हैं","NCRs recorded")}</div>
       </div>
     </div>
     <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
@@ -878,7 +878,7 @@ let _empUploadParsed = []; // holds parsed rows before confirm
 function openEmpUploadWizard(){
   _empUploadParsed = [];
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">📤 कर्मचारी List Upload करें</div>
+    <div class="modal-title">📤 ${L("कर्मचारी List Upload करें","Upload employee list")}</div>
 
     <!-- FORMAT GUIDE -->
     <div style="background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:14px;margin-bottom:16px">
@@ -898,15 +898,15 @@ function openEmpUploadWizard(){
         </span>
       </div>
       <div style="margin-top:10px;font-size:11px;color:var(--muted2);line-height:1.8">
-        <b style="color:#f97316">🟠 Name, Employee Code, Machine:</b> अनिवार्य<br>
-        <b style="color:#22c55e">🟢 Role, Weekly Off, Phone:</b> जरूरी (खाली छोड़ सकते हैं, default लगेगा)<br>
-        <b style="color:#fbbf24">🟡 Monthly Salary:</b> Optional — Cost calculation के लिए (only numbers, e.g. 15000)<br>
+        <b style="color:#f97316">🟠 Name, Employee Code, Machine:</b> ${L('अनिवार्य','Required')}<br>
+        <b style="color:#22c55e">🟢 Role, Weekly Off, Phone:</b> ${L('जरूरी (खाली छोड़ सकते हैं, default लगेगा)','Needed (can leave blank — defaults apply)')}<br>
+        <b style="color:#fbbf24">🟡 Monthly Salary:</b> Optional — ${L('Cost calculation के लिए (only numbers, e.g. 15000)','for cost calculation (numbers only, e.g. 15000)')}<br>
         <b style="color:#64748b">⚫ Joining Date, DOB:</b> Optional<br><br>
-        <b style="color:#fff">Role के लिए मान्य values:</b> Operator, Assistant, Supervisor, Manager, Engineer<br>
+        <b style="color:#fff">${L('Role के लिए मान्य values','Valid role values')}:</b> Operator, Assistant, Supervisor, Manager, Engineer<br>
         <b style="color:#fff">Weekly Off:</b> MON, TUE, WED, THU, FRI, SAT, SUN<br>
         <b style="color:#fff">Machine:</b> M-1, M-2, S-1, S-2, ALL<br><br>
-        <b style="color:#22c55e">✅ Existing Employee Code मिलने पर:</b> Details UPDATE होंगी<br>
-        <b style="color:#3b82f6">🆕 New Employee Code:</b> नया कर्मचारी ADD होगा
+        <b style="color:#22c55e">✅ Existing Employee Code:</b> ${L('Details UPDATE होंगी','details will UPDATE')}<br>
+        <b style="color:#3b82f6">🆕 New Employee Code:</b> ${L('नया कर्मचारी ADD होगा','new employee will be ADDED')}
       </div>
     </div>
 
@@ -942,7 +942,7 @@ async function _parseEmpUploadFile(file){
   statusEl.style.display = 'block';
   statusEl.style.background = 'rgba(59,130,246,.08)';
   statusEl.style.border = '1px solid rgba(59,130,246,.2)';
-  statusEl.innerHTML = '⏳ फ़ाइल पढ़ी जा रही है...';
+  statusEl.innerHTML = L('⏳ फ़ाइल पढ़ी जा रही है...','⏳ Reading file…');
 
   try{
     // Load SheetJS if needed
@@ -972,7 +972,7 @@ async function _parseEmpUploadFile(file){
 
     if(!rows || rows.length < 2){
       statusEl.style.background = 'rgba(239,68,68,.1)';
-      statusEl.innerHTML = '❌ File में कोई data नहीं मिला';
+      statusEl.innerHTML = L('❌ File में कोई data नहीं मिला','❌ No data found in file');
       return;
     }
 
@@ -997,7 +997,7 @@ async function _parseEmpUploadFile(file){
     // Validate required columns
     if(colIdx.name < 0 || colIdx.empId < 0){
       statusEl.style.background = 'rgba(239,68,68,.1)';
-      statusEl.innerHTML = '❌ "Name" और "Employee Code" columns नहीं मिले। Headers check करें।';
+      statusEl.innerHTML = L('❌ "Name" और "Employee Code" columns नहीं मिले। Headers check करें।','❌ "Name" and "Employee Code" columns not found. Check headers.');
       return;
     }
 
@@ -1017,7 +1017,7 @@ async function _parseEmpUploadFile(file){
 
       const name    = String(row[colIdx.name]||'').trim().toUpperCase();
       const empCode = String(row[colIdx.empId]||'').trim();
-      if(!name || !empCode){ errors.push(`Row ${i+1}: Name/Code खाली`); continue; }
+      if(!name || !empCode){ errors.push(`Row ${i+1}: `+L('Name/Code खाली','Name/Code empty')); continue; }
 
       const machineRaw = colIdx.machine >= 0 ? String(row[colIdx.machine]||'').trim() : '';
       const roleRaw    = colIdx.role    >= 0 ? String(row[colIdx.role]||'').trim().toLowerCase() : '';
@@ -1122,7 +1122,7 @@ async function _parseEmpUploadFile(file){
 
     if(parsed.length === 0){
       statusEl.style.background = 'rgba(239,68,68,.1)';
-      statusEl.innerHTML = `❌ कोई valid row नहीं मिली।${errors.length ? ' Errors: ' + errors.join(', ') : ''}`;
+      statusEl.innerHTML = L('❌ कोई valid row नहीं मिली।','❌ No valid rows found.')+(errors.length ? ' Errors: ' + errors.join(', ') : '');
       return;
     }
 
@@ -1174,17 +1174,17 @@ function _showEmpUploadPreview(parsed, errors){
   }).join('');
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">👁️ Preview — Save करने से पहले देखें</div>
+    <div class="modal-title">👁️ ${L("Preview — Save करने से पहले देखें","Preview — review before Save")}</div>
 
     <!-- Summary strip -->
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <div style="flex:1;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#22c55e">${newCount}</div>
-        <div style="font-size:10px;color:var(--muted2)">नए कर्मचारी</div>
+        <div style="font-size:10px;color:var(--muted2)">${L("नए कर्मचारी","New employees")}</div>
       </div>
       <div style="flex:1;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#60a5fa">${updCount}</div>
-        <div style="font-size:10px;color:var(--muted2)">Update होंगे</div>
+        <div style="font-size:10px;color:var(--muted2)">${L("Update होंगे","Will update")}</div>
       </div>
       <div style="flex:1;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#f97316">${okRows.length}</div>
