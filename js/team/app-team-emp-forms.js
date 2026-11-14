@@ -29,7 +29,7 @@ function openAddEmpForm(){
     <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ne_joining" type="date"></div>
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ne_dob" type="date"></div>
   </div>
-  <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="number" min="0" step="1" placeholder="e.g. 15000"></div>
+  <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="e.g. 15000"></div>
   <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${L('Section = schedule फ़िल्टर के लिए समूह (Machine से अलग)।','Section = team group for schedule filters (not the same as Machine).')}</div>
   <button class="submit-btn" onclick="addEmployee()">✅ ${typeof t==='function'?t('जोड़ें'):'Add'}</button>
   <button class="cancel-btn" onclick="closeModal()">${typeof t==='function'?t('रद्द करें'):'Cancel'}</button>`);
@@ -137,7 +137,7 @@ function openEditEmpForm(empId){
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ee_dob" type="date" value="${e.dob||''}"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ee_salary" type="number" min="0" step="1" value="${e.monthlySalary||''}"></div>
+    <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ee_salary" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" value="${e.monthlySalary||''}"></div>
     <div class="field"><label>Status</label><select id="ee_status">${statusSel}</select></div>
   </div>
   ${isAdmin()?`<div class="field"><label>Access Level</label><select id="ee_accessLevel"><option value="worker"${(e.accessLevel||'worker')==='worker'?' selected':''}>Worker</option><option value="manager"${e.accessLevel==='manager'?' selected':''}>Manager</option></select></div>`:'<input type="hidden" id="ee_accessLevel" value="'+(e.accessLevel||'worker')+'">'}
@@ -1378,6 +1378,8 @@ async function sendTeamTransferRequest(payload){
       requiresSuccessor: payload.kind === 'manager_with_team'
     };
     await fbPush('teamTransferRequests', req);
+    try{ if(typeof renderTeamPendingTransfers==='function') await renderTeamPendingTransfers(); }catch(e){}
+    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
     try{
       if(payload.targetEmpId){
         await fbPush('userNotifications/'+payload.targetEmpId, {
@@ -1676,7 +1678,7 @@ async function rejectTeamTransferRequest(reqKey){
   }catch(e){ toast('❌ '+(e&&e.message||e)); }
 }
 
-/** Load pending transfer requests for current mobile — show on Home */
+/** Incoming pending: requests targeting my mobile (person being added) */
 async function loadMyPendingTeamTransfers(){
   try{
     const phone = _normMobileKey(SESSION.mobile||SESSION.uid||'');
@@ -1687,10 +1689,68 @@ async function loadMyPendingTeamTransfers(){
       const r = all[k];
       if(!r || r.status!=='pending') return;
       if(_normMobileKey(r.phone||'')!==phone) return;
-      list.push(Object.assign({ _key:k }, r));
+      list.push(Object.assign({ _key:k, _direction:'incoming' }, r));
     });
     return list;
   }catch(e){ return []; }
+}
+
+/** Outgoing pending: requests I (manager) sent to add someone */
+async function loadMyOutgoingTeamTransfers(){
+  try{
+    const me = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    if(!me) return [];
+    const all = await fbGet('teamTransferRequests') || {};
+    const list = [];
+    Object.keys(all).forEach(function(k){
+      const r = all[k];
+      if(!r || r.status!=='pending') return;
+      if(_normMobileKey(r.fromManagerId||'')!==me) return;
+      list.push(Object.assign({ _key:k, _direction:'outgoing' }, r));
+    });
+    return list;
+  }catch(e){ return []; }
+}
+
+/** All pending relevant to me (incoming + outgoing) for Team page tracking */
+async function loadTeamPageTransferRequests(){
+  try{
+    const [inc, out] = await Promise.all([
+      loadMyPendingTeamTransfers(),
+      loadMyOutgoingTeamTransfers()
+    ]);
+    // de-dupe by key
+    const map = {};
+    (inc||[]).concat(out||[]).forEach(function(r){ if(r && r._key) map[r._key] = r; });
+    return Object.keys(map).map(function(k){ return map[k]; })
+      .sort(function(a,b){ return String(b.createdAt||'').localeCompare(String(a.createdAt||'')); });
+  }catch(e){ return []; }
+}
+
+async function cancelTeamTransferRequest(reqKey){
+  try{
+    if(!reqKey) return;
+    const ok = await (typeof confirmModal==='function'
+      ? confirmModal(
+          (typeof L==='function'?L('Request रद्द?','Cancel request?'):'Cancel request?'),
+          (typeof L==='function'?L('यह transfer request cancel हो जाएगी।','This transfer request will be cancelled.'):'Cancel this request?'),
+          (typeof L==='function'?L('हाँ, Cancel','Yes, Cancel'):'Yes, Cancel'),
+          (typeof L==='function'?L('वापस','Back'):'Back')
+        )
+      : confirm('Cancel this transfer request?'));
+    if(!ok) return;
+    await fbUpdate('teamTransferRequests/'+reqKey, {
+      status: 'cancelled',
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: _normMobileKey(SESSION.mobile||'')
+    });
+    toast(typeof L==='function'?L('✅ Request cancel हो गई','✅ Request cancelled'):'Request cancelled');
+    try{ if(typeof renderTeamPendingTransfers==='function') await renderTeamPendingTransfers(); }catch(e){}
+    try{ if(typeof renderPendingTeamTransferBanner==='function') await renderPendingTeamTransferBanner(); }catch(e){}
+    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+  }catch(e){
+    toast('❌ '+(e&&e.message||e));
+  }
 }
 
 async function renderPendingTeamTransferBanner(){
@@ -1722,7 +1782,84 @@ async function renderPendingTeamTransferBanner(){
   }catch(e){ console.warn('[transfer banner]', e); }
 }
 
-window.openPhoneTransferModal = openPhoneTransferModal;
+/** Team page: show pending transfers for BOTH sides (requester + person being added) */
+async function renderTeamPendingTransfers(){
+  try{
+    let host = document.getElementById('teamPendingTransfers');
+    if(!host){
+      // Insert above Left Members or after teamList
+      const left = document.getElementById('leftMembersSection');
+      const teamList = document.getElementById('teamList');
+      host = document.createElement('div');
+      host.id = 'teamPendingTransfers';
+      host.style.cssText = 'margin:12px 0 8px';
+      if(left && left.parentNode) left.parentNode.insertBefore(host, left);
+      else if(teamList && teamList.parentNode) teamList.parentNode.appendChild(host);
+      else return;
+    }
+    const list = await loadTeamPageTransferRequests();
+    if(!list.length){
+      host.innerHTML = '';
+      host.style.display = 'none';
+      return;
+    }
+    host.style.display = 'block';
+    const esc = (typeof escHtml==='function'?escHtml:function(s){return String(s||'').replace(/</g,'&lt;');});
+    const me = _normMobileKey(SESSION.mobile||'');
+    const cards = list.map(function(r){
+      const isOut = r._direction==='outgoing' || _normMobileKey(r.fromManagerId||'')===me;
+      const isIn = r._direction==='incoming' || _normMobileKey(r.phone||'')===me;
+      const statusLbl = (typeof L==='function'?L('Pending — approval wait','Pending — waiting approval'):'Pending — waiting approval');
+      const when = r.createdAt ? (function(){
+        try{ return new Date(r.createdAt).toLocaleString(typeof mpLocale==='function'?mpLocale():'en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}); }catch(e){ return String(r.createdAt).slice(0,16); }
+      })() : '';
+      let title, body, actions='';
+      if(isOut && !isIn){
+        title = (typeof L==='function'?L('⏳ Add request भेजा गया','⏳ Add request sent'):'Add request sent');
+        body = (typeof L==='function'?L(
+          'आपने <b>'+esc(r.targetName||r.phone)+'</b> (+91 '+esc(r.phone)+') को team में add करने का request भेजा है। वे Accept करें तब join होगा।',
+          'You requested to add <b>'+esc(r.targetName||r.phone)+'</b> (+91 '+esc(r.phone)+') to your team. They must Accept before joining.'
+        ):'');
+        actions = '<button type="button" class="cancel-btn" style="flex:1;min-width:110px;padding:10px;font-size:12px" onclick="cancelTeamTransferRequest(\''+String(r._key).replace(/'/g,"\\'")+'\')">'
+          +(typeof L==='function'?L('Request Cancel','Cancel request'):'Cancel request')+'</button>';
+      } else if(isIn){
+        title = (typeof L==='function'?L('📨 Team join request','📨 Team join request'):'Team join request');
+        body = esc(r.fromManagerName||r.fromManagerId||'Manager')
+          +' '+(typeof L==='function'?L('आपको अपनी team में invite कर रहे हैं।','invites you to their team.'):'invites you.');
+        if(r.kind==='manager_with_team' || r.requiresSuccessor){
+          body += '<br><b style="color:#fbbf24">'+(typeof L==='function'?L('Accept से पहले नया Manager चुनना जरूरी।','Appoint a new Manager before Accept.'):'Successor required')+'</b>';
+        }
+        actions = '<button type="button" class="submit-btn" style="flex:1;min-width:110px;padding:10px;font-size:12px" onclick=\'acceptTeamTransferRequest('+JSON.stringify(r._key)+','+JSON.stringify({kind:r.kind,phone:r.phone,fromManagerId:r.fromManagerId,fromManagerName:r.fromManagerName,requiresSuccessor:r.requiresSuccessor})+')\'>'
+          +(typeof L==='function'?L('समीक्षा / Accept','Review / Accept'):'Review / Accept')+'</button>'
+          +'<button type="button" class="cancel-btn" style="flex:1;min-width:100px;padding:10px;font-size:12px" onclick="rejectTeamTransferRequest(\''+String(r._key).replace(/'/g,"\\'")+'\')">'
+          +(typeof L==='function'?L('अस्वीकार','Decline'):'Decline')+'</button>';
+      } else {
+        title = statusLbl;
+        body = esc(r.targetName||r.phone)+' · '+esc(r.fromManagerName||'');
+      }
+      return '<div style="margin:0 0 10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.08)">'
+        +'<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">'
+        +'<div style="font-size:13px;font-weight:800;color:#fb923c">'+title+'</div>'
+        +'<span style="font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:rgba(251,146,60,.2);color:#fdba74">'+statusLbl+'</span>'
+        +'</div>'
+        +'<div style="font-size:12px;color:var(--text);line-height:1.45;margin-bottom:8px">'+body+'</div>'
+        +(when?('<div style="font-size:10px;color:var(--muted2);margin-bottom:8px">'+when+'</div>'):'')
+        +(actions?('<div style="display:flex;gap:8px;flex-wrap:wrap">'+actions+'</div>'):'')
+        +'</div>';
+    }).join('');
+    host.innerHTML = '<div style="font-size:12px;font-weight:800;color:var(--muted2);letter-spacing:.4px;margin:4px 2px 8px">'
+      +(typeof L==='function'?L('PENDING TRANSFERS / ADD REQUESTS','PENDING TRANSFERS / ADD REQUESTS'):'PENDING TRANSFERS / ADD REQUESTS')
+      +' · '+list.length+'</div>'+cards;
+  }catch(e){ console.warn('[team pending transfers]', e); }
+}
+
+window.openPhoneTransferModalwindow.openPhoneTransferModal = openPhoneTransferModal;
+window.loadMyPendingTeamTransfers = loadMyPendingTeamTransfers;
+window.loadMyOutgoingTeamTransfers = loadMyOutgoingTeamTransfers;
+window.loadTeamPageTransferRequests = loadTeamPageTransferRequests;
+window.renderTeamPendingTransfers = renderTeamPendingTransfers;
+window.cancelTeamTransferRequest = cancelTeamTransferRequest;
+window.renderPendingTeamTransferBanner = renderPendingTeamTransferBanner;
 window.sendTeamTransferRequest = sendTeamTransferRequest;
 window.acceptTeamTransferRequest = acceptTeamTransferRequest;
 window.openTransferAcceptSuccessorModal = openTransferAcceptSuccessorModal;
