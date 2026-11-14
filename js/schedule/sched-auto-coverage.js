@@ -185,12 +185,12 @@ function _sbRenderSubFilterChips(){
   }
   if(!window._sbSubSelected) window._sbSubSelected = new Set();
   const allOn = window._sbSubSelected.size === 0;
-  let html = '<button type="button" onclick="_sbToggleSubFilter(\'__ALL__\')" style="font-size:10px;font-weight:800;padding:4px 9px;border-radius:999px;border:1px solid '+(allOn?'rgba(34,197,94,.5)':'var(--border2)')+';background:'+(allOn?'rgba(34,197,94,.15)':'var(--card)')+';color:'+(allOn?'#4ade80':'var(--muted)')+';cursor:pointer">All</button>';
+  let html = '<button type="button" onclick="_sbToggleSubFilter(\'__ALL__\')" style="font-size:12px;font-weight:800;padding:7px 12px;border-radius:999px;border:1px solid '+(allOn?'rgba(34,197,94,.5)':'var(--border2)')+';background:'+(allOn?'rgba(34,197,94,.15)':'var(--card)')+';color:'+(allOn?'#4ade80':'var(--muted)')+';cursor:pointer;flex:0 0 auto;white-space:nowrap">All</button>';
   values.forEach(v=>{
     const key = String(v);
     const on = window._sbSubSelected.has(key);
     const safe = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    html += '<button type="button" onclick="_sbToggleSubFilter(\''+safe+'\')" style="font-size:10px;font-weight:700;padding:4px 9px;border-radius:999px;border:1px solid '+(on?'rgba(96,165,250,.55)':'var(--border2)')+';background:'+(on?'rgba(96,165,250,.18)':'var(--card)')+';color:'+(on?'#93c5fd':'var(--text)')+';cursor:pointer;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+key.replace(/</g,'')+'</button>';
+    html += '<button type="button" onclick="_sbToggleSubFilter(\''+safe+'\')" style="font-size:12px;font-weight:700;padding:7px 12px;border-radius:999px;border:1px solid '+(on?'rgba(96,165,250,.55)':'var(--border2)')+';background:'+(on?'rgba(96,165,250,.18)':'var(--card)')+';color:'+(on?'#93c5fd':'var(--text)')+';cursor:pointer;flex:0 0 auto;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+key.replace(/</g,'')+'</button>';
   });
   if(!values.length) html += '<span style="font-size:11px;color:#64748b">No '+prim+' values from Excel yet</span>';
   row.innerHTML = html;

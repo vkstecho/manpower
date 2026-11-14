@@ -74,19 +74,11 @@ body.sched-wide .main{
 /* Edit / long modals: sticky actions never cover fields */
 @media (max-width:640px){
   .overlay.open .modal{
-    display:flex !important;
-    flex-direction:column !important;
+    display:block !important;
     max-height:min(92dvh,calc(100dvh - env(safe-area-inset-top,0px) - 8px)) !important;
     padding-bottom:0 !important;
-    overflow:hidden !important;
-  }
-  .overlay.open .modal > *:not(.modal-sticky-actions){
-    /* scrollable body area */
-  }
-  .overlay.open #modalBody,
-  .overlay.open .modal{
     overflow-y:auto !important;
-    -webkit-overflow-scrolling:touch;
+    -webkit-overflow-scrolling:touch !important;
   }
   .overlay.open .modal .modal-sticky-actions{
     position:sticky !important;
@@ -1431,4 +1423,38 @@ body.light #schedStickyHdr th,
 body.light .sched-tbl thead th,
 body.light .sched-table thead th {
   color: #0f172a !important;
+}
+
+
+/* ── Schedule Builder mobile toolbar ── */
+.sb-hscroll{scrollbar-width:none;-ms-overflow-style:none}
+.sb-hscroll::-webkit-scrollbar{display:none;height:0}
+.sb-prim-btn{
+  flex:0 0 auto;white-space:nowrap;
+  font-size:12px!important;font-weight:800!important;
+  padding:8px 12px!important;border-radius:10px!important;
+  border:1px solid var(--border2)!important;
+  background:var(--card)!important;color:var(--text)!important;
+  cursor:pointer;min-height:36px;
+}
+@media (max-width:640px){
+  .sb-sticky-header{padding-bottom:8px!important}
+  .sb-row-actions button{font-size:12px!important}
+  #sbCellLegend{font-size:9px!important}
+}
+
+/* Builder bottom thumb bar */
+.sb-footer-bar{box-shadow:0 -6px 16px rgba(0,0,0,.25)}
+body.light .sb-footer-bar{box-shadow:0 -4px 12px rgba(0,0,0,.08)}
+body.sb-builder-open .overlay.open .modal{
+  display:flex!important;flex-direction:column!important;
+  max-height:100vh!important;max-height:100dvh!important;
+  height:auto!important;width:100%!important;max-width:100%!important;
+  border-radius:12px 12px 0 0!important;margin:0!important;
+}
+body.sb-builder-open .overlay.open{align-items:flex-end!important}
+#sbBodyScroll{flex:1 1 auto;min-height:0}
+@media (min-width:900px){
+  body.sb-builder-open .overlay.open{align-items:center!important}
+  body.sb-builder-open .overlay.open .modal{max-width:960px!important;max-height:92vh!important;border-radius:16px!important;height:auto!important}
 }

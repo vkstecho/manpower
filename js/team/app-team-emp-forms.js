@@ -60,16 +60,18 @@ async function addEmployee(){
     toast(L('⚠️ Employee code पहले से है: ','⚠️ Employee code already exists: ') + codeClash.name);
     return;
   }
-  // Duplicate mobile (especially other team)
+  // Duplicate mobile — block direct add; offer transfer request when already registered
   if(phone && phone.length === 10){
     const clash = _findPhoneConflict(phone, null, code);
     if(clash){
-      const nm = clash.emp.name || clash.emp.empId || '';
-      if(clash.otherTeam){
-        toast(L('📱 यह मोबाइल नंबर पहले से दूसरे team के member के पास है। Add नहीं किया।','📱 Mobile already belongs to another team\'s member. Not added.') + ' ('+nm+')');
-      } else {
-        toast(L('📱 यह मोबाइल नंबर पहले से registered है। Add नहीं किया।','📱 Mobile already registered. Not added.') + ' ('+nm+')');
-      }
+      try{
+        if(typeof openPhoneTransferModal==='function'){
+          openPhoneTransferModal({clash, phone, intended:{name,code,sec,section:sectionRaw||sec,mc,resp,woff,designation,joiningDate,dob,salaryRaw}});
+          return;
+        }
+      }catch(ex){}
+      const nm = (clash.emp&&(clash.emp.name||clash.emp.empId)) || '';
+      toast(L('📱 यह मोबाइल नंबर पहले से registered है। Add नहीं किया।','📱 Mobile already registered. Not added.') + ' ('+nm+')');
       return;
     }
   }
@@ -166,7 +168,7 @@ function openEditEmpForm(empId){
     </select>
     <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('इस भाषा में WhatsApp messages जाएंगे','WhatsApp messages will use this language')}</div>
   </div>
-  <div style="height:16px;flex-shrink:0"></div>
+  <div class="modal-scroll-spacer" style="height:max(120px,calc(100px + env(safe-area-inset-bottom,0px)));flex-shrink:0" aria-hidden="true"></div>
   <div class="modal-sticky-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
   <button type="button" class="submit-btn" id="ee_saveBtn" onclick="event.preventDefault();event.stopPropagation();saveEmployee('${empId}')">💾 ${L('सेव करें','Save')}</button>
   <button type="button" class="cancel-btn" onclick="event.preventDefault();closeModal()">${L('रद्द करें','Cancel')}</button>
@@ -285,8 +287,14 @@ async function saveEmployee(empId){
     if(update.phone !== selfPhone){
       const clash = _findPhoneConflict(update.phone, empId, update.empId);
       if(clash && clash.emp && clash.emp.id !== empId){
-        const nm = clash.emp.name || clash.emp.empId || '';
         _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
+        try{
+          if(typeof openPhoneTransferModal==='function'){
+            openPhoneTransferModal({clash, phone:update.phone, intended:null, editEmpId:empId});
+            return;
+          }
+        }catch(ex){}
+        const nm = clash.emp.name || clash.emp.empId || '';
         toast((clash.otherTeam
           ? L('📱 यह मोबाइल नंबर पहले से दूसरे team के member के पास है।','📱 Mobile already belongs to another team\'s member.')
           : L('📱 यह मोबाइल नंबर पहले से registered है।','📱 Mobile already registered.')) + ' ('+nm+')');
@@ -1255,3 +1263,459 @@ function _mapExcelColumns(headerRow){
 }
 
 // ════════════════════════════════════════
+
+
+
+// ═══════════════════════════════════════════════════════════
+// PHONE TRANSFER REQUESTS — already-registered mobile flow
+// kinds: manager_with_team | manager_solo | member_other_team | member_same_team
+// RULE: manager_with_team MUST pick a successor (another team mobile) before leaving.
+// ═══════════════════════════════════════════════════════════
+
+function _teamMembersUnderManager(mgrPhone){
+  const key = _normMobileKey(mgrPhone||'');
+  const all = (_cache && _cache.employees) || [];
+  return all.filter(function(e){
+    if(!e || e.status==='resigned' || e.status==='left' || e.status==='removed') return false;
+    return _normMobileKey(e.managerId||'') === key;
+  });
+}
+
+function _isManagerWithTeamNow(){
+  try{
+    if(typeof isMgr==='function' && !isMgr()) return false;
+    const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    if(!myKey) return false;
+    const members = _teamMembersUnderManager(myKey).filter(function(e){
+      return _normMobileKey(e.phone||e.mobile||'') !== myKey;
+    });
+    return members.length > 0;
+  }catch(e){ return false; }
+}
+
+function openPhoneTransferModal(opts){
+  opts = opts || {};
+  const clash = opts.clash || {};
+  const emp = clash.emp || {};
+  const kind = clash.kind || (clash.isManager ? 'manager_solo' : 'member_other_team');
+  const phone = opts.phone || emp.phone || '';
+  const nm = emp.name || emp.empId || phone;
+  const title = (typeof L==='function'?L('📱 नंबर पहले से registered','📱 Number already registered'):'📱 Number already registered');
+  let body = '';
+  let canRequest = true;
+  if(kind === 'manager_with_team'){
+    body = (typeof L==='function'?L(
+      nm+' पहले से Manager है और उनके पास team है। सीधे add नहीं हो सकता। Request भेज सकते हैं। वे accept करने से पहले अपनी team में किसी दूसरे mobile को नया Manager बनाना अनिवार्य है — उसके बाद वे आपकी team में member के रूप में join करेंगे। पुरानी तारीखों के shifts केवल उनको और आपको दिखेंगे।',
+      nm+' is already a Manager with a team. They cannot be added directly. You can send a request. Before they accept, they must transfer the Manager role to another mobile number on their team — then they join yours as a member. Old-date shifts stay visible only to them and you.'
+    ):'');
+  } else if(kind === 'manager_solo'){
+    body = (typeof L==='function'?L(
+      nm+' Manager account है (individual)। Request accept करने पर उनका पुराना manager account हटेगा और वे आपकी team में member बनेंगे। पुराने shifts transfer होंगे।',
+      nm+' has a Manager (individual) account. On accept their manager account is closed and they join your team as a member. Old shifts transfer with them.'
+    ):'');
+  } else if(kind === 'member_other_team'){
+    body = (typeof L==='function'?L(
+      nm+' पहले से किसी दूसरी team में member हैं। Request accept करने पर वे पुरानी team छोड़कर आपकी team join करेंगे। पुराने shifts उनके साथ रहेंगे (केवल वे + आप देख सकेंगे)।',
+      nm+' is already a member of another team. On accept they leave that team and join yours. Old shifts stay with them (visible only to them + you).'
+    ):'');
+  } else if(kind === 'member_same_team'){
+    body = (typeof L==='function'?L('यह नंबर पहले से आपकी team में है।','This number is already on your team.'):'Already on your team.');
+    canRequest = false;
+  } else {
+    body = (typeof L==='function'?L('यह मोबाइल नंबर पहले से app में registered है।','This mobile is already registered in the app.'):'Already registered.');
+  }
+  const esc = (typeof escHtml==='function'?escHtml:function(s){return String(s||'').replace(/</g,'&lt;');});
+  const html = '<div class="modal-handle"></div>'
+    + '<div class="modal-title">'+title+'</div>'
+    + '<div style="font-size:13px;color:var(--text);line-height:1.55;margin:8px 0 14px">'+body+'</div>'
+    + '<div style="font-size:12px;color:var(--muted2);margin-bottom:12px">📱 '+esc(String(phone))+' · <b>'+esc(String(nm))+'</b></div>'
+    + (canRequest
+      ? '<button type="button" class="submit-btn" id="mpSendTransferBtn">'+(typeof L==='function'?L('📨 Transfer request भेजें','📨 Send transfer request'):'Send transfer request')+'</button>'
+      : '')
+    + '<button type="button" class="cancel-btn" onclick="closeModal()">'+(typeof L==='function'?L('ठीक है','OK'):'OK')+'</button>';
+  try{ openModal(html); }catch(e){ toast(body); }
+  try{
+    const btn = document.getElementById('mpSendTransferBtn');
+    if(btn){
+      btn.onclick = function(){
+        sendTeamTransferRequest({phone:String(phone), kind:kind, targetEmpId:emp.id||null, targetName:nm});
+      };
+    }
+  }catch(e){}
+}
+
+async function sendTeamTransferRequest(payload){
+  try{
+    if(!payload||!payload.phone){ toast(typeof L==='function'?L('❌ Phone missing','❌ Phone missing'):'Phone missing'); return; }
+    const phone = _normMobileKey(payload.phone);
+    const fromMgr = _normMobileKey(SESSION.mobile||'');
+    if(!fromMgr){ toast(typeof L==='function'?L('❌ Manager login required','❌ Manager login required'):'Manager login required'); return; }
+    const req = {
+      phone: phone,
+      kind: payload.kind || 'member_other_team',
+      targetEmpId: payload.targetEmpId || null,
+      targetName: payload.targetName || '',
+      fromManagerId: fromMgr,
+      fromManagerName: SESSION.name || SESSION.displayName || 'Manager',
+      fromCompanyId: (typeof myCompanyId==='function'?myCompanyId():'') || '',
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+      shiftVisibility: 'target_and_new_manager',
+      // Target manager_with_team must appoint successor before accept
+      requiresSuccessor: payload.kind === 'manager_with_team'
+    };
+    await fbPush('teamTransferRequests', req);
+    try{
+      if(payload.targetEmpId){
+        await fbPush('userNotifications/'+payload.targetEmpId, {
+          title: (typeof L==='function'?L('Team transfer request','Team transfer request'):'Team transfer request'),
+          body: (typeof L==='function'?L((SESSION.name||'Manager')+' ने आपको अपनी team में join करने का request भेजा है।','A manager invited you to join their team.'):'Team invite'),
+          type: 'team_transfer',
+          read: false,
+          at: new Date().toISOString()
+        });
+      }
+      // Also notify by mobileUsers path
+      await fbPush('userNotifications/'+phone, {
+        title: (typeof L==='function'?L('Team transfer request','Team transfer request'):'Team transfer request'),
+        body: (typeof L==='function'?L((SESSION.name||'Manager')+' invited you to their team.','A manager invited you to their team.'):'Team invite'),
+        type: 'team_transfer',
+        read: false,
+        at: new Date().toISOString()
+      });
+    }catch(e){}
+    try{ closeModal(); }catch(e){}
+    toast(typeof L==='function'?L('✅ Request भेज दी — accept करने पर team transfer होगा','✅ Request sent — transfer completes when they accept'):'Request sent');
+  }catch(e){
+    console.warn('[transfer req]', e);
+    toast('❌ '+(e&&e.message||e));
+  }
+}
+
+/** Entry: accept transfer. If current user still leads a team, force successor handoff first. */
+async function acceptTeamTransferRequest(reqKey, req){
+  try{
+    if(!reqKey||!req) return;
+    const kind = req.kind || '';
+    const mustHandoff = (kind === 'manager_with_team') || _isManagerWithTeamNow() || !!req.requiresSuccessor;
+    if(mustHandoff){
+      openTransferAcceptSuccessorModal(reqKey, req);
+      return;
+    }
+    await _finalizeJoinAsMemberAfterTransfer(reqKey, req, null);
+  }catch(e){
+    console.warn('[accept transfer]', e);
+    toast('❌ '+(e&&e.message||e));
+  }
+}
+
+/** Mandatory UI: pick who leads the old team before this manager can leave. */
+function openTransferAcceptSuccessorModal(reqKey, req){
+  const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+  const ranked = (typeof _rankManagerSuccessors==='function')
+    ? _rankManagerSuccessors()
+    : _teamMembersUnderManager(myKey).map(function(e){
+        const ph = _normMobileKey(e.phone||e.mobile||'');
+        return { emp:e, phone:ph, eligible: ph.length===10, score: ph.length===10?50:0 };
+      }).sort(function(a,b){ return b.score-a.score; });
+  const eligible = ranked.filter(function(r){ return r.eligible && r.phone !== myKey; });
+  const esc = (typeof escHtml==='function'?escHtml:function(s){return String(s||'').replace(/</g,'&lt;');});
+  const fromName = (req && (req.fromManagerName||req.fromManagerId)) || 'Manager';
+
+  if(!eligible.length){
+    openModal('<div class="modal-handle"></div>'
+      +'<div class="modal-title">'+(typeof L==='function'?L('⚠️ पहले successor चाहिए','⚠️ Successor required first'):'Successor required')+'</div>'
+      +'<div style="font-size:13px;line-height:1.55;color:var(--text);margin:8px 0 14px">'
+      +(typeof L==='function'?L(
+        'आपके team में किसी सदस्य के पास valid 10-digit mobile नहीं है। Team → सदस्य पर mobile जोड़ें, फिर transfer accept करें। बिना नया Manager चुने आप team नहीं छोड़ सकते — वरना बाकी members बिना leader रह जाएंगे।',
+        'No team member has a valid 10-digit mobile. Add a mobile on Team → member, then accept the transfer. You cannot leave without appointing a new Manager — otherwise your members would have no leader.'
+      ):'')
+      +'</div>'
+      +'<button type="button" class="cancel-btn" onclick="closeModal()">'+(typeof L==='function'?L('ठीक है','OK'):'OK')+'</button>');
+    return;
+  }
+
+  const opts = eligible.map(function(r){
+    const e = r.emp;
+    const lab = esc((e.name||'')+' · '+(r.phone||'')+(e.empId?(' · '+e.empId):''));
+    return '<option value="'+esc(e.id)+'">'+lab+'</option>';
+  }).join('');
+
+  openModal('<div class="modal-handle"></div>'
+    +'<div class="modal-title">'+(typeof L==='function'?L('🏅 नया Manager चुनें (अनिवार्य)','🏅 Choose new Manager (required)'):'Choose new Manager')+'</div>'
+    +'<div style="font-size:13px;line-height:1.55;color:var(--text);margin:8px 0 12px">'
+    +(typeof L==='function'?L(
+      fromName+' की team में join करने से पहले आपको अपनी वर्तमान team का Manager role किसी दूसरे member (mobile) को देना अनिवार्य है। Accept के बाद आप उनकी team में member बनेंगे; पुरानी team नए Manager के अधीन रहेगी।',
+      'Before joining '+fromName+'’s team, you must transfer your Manager role to another member (mobile) on your current team. After accept you join as a member; your old team continues under the new Manager.'
+    ):'')
+    +'</div>'
+    +'<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+(typeof L==='function'?L('नया Manager (team member)','New Manager (team member)') : 'New Manager')+'</label>'
+    +'<select class="inp-field" id="xferSuccessorSel" style="width:100%;margin:8px 0 14px">'+opts+'</select>'
+    +'<button type="button" class="submit-btn" id="xferAcceptWithSuccBtn">'+(typeof L==='function'?L('✅ Handoff करें और join करें','✅ Handoff & join'):'Handoff & join')+'</button>'
+    +'<button type="button" class="cancel-btn" onclick="rejectTeamTransferRequest(\''+String(reqKey).replace(/'/g,"\\'")+'\');closeModal()">'+(typeof L==='function'?L('अस्वीकार','Decline'):'Decline')+'</button>');
+
+  try{
+    const btn = document.getElementById('xferAcceptWithSuccBtn');
+    if(btn){
+      btn.onclick = function(){
+        const sel = document.getElementById('xferSuccessorSel');
+        const succId = sel && sel.value;
+        if(!succId){ toast(typeof L==='function'?L('⚠️ Successor चुनें','⚠️ Select a successor'):'Select successor'); return; }
+        confirmTransferAcceptWithSuccessor(reqKey, req, succId);
+      };
+    }
+  }catch(e){}
+}
+
+/** Handoff old team to successor, then join requesting manager as member. */
+async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
+  try{
+    const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    const all = (_cache && _cache.employees) || [];
+    const team = (typeof getEmps==='function'?getEmps():[]) || all.filter(function(e){ return _normMobileKey(e.managerId||'')===myKey; });
+    const succ = team.find(function(e){ return e.id===succId; }) || all.find(function(e){ return e.id===succId; });
+    if(!succ){ toast('❌ Member not found'); return; }
+    const newKey = _normMobileKey(succ.phone||succ.mobile||'');
+    if(newKey.length !== 10){
+      toast(typeof L==='function'?L('❌ चुने गए member के पास valid mobile होना चाहिए','❌ Selected member needs a valid mobile'):'Need valid mobile');
+      return;
+    }
+    if(newKey === myKey){
+      toast(typeof L==='function'?L('❌ खुद को successor नहीं बना सकते','❌ You cannot appoint yourself'):'Cannot appoint yourself');
+      return;
+    }
+
+    toast(typeof L==='function'?L('⏳ Team handoff…','⏳ Team handoff…'):'Handoff…');
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast(typeof L==='function'?L('❌ Phone OTP verify करें','❌ Verify phone OTP'):'OTP required'); return; }
+    }
+
+    // 1) Point every member (except leaving manager) at successor
+    const toTransfer = team.filter(function(e){
+      return e && e.id !== (typeof myEmp==='function' && myEmp() && myEmp().id) && _normMobileKey(e.phone||e.mobile||'') !== myKey;
+    });
+    // Always include successor in promote set
+    const updates = {};
+    toTransfer.forEach(function(e){
+      updates['employees/'+e.id+'/managerId'] = newKey;
+      updates['employees/'+e.id+'/previousManagerId'] = myKey;
+      updates['employees/'+e.id+'/managerTransferredAt'] = new Date().toISOString();
+    });
+    updates['employees/'+succ.id+'/managerId'] = newKey;
+    updates['employees/'+succ.id+'/accessLevel'] = 'manager';
+    updates['employees/'+succ.id+'/role'] = 'manager';
+    updates['employees/'+succ.id+'/isTeamManager'] = true;
+    updates['employees/'+succ.id+'/status'] = 'active';
+    updates['employees/'+succ.id+'/perms'] = { schedule:true, leave:true, reports:true, pending:true };
+
+    try{
+      if(window._fbAccess) await window._fbAccess('update', '/', updates);
+      else {
+        for(const e of toTransfer){
+          await fbUpdate('employees/'+e.id, { managerId:newKey, previousManagerId:myKey, managerTransferredAt:new Date().toISOString() });
+        }
+        await fbUpdate('employees/'+succ.id, {
+          managerId:newKey, accessLevel:'manager', role:'manager', isTeamManager:true, status:'active',
+          perms:{ schedule:true, leave:true, reports:true, pending:true }
+        });
+      }
+    }catch(batchErr){
+      console.warn('[xfer handoff] batch', batchErr);
+      for(const e of toTransfer){
+        try{ await fbUpdate('employees/'+e.id, { managerId:newKey, previousManagerId:myKey, managerTransferredAt:new Date().toISOString() }); }catch(ex){}
+      }
+      await fbUpdate('employees/'+succ.id, {
+        managerId:newKey, accessLevel:'manager', role:'manager', isTeamManager:true, status:'active',
+        perms:{ schedule:true, leave:true, reports:true, pending:true }
+      });
+    }
+
+    // 2) Promote successor mobileUsers
+    try{
+      await fbSet('mobileUsers/'+newKey, Object.assign({}, (await fbGet('mobileUsers/'+newKey))||{}, {
+        role: 'manager',
+        status: 'approved',
+        pendingApproval: false,
+        empId: succ.empId || succ.code || '',
+        empObjId: succ.id,
+        name: succ.name || '',
+        managerId: newKey,
+        approvedAt: new Date().toISOString(),
+        approvedBy: 'transfer_handoff:'+(SESSION.name||myKey),
+        transferredFrom: myKey,
+        managerSince: new Date().toISOString()
+      }));
+    }catch(eMu){ console.warn('[xfer] promote mu', eMu); }
+
+    // 3) Re-point mobileUsers.managerId for old team
+    try{
+      const allMU = await fbGet('mobileUsers') || {};
+      for(const mob of Object.keys(allMU)){
+        const rec = allMU[mob];
+        if(!rec || typeof rec !== 'object') continue;
+        if(String(rec.managerId||'') === myKey || String(rec.managerId||'') === '+91'+myKey){
+          try{ await fbUpdate('mobileUsers/'+mob, { managerId: newKey, managerName: succ.name, previousManagerId: myKey }); }catch(ex){}
+        }
+      }
+    }catch(ex){}
+
+    // 4) Copy shift config / leave quotas if possible
+    try{
+      const oldCfgKey = ('mgr:'+myKey).replace(/[:.#$\[\]]/g,'_');
+      const newCfgKey = ('mgr:'+newKey).replace(/[:.#$\[\]]/g,'_');
+      const cfg = await fbGet('shiftConfigs/'+oldCfgKey);
+      if(cfg){
+        await fbSet('shiftConfigs/'+newCfgKey, Object.assign({}, cfg, { transferredFrom:myKey, transferredAt:new Date().toISOString() }));
+      }
+    }catch(ex){}
+
+    // 5) Notify successor
+    try{
+      await fbPush('userNotifications/'+newKey, {
+        type: 'became_manager',
+        title: (typeof L==='function'?L('🏅 आप अब Manager हैं','🏅 You are now Manager'):'You are now Manager'),
+        body: (typeof L==='function'?L((SESSION.name||'Previous manager')+' ने team आपको transfer की।','Previous manager transferred the team to you.'):'Team transferred to you'),
+        read: false,
+        at: new Date().toISOString()
+      });
+      if(succ.id) await fbPush('userNotifications/'+succ.id, {
+        type: 'became_manager',
+        title: (typeof L==='function'?L('🏅 आप अब Manager हैं','🏅 You are now Manager'):'You are now Manager'),
+        body: (typeof L==='function'?L((SESSION.name||'Previous manager')+' ने team आपको transfer की।','Previous manager transferred the team to you.'):'Team transferred to you'),
+        read: false,
+        at: new Date().toISOString()
+      });
+    }catch(e){}
+
+    // 6) Join requesting manager as member (this phone)
+    await _finalizeJoinAsMemberAfterTransfer(reqKey, req, {
+      successorId: succ.id,
+      successorPhone: newKey,
+      successorName: succ.name || ''
+    });
+  }catch(e){
+    console.warn('[confirmTransferAcceptWithSuccessor]', e);
+    toast('❌ '+(e&&e.message||e));
+  }
+}
+
+async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta){
+  const phone = _normMobileKey(req.phone || SESSION.mobile || '');
+  const newMgr = _normMobileKey(req.fromManagerId||'');
+  if(!phone||!newMgr){ toast('Invalid request'); return; }
+  const all = (_cache&&_cache.employees)||[];
+  const matches = all.filter(function(e){ return e && _normMobileKey(e.phone||e.mobile||'')===phone; });
+  const today = (typeof TODAY_STR!=='undefined'?TODAY_STR:(new Date().toISOString().slice(0,10)));
+  for(var i=0;i<matches.length;i++){
+    var e = matches[i];
+    var patch = {
+      managerId: newMgr,
+      role: 'member',
+      accessLevel: 'worker',
+      isTeamManager: false,
+      status: 'active',
+      transferredAt: new Date().toISOString(),
+      previousManagerId: e.managerId || null,
+      shiftHistoryPrivateFrom: today,
+      shiftHistoryPrivateToMgr: newMgr
+    };
+    if(handoffMeta){
+      patch.handedTeamTo = handoffMeta.successorPhone;
+      patch.handedTeamToName = handoffMeta.successorName;
+      patch.handedTeamToEmpId = handoffMeta.successorId;
+    }
+    await fbUpdate('employees/'+e.id, patch);
+  }
+  try{
+    await fbUpdate('mobileUsers/'+phone, {
+      role: 'member',
+      managerId: newMgr,
+      status: 'approved',
+      pendingApproval: false,
+      transferredAt: new Date().toISOString(),
+      previousRole: 'manager'
+    });
+  }catch(ex){}
+  await fbUpdate('teamTransferRequests/'+reqKey, {
+    status:'accepted',
+    acceptedAt: new Date().toISOString(),
+    handoff: handoffMeta || null
+  });
+  try{ closeModal(); }catch(e){}
+  toast(typeof L==='function'?L(
+    handoffMeta
+      ? ('✅ Team '+ (handoffMeta.successorName||'') +' को दी · आप नई team में member हैं')
+      : '✅ Team transfer complete — shifts आपके साथ रहेंगे',
+    handoffMeta
+      ? ('✅ Team handed to '+(handoffMeta.successorName||'successor')+' · you joined as member')
+      : '✅ Team transfer complete — shifts stay with you'
+  ):'Transfer complete');
+  try{ if(typeof loadAll==='function') await loadAll(); }catch(e){}
+  try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+  try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
+}
+
+async function rejectTeamTransferRequest(reqKey){
+  try{
+    await fbUpdate('teamTransferRequests/'+reqKey, { status:'rejected', rejectedAt: new Date().toISOString() });
+    toast(typeof L==='function'?L('Request अस्वीकार','Request declined'):'Declined');
+  }catch(e){ toast('❌ '+(e&&e.message||e)); }
+}
+
+/** Load pending transfer requests for current mobile — show on Home */
+async function loadMyPendingTeamTransfers(){
+  try{
+    const phone = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    if(!phone) return [];
+    const all = await fbGet('teamTransferRequests') || {};
+    const list = [];
+    Object.keys(all).forEach(function(k){
+      const r = all[k];
+      if(!r || r.status!=='pending') return;
+      if(_normMobileKey(r.phone||'')!==phone) return;
+      list.push(Object.assign({ _key:k }, r));
+    });
+    return list;
+  }catch(e){ return []; }
+}
+
+async function renderPendingTeamTransferBanner(){
+  const host = document.getElementById('homeTransferBanner') || document.getElementById('homeNotice');
+  if(!host) return;
+  try{
+    const list = await loadMyPendingTeamTransfers();
+    if(!list.length){
+      if(host.id==='homeTransferBanner') host.innerHTML='';
+      return;
+    }
+    const esc = (typeof escHtml==='function'?escHtml:function(s){return String(s||'');});
+    host.innerHTML = list.map(function(r){
+      const needSucc = r.kind==='manager_with_team' || r.requiresSuccessor || (typeof _isManagerWithTeamNow==='function' && _isManagerWithTeamNow());
+      return '<div style="margin:10px 0;padding:12px 14px;border-radius:12px;border:1px solid rgba(168,85,247,.45);background:rgba(168,85,247,.12)">'
+        +'<div style="font-size:13px;font-weight:800;color:#c084fc;margin-bottom:6px">'+(typeof L==='function'?L('📨 Team join request','📨 Team join request'):'Team join request')+'</div>'
+        +'<div style="font-size:12px;color:var(--text);line-height:1.45;margin-bottom:10px">'
+        +esc(r.fromManagerName||r.fromManagerId||'Manager')
+        +' '+(typeof L==='function'?L('आपको अपनी team में member के रूप में invite कर रहे हैं।','invites you to join their team as a member.') :'invites you.')
+        +(needSucc ? ('<br><b style="color:#fbbf24">'+(typeof L==='function'?L('Accept से पहले नया Manager चुनना अनिवार्य है।','You must appoint a new Manager before accepting.'):'Successor required')+'</b>') : '')
+        +'</div>'
+        +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+        +'<button type="button" class="submit-btn" style="flex:1;min-width:120px;padding:10px" onclick=\'acceptTeamTransferRequest('+JSON.stringify(r._key)+','+JSON.stringify({kind:r.kind,phone:r.phone,fromManagerId:r.fromManagerId,fromManagerName:r.fromManagerName,requiresSuccessor:r.requiresSuccessor})+')\'>'
+        +(typeof L==='function'?L('समीक्षा / Accept','Review / Accept'):'Review / Accept')+'</button>'
+        +'<button type="button" class="cancel-btn" style="flex:1;min-width:100px;padding:10px" onclick="rejectTeamTransferRequest(\''+String(r._key).replace(/'/g,"\\'")+'\')">'
+        +(typeof L==='function'?L('अस्वीकार','Decline'):'Decline')+'</button>'
+        +'</div></div>';
+    }).join('');
+  }catch(e){ console.warn('[transfer banner]', e); }
+}
+
+window.openPhoneTransferModal = openPhoneTransferModal;
+window.sendTeamTransferRequest = sendTeamTransferRequest;
+window.acceptTeamTransferRequest = acceptTeamTransferRequest;
+window.openTransferAcceptSuccessorModal = openTransferAcceptSuccessorModal;
+window.confirmTransferAcceptWithSuccessor = confirmTransferAcceptWithSuccessor;
+window.rejectTeamTransferRequest = rejectTeamTransferRequest;
+window.loadMyPendingTeamTransfers = loadMyPendingTeamTransfers;
+window.renderPendingTeamTransferBanner = renderPendingTeamTransferBanner;
+window._isManagerWithTeamNow = _isManagerWithTeamNow;
+

@@ -1711,7 +1711,7 @@ function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, 
 }
 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){
-  closeModal();
+  try{ if(!window._msBulkCommit) closeModal(); }catch(e){}
   const key = empId+'__'+date;
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
   const fromMyShift = (typeof _currentTab!=='undefined' && _currentTab==='myshift');
@@ -1782,7 +1782,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   }catch(e){}
 
   _updateSaveBar();
-  toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — ${L('Save दबाएँ','press Save')}`);
+  if(!window._msBulkCommit) toast(`⚡ ${empName}: ${cellDisp(newShift)} pending — ${L('Save दबाएँ','press Save')}`);
 }
 
 /** Member requests own shift change → assigned manager only */

@@ -77,6 +77,19 @@ async function renderHome(){
   // 1) MANPOWER SUMMARY — same for all users
   // ════════════════════════════════════════
   (document.getElementById('homeNotice')||{innerHTML:''}).innerHTML='';
+  // Pending team-transfer requests (manager-with-team must appoint successor)
+  try{
+    let tb = document.getElementById('homeTransferBanner');
+    if(!tb){
+      const hs = document.getElementById('homeStats') || document.getElementById('homeNotice');
+      if(hs && hs.parentNode){
+        tb = document.createElement('div');
+        tb.id = 'homeTransferBanner';
+        hs.parentNode.insertBefore(tb, hs);
+      }
+    }
+    if(typeof renderPendingTeamTransferBanner==='function') renderPendingTeamTransferBanner();
+  }catch(e){}
 
   const dayE=emps.filter(e=>getShift(e,TODAY_STR)==='D').length;
   const nE  =emps.filter(e=>getShift(e,TODAY_STR)==='N').length;
@@ -951,25 +964,30 @@ function bindMyShiftDragSelect(root){
           if(typeof _showMyShiftBulkBar==='function') _showMyShiftBulkBar(drag.empId, drag.empName);
           return;
         }
-        // Tap (no drag): double-tap opens single-day Select Shift picker
+        // Tap (no drag): open single-day Select Shift picker
+        // Managers editing a member: single tap is enough (double-tap is unreliable on mobile).
+        // Own calendar (member self-edit): keep double-tap to avoid accidental opens while multi-selecting.
         if(drag.pending && !drag.moved){
           const key = drag.empId + '|' + drag.startDate;
           const now = Date.now();
-          if(lastTapKey === key && (now - lastTapAt) < 350){
-            lastTapAt = 0; lastTapKey = '';
+          const ownId = (typeof myEmp==='function' && myEmp()) ? myEmp().id : (SESSION && SESSION.empObjId);
+          const isEditingOther = !!(drag.empId && ownId && String(drag.empId) !== String(ownId));
+          const openPicker = function(){
             try{
               if(typeof editShiftCell === 'function'){
                 editShiftCell(drag.empId, drag.empName, drag.startDate, drag.curShift || '');
-              } else if(typeof openLeaveReasonModal === 'function' && drag.curShift === 'L'){
-                openLeaveReasonModal(drag.empId, drag.empName, drag.startDate, 'L');
               }
-            }catch(e){ console.warn('[myShift double-tap]', e); }
+            }catch(e){ console.warn('[myShift cell tap]', e); }
+          };
+          if(isEditingOther){
+            openPicker();
+          } else if(lastTapKey === key && (now - lastTapAt) < 350){
+            lastTapAt = 0; lastTapKey = '';
+            openPicker();
           } else {
             lastTapAt = now; lastTapKey = key;
-            // single tap on Leave day: show reason if any
             try{
               if(drag.curShift === 'L' && typeof editShiftCell === 'function'){
-                // short delay so double-tap can cancel
                 setTimeout(()=>{
                   if(lastTapKey === key && Date.now() - lastTapAt >= 340){
                     editShiftCell(drag.empId, drag.empName, drag.startDate, 'L');
@@ -1288,7 +1306,11 @@ function renderMyShift(){
         }
         memberCal = `
         <div class="ms-cal-wrap" style="margin-top:10px;border-color:rgba(249,115,22,.35)">
-          <div style="font-size:13px;font-weight:800;color:#f97316;margin-bottom:8px">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
+          <div class="ms-cal-nav" style="margin-bottom:8px">
+            <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}-1,1);renderMyShift()" aria-label="Previous month">‹</button>
+            <div class="ms-cal-title" style="color:#f97316">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
+            <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}+1,1);renderMyShift()" aria-label="Next month">›</button>
+          </div>
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">

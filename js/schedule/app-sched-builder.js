@@ -366,55 +366,22 @@ async function loadScheduleBuilder(){
   const totalTableW = _sbNameW + dayNums.length * _sbColW;
 
   openModal(`<div class="modal-handle"></div>
-    <div id="sbStickyHeader" style="position:sticky;top:0;z-index:10;background:var(--bg);padding-bottom:4px;flex-shrink:0">
-      <!-- Title + primary filter chips + Change on ONE row (saves vertical space) -->
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-        <div class="modal-title" style="margin:0;font-size:15px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap">📅 ${rangeLabel}</div>
-        <div id="sbPrimaryFilterRow" style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;flex:1;min-width:0">
-          <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Department</button>
-          <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Machines</button>
-          <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Designation</button>
-          <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')" style="font-size:10px;font-weight:800;padding:4px 8px;border-radius:7px;border:1px solid var(--border2);background:var(--card);color:var(--text);cursor:pointer">Responsibility</button>
-        </div>
-        <button onclick="openScheduleBuilder()" style="background:none;border:1px solid var(--border2);border-radius:8px;color:var(--muted);padding:4px 8px;cursor:pointer;font-size:11px;flex-shrink:0">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
+    <div id="sbStickyHeader" class="sb-sticky-header" style="position:sticky;top:0;z-index:10;background:var(--bg);padding:0 0 4px;flex-shrink:0">
+      <!-- Compact: month + Change -->
+      <div class="sb-row-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
+        <div class="modal-title" style="margin:0;font-size:15px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">📅 ${rangeLabel}</div>
+        <button type="button" onclick="openScheduleBuilder()" class="sb-change-btn"
+          style="background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>
-      <!-- Row 2: sub-filter pills + compact actions (Save/Cancel small, next to Auto Generate) -->
-      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
-        <div id="sbSubFilterRow" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;flex:1;min-width:0"></div>
-        <div id="sbCellLegend" style="font-size:10px;color:#94a3b8;white-space:nowrap;line-height:1.2">${(typeof L==='function')?L('🖱️ Drag · Double-tap = Copy','🖱️ Drag · Double-tap = Copy'):'🖱️ Drag · Double-tap = Copy'}</div>
-        <button type="button" onclick="clearScheduleBuilderGrid()"
-          style="background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:8px;
-          color:#fb7185;font-size:11px;font-weight:800;padding:5px 9px;cursor:pointer;white-space:nowrap;
-          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0">
-          🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
-        </button>
-        <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
-          title="Auto Generate sequence: Department / Machine / Designation / Responsibility"
-          style="font-size:11px;font-weight:700;padding:5px 7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);max-width:130px;flex:0 0 auto">
-          <option value="section">Sequence: Department</option>
-          <option value="machine">Sequence: Machine</option>
-          <option value="designation">Sequence: Designation</option>
-          <option value="responsibility">Sequence: Responsibility</option>
-        </select>
-        <button type="button" id="sbSaveBtn" onclick="saveScheduleBuilder('${monthKey}')"
-          style="background:linear-gradient(135deg,#ea580c,#c2410c);border:none;border-radius:8px;
-          color:#fff;font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
-          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0;height:auto;width:auto">
-          💾 ${(typeof L==='function')?L('Save','Save'):'Save'}
-        </button>
-        <button type="button" id="sbCancelBtn" onclick="closeModal()"
-          style="background:var(--card);border:1px solid var(--border2);border-radius:8px;
-          color:var(--muted2);font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
-          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0;height:auto;width:auto">
-          ${(typeof L==='function')?L('रद्द','Cancel'):'Cancel'}
-        </button>
-        <button type="button" onclick="autoGenSchedule('${monthKey}')"
-          style="background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:8px;
-          color:#fff;font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;white-space:nowrap;
-          display:inline-flex;align-items:center;gap:3px;font-family:inherit;flex:0 0 auto;min-height:0;min-width:0">
-          🤖 ${(typeof L==='function')?L('Auto बनाएं','Auto Generate'):'Auto Generate'}
-        </button>
+      <!-- Primary filters: swipe row -->
+      <div id="sbPrimaryFilterRow" class="sb-hscroll" style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:6px;padding-bottom:2px">
+        <button type="button" class="sb-prim-btn" data-prim="section" onclick="_sbSetPrimaryFilter('section')">Department</button>
+        <button type="button" class="sb-prim-btn" data-prim="machine" onclick="_sbSetPrimaryFilter('machine')">Machines</button>
+        <button type="button" class="sb-prim-btn" data-prim="designation" onclick="_sbSetPrimaryFilter('designation')">Designation</button>
+        <button type="button" class="sb-prim-btn" data-prim="responsibility" onclick="_sbSetPrimaryFilter('responsibility')">Responsibility</button>
       </div>
+      <!-- Sub filters: swipe row -->
+      <div id="sbSubFilterRow" class="sb-hscroll" style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:2px;padding-bottom:2px;min-height:34px"></div>
     </div>
     <div id="sbToolbar" style="display:none"></div>
     <!-- Single scroll container: thead + tbody share columns → no laptop misalignment -->
@@ -442,10 +409,44 @@ async function loadScheduleBuilder(){
       </button>
       <div id="sbShiftCounts" style="display:none;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 2px 6px;font-size:11px;font-weight:800"></div>
     </div>
-    <!-- Bottom footer removed — Save/Cancel now in top toolbar -->
-    <div id="sbFooterBar" style="display:none"></div>`);
+    <!-- Bottom action bar — thumb zone (Save / Auto) -->
+    <div id="sbFooterBar" class="sb-footer-bar modal-sticky-actions" style="position:sticky;bottom:0;z-index:12;flex-shrink:0;background:var(--bg);border-top:1px solid var(--border2);padding:8px 0 calc(8px + env(safe-area-inset-bottom,0px));margin-top:4px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <select id="sbAutoSort" onchange="window._sbAutoSort=this.value;try{localStorage.setItem('mp_sb_auto_sort',this.value)}catch(e){}"
+          title="Auto Generate sequence"
+          style="flex:1;min-width:0;font-size:12px;font-weight:700;padding:9px 10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);min-height:42px">
+          <option value="section">Sequence: Department</option>
+          <option value="machine">Sequence: Machine</option>
+          <option value="designation">Sequence: Designation</option>
+          <option value="responsibility">Sequence: Responsibility</option>
+        </select>
+        <button type="button" onclick="clearScheduleBuilderGrid()" class="sb-clear-btn"
+          style="flex:0 0 auto;background:rgba(244,63,94,.12);border:1.5px solid rgba(244,63,94,.45);border-radius:10px;
+          color:#fb7185;font-size:12px;font-weight:800;padding:9px 12px;cursor:pointer;white-space:nowrap;min-height:42px">
+          🗑️ ${(typeof L==='function')?L('क्लियर','Clear'):'Clear'}
+        </button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:stretch">
+        <button type="button" id="sbCancelBtn" onclick="closeModal()"
+          style="flex:0 0 auto;background:var(--card);border:1px solid var(--border2);border-radius:10px;
+          color:var(--muted2);font-size:13px;font-weight:800;padding:12px 14px;cursor:pointer;min-height:48px">
+          ${(typeof L==='function')?L('रद्द','Cancel'):'Cancel'}
+        </button>
+        <button type="button" onclick="autoGenSchedule('${monthKey}')"
+          style="flex:1.15;background:linear-gradient(135deg,#7c3aed,#4f46e5);border:none;border-radius:10px;
+          color:#fff;font-size:13px;font-weight:800;padding:12px 8px;cursor:pointer;min-height:48px;white-space:nowrap">
+          🤖 ${(typeof L==='function')?L('Auto बनाएं','Auto Generate'):'Auto Generate'}
+        </button>
+        <button type="button" id="sbSaveBtn" onclick="saveScheduleBuilder('${monthKey}')"
+          style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);border:none;border-radius:10px;
+          color:#fff;font-size:13px;font-weight:800;padding:12px 8px;cursor:pointer;min-height:48px">
+          💾 ${(typeof L==='function')?L('Save','Save'):'Save'}
+        </button>
+      </div>
+      <div id="sbCellLegend" style="font-size:10px;color:#94a3b8;margin-top:4px;text-align:center">${(typeof L==='function')?L('🖱️ Drag · Double-tap = Copy','🖱️ Drag · Double-tap = Copy'):'🖱️ Drag · Double-tap = Copy'}</div>
+    </div>`);
   try{ if(typeof _sbUpdateShiftCounts==='function') _sbUpdateShiftCounts(); }catch(e){}
-  try{ _sbLockLandscape(true); }catch(e){}
+  try{ document.body.classList.add('sb-builder-open'); /* no orientation lock — portrait UI is primary */ }catch(e){}
   setTimeout(initSBSelection, 50);
   setTimeout(function(){ try{ _sbUpdateShiftCounts(); }catch(e){} }, 100);
 
@@ -487,8 +488,9 @@ async function loadScheduleBuilder(){
   }, 90);
   // Hint rotate if still portrait on phone
   try{
-    if(window.matchMedia && window.matchMedia('(orientation: portrait) and (max-width: 900px)').matches){
-      toast((typeof L==='function')?L('📱 बेहतर व्यू के लिए फ़ोन Landscape घुमाएँ','📱 Rotate phone to Landscape for best view'):'📱 Rotate to Landscape');
+    // Portrait is usable after mobile toolbar redesign; hint only on very small screens
+    if(window.matchMedia && window.matchMedia('(orientation: portrait) and (max-width: 360px)').matches){
+      toast((typeof L==='function')?L('📱 ग्रिड के लिए Landscape बेहतर है','📱 Landscape is better for the grid'):'📱 Landscape is better for the grid');
     }
   }catch(e){}
   }catch(err){
