@@ -548,19 +548,48 @@ async function confirmDeleteMyAccount(){
     }catch(bakErr){ console.warn('[deleteAccount] backup', bakErr); }
 
     // 1) Remove mobile registration (critical — next login becomes NEW)
-    try{ await fbRemove('mobileUsers/'+mob); }catch(e){
-      try{ await fbSet('mobileUsers/'+mob, null); }catch(e2){
+    //    Try every key variant; verify read-back so login cannot see approved manager.
+    var _muKeys = [mob, '+91'+mob, '91'+mob];
+    var _muDeleted = false;
+    for (var _ui=0; _ui<_muKeys.length; _ui++){
+      var _muk = _muKeys[_ui];
+      try{ await fbRemove('mobileUsers/'+_muk); _muDeleted = true; }catch(e){
+        try{ await fbSet('mobileUsers/'+_muk, null); _muDeleted = true; }catch(e2){
+          try{
+            await fbSet('mobileUsers/'+_muk, {
+              status: 'removed',
+              role: 'removed',
+              forceFreshLogin: true,
+              deletedAt: new Date().toISOString(),
+              deletedBy: 'self'
+            });
+            _muDeleted = true;
+          }catch(e3){ console.warn('[deleteAccount] mobileUsers '+_muk, e3); }
+        }
+      }
+    }
+    // Verify — if still approved, force tombstone one more time
+    try{
+      var _check = await fbGet('mobileUsers/'+mob);
+      if(_check && (_check.status==='approved' || _check.role==='manager' || _check.role==='member')){
         try{
           await fbSet('mobileUsers/'+mob, {
             status: 'removed',
             role: 'removed',
             forceFreshLogin: true,
             deletedAt: new Date().toISOString(),
-            deletedBy: 'self'
+            deletedBy: 'self',
+            name: null,
+            empObjId: null
           });
-        }catch(e3){ console.warn('[deleteAccount] mobileUsers', e3); }
+        }catch(eV){ console.warn('[deleteAccount] verify tombstone', eV); }
       }
-    }
+    }catch(eC){}
+    try{
+      if(window._cache && _cache.mobileUsers){
+        _muKeys.forEach(function(k){ try{ delete _cache.mobileUsers[k]; }catch(e){} });
+      }
+    }catch(e){}
 
     // 2) Managers node
     try{ await fbRemove('managers/'+mob); }catch(e){

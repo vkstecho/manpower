@@ -1550,3 +1550,20 @@ body.light .inp-field {
     border-radius: 18px 18px 0 0 !important;
   }
 }
+
+
+/* ═══ v5.1.14 — Long-press select + copy on all form fields ═══ */
+input, textarea, select,
+input.inp-field, textarea.inp-field,
+.modal input, .modal textarea,
+.overlay input, .overlay textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  -webkit-touch-callout: default !important;
+  touch-action: auto !important;
+}
+/* type=number blocks selection on many Android browsers — prefer text+inputmode */
+input[type="number"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}

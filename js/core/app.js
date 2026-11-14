@@ -104,7 +104,48 @@ function _showIosInstallHelp(){
 }
 try{ window._showInstallPlatformModal=_showInstallPlatformModal; window._showIosInstallHelp=_showIosInstallHelp; }catch(e){}
 
-function _showInstallInstructions(){const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);_mpIsPwaInstalled()?toast(L("✅ App पहले से installed है! Home screen पर देखें।","✅ App already installed! Check your home screen.")):isIOS?openModal('<div class="modal-handle"></div>\n      <div class="modal-title">📲 iPhone पर Install करें</div>\n      <div style="font-size:14px;line-height:2;color:var(--muted2)">\n        <div>1️⃣ <b style="color:#fff">Safari</b> में यह page खोलें</div>\n        <div>2️⃣ नीचे <b style="color:#fff">Share 📤</b> दबाएं</div>\n        <div>3️⃣ <b style="color:#fff">Add to Home Screen</b> चुनें</div>\n        <div>4️⃣ <b style="color:#fff">Add</b> दबाएं</div>\n      </div>\n      <button class="cancel-btn" onclick="closeModal()" style="margin-top:16px">ठीक है</button>'):openModal('<div class="modal-handle"></div>\n    <div class="modal-title">📲 App Install करें</div>\n    <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);border-radius:12px;padding:14px;margin-bottom:14px">\n      <div style="font-size:14px;font-weight:800;color:#22c55e;margin-bottom:6px">⚡ सबसे आसान तरीका</div>\n      <div style="font-size:13px;color:var(--text);line-height:1.6">\n        Browser के <b>ऊपर address bar</b> में <b style="color:#f97316">Install</b> बटन दिख रहा है —<br>\n        उसी पर एक बार टैप / क्लिक करें।\n      </div>\n    </div>\n    <div style="font-size:13px;color:var(--muted2);line-height:1.9">\n      <b style="color:#fff">अगर Install नहीं दिखे:</b><br>\n      1️⃣ Chrome menu <b>⋮</b> (ऊपर right)<br>\n      2️⃣ <b>Install app</b> / <b>Add to Home screen</b><br>\n      3️⃣ <b>Install</b> दबाएं\n    </div>\n    <button class="submit-btn" onclick="closeModal();_mpRetryInstall()" style="margin-top:16px">🔄 फिर से Try करें</button>\n    <button class="cancel-btn" onclick="closeModal()" style="margin-top:8px">ठीक है</button>')}function _mpRetryInstall(){setTimeout(()=>{try{triggerPWAInstall()}catch(e){}},300)}function _mpInitInstallUi(){_mpSyncPwaPrompt(),_mpRefreshInstallButtons(),window.addEventListener("beforeinstallprompt",e=>{e.preventDefault(),_pwaPrompt=e,window.__pwaDeferredPrompt=e,showInstallBanner()}),window.addEventListener("appinstalled",()=>{hideInstallBanner(),toast(L("🎉 App install हो गई! Home screen पर देखें","🎉 App installed! Check your home screen")),_pwaPrompt=null,window.__pwaDeferredPrompt=null,_mpRefreshInstallButtons()})}window._onPwaPromptReady=function(e){_pwaPrompt=e||window.__pwaDeferredPrompt;try{_mpRefreshInstallButtons()}catch(x){}};
+function _showInstallInstructions(){
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent||"");
+  if(typeof _mpIsPwaInstalled==="function" && _mpIsPwaInstalled()){
+    toast(typeof L==="function"?L("✅ App पहले से installed है! Home screen पर देखें।","✅ App already installed! Check your home screen."):"✅ App already installed!");
+    return;
+  }
+  if(isIOS){
+    openModal(
+      '<div class="modal-handle"></div>'+
+      '<div class="modal-title">📲 '+(typeof L==="function"?L("iPhone पर Install करें","Install on iPhone"):"Install on iPhone")+'</div>'+
+      '<div style="font-size:14px;line-height:1.9;color:var(--text,#e2e8f0)">'+
+        '<div>1️⃣ <b style="color:#fff">'+(typeof L==="function"?L("Safari","Safari"):"Safari")+'</b> '+(typeof L==="function"?L("में यह page खोलें","— open this page"):"— open this page")+'</div>'+
+        '<div>2️⃣ '+(typeof L==="function"?L("नीचे","Bottom")+ ' <b style="color:#fff">Share 📤</b>':'Bottom <b style="color:#fff">Share 📤</b>')+'</div>'+
+        '<div>3️⃣ <b style="color:#fff">Add to Home Screen</b></div>'+
+        '<div>4️⃣ <b style="color:#fff">Add</b></div>'+
+      '</div>'+
+      '<button class="cancel-btn" onclick="closeModal()" style="margin-top:16px;background:#1e293b;color:#f8fafc;border:1px solid #334155;font-weight:800">'+(typeof L==="function"?L("ठीक है","OK"):"OK")+'</button>'
+    );
+    return;
+  }
+  const T=function(hi,en){ return typeof L==="function"?L(hi,en):en; };
+  openModal(
+    '<div class="modal-handle"></div>'+
+    '<div class="modal-title">📲 '+T("App Install करें","Install App")+'</div>'+
+    '<div style="background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);border-radius:12px;padding:14px;margin-bottom:14px">'+
+      '<div style="font-size:14px;font-weight:800;color:#4ade80;margin-bottom:6px">⚡ '+T("सबसे आसान तरीका","Easiest way")+'</div>'+
+      '<div style="font-size:13px;color:#e2e8f0;line-height:1.6">'+
+        T("Browser के ऊपर address bar में","In the browser address bar at the top")+
+        ' <b style="color:#fb923c">Install</b> '+
+        T("बटन दिख रहा है — उसी पर एक बार टैप / क्लिक करें।","button — tap / click it once.")+
+      '</div>'+
+    '</div>'+
+    '<div style="font-size:13px;color:#cbd5e1;line-height:1.9">'+
+      '<b style="color:#f8fafc">'+T("अगर Install नहीं दिखे:","If Install is not visible:")+'</b><br>'+
+      '1️⃣ Chrome menu <b style="color:#fff">⋮</b> ('+T("ऊपर right","top right")+')<br>'+
+      '2️⃣ <b style="color:#fff">Install app</b> / <b style="color:#fff">Add to Home screen</b><br>'+
+      '3️⃣ <b style="color:#fff">Install</b> '+T("दबाएं","press")+
+    '</div>'+
+    '<button type="button" class="submit-btn" onclick="closeModal();_mpRetryInstall()" style="margin-top:16px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;padding:14px;border-radius:12px;width:100%;cursor:pointer">🔄 '+T("फिर से Try करें","Try again")+'</button>'+
+    '<button type="button" class="cancel-btn" onclick="closeModal()" style="margin-top:8px;background:#1e293b;color:#f8fafc;border:1px solid #475569;font-weight:800;padding:12px;border-radius:12px;width:100%;cursor:pointer">'+T("ठीक है","OK")+'</button>'
+  );
+}function _mpRetryInstall(){setTimeout(()=>{try{triggerPWAInstall()}catch(e){}},300)}function _mpInitInstallUi(){_mpSyncPwaPrompt(),_mpRefreshInstallButtons(),window.addEventListener("beforeinstallprompt",e=>{e.preventDefault(),_pwaPrompt=e,window.__pwaDeferredPrompt=e,showInstallBanner()}),window.addEventListener("appinstalled",()=>{hideInstallBanner(),toast(L("🎉 App install हो गई! Home screen पर देखें","🎉 App installed! Check your home screen")),_pwaPrompt=null,window.__pwaDeferredPrompt=null,_mpRefreshInstallButtons()})}window._onPwaPromptReady=function(e){_pwaPrompt=e||window.__pwaDeferredPrompt;try{_mpRefreshInstallButtons()}catch(x){}};
 /* v3.1.4 Install: Play Store fallback when PWA prompt unavailable */
 async function triggerPWAInstall(){
   try{ if(typeof _mpSyncPwaPrompt==='function') _mpSyncPwaPrompt(); }catch(e){}
