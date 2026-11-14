@@ -211,7 +211,6 @@ function _renderTeamImpl(search=''){
 
   // ── Left / Resigned Members Section ──
   // Merge: firebase leftEmployees path + status='resigned' employees from main table
-  try{ if(typeof renderTeamPendingTransfers==='function') renderTeamPendingTransfers(); }catch(e){}
   // Count is manager-scoped (same rules as renderLeftMembers)
   const leftSec = document.getElementById('leftMembersSection');
   if(leftSec){
