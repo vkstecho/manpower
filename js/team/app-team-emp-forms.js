@@ -60,17 +60,22 @@ async function addEmployee(){
     toast(L('⚠️ Employee code पहले से है: ','⚠️ Employee code already exists: ') + codeClash.name);
     return;
   }
-  // Duplicate mobile — block direct add; offer transfer request when already registered
-  if(phone && phone.length === 10){
-    const clash = _findPhoneConflict(phone, null, code);
+  // Normalize phone and block if already registered anywhere (employees + mobileUsers live)
+  const phoneNorm = (typeof _normMobileKey==='function' ? _normMobileKey(phone) : String(phone||'').replace(/\D/g,'').slice(-10));
+  if(phoneNorm && phoneNorm.length === 10){
+    let clash = null;
+    try{
+      if(typeof _findPhoneConflictAsync==='function') clash = await _findPhoneConflictAsync(phoneNorm, null, code);
+      else if(typeof _findPhoneConflict==='function') clash = _findPhoneConflict(phoneNorm, null, code);
+    }catch(ex){ console.warn('[addEmployee] phone check', ex); }
     if(clash){
       try{
         if(typeof openPhoneTransferModal==='function'){
-          openPhoneTransferModal({clash, phone, intended:{name,code,sec,section:sectionRaw||sec,mc,resp,woff,designation,joiningDate,dob,salaryRaw}});
+          openPhoneTransferModal({clash, phone:phoneNorm, intended:{name,code,sec,section:sectionRaw||sec,mc,resp,woff,designation,joiningDate,dob,salaryRaw}});
           return;
         }
       }catch(ex){}
-      const nm = (clash.emp&&(clash.emp.name||clash.emp.empId)) || '';
+      const nm = (clash.emp&&(clash.emp.name||clash.emp.empId)) || phoneNorm;
       toast(L('📱 यह मोबाइल नंबर पहले से registered है। Add नहीं किया।','📱 Mobile already registered. Not added.') + ' ('+nm+')');
       return;
     }
@@ -82,7 +87,8 @@ async function addEmployee(){
     companyLabel:SESSION.company||'Man Power',
     ms:Array(31).fill('D')};
   if(SESSION.role==='manager' && SESSION.mobile){ emp.managerId=_normMobileKey(SESSION.mobile); }
-  if(phone) emp.phone=phone;
+  if(phoneNorm && phoneNorm.length===10) emp.phone=phoneNorm;
+  else if(phone) emp.phone=phone;
   if(joiningDate) emp.joiningDate=joiningDate;
   if(dob) emp.dob=dob;
   if(salaryRaw) emp.monthlySalary=parseFloat(salaryRaw);
@@ -281,11 +287,18 @@ async function saveEmployee(empId){
     update.monthlySalary = isFinite(n) ? n : null;
   }
 
-  // Phone clash — exclude self by id AND by same phone already on this record
+  // Phone clash — live check across all teams + mobileUsers
+  if(update.phone){
+    update.phone = (typeof _normMobileKey==='function' ? _normMobileKey(update.phone) : String(update.phone).replace(/\D/g,'').slice(-10));
+  }
   if(update.phone && update.phone.length === 10){
     const selfPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
     if(update.phone !== selfPhone){
-      const clash = _findPhoneConflict(update.phone, empId, update.empId);
+      let clash = null;
+      try{
+        if(typeof _findPhoneConflictAsync==='function') clash = await _findPhoneConflictAsync(update.phone, empId, update.empId);
+        else clash = _findPhoneConflict(update.phone, empId, update.empId);
+      }catch(ex){}
       if(clash && clash.emp && clash.emp.id !== empId){
         _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
         try{

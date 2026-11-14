@@ -366,7 +366,7 @@ async function showProfile(){
     const secLabel = empRec ? (secName(empRec.sec) || empRec.sec) : '';
     const roleLabel = isMgr()?'🏅 Manager':isSupervisor()?'👁️ Supervisor':'👤 User';
     openModal(`<div class="modal-handle"></div>
-    <div class="modal-scroll-body" style="text-align:center;padding:10px 0">
+    <div class="modal-scroll-body" style="text-align:center;padding:10px 0 48px;min-height:0" data-v="v5.1.13-profile-spacer">
       <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:#fff;font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img src="${SESSION.photoUrl}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
       <div style="font-size:20px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px">${(SESSION.role==='manager'||SESSION.role==='member')?(function(){ const s=String(SESSION.mobile||'').replace(/\s/g,''); if(s.startsWith('+91')&&s.length>=13) return '📱 +91 '+s.slice(3,8)+' '+s.slice(8); if(s.length===10) return '📱 +91 '+s.slice(0,5)+' '+s.slice(5); return '📱 '+(SESSION.mobile||'—'); })():escHtml((SESSION.empId||'—')+' · '+secLabel)}</div>

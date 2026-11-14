@@ -492,7 +492,10 @@ function _buildShiftSaveWaQueue(savedEntries){
         if(!msgLines) return;
         let t = String(msgLines).trim();
         t = t.replace(/\n?📱\s*Check Complete Shift[\s\S]*$/i, '').trim();
-        t = t.replace(/\n?https:\/\/manpower\.vkstech\.com\s*$/i, '').trim();
+        t = t.replace(/\n?📲\s*\*?Android[\s\S]*?(?=\n\n|$)/gi, '').trim();
+        t = t.replace(/\n?🍎💻\s*\*?iPhone[\s\S]*?(?=\n\n|$)/gi, '').trim();
+        t = t.replace(/\n?https:\/\/(?:play\.google\.com|manpower\.vkstech\.com)[^\s]*/gi, '').trim();
+        t = t.replace(/\n{3,}/g, '\n\n').trim();
         if(t) _msgParts.push(t);
       };
 

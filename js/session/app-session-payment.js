@@ -470,9 +470,10 @@ async function openCustomerCarePage(){
     }
   }
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-scroll-body" style="padding:8px 0 4px">
+    <div class="modal-scroll-body" style="padding:8px 0 48px;min-height:0">
       ${_customerCareHtml(cc, { showRequestBtn: true, plans: plans })}
       <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal()">${typeof L==='function'?L('बंद करें','Close'):'Close'}</button>
+      <div style="height:24px" aria-hidden="true"></div>
     </div>`);
 }
 

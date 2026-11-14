@@ -470,6 +470,7 @@ function _goTabDirect(t){
   if(t==='pending')      renderPending();
   if(t==='team')         { try{ renderTeam(); }catch(e){ console.warn('[team]',e); } try{ renderAdminTeamHierarchy(); }catch(e){ console.warn('[teamHier]',e); } }
   if(t==='instructions') renderInstructions();
+  try{ if(typeof syncHandoverChipForTab==='function') syncHandoverChipForTab(); }catch(e){}
   // Re-apply language so any newly-rendered elements get translated.
   // Run twice — once immediately, once after async renders settle.
   try{ if(typeof applyLang === 'function') applyLang(); }catch(e){}

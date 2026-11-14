@@ -1395,30 +1395,62 @@
   // Warm cache
   setTimeout(function () { try { loadFeatureFlags(); } catch (e) {} }, 1500);
 
-  function maybeShowHandoverPrompt() {
+  function _handoverAllowedTab() {
     try {
-      var done = localStorage.getItem('mp_handover_done_' + _todayStr());
-      if (done) return;
-      var me = _currentEmp();
-      if (!me) return;
-      var mySh = _shiftOf(me, _todayStr());
-      if (!mySh || mySh === 'O' || mySh === 'L' || mySh === 'Ab') return;
-      // Soft: show floating chip once per session
-      if (window._mpHandoverPromptShown) return;
-      window._mpHandoverPromptShown = true;
+      var t = (typeof _currentTab !== 'undefined' && _currentTab) ? String(_currentTab) : '';
+      if (t === 'home' || t === 'myshift') return true;
+      // Fallback: visible tab class
+      var home = document.getElementById('tab-home');
+      var ms = document.getElementById('tab-myshift');
+      if (home && home.classList.contains('on')) return true;
+      if (ms && ms.classList.contains('on')) return true;
+      return false;
+    } catch (e) { return false; }
+  }
+
+  function hideHandoverChip() {
+    try {
       var chip = document.getElementById('mpHandoverChip');
-      if (chip) return;
-      chip = document.createElement('button');
-      chip.id = 'mpHandoverChip';
-      chip.type = 'button';
-      chip.style.cssText = 'position:fixed;right:12px;bottom:72px;z-index:900;padding:12px 14px;border-radius:14px;border:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(3,105,161,.35);cursor:pointer;font-family:inherit';
-      chip.textContent = _L('🔄 शिफ्ट हैंडओवर', '🔄 Shift handover');
-      chip.onclick = function () { openShiftHandoverForm(); };
-      document.body.appendChild(chip);
+      if (chip) chip.style.display = 'none';
     } catch (e) {}
   }
 
-  // Prompt shortly after home load
+  function maybeShowHandoverPrompt() {
+    try {
+      if (!_handoverAllowedTab()) {
+        hideHandoverChip();
+        return;
+      }
+      var done = localStorage.getItem('mp_handover_done_' + _todayStr());
+      if (done) { hideHandoverChip(); return; }
+      var me = _currentEmp();
+      if (!me) return;
+      var mySh = _shiftOf(me, _todayStr());
+      if (!mySh || mySh === 'O' || mySh === 'L' || mySh === 'Ab') { hideHandoverChip(); return; }
+      var chip = document.getElementById('mpHandoverChip');
+      if (!chip) {
+        chip = document.createElement('button');
+        chip.id = 'mpHandoverChip';
+        chip.type = 'button';
+        chip.style.cssText = 'position:fixed;right:12px;bottom:72px;z-index:900;padding:12px 14px;border-radius:14px;border:none;background:linear-gradient(135deg,#0ea5e9,#0369a1);color:#fff;font-weight:800;font-size:13px;box-shadow:0 8px 24px rgba(3,105,161,.35);cursor:pointer;font-family:inherit';
+        chip.textContent = _L('🔄 शिफ्ट हैंडओवर', '🔄 Shift handover');
+        chip.onclick = function () { openShiftHandoverForm(); };
+        document.body.appendChild(chip);
+      }
+      chip.style.display = 'block';
+    } catch (e) {}
+  }
+
+  // Keep chip in sync with tab changes (Home / My Shift only)
+  function syncHandoverChipForTab() {
+    try {
+      if (_handoverAllowedTab()) maybeShowHandoverPrompt();
+      else hideHandoverChip();
+    } catch (e) {}
+  }
+  global.syncHandoverChipForTab = syncHandoverChipForTab;
+  global.hideHandoverChip = hideHandoverChip;
+
   setTimeout(function () { try { maybeShowHandoverPrompt(); } catch (e) {} }, 2500);
   setTimeout(function () { try { maybeShowHandoverPrompt(); } catch (e) {} }, 8000);
 
