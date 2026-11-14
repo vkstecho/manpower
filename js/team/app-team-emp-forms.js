@@ -1412,11 +1412,13 @@ async function acceptTeamTransferRequest(reqKey, req){
   try{
     if(!reqKey||!req) return;
     const kind = req.kind || '';
-    const mustHandoff = (kind === 'manager_with_team') || _isManagerWithTeamNow() || !!req.requiresSuccessor;
-    if(mustHandoff){
+    const hasTeam = (kind === 'manager_with_team') || _isManagerWithTeamNow() || !!req.requiresSuccessor;
+    if(hasTeam){
+      // Only force successor picker when at least one OTHER member has a valid 10-digit mobile
       openTransferAcceptSuccessorModal(reqKey, req);
       return;
     }
+    // Solo manager / no other members → join directly
     await _finalizeJoinAsMemberAfterTransfer(reqKey, req, null);
   }catch(e){
     console.warn('[accept transfer]', e);
@@ -1438,15 +1440,34 @@ function openTransferAcceptSuccessorModal(reqKey, req){
   const fromName = (req && (req.fromManagerName||req.fromManagerId)) || 'Manager';
 
   if(!eligible.length){
+    // No other mobile on roster → do NOT block. Offer accept; remaining members move under the inviting Manager.
+    const remaining = _teamMembersUnderManager(myKey).filter(function(e){
+      return e && _normMobileKey(e.phone||e.mobile||'') !== myKey;
+    });
+    const remNames = remaining.slice(0,6).map(function(e){ return esc(e.name||e.empId||'member'); }).join(', ')
+      + (remaining.length > 6 ? (' +'+(remaining.length-6)) : '');
     openModal('<div class="modal-handle"></div>'
-      +'<div class="modal-title">'+(typeof L==='function'?L('⚠️ पहले successor चाहिए','⚠️ Successor required first'):'Successor required')+'</div>'
+      +'<div class="modal-title">'+(typeof L==='function'?L('✅ Successor की जरूरत नहीं','✅ No successor needed'):'No successor needed')+'</div>'
       +'<div style="font-size:13px;line-height:1.55;color:var(--text);margin:8px 0 14px">'
       +(typeof L==='function'?L(
-        'आपके team में किसी सदस्य के पास valid 10-digit mobile नहीं है। Team → सदस्य पर mobile जोड़ें, फिर transfer accept करें। बिना नया Manager चुने आप team नहीं छोड़ सकते — वरना बाकी members बिना leader रह जाएंगे।',
-        'No team member has a valid 10-digit mobile. Add a mobile on Team → member, then accept the transfer. You cannot leave without appointing a new Manager — otherwise your members would have no leader.'
+        'आपकी team में किसी दूसरे सदस्य के पास valid 10-digit mobile नहीं है, इसलिए नया Manager designate करने की जरूरत नहीं। Accept करने पर:'
+        +'<br><br>• आप <b>'+esc(fromName)+'</b> की team में <b>member</b> बनेंगे।'
+        +(remaining.length
+          ? ('<br>• आपके बाकी members ('+remNames+') भी उसी Manager के नीचे चले जाएंगे — बिना leader नहीं छोड़ेंगे।')
+          : '<br>• आपकी team में और member नहीं हैं।'),
+        'No other team member has a valid 10-digit mobile, so you do not need to appoint a successor. On Accept:'
+        +'<br><br>• You join <b>'+esc(fromName)+'</b>\'s team as a <b>member</b>.'
+        +(remaining.length
+          ? ('<br>• Your remaining members ('+remNames+') also move under that Manager — they will not be left without a leader.')
+          : '<br>• You have no other team members.')
       ):'')
       +'</div>'
-      +'<button type="button" class="cancel-btn" onclick="closeModal()">'+(typeof L==='function'?L('ठीक है','OK'):'OK')+'</button>');
+      +'<button type="button" class="submit-btn" id="mpAcceptNoSuccBtn">'+(typeof L==='function'?L('✅ Accept — join as member','✅ Accept — join as member'):'Accept')+'</button>'
+      +'<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+(typeof L==='function'?L('अभी नहीं','Not now'):'Not now')+'</button>');
+    try{
+      const b = document.getElementById('mpAcceptNoSuccBtn');
+      if(b) b.onclick = function(){ confirmTransferAcceptWithoutSuccessor(reqKey, req); };
+    }catch(e){}
     return;
   }
 
@@ -1770,7 +1791,7 @@ async function renderPendingTeamTransferBanner(){
         +'<div style="font-size:12px;color:var(--text);line-height:1.45;margin-bottom:10px">'
         +esc(r.fromManagerName||r.fromManagerId||'Manager')
         +' '+(typeof L==='function'?L('आपको अपनी team में member के रूप में invite कर रहे हैं।','invites you to join their team as a member.') :'invites you.')
-        +(needSucc ? ('<br><b style="color:#fbbf24">'+(typeof L==='function'?L('Accept से पहले नया Manager चुनना अनिवार्य है।','You must appoint a new Manager before accepting.'):'Successor required')+'</b>') : '')
+        +(needSucc ? ('<br><span style="color:#fbbf24">'+(typeof L==='function'?L('Accept पर: team में mobile वाले सदस्य हों तो नया Manager चुनें; नहीं तो बाकी members नए Manager के नीचे चले जाएंगे।','On Accept: if a team member has a mobile you pick a new Manager; otherwise remaining members move under the inviting Manager.'):'')+'</span>') : '')
         +'</div>'
         +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
         +'<button type="button" class="submit-btn" style="flex:1;min-width:120px;padding:10px" onclick=\'acceptTeamTransferRequest('+JSON.stringify(r._key)+','+JSON.stringify({kind:r.kind,phone:r.phone,fromManagerId:r.fromManagerId,fromManagerName:r.fromManagerName,requiresSuccessor:r.requiresSuccessor})+')\'>'
@@ -1862,6 +1883,7 @@ window.cancelTeamTransferRequest = cancelTeamTransferRequest;
 window.renderPendingTeamTransferBanner = renderPendingTeamTransferBanner;
 window.sendTeamTransferRequest = sendTeamTransferRequest;
 window.acceptTeamTransferRequest = acceptTeamTransferRequest;
+window.confirmTransferAcceptWithoutSuccessor = confirmTransferAcceptWithoutSuccessor;
 window.openTransferAcceptSuccessorModal = openTransferAcceptSuccessorModal;
 window.confirmTransferAcceptWithSuccessor = confirmTransferAcceptWithSuccessor;
 window.rejectTeamTransferRequest = rejectTeamTransferRequest;
