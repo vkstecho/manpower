@@ -807,14 +807,24 @@ function getBaseShift(emp, dateStr){
   function fbLookup(sched){
     if(!sched) return null;
     if(emp.id && sched[emp.id] != null) return sched[emp.id];
-    if(emp.empId && sched[String(emp.empId).trim()] != null) return sched[String(emp.empId).trim()];
-    // loose match on emp code without leading zeros difference
-    if(emp.empId){
-      const code = String(emp.empId).trim().replace(/^0+/,'');
+    const codeRaw = emp.empId != null ? String(emp.empId).trim() : '';
+    if(codeRaw && sched[codeRaw] != null) return sched[codeRaw];
+    if(codeRaw && sched[codeRaw.toUpperCase()] != null) return sched[codeRaw.toUpperCase()];
+    // loose match on emp code without leading zeros / case
+    if(codeRaw){
+      const code = codeRaw.replace(/^0+/,'').toUpperCase();
       for(const k of Object.keys(sched)){
-        if(String(k).replace(/^0+/,'') === code) return sched[k];
+        const kk = String(k).replace(/^0+/,'').toUpperCase();
+        if(kk === code) return sched[k];
       }
     }
+    // phone match if schedule was keyed by mobile
+    try{
+      const ph = (typeof _normMobileKey==='function')
+        ? _normMobileKey(emp.phone||emp.mobile||'')
+        : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+      if(ph && ph.length===10 && sched[ph] != null) return sched[ph];
+    }catch(x){}
     return null;
   }
   const fbSched = getSchedules()[monthKey];
@@ -984,15 +994,55 @@ function mpShiftBadgeHtml(code, opts){
 function mpShiftStyle(code){
   let k = String(code||'').trim();
   if(/^L[:\-_]/i.test(k)) k = 'L';
+  if(/^HLF[:\-_]/i.test(k) || k==='½' || /^1\/2/i.test(k)) k = 'HLF';
   if(k==='CO' || k==='C/O') k = 'C/O';
   const c = window.MP_SHIFT_COLORS[k] || window.MP_SHIFT_COLORS[k.toUpperCase()];
   if(c) return c;
   if(String(code||'').indexOf('+')>=0) return {bg:'#7c3aed',fg:'#fff'};
+  // Deterministic colour for custom codes (A2, B2, D2, ...)
+  const raw = String(code||'').trim();
+  if(raw){
+    const palette=[
+      {bg:'#0f766e',fg:'#fff'},{bg:'#7c3aed',fg:'#fff'},{bg:'#be185d',fg:'#fff'},
+      {bg:'#0369a1',fg:'#fff'},{bg:'#b45309',fg:'#fff'},{bg:'#15803d',fg:'#fff'},
+      {bg:'#c2410c',fg:'#fff'},{bg:'#4c1d95',fg:'#fff'},{bg:'#0e7490',fg:'#fff'}
+    ];
+    let h=0; for(let i=0;i<raw.length;i++) h=(h*31+raw.charCodeAt(i))|0;
+    return palette[Math.abs(h)%palette.length];
+  }
   return {bg:'#1e293b',fg:'#94a3b8'};
 }
 
 /** Canonical work/status shift code for display & CSS classes.
  * Fixes corrupt codes (e.g. "To"/"Te" shown for A Shift from bad config/i18n). */
+
+/** Parse half-day base shift: "HLF:D" / "HLF_A2" / "½A" → "D" / "A2" / "A" */
+function parseHlfHalfOf(code){
+  const raw=String(code||'').trim();
+  if(!raw) return '';
+  let m=raw.match(/^HLF[:\-_\/]?(.+)$/i);
+  if(m&&m[1]) return String(m[1]).trim().toUpperCase().replace(/^½/,'');
+  m=raw.match(/^½\s*([A-Za-z0-9].*)$/);
+  if(m&&m[1]) return String(m[1]).trim().toUpperCase();
+  m=raw.match(/^1\/2\s*[:\-]?\s*([A-Za-z0-9].*)$/i);
+  if(m&&m[1]) return String(m[1]).trim().toUpperCase();
+  return '';
+}
+function isHalfDayShift(code){
+  const raw=String(code||'').trim();
+  if(!raw) return false;
+  if(raw==='HLF'||raw==='½'||/^1\/2$/i.test(raw)) return true;
+  if(/^HLF[:\-_]/i.test(raw)) return true;
+  if(/^½/.test(raw)) return true;
+  if(/^1\/2/i.test(raw)) return true;
+  return false;
+}
+function formatHlfCode(halfOf){
+  const h=String(halfOf||'').trim().toUpperCase().replace(/[^A-Z0-9\/\-]/g,'').slice(0,6);
+  return h ? ('HLF:'+h) : 'HLF';
+}
+try{ window.parseHlfHalfOf=parseHlfHalfOf; window.isHalfDayShift=isHalfDayShift; window.formatHlfCode=formatHlfCode; }catch(e){}
+
 function normalizeShiftCode(code, label){
   let raw = String(code == null ? '' : code).trim();
   const lab = String(label == null ? '' : label).trim();
@@ -1032,20 +1082,28 @@ function cellClass(s){
   if(!s) return 'blank';
   const raw0 = String(s).trim();
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
+  if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)) return 'HLF';
   if(raw0.indexOf('+')>=0 || (typeof parseShiftWorkCodes==='function' && parseShiftWorkCodes(raw0).length>1)) return 'G';
   const raw = normalizeShiftCode(raw0);
   const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'HLF','H':'H','Ab':'Ab','OD':'OD'};
-  return m[raw]||m[String(raw).toUpperCase()]||'O';
+  if(m[raw]||m[String(raw).toUpperCase()]) return m[raw]||m[String(raw).toUpperCase()];
+  const safe=String(raw0).replace(/[^A-Za-z0-9]/g,'').slice(0,6);
+  return safe || 'O';
 }
 
 function cellDisp(s){
   if(!s) return '';
   const raw0 = String(s).trim();
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
+  if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)){
+    const half = (typeof parseHlfHalfOf==='function') ? parseHlfHalfOf(raw0) : '';
+    return half ? ('½'+half) : '½';
+  }
   if(raw0.indexOf('+')>=0) return raw0;
   const raw = normalizeShiftCode(raw0);
   const m={'D':'D','N':'N','A':'A','B':'B','C':'C','O':'O','L':'L','C/O':'CO','CO':'CO','G':'G','GP':'GP','HLF':'½','H':'H','Ab':'Ab','OD':'OD'};
-  return m[raw]||m[String(raw).toUpperCase()]||raw||'';
+  if(m[raw]||m[String(raw).toUpperCase()]) return m[raw]||m[String(raw).toUpperCase()];
+  return String(raw0).slice(0,6);
 }
 try{ window.normalizeShiftCode=normalizeShiftCode; window.cellClass=cellClass; window.cellDisp=cellDisp; }catch(e){}
 
@@ -1369,7 +1427,7 @@ function _ssRotSeqRender(){
       html += '<span style="font-weight:900;color:#a78bfa;font-size:18px;user-select:none">→</span>';
     }
     var code = String(boxes[i] || '').replace(/"/g, '');
-    html += '<input type="text" class="ss-rot-box" data-rot-i="' + i + '" maxlength="3" value="' + code + '" ' +
+    html += '<input type="text" class="ss-rot-box" data-rot-i="' + i + '" maxlength="6" value="' + code + '" ' +
       'placeholder="' + (i + 1) + '" ' +
       'style="width:56px;height:44px;text-align:center;font-weight:900;font-size:16px;padding:8px 4px;' +
       'text-transform:uppercase;border-radius:10px;border:2px solid #a78bfa;background:var(--card);color:var(--text);' +
@@ -1407,7 +1465,7 @@ function _ssRotSeqPreset(kind){
 }
 function _ssRotSeqAddBox(){
   if (!window._ssRotSeqBoxes) window._ssRotSeqBoxes = [];
-  if (window._ssRotSeqBoxes.length >= 6) return;
+  if (window._ssRotSeqBoxes.length >= 8) return;
   window._ssRotSeqBoxes.push('');
   _ssRotSeqRender();
 }

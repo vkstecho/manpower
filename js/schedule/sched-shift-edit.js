@@ -342,8 +342,28 @@ async function saveAllShiftChanges(opts){
   try{
     // ── 1) CRITICAL PATH: auth + single multi-path update only ──
     const updates = {};
+    const metaUpdates = {};
     for(const e of entries){
       updates[e.empId+'_'+e.date] = e.newShift;
+      if(e.coMeta && typeof e.coMeta==='object'){
+        metaUpdates[e.empId+'_'+e.date] = Object.assign({
+          shift: e.newShift,
+          empId: e.empId,
+          date: e.date,
+          updatedAt: new Date().toISOString(),
+          updatedBy: (SESSION&&SESSION.name)||''
+        }, e.coMeta);
+      } else if(typeof isHalfDayShift==='function' && isHalfDayShift(e.newShift)){
+        metaUpdates[e.empId+'_'+e.date] = {
+          type:'HLF',
+          halfOf: (typeof parseHlfHalfOf==='function'?parseHlfHalfOf(e.newShift):''),
+          shift: e.newShift,
+          empId: e.empId,
+          date: e.date,
+          updatedAt: new Date().toISOString(),
+          updatedBy: (SESSION&&SESSION.name)||''
+        };
+      }
     }
     const savedEntries = entries.slice();
 
@@ -365,6 +385,15 @@ async function saveAllShiftChanges(opts){
 
     // One RTDB update for all pending cells (fast)
     await fbUpdate('overrides', updates);
+    // Half-day / detail meta (history for single-click info)
+    try{
+      if(Object.keys(metaUpdates).length){
+        await fbUpdate('shiftCellMeta', metaUpdates);
+        if(!_cache) window._cache = _cache = {};
+        if(!_cache.shiftCellMeta) _cache.shiftCellMeta = {};
+        Object.keys(metaUpdates).forEach(function(k){ _cache.shiftCellMeta[k] = metaUpdates[k]; });
+      }
+    }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
 
     // Apply to local cache immediately so UI is consistent without waiting for listeners
     try{
@@ -763,12 +792,54 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
     closeModal();
     openODDetails(empId, empName, date, currentShift);
   } else if(shiftVal === 'L'){
-    // Require reason before staging leave
     openLeaveReasonModal(empId, empName, date, currentShift);
+  } else if(shiftVal === 'HLF' || shiftVal === '½' || String(shiftVal).toUpperCase()==='1/2'){
+    closeModal();
+    openHlfHalfPicker(empId, empName, date, currentShift);
   } else {
     stageSingleShiftChange(empId, empName, date, currentShift, shiftVal);
   }
 }
+
+/** Half Day → pick which work shift the half belongs to (manager-ticked codes). */
+function openHlfHalfPicker(empId, empName, date, currentShift){
+  let work = [];
+  try{
+    if(typeof getActiveWorkShifts==='function') work = getActiveWorkShifts() || [];
+  }catch(e){}
+  if(!work.length){
+    try{
+      const cfg = (typeof getShiftConfigSync==='function'?getShiftConfigSync():{})||{};
+      work = (cfg.shifts||[]).filter(s=>s&&s.code&&s.active!==false&&s.kind!=='status').map(s=>({code:s.code,label:s.label||s.code,start:s.start||'',end:s.end||''}));
+    }catch(e){}
+  }
+  if(!work.length) work = [{code:'D',label:'Day Shift'},{code:'N',label:'Night Shift'},{code:'A',label:'A Shift'},{code:'G',label:'General Shift'}];
+  const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric',weekday:'short'}); }catch(e){ return date; }})();
+  const btns = work.map(s=>{
+    const st = (typeof mpShiftStyle==='function'?mpShiftStyle(s.code):{bg:'#334155',fg:'#fff'});
+    const time = (s.start&&s.end)?(' '+s.start+'–'+s.end):'';
+    const lab = (s.label||s.code)+time;
+    const code = String(s.code).replace(/'/g,"\\'");
+    return `<button type="button" onclick="confirmHlfHalf('${empId}','${String(empName).replace(/'/g,"\\'")}','${date}','${String(currentShift||'').replace(/'/g,"\\'")}','${code}')"
+      style="padding:12px 10px;border:2px solid var(--border2);border-radius:12px;background:var(--card);color:var(--text);cursor:pointer;font-weight:700;text-align:left;display:flex;align-items:center;gap:10px">
+      <span style="display:inline-flex;min-width:40px;height:28px;padding:0 6px;background:${st.bg};color:${st.fg||'#fff'};border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:12px">½${escHtml(s.code)}</span>
+      <span style="font-size:13px;line-height:1.3">${escHtml(lab)}</span>
+    </button>`;
+  }).join('');
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">½ ${typeof L==='function'?L('हाफ डे — किस शिफ्ट का?','Half Day — which shift?'):'Half Day — which shift?'}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px"><b>${escHtml(empName)}</b> · ${fmtD}</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.4">${typeof L==='function'?L('Manager द्वारा active किये गए shifts में से चुनें। इतिहास में रहेगा।','Pick from shifts the manager enabled. Saved in history.'):'Pick from manager-enabled shifts. Saved in history.'}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto">${btns}</div>
+    <button class="cancel-btn" style="margin-top:14px" onclick="editShiftCell('${empId}','${String(empName).replace(/'/g,"\\'")}','${date}','${String(currentShift||'').replace(/'/g,"\\'")}')">← ${typeof L==='function'?L('वापस','Back'):'Back'}</button>`);
+}
+function confirmHlfHalf(empId, empName, date, currentShift, halfOf){
+  const code = (typeof formatHlfCode==='function') ? formatHlfCode(halfOf) : ('HLF:'+String(halfOf||'').toUpperCase());
+  const meta = { type:'HLF', halfOf:String(halfOf||'').toUpperCase(), markedAt: new Date().toISOString(), markedBy: (SESSION&&SESSION.name)||'Manager' };
+  stageSingleShiftChange(empId, empName, date, currentShift, code, meta);
+}
+try{ window.openHlfHalfPicker=openHlfHalfPicker; window.confirmHlfHalf=confirmHlfHalf; }catch(e){}
+
 
 function _leaveTypeLabel(code){
   const map={CL:'Casual Leave (CL)',SL:'Sick Leave (SL)',EL:'Earned Leave (EL)',CO:'Comp Off (CO)',ML:'Maternity (ML)',other:'Other',OTHER:'Other'};
@@ -1071,21 +1142,36 @@ function editShiftCell(empId, empName, date, currentShift){
     const c = MP_SHIFT_COLORS[k];
     _fixedShiftStyle[k] = {bg:c.bg, color:c.fg};
   });
-  // Offer only active work shifts (D/N/A/B/C); hide if inactive or profile hide flags
+  // Offer only manager-ticked work shifts (std + custom A2/B2/…) — hide inactive
   const _cfgByCode = {};
   (_cfg.shifts||[]).forEach(s=>{ if(s&&s.code) _cfgByCode[String(s.code).toUpperCase()]=s; });
-  const _stdCodes = ['D','N','G','A','B','C'].filter(code=>{
-    const s = _cfgByCode[code];
-    // Profile "Hide D&N" / "Hide A/B/C" controls picker visibility
-    // ticked shifts only — inactive already filtered above
-    // Explicit inactive in shift timing list
-    if(s && s.active === false) return false;
-    // If code exists in config as active, or no entry (show all non-hidden)
-    return true;
+  let _stdCodes = [];
+  try{
+    if(typeof getActiveWorkShifts==='function'){
+      _stdCodes = getActiveWorkShifts().map(s=>String(s.code));
+    }
+  }catch(e){}
+  if(!_stdCodes.length){
+    _stdCodes = ['D','N','G','A','B','C'].filter(code=>{
+      const s = _cfgByCode[code];
+      if(s && s.active === false) return false;
+      return true;
+    });
+  }
+  // Also include active custom codes present in config but not in helper edge case
+  Object.keys(_cfgByCode).forEach(function(k){
+    const s=_cfgByCode[k];
+    if(!s||s.active===false) return;
+    if(s.kind==='status') return;
+    const u=String(k).toUpperCase();
+    if(['O','L','C/O','CO','H','HLF','AB','OD','GP'].indexOf(u)>=0) return;
+    if(_stdCodes.map(x=>String(x).toUpperCase()).indexOf(u)<0) _stdCodes.push(s.code||k);
   });
   const _isShiftActive = (code)=>{
-    const s = _cfgByCode[code];
-    return !s || s.active !== false;
+    const s = _cfgByCode[String(code).toUpperCase()] || _cfgByCode[code];
+    if(s && s.active === false) return false;
+    // only allow codes in active list for work; status handled separately
+    return true;
   };
   const _dblAll = [
     {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff', need:['D','N']},
@@ -1097,16 +1183,17 @@ function editShiftCell(empId, empName, date, currentShift){
   ].filter(d => d.need.every(c => _stdCodes.includes(c)));
   const SHIFT_OPTIONS = [
     ..._stdCodes.map(code=>{
-      const s=_cfgByCode[code]||{code,label:code};
-      const st=_fixedShiftStyle[code]||{bg:'#334155',color:'#fff'};
-      // Always show times for work shifts (D/N/G/A/B/C); G defaults 08:00–20:00 if manager not set
+      const s=_cfgByCode[String(code).toUpperCase()]||_cfgByCode[code]||{code,label:code};
+      const stStyle=(typeof mpShiftStyle==='function'?mpShiftStyle(code):null);
+      const st=_fixedShiftStyle[code]||_fixedShiftStyle[String(code).toUpperCase()]||(stStyle?{bg:stStyle.bg,color:stStyle.fg}:{bg:'#334155',color:'#fff'});
       const _defTimes={D:['07:00','19:00'],N:['19:00','07:00'],G:['08:00','20:00'],A:['06:00','14:00'],B:['14:00','22:00'],C:['22:00','06:00']};
       let stt=s.start, enn=s.end;
-      if((!stt||!enn) && _defTimes[code]){ stt=_defTimes[code][0]; enn=_defTimes[code][1]; }
+      const cu=String(code).toUpperCase();
+      if((!stt||!enn) && _defTimes[cu]){ stt=_defTimes[cu][0]; enn=_defTimes[cu][1]; }
       const time=(stt&&enn)?` (${stt}–${enn})`:'';
-      let lab = (s.label && String(s.label).trim()) ? s.label : (code==='G' ? 'General Shift' : code);
-      if(code==='G' && (!s.label || String(s.label).trim()==='G')) lab = 'General Shift';
-      return {v:code, label:lab+time, bg:st.bg, color:st.color};
+      let lab = (s.label && String(s.label).trim()) ? s.label : (cu==='G' ? 'General Shift' : code);
+      if(cu==='G' && (!s.label || String(s.label).trim()==='G')) lab = 'General Shift';
+      return {v:code, label:lab+time, bg:st.bg, color:st.color||st.fg||'#fff'};
     }),
     ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
     ...[

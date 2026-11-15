@@ -462,14 +462,14 @@ function autoGenSchedule(monthKey){
   // Active rotation codes from Shift Settings (e.g. D+N or A+B+C)
   // Work codes only (never G) — tick-box active shifts + saved rotation sequence
   let configShiftCodes = (typeof getActiveRotationCodes==='function') ? getActiveRotationCodes() : ['D','N'];
-  configShiftCodes = (configShiftCodes || []).map(x=>String(x).toUpperCase()).filter(c => ['D','N','A','B','C'].includes(c));
+  configShiftCodes = (configShiftCodes || []).map(x=>String(x).toUpperCase()).filter(c => c && !['O','L','C/O','CO','H','HLF','AB','OD','GP'].includes(c));
   const rotationOrder = (function(codes){
-    let c = (codes || []).slice().map(x=>String(x).toUpperCase()).filter(x => ['D','N','A','B','C'].includes(x));
+    let c = (codes || []).slice().map(x=>String(x).toUpperCase()).filter(x => x && !['O','L','C/O','CO','H','HLF','AB','OD','GP'].includes(x));
     try{
       const cfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
       // Custom sequence from Shift Settings (e.g. A → C → B) — prefer this always
       let seq = Array.isArray(cfg.autoRotationSequence)
-        ? cfg.autoRotationSequence.map(x=>String(x).toUpperCase().trim()).filter(x => ['D','N','A','B','C'].includes(x))
+        ? cfg.autoRotationSequence.map(x=>String(x).toUpperCase().trim()).filter(x => x && !['O','L','C/O','CO','H','HLF','AB','OD','GP'].includes(x))
         : null;
       if(seq && seq.length){
         // Prefer sequence order; if ticks empty/stale still use sequence

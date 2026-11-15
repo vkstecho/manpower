@@ -23,11 +23,11 @@ function _renderShiftSettingsModal(){
   const d=_shiftDraft;
   // Merge standard D,N,A,B,C — preserve active/times from saved config
   const std = [
-    {code:'D', label:'Day Shift', start:'08:00', end:'20:00', active:true, kind:'work'},
-    {code:'N', label:'Night Shift', start:'20:00', end:'08:00', active:true, kind:'work'},
-    {code:'A', label:'A Shift', start:'06:00', end:'14:00', active:false, kind:'work'},
-    {code:'B', label:'B Shift', start:'14:00', end:'22:00', active:false, kind:'work'},
-    {code:'C', label:'C Shift', start:'22:00', end:'06:00', active:false, kind:'work'},
+    {code:'D', label:'Day Shift', start:'07:00', end:'19:00', active:false, kind:'work'},
+    {code:'N', label:'Night Shift', start:'19:00', end:'07:00', active:false, kind:'work'},
+    {code:'A', label:'A Shift', start:'06:00', end:'14:00', active:true, kind:'work'},
+    {code:'B', label:'B Shift', start:'14:00', end:'22:00', active:true, kind:'work'},
+    {code:'C', label:'C Shift', start:'22:00', end:'06:00', active:true, kind:'work'},
     {code:'O', label:'Weekly Off', start:'', end:'', active:true, kind:'status'},
     {code:'L', label:'Leave', start:'', end:'', active:true, kind:'status'},
     {code:'G', label:'General Shift', start:'08:00', end:'20:00', active:true, kind:'work'},
@@ -136,6 +136,19 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     ${L('Manager अपने team के लिए नाम और visibility बदल सकता है।','Manager can change names and visibility for their own team.')}
   </div>
   <div id="ss_shiftTimings">${_renderShiftTimingRows()}</div>
+  <div style="margin:10px 0 14px;padding:12px;border-radius:12px;border:1.5px dashed rgba(249,115,22,.45);background:rgba(249,115,22,.06)">
+    <div style="font-size:12px;font-weight:800;color:#f97316;margin-bottom:6px">➕ ${L('कस्टम शिफ्ट जोड़ें','Add custom shift')} (A2, B2, D2…)</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.4">${L('कोड, नाम और समय सेट करें। Tick = Schedule / My Shift picker में दिखेगा।','Set code, name and times. Tick = show in Schedule / My Shift picker.')}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <input id="ss_customCode" type="text" maxlength="6" placeholder="Code e.g. A2" style="width:88px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;text-transform:uppercase">
+      <input id="ss_customLabel" type="text" maxlength="24" placeholder="Label e.g. A2 Shift" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text)">
+      <input id="ss_customStart" type="text" maxlength="5" placeholder="08:00" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:700">
+      <span style="color:#94a3b8">to</span>
+      <input id="ss_customEnd" type="text" maxlength="5" placeholder="16:00" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:700">
+      <button type="button" onclick="_ssAddCustomShift()" style="padding:8px 14px;border-radius:10px;border:none;background:#f97316;color:#fff;font-weight:800;cursor:pointer">+ Add</button>
+    </div>
+  </div>
+  <div style="height:4px"></div>
   <div style="font-size:11px;color:#64748b;margin:8px 0 14px;line-height:1.45">
     ✅ Ticked shifts only → legend, daily counts, Auto Schedule, and shift picker.<br>
     Unticked codes are hidden everywhere on Schedule.
@@ -323,8 +336,8 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   </div>
 
   </div>
-  <div class="modal-sticky-actions">
-    <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ Save करें</button>
+  <div class="modal-sticky-actions" id="ss_stickyActions" style="flex:0 0 auto;position:relative;z-index:50;background:var(--bg2);border-top:1px solid var(--border);padding:12px 0 max(12px,env(safe-area-inset-bottom,8px));margin:0 -4px 0;box-shadow:0 -8px 20px rgba(0,0,0,.18)">
+    <button class="submit-btn" onclick="_saveShiftSettings()" aria-label="Save shift settings">✅ ${L('सेव करें','Save')}</button>
     <button class="cancel-btn" onclick="closeModal()" aria-label="Cancel">${L('रद्द करें','Cancel')}</button>
   </div>`);
   setTimeout(function(){ try{ if(typeof _ssRotSeqInit==='function') _ssRotSeqInit(); }catch(e){} }, 50);
@@ -346,14 +359,83 @@ window._mpOnTime24Input = function(el){
   return v;
 };
 
+
+function _ssAddCustomShift(){
+  try{
+    const codeEl=document.getElementById('ss_customCode');
+    const labEl=document.getElementById('ss_customLabel');
+    const stEl=document.getElementById('ss_customStart');
+    const enEl=document.getElementById('ss_customEnd');
+    let code=String((codeEl&&codeEl.value)||'').trim().toUpperCase().replace(/[^A-Z0-9\/\-]/g,'').slice(0,6);
+    if(!code||code.length<1){ toast(L('⚠️ Code डालें (जैसे A2)','⚠️ Enter code (e.g. A2)')); return; }
+    const reserved=['O','L','C/O','CO','H','HLF','AB','OD','GP'];
+    if(reserved.indexOf(code)>=0){ toast(L('⚠️ यह status code है','⚠️ That is a status code')); return; }
+    if(!_shiftDraft.shifts) _shiftDraft.shifts=[];
+    const exists=_shiftDraft.shifts.some(s=>String(s.code||'').toUpperCase()===code);
+    if(exists){ toast(L('⚠️ Code पहले से है','⚠️ Code already exists')); return; }
+    let label=String((labEl&&labEl.value)||'').trim() || (code+' Shift');
+    let start=String((stEl&&stEl.value)||'').trim();
+    let end=String((enEl&&enEl.value)||'').trim();
+    if(typeof window._mpNormTime24==='function'){
+      if(start) start=window._mpNormTime24(start);
+      if(end) end=window._mpNormTime24(end);
+    }
+    _shiftDraft.shifts.push({code:code,label:label,start:start||'08:00',end:end||'20:00',active:true,kind:'work'});
+    if(codeEl) codeEl.value='';
+    if(labEl) labEl.value='';
+    if(stEl) stEl.value='';
+    if(enEl) enEl.value='';
+    const host=document.getElementById('ss_shiftTimings');
+    if(host) host.innerHTML=_renderShiftTimingRows();
+    toast('✅ '+code+' '+L('जोड़ दिया','added'));
+  }catch(e){ console.warn(e); toast('❌ '+((e&&e.message)||e)); }
+}
+function _ssRemoveCustomShift(code){
+  try{
+    const u=String(code||'').toUpperCase();
+    if(['D','N','A','B','C','G'].indexOf(u)>=0){ toast(L('⚠️ Standard shift हटा नहीं सकते — untick करें','⚠️ Cannot remove standard — untick instead')); return; }
+    _shiftDraft.shifts=(_shiftDraft.shifts||[]).filter(s=>String(s.code||'').toUpperCase()!==u);
+    const host=document.getElementById('ss_shiftTimings');
+    if(host) host.innerHTML=_renderShiftTimingRows();
+    toast('🗑️ '+code);
+  }catch(e){}
+}
+try{ window._ssAddCustomShift=_ssAddCustomShift; window._ssRemoveCustomShift=_ssRemoveCustomShift; }catch(e){}
+
 function _renderShiftTimingRows(){
-  const isWorkCode = (code)=>['D','N','A','B','C'].includes(String(code||'').toUpperCase())
-  const isTimedCode = (code)=>['D','N','A','B','C','G'].includes(String(code||'').toUpperCase())
+  const STATUS_CODES = ['O','L','C/O','CO','H','HLF','AB','OD','GP'];
+  const isWorkCode = (code)=>{ const u=String(code||'').toUpperCase(); return u && STATUS_CODES.indexOf(u)<0 && u!=='C/O'; };
+  const isTimedCode = (code)=> isWorkCode(code);
+  // Force stable order so B is never lost between A and C
+  const TIMED_ORDER = ['D','N','A','B','C','G'];
+  try{
+    if(_shiftDraft && Array.isArray(_shiftDraft.shifts)){
+      const by = {};
+      _shiftDraft.shifts.forEach(function(s){ if(s&&s.code) by[String(s.code).toUpperCase()]=s; });
+      const defs = {
+        D:{label:'Day Shift',start:'07:00',end:'19:00',active:true},
+        N:{label:'Night Shift',start:'19:00',end:'07:00',active:true},
+        A:{label:'A Shift',start:'06:00',end:'14:00',active:false},
+        B:{label:'B Shift',start:'14:00',end:'22:00',active:false},
+        C:{label:'C Shift',start:'22:00',end:'06:00',active:false},
+        G:{label:'General Shift',start:'08:00',end:'20:00',active:true}
+      };
+      TIMED_ORDER.forEach(function(code){
+        if(!by[code]){
+          _shiftDraft.shifts.push({code:code,label:defs[code].label,start:defs[code].start,end:defs[code].end,active:!!defs[code].active,kind:'work'});
+          by[code]=_shiftDraft.shifts[_shiftDraft.shifts.length-1];
+        }
+      });
+      // Re-order: timed codes first in TIMED_ORDER, then the rest
+      const rest = _shiftDraft.shifts.filter(function(s){ return s && !TIMED_ORDER.includes(String(s.code||'').toUpperCase()); });
+      _shiftDraft.shifts = TIMED_ORDER.map(function(code){ return by[code]; }).concat(rest);
+    }
+  }catch(e){ console.warn('[shift rows] ensure B', e); }
 
   var _normTime24 = window._mpNormTime24;
   var _onTime24Input = window._mpOnTime24Input;
   let html = '';
-  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D/N/A/B/C/G)</div>`;
+  html += `<div style="font-size:11px;font-weight:800;color:#f97316;margin:0 0 6px">⏰ ${L('कार्य शिफ्ट','Work shifts')} (D / N / A / B / C / G)</div>`;
   (_shiftDraft.shifts||[]).forEach((s,i)=>{
     if(!isTimedCode(s.code)) return;
     html += `<div style="margin-bottom:10px;padding:10px;border-radius:12px;border:1px solid var(--border);background:${s.active!==false?'rgba(34,197,94,.06)':'var(--card2)'}">
@@ -361,9 +443,10 @@ function _renderShiftTimingRows(){
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
           <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
             onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
-          <span style="width:32px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code)}</span>
+          <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;padding:0 4px;${(function(){var st=typeof mpShiftStyle==='function'?mpShiftStyle(s.code):{bg:'#334155',fg:'#fff'};return 'background:'+st.bg+';color:'+(st.fg||'#fff');})()}">${escHtml(s.code)}</span>
         </label>
         <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
+        ${(['D','N','A','B','C','G'].indexOf(String(s.code||'').toUpperCase())<0)?`<button type="button" onclick="_ssRemoveCustomShift('${String(s.code).replace(/'/g,"\\'")}')" title="Remove" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#fb7185;font-size:11px;font-weight:800;cursor:pointer">✕</button>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px;width:100%">
         <input type="text" inputmode="numeric" placeholder="HH:MM" maxlength="5" value="${s.start||''}" title="Start 24-hour HH:MM" style="flex:1;min-width:0;width:0;padding:10px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;text-align:center;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].start=_mpOnTime24Input(this)" onblur="var v=_mpNormTime24(this.value);this.value=v;_shiftDraft.shifts[${i}].start=v;this.style.borderColor=(v&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(v))?'#ef4444':''">
