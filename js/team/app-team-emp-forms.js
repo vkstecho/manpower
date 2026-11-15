@@ -1734,6 +1734,23 @@ async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta){
       previousRole: 'manager'
     });
   }catch(ex){}
+  // Live session → member under new manager (stops independent-manager UI until re-login)
+  try{
+    if(typeof SESSION!=='undefined' && SESSION){
+      SESSION.role = 'member';
+      SESSION.managerId = newMgr;
+      SESSION.accessLevel = 'worker';
+      SESSION.isTeamManager = false;
+      try{ SESSION.previousRole = 'manager'; }catch(e){}
+    }
+    // Keep paymentStatus validity, but mark role member so Admin hierarchy is correct
+    try{
+      const ps = await fbGet('paymentStatus/'+phone);
+      if(ps && typeof ps==='object'){
+        await fbUpdate('paymentStatus/'+phone, { role:'member', managerId:newMgr, wasManager:true, updatedAt:new Date().toISOString() });
+      }
+    }catch(e){}
+  }catch(sessErr){ console.warn('[xfer session]', sessErr); }
   await fbUpdate('teamTransferRequests/'+reqKey, {
     status:'accepted',
     acceptedAt: new Date().toISOString(),

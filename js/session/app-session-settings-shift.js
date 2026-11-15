@@ -106,7 +106,9 @@ function _renderShiftSettingsModal(){
         active: prev.active!==false,
         kind: 'work',
         color: prev.color || prev.bg || '',
-        bg: prev.bg || prev.color || ''
+        bg: prev.bg || prev.color || '',
+        fg: prev.fg || prev.fontColor || '',
+        fontColor: prev.fontColor || prev.fg || ''
       });
     });
   }catch(e){ console.warn('[custom shifts restore]', e); }
@@ -167,9 +169,15 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
       <input id="ss_customCode" type="text" maxlength="6" placeholder="Code e.g. A2" style="width:88px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;text-transform:uppercase">
       <input id="ss_customLabel" type="text" maxlength="24" placeholder="Label e.g. A2 Shift" style="flex:1;min-width:120px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text)">
-      <input id="ss_customStart" type="text" maxlength="5" placeholder="08:00" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:700">
-      <span style="color:#94a3b8">to</span>
-      <input id="ss_customEnd" type="text" maxlength="5" placeholder="16:00" style="width:72px;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:700">
+      <input id="ss_customStart" type="text" inputmode="numeric" maxlength="5" placeholder="08:00" value="" autocomplete="off"
+        style="width:76px;padding:10px 8px;border-radius:8px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:800;font-size:14px;-webkit-user-select:text;user-select:text"
+        oninput="if(window._mpOnTime24Input){this.value=window._mpOnTime24Input(this);}"
+        onblur="if(window._mpNormTime24){this.value=window._mpNormTime24(this.value)||'';}">
+      <span style="color:#94a3b8;font-weight:700">to</span>
+      <input id="ss_customEnd" type="text" inputmode="numeric" maxlength="5" placeholder="16:00" value="" autocomplete="off"
+        style="width:76px;padding:10px 8px;border-radius:8px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);text-align:center;font-weight:800;font-size:14px;-webkit-user-select:text;user-select:text"
+        oninput="if(window._mpOnTime24Input){this.value=window._mpOnTime24Input(this);}"
+        onblur="if(window._mpNormTime24){this.value=window._mpNormTime24(this.value)||'';}">
       <button type="button" onclick="_ssAddCustomShift()" style="padding:8px 14px;border-radius:10px;border:none;background:#f97316;color:#fff;font-weight:800;cursor:pointer">+ Add</button>
     </div>
   </div>
@@ -474,11 +482,15 @@ function _renderShiftTimingRows(){
         <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0" title="On = Auto + legend + picker + keyboard">
           <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#22c55e"
             onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
-          <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;padding:0 4px;${(function(){var st=typeof mpShiftStyle==='function'?mpShiftStyle(s.code):{bg:'#334155',fg:'#fff'};return 'background:'+st.bg+';color:'+(st.fg||'#fff');})()}">${escHtml(s.code)}</span>
+          <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;padding:0 4px;${(function(){var st=typeof mpShiftStyle==='function'?mpShiftStyle(s.code):{bg:'#334155',fg:'#fff'};var bg=s.color||s.bg||st.bg;var fg=s.fg||s.fontColor||st.fg||'#fff';return 'background:'+bg+';color:'+fg;})()}">${escHtml(s.code)}</span>
         </label>
         <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
-        <input type="color" title="Legend colour" value="${(s.color||s.bg||'#334155')}" style="width:36px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
-          onchange="_shiftDraft.shifts[${i}].color=this.value;_shiftDraft.shifts[${i}].bg=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
+        <span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0" title="Background + font colour">
+          <input type="color" title="Background" value="${(s.color||s.bg||'#334155')}" style="width:32px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
+            onchange="_shiftDraft.shifts[${i}].color=this.value;_shiftDraft.shifts[${i}].bg=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
+          <input type="color" title="Font colour" value="${(s.fg||s.fontColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
+            onchange="_shiftDraft.shifts[${i}].fg=this.value;_shiftDraft.shifts[${i}].fontColor=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
+        </span>
         ${(['D','N','A','B','C','G'].indexOf(String(s.code||'').toUpperCase())<0)?`<button type="button" onclick="_ssRemoveCustomShift('${String(s.code).replace(/'/g,"\\'")}')" title="Remove" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#fb7185;font-size:11px;font-weight:800;cursor:pointer">✕</button>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px;width:100%">

@@ -810,6 +810,14 @@ function getBaseShift(emp, dateStr){
     const codeRaw = emp.empId != null ? String(emp.empId).trim() : '';
     if(codeRaw && sched[codeRaw] != null) return sched[codeRaw];
     if(codeRaw && sched[codeRaw.toUpperCase()] != null) return sched[codeRaw.toUpperCase()];
+    // SESSION.empId fallback (manager viewing own My Shift after Excel keyed by Emp ID)
+    try{
+      if(typeof SESSION!=='undefined' && SESSION && SESSION.empId){
+        const se=String(SESSION.empId).trim();
+        if(se && sched[se]!=null) return sched[se];
+        if(se && sched[se.toUpperCase()]!=null) return sched[se.toUpperCase()];
+      }
+    }catch(x){}
     // loose match on emp code without leading zeros / case
     if(codeRaw){
       const code = codeRaw.replace(/^0+/,'').toUpperCase();
@@ -824,6 +832,11 @@ function getBaseShift(emp, dateStr){
         ? _normMobileKey(emp.phone||emp.mobile||'')
         : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
       if(ph && ph.length===10 && sched[ph] != null) return sched[ph];
+      // also SESSION mobile
+      if(typeof SESSION!=='undefined' && SESSION){
+        const sph=(typeof _normMobileKey==='function')?_normMobileKey(SESSION.mobile||SESSION.uid||''):'';
+        if(sph && sph.length===10 && sched[sph]!=null) return sched[sph];
+      }
     }catch(x){}
     return null;
   }
@@ -1002,9 +1015,13 @@ function mpShiftStyle(code){
     const u = k.toUpperCase();
     const found = (cfg.shifts||[]).find(function(s){ return s && String(s.code||'').toUpperCase()===u; });
     const col = found && (found.color || found.bg);
-    if(col && /^#?[0-9a-fA-F]{3,8}$/.test(String(col).replace('#','')) || (col && String(col).indexOf('#')===0)){
-      const bg = String(col).indexOf('#')===0 ? col : ('#'+col);
-      return {bg:bg, fg:'#ffffff'};
+    const fgCol = found && (found.fg || found.fontColor || found.textColor);
+    if(col && (/^#?[0-9a-fA-F]{3,8}$/.test(String(col).replace('#','')) || String(col).indexOf('#')===0)){
+      const bg = String(col).indexOf('#')===0 ? col : ('#'+String(col).replace(/^#/,''));
+      let fg = '#ffffff';
+      if(fgCol && (String(fgCol).indexOf('#')===0 || /^[0-9a-fA-F]{3,8}$/.test(String(fgCol))))
+        fg = String(fgCol).indexOf('#')===0 ? fgCol : ('#'+fgCol);
+      return {bg:bg, fg:fg};
     }
   }catch(e){}
   const c = window.MP_SHIFT_COLORS[k] || window.MP_SHIFT_COLORS[k.toUpperCase()];

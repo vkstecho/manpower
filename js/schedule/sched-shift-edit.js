@@ -1264,7 +1264,7 @@ function editShiftCell(empId, empName, date, currentShift){
       return {v:code, label:lab+time, bg:st.bg, color:st.color||st.fg||'#fff'};
     }),
     // Dual Shift entry opens full combination list (not every pair on main screen)
-    {v:'__DUAL__', label:(typeof L==='function'?L('Dual Shift (दो शिफ्ट)','Dual Shift (combine two)'):'Dual Shift'), bg:'#7c3aed', color:'#fff'},
+    {v:'__DUAL__', label:(typeof L==='function'?L('Dual Shift (दो शिफ्ट जोड़ें)','Dual Shift (combine two)'):'Dual Shift (combine two)'), bg:'#6d28d9', color:'#ffffff'},
     ...[
       {v:'O',   label:'Weekly Off',       bg:'#64748b', color:'#ffffff'},
       {v:'L',   label:'Leave (pick type)', bg:'#fb7185', color:'#ffffff'},
@@ -1310,9 +1310,9 @@ function editShiftCell(empId, empName, date, currentShift){
           border-radius:10px;background:${s.v===effectiveCurrent?s.bg+'22':'var(--card)'};
           color:var(--text);cursor:pointer;font-weight:700;font-size:13px;
           display:flex;align-items:center;gap:8px;position:relative">
-          <span style="display:inline-flex;width:28px;height:24px;background:${s.bg};color:${s.color};
-            border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:12px">
-            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':s.v}
+          <span style="display:inline-flex;min-width:28px;height:26px;padding:0 6px;background:${s.bg};color:${s.color||'#fff'};
+            border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:${(s.v==='__DUAL__'||String(s.v).length>2)?'11px':'12px'};line-height:1;box-sizing:border-box">
+            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':(s.v==='__DUAL__'?'2×':s.v)}
           </span>
           <span style="font-size:12px;text-align:left;line-height:1.3">${escHtml(s.label)}</span>
           ${''}

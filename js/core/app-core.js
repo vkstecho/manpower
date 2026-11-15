@@ -255,7 +255,9 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
       active:(s.active===true||s.active===false)?!!s.active:true,
       kind:"work",
       color:s.color||s.bg||"",
-      bg:s.bg||s.color||""
+      bg:s.bg||s.color||"",
+      fg:s.fg||s.fontColor||"",
+      fontColor:s.fontColor||s.fg||""
     };
   });
   var defs={
@@ -279,7 +281,7 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
     var prev=byCode[code]; if(!prev) return;
     var active=prev.active;
     if(active!==true&&active!==false) active=true;
-    shifts.push({code:prev.code,label:prev.label,start:prev.start||"",end:prev.end||"",active:!!active,kind:"work",color:prev.color||prev.bg||"",bg:prev.bg||prev.color||""});
+    shifts.push({code:prev.code,label:prev.label,start:prev.start||"",end:prev.end||"",active:!!active,kind:"work",color:prev.color||prev.bg||"",bg:prev.bg||prev.color||"",fg:prev.fg||prev.fontColor||"",fontColor:prev.fontColor||prev.fg||""});
   });
   ["O","L","C/O","HLF","Ab","H","OD","GP"].forEach(function(code){
     var prev=byCode[code]; if(!prev) return;

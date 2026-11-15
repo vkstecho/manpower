@@ -907,13 +907,35 @@ async function saveScheduleBuilder(monthKey){
     for(const item of odRemovals){
       try{ await _removeODRecordsForEmpDate(item.empId, item.date); }catch(e){}
     }
-    await fbSet('schedules/' + monthKey.replace('-','_'), merged);
+    const mk = monthKey.replace('-','_');
+    // Dual-key write: internal id + empId so Schedule/My Shift resolve immediately
+    const expanded = Object.assign({}, merged);
+    try{
+      emps.forEach(function(emp){
+        if(!emp) return;
+        const arr = merged[emp.id];
+        if(!arr) return;
+        if(emp.empId){
+          expanded[String(emp.empId).trim()] = arr;
+        }
+      });
+    }catch(e){}
+    await fbSet('schedules/' + mk, expanded);
+    // Local cache update BEFORE render — otherwise UI shows old shifts until app reopen
+    try{
+      if(typeof _cache==='undefined' || !_cache) window._cache = {};
+      if(!_cache.schedules) _cache.schedules = {};
+      _cache.schedules[mk] = expanded;
+    }catch(e){ console.warn('[saveScheduleBuilder cache]', e); }
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
     const from = window._sbDayFrom || 1;
     const to = window._sbDayTo || daysInMonth;
     const rangeMsg = (from === 1 && to === daysInMonth) ? '' : ` (${from}–${to})`;
     toast(L('✅ Schedule save हो गई!','✅ Schedule saved!') + rangeMsg);
-    closeModal();
-    renderSchedule();
+    try{ closeModal(); }catch(e){}
+    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+    try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
+    try{ if(typeof renderHome==='function' && typeof _currentTab!=='undefined' && _currentTab==='home') renderHome(); }catch(e){}
   } catch(e){
     toast('❌ Error: ' + e.message);
   }
