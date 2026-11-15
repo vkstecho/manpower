@@ -1,4 +1,4 @@
-/* Man Power — Service Worker v5.1.15
+/* Man Power — Service Worker v5.1.22
    Strategies:
    - Precache app shell + JS/CSS/icons/partials on install
    - HTML / navigation: network-first → cache fallback (fresh when online)
