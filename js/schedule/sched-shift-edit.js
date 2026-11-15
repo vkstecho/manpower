@@ -796,10 +796,74 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   } else if(shiftVal === 'HLF' || shiftVal === '½' || String(shiftVal).toUpperCase()==='1/2'){
     closeModal();
     openHlfHalfPicker(empId, empName, date, currentShift);
+  } else if(shiftVal === '__DUAL__'){
+    closeModal();
+    openDualShiftPicker(empId, empName, date, currentShift);
   } else {
     stageSingleShiftChange(empId, empName, date, currentShift, shiftVal);
   }
 }
+
+/** Dual Shift: all combinations of manager-active work shifts (incl. A2/B2/C2…). */
+function openDualShiftPicker(empId, empName, date, currentShift){
+  let codes = [];
+  try{
+    if(typeof getActiveWorkShifts==='function')
+      codes = getActiveWorkShifts().map(s=>String(s.code));
+  }catch(e){}
+  if(!codes.length){
+    try{
+      const cfg=getShiftConfigSync()||{};
+      codes=(cfg.shifts||[]).filter(s=>s&&s.active!==false&&s.kind!=='status').map(s=>String(s.code));
+    }catch(e){}
+  }
+  codes = codes.filter(Boolean);
+  if(codes.length<2){
+    toast(typeof L==='function'?L('⚠️ Dual के लिए कम से कम 2 active work shifts चाहिए','⚠️ Need at least 2 active work shifts for Dual'):'Need 2+ active shifts');
+    editShiftCell(empId, empName, date, currentShift);
+    return;
+  }
+  const pairs=[];
+  for(let i=0;i<codes.length;i++){
+    for(let j=0;j<codes.length;j++){
+      if(i===j) continue;
+      pairs.push([codes[i], codes[j]]);
+    }
+  }
+  // Prefer unordered unique a+b with a<b by string then ordered both ways for clarity — show a+b for i<j only
+  const seen=new Set();
+  const uniq=[];
+  pairs.forEach(function(p){
+    const v=p[0]+'+'+p[1];
+    const rev=p[1]+'+'+p[0];
+    if(seen.has(v)||seen.has(rev)) return;
+    seen.add(v);
+    uniq.push(p);
+  });
+  const fmtD=(()=>{try{return new Date(date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});}catch(e){return date;}})();
+  const btns=uniq.map(function(p){
+    const v=p[0]+'+'+p[1];
+    const st1=(typeof mpShiftStyle==='function'?mpShiftStyle(p[0]):{bg:'#334155'});
+    const st2=(typeof mpShiftStyle==='function'?mpShiftStyle(p[1]):{bg:'#334155'});
+    return `<button type="button" onclick="stageSingleShiftChange('${empId}','${String(empName).replace(/'/g,"\\'")}','${date}','${String(currentShift||'').replace(/'/g,"\\'")}','${v}')"
+      style="padding:12px 10px;border:2px solid var(--border2);border-radius:12px;background:var(--card);cursor:pointer;font-weight:700;display:flex;align-items:center;gap:8px">
+      <span style="display:inline-flex;gap:4px">
+        <span style="padding:4px 8px;border-radius:6px;background:${st1.bg};color:#fff;font-weight:900;font-size:12px">${p[0]}</span>
+        <span style="color:#a78bfa;font-weight:900">+</span>
+        <span style="padding:4px 8px;border-radius:6px;background:${st2.bg};color:#fff;font-weight:900;font-size:12px">${p[1]}</span>
+      </span>
+      <span style="font-size:13px;color:var(--text)">Dual ${p[0]}+${p[1]}</span>
+    </button>`;
+  }).join('');
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">🔀 ${typeof L==='function'?L('Dual Shift','Dual Shift'):'Dual Shift'}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px"><b>${escHtml(empName)}</b> · ${fmtD}</div>
+    <div style="font-size:11px;color:#64748b;margin-bottom:10px">${typeof L==='function'?L('Manager के active shifts की जोड़ी चुनें','Pick a pair from manager-active shifts'):'Pick a pair from active shifts'}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:55vh;overflow-y:auto">${btns}</div>
+    <button class="cancel-btn" style="margin-top:12px" onclick="editShiftCell('${empId}','${String(empName).replace(/'/g,"\\'")}','${date}','${String(currentShift||'').replace(/'/g,"\\'")}')">← ${typeof L==='function'?L('वापस','Back'):'Back'}</button>`);
+}
+try{ window.openDualShiftPicker=openDualShiftPicker; }catch(e){}
+
 
 /** Half Day → pick which work shift the half belongs to (manager-ticked codes). */
 function openHlfHalfPicker(empId, empName, date, currentShift){
@@ -1173,14 +1237,18 @@ function editShiftCell(empId, empName, date, currentShift){
     // only allow codes in active list for work; status handled separately
     return true;
   };
-  const _dblAll = [
-    {v:'D+N', label:'Double: Day + Night', bg:'#7c3aed', color:'#fff', need:['D','N']},
-    {v:'A+B', label:'Double: A + B', bg:'#7c3aed', color:'#fff', need:['A','B']},
-    {v:'A+C', label:'Double: A + C', bg:'#7c3aed', color:'#fff', need:['A','C']},
-    {v:'B+C', label:'Double: B + C', bg:'#7c3aed', color:'#fff', need:['B','C']},
-    {v:'D+A', label:'Double: D + A', bg:'#7c3aed', color:'#fff', need:['D','A']},
-    {v:'N+B', label:'Double: N + B', bg:'#7c3aed', color:'#fff', need:['N','B']},
-  ].filter(d => d.need.every(c => _stdCodes.includes(c)));
+  // Dual combinations built dynamically from all active work shifts (std + custom)
+  const _dblAll = [];
+  try{
+    const codes = (_stdCodes||[]).map(String).filter(Boolean);
+    for(let i=0;i<codes.length;i++){
+      for(let j=i+1;j<codes.length;j++){
+        const a=codes[i], b=codes[j];
+        _dblAll.push({v:a+'+'+b, label:'Dual: '+a+' + '+b, bg:'#7c3aed', color:'#fff'});
+        // also reverse label option only one direction is enough for storage a+b
+      }
+    }
+  }catch(e){}
   const SHIFT_OPTIONS = [
     ..._stdCodes.map(code=>{
       const s=_cfgByCode[String(code).toUpperCase()]||_cfgByCode[code]||{code,label:code};
@@ -1195,7 +1263,8 @@ function editShiftCell(empId, empName, date, currentShift){
       if(cu==='G' && (!s.label || String(s.label).trim()==='G')) lab = 'General Shift';
       return {v:code, label:lab+time, bg:st.bg, color:st.color||st.fg||'#fff'};
     }),
-    ..._dblAll.map(({v,label,bg,color})=>({v,label,bg,color})),
+    // Dual Shift entry opens full combination list (not every pair on main screen)
+    {v:'__DUAL__', label:(typeof L==='function'?L('Dual Shift (दो शिफ्ट)','Dual Shift (combine two)'):'Dual Shift'), bg:'#7c3aed', color:'#fff'},
     ...[
       {v:'O',   label:'Weekly Off',       bg:'#64748b', color:'#ffffff'},
       {v:'L',   label:'Leave (pick type)', bg:'#fb7185', color:'#ffffff'},

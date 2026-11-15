@@ -1466,7 +1466,19 @@ function openTransferAcceptSuccessorModal(reqKey, req){
       +'<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+(typeof L==='function'?L('अभी नहीं','Not now'):'Not now')+'</button>');
     try{
       const b = document.getElementById('mpAcceptNoSuccBtn');
-      if(b) b.onclick = function(){ confirmTransferAcceptWithoutSuccessor(reqKey, req); };
+      if(b) b.onclick = function(){
+        try{
+          if(typeof confirmTransferAcceptWithoutSuccessor!=='function'){
+            toast('❌ Accept handler missing — refresh app');
+            return;
+          }
+          b.disabled = true; b.textContent = '⏳…';
+          Promise.resolve(confirmTransferAcceptWithoutSuccessor(reqKey, req)).catch(function(err){
+            toast('❌ '+(err&&err.message||err));
+            try{ b.disabled=false; }catch(e){}
+          });
+        }catch(err){ toast('❌ '+(err&&err.message||err)); }
+      };
     }catch(e){}
     return;
   }
@@ -1494,16 +1506,65 @@ function openTransferAcceptSuccessorModal(reqKey, req){
     const btn = document.getElementById('xferAcceptWithSuccBtn');
     if(btn){
       btn.onclick = function(){
-        const sel = document.getElementById('xferSuccessorSel');
-        const succId = sel && sel.value;
-        if(!succId){ toast(typeof L==='function'?L('⚠️ Successor चुनें','⚠️ Select a successor'):'Select successor'); return; }
-        confirmTransferAcceptWithSuccessor(reqKey, req, succId);
+        try{
+          const sel = document.getElementById('xferSuccessorSel');
+          const succId = sel && sel.value;
+          if(!succId){ toast(typeof L==='function'?L('⚠️ Successor चुनें','⚠️ Select a successor'):'Select successor'); return; }
+          if(typeof confirmTransferAcceptWithSuccessor!=='function'){
+            toast('❌ Accept handler missing — refresh app'); return;
+          }
+          btn.disabled = true; btn.textContent = '⏳…';
+          Promise.resolve(confirmTransferAcceptWithSuccessor(reqKey, req, succId)).catch(function(err){
+            toast('❌ '+(err&&err.message||err));
+            try{ btn.disabled=false; }catch(e){}
+          });
+        }catch(err){ toast('❌ '+(err&&err.message||err)); }
       };
     }
   }catch(e){}
 }
 
 /** Handoff old team to successor, then join requesting manager as member. */
+
+/** Accept join request when no successor is required — move remaining members under new manager, then join. */
+async function confirmTransferAcceptWithoutSuccessor(reqKey, req){
+  try{
+    const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    const newMgr = _normMobileKey(req.fromManagerId||'');
+    if(!myKey || !newMgr){ toast('Invalid request'); return; }
+    if(typeof _ensureWriteAuth==='function'){
+      const ok = await _ensureWriteAuth();
+      if(!ok){ toast(typeof L==='function'?L('❌ Phone OTP verify करें','❌ Verify phone OTP'):'OTP required'); return; }
+    }
+    toast(typeof L==='function'?L('⏳ Accept हो रहा है…','⏳ Accepting…'):'Accepting…');
+    const all = (_cache && _cache.employees) || [];
+    const team = (typeof getEmps==='function'?getEmps():[]) || all.filter(function(e){ return _normMobileKey(e.managerId||'')===myKey; });
+    // Move other members under the inviting manager so they are not orphaned
+    const others = team.filter(function(e){
+      return e && _normMobileKey(e.phone||e.mobile||'') !== myKey;
+    });
+    for(var i=0;i<others.length;i++){
+      try{
+        await fbUpdate('employees/'+others[i].id, {
+          managerId: newMgr,
+          previousManagerId: myKey,
+          managerTransferredAt: new Date().toISOString()
+        });
+      }catch(ex){ console.warn('[xfer no-succ] member', ex); }
+    }
+    const handoffMeta = null;
+    await _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta);
+    try{ closeModal(); }catch(e){}
+    toast(typeof L==='function'?L('✅ Accept हो गया — आप member हैं','✅ Accepted — you are now a member'):'Accepted');
+    try{ if(typeof loadAll==='function') await loadAll(); }catch(e){}
+    try{ if(typeof goTab==='function') goTab('home'); }catch(e){}
+  }catch(e){
+    console.warn('[confirmTransferAcceptWithoutSuccessor]', e);
+    toast('❌ '+(e&&e.message||e));
+  }
+}
+try{ window.confirmTransferAcceptWithoutSuccessor = confirmTransferAcceptWithoutSuccessor; }catch(e){}
+
 async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
   try{
     const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');

@@ -82,10 +82,35 @@ function _renderShiftSettingsModal(){
       start: (prev && prev.start) || s.start,
       end: (prev && prev.end) || s.end,
       active,
-      kind: s.kind || 'work'
+      kind: s.kind || 'work',
+      color: (prev && (prev.color||prev.bg)) || s.color || '',
+      bg: (prev && (prev.bg||prev.color)) || s.bg || ''
     };
   });
-  if(d.minAll==null) d.minAll = 4;
+  
+  // Re-append CUSTOM work shifts (B2, C2, A2…) lost by std.map
+  try{
+    const _stdCodesSet = new Set(std.map(s=>String(s.code).toUpperCase()));
+    Object.keys(byCode).forEach(function(k){
+      const prev = byCode[k];
+      if(!prev || !prev.code) return;
+      const u = String(prev.code).toUpperCase();
+      if(_stdCodesSet.has(u)) return;
+      if(['O','L','C/O','CO','H','HLF','AB','OD','GP'].indexOf(u)>=0) return;
+      if(prev.kind==='status') return;
+      d.shifts.push({
+        code: prev.code,
+        label: prev.label || prev.code,
+        start: prev.start || '08:00',
+        end: prev.end || '16:00',
+        active: prev.active!==false,
+        kind: 'work',
+        color: prev.color || prev.bg || '',
+        bg: prev.bg || prev.color || ''
+      });
+    });
+  }catch(e){ console.warn('[custom shifts restore]', e); }
+if(d.minAll==null) d.minAll = 4;
   if(d.minMet==null) d.minMet = 5;
   if(d.minSlit==null) d.minSlit = 3;
   if(d.minSup==null) d.minSup = 2;
@@ -380,7 +405,13 @@ function _ssAddCustomShift(){
       if(start) start=window._mpNormTime24(start);
       if(end) end=window._mpNormTime24(end);
     }
-    _shiftDraft.shifts.push({code:code,label:label,start:start||'08:00',end:end||'20:00',active:true,kind:'work'});
+    if(!start) start='08:00';
+    if(!end) end='16:00';
+    // Assign distinct default colour for custom codes
+    const palette=['#0f766e','#7c3aed','#be185d','#0369a1','#b45309','#15803d','#c2410c','#4c1d95','#0e7490','#a21caf'];
+    let h=0; for(let i=0;i<code.length;i++) h=(h*31+code.charCodeAt(i))|0;
+    const bg=palette[Math.abs(h)%palette.length];
+    _shiftDraft.shifts.push({code:code,label:label,start:start,end:end,active:true,kind:'work',color:bg,bg:bg});
     if(codeEl) codeEl.value='';
     if(labEl) labEl.value='';
     if(stEl) stEl.value='';
@@ -446,6 +477,8 @@ function _renderShiftTimingRows(){
           <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:10px;padding:0 4px;${(function(){var st=typeof mpShiftStyle==='function'?mpShiftStyle(s.code):{bg:'#334155',fg:'#fff'};return 'background:'+st.bg+';color:'+(st.fg||'#fff');})()}">${escHtml(s.code)}</span>
         </label>
         <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
+        <input type="color" title="Legend colour" value="${(s.color||s.bg||'#334155')}" style="width:36px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
+          onchange="_shiftDraft.shifts[${i}].color=this.value;_shiftDraft.shifts[${i}].bg=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
         ${(['D','N','A','B','C','G'].indexOf(String(s.code||'').toUpperCase())<0)?`<button type="button" onclick="_ssRemoveCustomShift('${String(s.code).replace(/'/g,"\\'")}')" title="Remove" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#fb7185;font-size:11px;font-weight:800;cursor:pointer">✕</button>`:''}
       </div>
       <div style="display:flex;align-items:center;gap:8px;width:100%">

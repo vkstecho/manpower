@@ -1597,3 +1597,29 @@ input[type="number"] {
   background:var(--bg2) !important;
   box-shadow:0 -6px 18px rgba(0,0,0,.15) !important;
 }
+
+
+/* v5.1.28 month header readability */
+.sched-tbl thead tr.sched-month-row th,
+.sched-tbl thead tr.sched-month-row th.sched-month-th{
+  color:#f8fafc !important;
+  font-size:14px !important;
+  font-weight:900 !important;
+  letter-spacing:1.2px !important;
+  text-shadow:0 1px 3px rgba(0,0,0,.85) !important;
+  min-height:34px !important;
+  padding:8px 4px !important;
+  background:#0a1628 !important;
+  opacity:1 !important;
+  visibility:visible !important;
+}
+.sched-tbl thead tr.sched-month-row th span{
+  color:inherit !important;
+  font-size:14px !important;
+  font-weight:900 !important;
+  background:rgba(255,255,255,.12) !important;
+  border:1px solid rgba(255,255,255,.25) !important;
+  padding:3px 10px !important;
+  border-radius:8px !important;
+  display:inline-block !important;
+}

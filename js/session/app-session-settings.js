@@ -996,22 +996,34 @@ function mpShiftStyle(code){
   if(/^L[:\-_]/i.test(k)) k = 'L';
   if(/^HLF[:\-_]/i.test(k) || k==='½' || /^1\/2/i.test(k)) k = 'HLF';
   if(k==='CO' || k==='C/O') k = 'C/O';
+  // Manager-configured colour (M/c Shift Setting colour picker)
+  try{
+    const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+    const u = k.toUpperCase();
+    const found = (cfg.shifts||[]).find(function(s){ return s && String(s.code||'').toUpperCase()===u; });
+    const col = found && (found.color || found.bg);
+    if(col && /^#?[0-9a-fA-F]{3,8}$/.test(String(col).replace('#','')) || (col && String(col).indexOf('#')===0)){
+      const bg = String(col).indexOf('#')===0 ? col : ('#'+col);
+      return {bg:bg, fg:'#ffffff'};
+    }
+  }catch(e){}
   const c = window.MP_SHIFT_COLORS[k] || window.MP_SHIFT_COLORS[k.toUpperCase()];
   if(c) return c;
   if(String(code||'').indexOf('+')>=0) return {bg:'#7c3aed',fg:'#fff'};
-  // Deterministic colour for custom codes (A2, B2, D2, ...)
   const raw = String(code||'').trim();
   if(raw){
     const palette=[
       {bg:'#0f766e',fg:'#fff'},{bg:'#7c3aed',fg:'#fff'},{bg:'#be185d',fg:'#fff'},
       {bg:'#0369a1',fg:'#fff'},{bg:'#b45309',fg:'#fff'},{bg:'#15803d',fg:'#fff'},
-      {bg:'#c2410c',fg:'#fff'},{bg:'#4c1d95',fg:'#fff'},{bg:'#0e7490',fg:'#fff'}
+      {bg:'#c2410c',fg:'#fff'},{bg:'#4c1d95',fg:'#fff'},{bg:'#0e7490',fg:'#fff'},
+      {bg:'#a21caf',fg:'#fff'},{bg:'#1d4ed8',fg:'#fff'},{bg:'#b91c1c',fg:'#fff'}
     ];
-    let h=0; for(let i=0;i<raw.length;i++) h=(h*31+raw.charCodeAt(i))|0;
+    let h=0; for(let i=0;i<raw.length;i++) h=((h<<5)-h)+raw.charCodeAt(i)|0;
     return palette[Math.abs(h)%palette.length];
   }
   return {bg:'#1e293b',fg:'#94a3b8'};
 }
+
 
 /** Canonical work/status shift code for display & CSS classes.
  * Fixes corrupt codes (e.g. "To"/"Te" shown for A Shift from bad config/i18n). */

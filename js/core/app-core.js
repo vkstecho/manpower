@@ -253,7 +253,9 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
       start:s.start||s.startTime||s.from||"",
       end:s.end||s.endTime||s.to||"",
       active:(s.active===true||s.active===false)?!!s.active:true,
-      kind:"work"
+      kind:"work",
+      color:s.color||s.bg||"",
+      bg:s.bg||s.color||""
     };
   });
   var defs={
@@ -277,7 +279,7 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
     var prev=byCode[code]; if(!prev) return;
     var active=prev.active;
     if(active!==true&&active!==false) active=true;
-    shifts.push({code:prev.code,label:prev.label,start:prev.start||"",end:prev.end||"",active:!!active,kind:"work"});
+    shifts.push({code:prev.code,label:prev.label,start:prev.start||"",end:prev.end||"",active:!!active,kind:"work",color:prev.color||prev.bg||"",bg:prev.bg||prev.color||""});
   });
   ["O","L","C/O","HLF","Ab","H","OD","GP"].forEach(function(code){
     var prev=byCode[code]; if(!prev) return;
