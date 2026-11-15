@@ -505,43 +505,40 @@ let mgrRec=data[mgrKey]||data[mk]||null;if(!mgrRec){const hit=Object.entries(dat
   const block=document.getElementById("adminTeamHierarchyBlock");
   const el=document.getElementById("adminTeamHierarchySection");
   if(!block||!el) return;
-  if(typeof isAdmin!=="function"||!isAdmin()){ block.style.display="none"; return; }
+  if(typeof isAdmin!=="function"||!isAdmin()){ try{block.style.display="none";}catch(e){} return; }
   block.style.display="block";
-  el.innerHTML='<div class="empty-text" style="padding:12px;font-size:12px">Loading...</div>';
-
-  try{ if(window._hierSafetyTimer){ clearTimeout(window._hierSafetyTimer); window._hierSafetyTimer=null; } }catch(e){}
 
   function _showHierError(msg){
     try{
-      el.innerHTML='<div class="empty-text" style="padding:12px;color:#f43f5e;font-size:12px">'+(msg||"Failed to load managers")+'</div>'
+      el.innerHTML='<div class="empty-text" style="padding:12px;color:#f43f5e;font-size:12px;line-height:1.4">'+(msg||"Failed to load managers")+'</div>'
         +'<button type="button" onclick="renderAdminTeamHierarchy()" style="margin:8px 12px;padding:10px 14px;border-radius:10px;border:1px solid rgba(249,115,22,.45);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;cursor:pointer">🔄 Retry</button>';
     }catch(e){}
   }
 
-  function _loadWithTimeout(path, ms){
-    ms = ms || 6000;
-    return new Promise(function(resolve){
-      var settled=false;
-      function done(v){ if(settled) return; settled=true; resolve(v); }
-      setTimeout(function(){ done(null); }, ms);
-      try{
-        if(typeof fbGet!=="function"){ done(null); return; }
-        Promise.resolve(fbGet(path)).then(function(d){ done(d); }).catch(function(){ done(null); });
-      }catch(e){ done(null); }
-    });
+  function _getCacheMU(){
+    try{
+      if(typeof _cache!=="undefined"&&_cache&&_cache.mobileUsers&&typeof _cache.mobileUsers==="object"){
+        var k=Object.keys(_cache.mobileUsers);
+        if(k.length) return _cache.mobileUsers;
+      }
+    }catch(e){}
+    return null;
   }
 
   function _deriveManagersFromEmployees(){
     var out={};
     try{
-      var emps=(typeof getEmps==="function"?getEmps():(_cache&&_cache.employees)||[])||[];
-      var norm=function(p){ return typeof _normMobileKey==="function"?_normMobileKey(p):String(p||"").replace(/\D/g,"").slice(-10); };
-      emps.forEach(function(e){
+      var emps=[];
+      try{ emps=(typeof getEmps==="function"?getEmps():null)||[]; }catch(e){}
+      if(!emps.length){ try{ emps=(_cache&&_cache.employees)||[]; }catch(e){} }
+      var norm=function(p){ try{ return typeof _normMobileKey==="function"?_normMobileKey(p):String(p||"").replace(/\D/g,"").slice(-10);}catch(e){return String(p||"").replace(/\D/g,"").slice(-10);} };
+      (emps||[]).forEach(function(e){
         if(!e) return;
         var st=String(e.status||"active").toLowerCase();
         if(st==="left"||st==="left_team"||st==="resigned"||st==="removed"||st==="revoked") return;
-        var role=String(e.role||e.accessLevel||"").toLowerCase();
-        if(role!=="manager") return;
+        var role=String(e.role||"").toLowerCase();
+        var al=String(e.accessLevel||"").toLowerCase();
+        if(role!=="manager"&&al!=="manager") return;
         var ph=norm(e.phone||e.mobile||"");
         if(!ph||ph.length!==10) return;
         out[ph]={
@@ -569,14 +566,16 @@ let mgrRec=data[mgrKey]||data[mk]||null;if(!mgrRec){const hit=Object.entries(dat
           var mu=data[mk]; if(!mu) return;
           var mph=norm(mk)||norm(mu.mobile||mu.phone);
           if(!(mph&&ph&&mph===ph)) return;
-          if(pv.paymentAmount) mu.paymentAmount=pv.paymentAmount;
-          if(pv.planLabel) mu.planLabel=pv.planLabel;
-          if(pv.planPeriod) mu.planPeriod=pv.planPeriod;
-          if(pv.planMaxMembers!=null){ mu.planMaxMembers=pv.planMaxMembers; if(!mu.teamSize) mu.teamSize=pv.planMaxMembers; }
-          if(pv.teamSize!=null) mu.teamSize=pv.teamSize;
-          if(pv.maxMembers!=null) mu.maxMembers=pv.maxMembers;
-          var until=pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate;
-          if(until){ mu.paymentPaidUntil=until; mu.paidUntil=until; mu.validTill=until; }
+          try{
+            if(pv.paymentAmount) mu.paymentAmount=pv.paymentAmount;
+            if(pv.planLabel) mu.planLabel=pv.planLabel;
+            if(pv.planPeriod) mu.planPeriod=pv.planPeriod;
+            if(pv.planMaxMembers!=null){ mu.planMaxMembers=pv.planMaxMembers; if(!mu.teamSize) mu.teamSize=pv.planMaxMembers; }
+            if(pv.teamSize!=null) mu.teamSize=pv.teamSize;
+            if(pv.maxMembers!=null) mu.maxMembers=pv.maxMembers;
+            var until=pv.paymentPaidUntil||pv.paidUntil||pv.paymentPaidUntilDate;
+            if(until){ mu.paymentPaidUntil=until; mu.paidUntil=until; mu.validTill=until; }
+          }catch(e1){}
         });
       });
     }catch(e){ console.warn("[hierarchy] merge pay", e); }
@@ -584,11 +583,26 @@ let mgrRec=data[mgrKey]||data[mk]||null;if(!mgrRec){const hit=Object.entries(dat
 
   function _paint(data){
     try{
-      if(!data||typeof data!=="object"||!Object.keys(data).length){
+      if(!data||typeof data!=="object"){
         el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+(typeof L==="function"?L("कोई registered Manager नहीं","No registered managers"):"No registered managers")+"</div>";
         return;
       }
-      try{ _cache.mobileUsers=data; }catch(e){}
+      var keyCount=0;
+      try{ keyCount=Object.keys(data).length; }catch(e){}
+      if(!keyCount){
+        el.innerHTML='<div class="empty-text" style="font-size:12px;padding:12px">'+(typeof L==="function"?L("कोई registered Manager नहीं","No registered managers"):"No registered managers")+"</div>";
+        return;
+      }
+      try{ if(typeof _cache!=="undefined") _cache.mobileUsers=data; }catch(e){}
+      // safe stubs if helpers missing
+      var _badge = typeof _mobileStatusBadge==="function" ? _mobileStatusBadge : function(){return "";};
+      var _btns = typeof _mobileActionButtons==="function" ? _mobileActionButtons : function(){return "";};
+      var _esc = typeof escHtml==="function" ? escHtml : function(s){return String(s==null?"":s).replace(/</g,"&lt;");};
+
+      if(typeof _mobileStatusBadge!=="function"){ window._mobileStatusBadge=function(u){u=u||{};var ts=parseInt(u.teamSize!=null?u.teamSize:(u.maxMembers!=null?u.maxMembers:u.planMaxMembers),10)||0;return '<span style="font-size:10px;background:rgba(34,197,94,.15);color:#16a34a;padding:3px 8px;border-radius:6px;font-weight:700">Active'+(ts?(' · '+ts+' Members'):'')+'</span>';}; }
+      if(typeof _mobileActionButtons!=="function"){ window._mobileActionButtons=function(){return "";}; }
+      if(typeof escHtml!=="function"){ window.escHtml=function(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;");}; }
+      if(typeof SESSION==="undefined"||!SESSION){ window.SESSION=window.SESSION||{viewCompanyId:"ALL"}; }
 const allRaw=Object.entries(data),viewCid=SESSION.viewCompanyId||"ALL",mgrKeyNorm=k=>"function"==typeof _normMobileKey?_normMobileKey(k):String(k||"").replace(/\D/g,"").slice(-10);let managers=allRaw.filter(([k,v])=>{if(!v||"manager"!==v.role||"rejected"===v.status||"removed"===v.status||"left"===v.status||"left_team"===v.status||"demoted"===v.status)return!1;if(v.demotedReason==="manager_transferred")return!1;if(!viewCid||"ALL"===viewCid)return!0;const n=_normCompanyId(v.company||v.companyId||v.companyLabel||"");const want=_normCompanyId(viewCid);if(!want||want==="ALL")return!0;/* STRICT: only same company — do not show empty/default managers under other companies */return n&&n===want;});
 // After handoff: also treat roster-owners as managers even if mobileUsers.role was not updated (PERMISSION partial fail)
 try{
@@ -656,47 +670,102 @@ managerKeys=new Set(managers.map(([k])=>mgrKeyNorm(k))),managerKeySet=new Set(ma
       el.innerHTML=html;
     }catch(err){
       console.error("[renderAdminTeamHierarchy] paint", err);
-      _showHierError("Failed to load managers");
+      var msg="Failed to load managers";
+      try{ if(err&&err.message) msg=msg+": "+String(err.message).slice(0,120); }catch(e){}
+      _showHierError(msg);
     }
   }
 
-  try{
-    window._hierSafetyTimer=setTimeout(function(){
-      try{ if(el&&/Loading/i.test(el.textContent||"")) _showHierError("Manager list timeout"); }catch(e){}
-    },12000);
-  }catch(e){}
-
-  _loadWithTimeout("mobileUsers", 6000).then(function(data){
-    if(!data||typeof data!=="object"||!Object.keys(data).length){
+  function _loadWithTimeout(path, ms){
+    ms=ms||5000;
+    return new Promise(function(resolve){
+      var settled=false;
+      function done(v){ if(settled) return; settled=true; resolve(v); }
+      setTimeout(function(){ done(null); }, ms);
       try{
-        if(_cache&&_cache.mobileUsers&&typeof _cache.mobileUsers==="object"&&Object.keys(_cache.mobileUsers).length){
-          data=Object.assign({}, _cache.mobileUsers);
-          console.warn("[hierarchy] using _cache.mobileUsers");
+        if(typeof fbGet!=="function"){ done(null); return; }
+        Promise.resolve(fbGet(path)).then(function(d){ done(d); }).catch(function(e){ console.warn("[hierarchy] fbGet",path,e); done(null); });
+      }catch(e){ done(null); }
+    });
+  }
+
+  // --- IMMEDIATE: paint from listener cache if available (no wait) ---
+  var cached=_getCacheMU();
+  if(cached){
+    try{ _paint(Object.assign({}, cached)); }catch(e){ console.warn("[hierarchy] cache paint", e); }
+  } else {
+    el.innerHTML='<div class="empty-text" style="padding:12px;font-size:12px">Loading...</div>';
+  }
+
+  // safety timer only if still loading
+  try{
+    if(window._hierSafetyTimer) clearTimeout(window._hierSafetyTimer);
+    window._hierSafetyTimer=setTimeout(function(){
+      try{
+        if(el&&/Loading/i.test(el.textContent||"")){
+          var d=_getCacheMU()||_deriveManagersFromEmployees();
+          if(d&&Object.keys(d).length) _paint(d);
+          else _showHierError("Manager list timeout — check connection and Retry");
         }
       }catch(e){}
+    },10000);
+  }catch(e){}
+
+  // Poll cache while waiting (fbListen may fill it)
+  try{
+    var _pollN=0;
+    var _pollId=setInterval(function(){
+      _pollN++;
+      try{
+        var c=_getCacheMU();
+        if(c&&Object.keys(c).length){
+          clearInterval(_pollId);
+          try{ _paint(Object.assign({}, c)); }catch(e){}
+        }
+      }catch(e){}
+      if(_pollN>=20) try{ clearInterval(_pollId); }catch(e){}
+    }, 400);
+    window._hierPollId=_pollId;
+  }catch(e){}
+
+  // --- ASYNC refresh: fbGet with timeout, then payment, then repaint ---
+  _loadWithTimeout("mobileUsers", 5000).then(function(data){
+    try{ if(window._hierPollId){ clearInterval(window._hierPollId); window._hierPollId=null; } }catch(e){}
+
+    if(!data||typeof data!=="object"||!Object.keys(data).length){
+      data=_getCacheMU();
+      if(data) data=Object.assign({}, data);
     }
     if(!data||typeof data!=="object"||!Object.keys(data).length){
       data=_deriveManagersFromEmployees();
-      if(data&&Object.keys(data).length) console.warn("[hierarchy] derived managers from employees");
     }
-
-    _loadWithTimeout("paymentStatus", 1500).then(function(payMap){
-      try{ if(window._hierSafetyTimer){ clearTimeout(window._hierSafetyTimer); window._hierSafetyTimer=null; } }catch(e){}
-      if(payMap&&typeof payMap==="object") _mergePayment(data, payMap);
-      else if(window._paymentStatusCache) _mergePayment(data, window._paymentStatusCache);
-      _paint(data||{});
-    }).catch(function(){
-      try{ if(window._hierSafetyTimer){ clearTimeout(window._hierSafetyTimer); window._hierSafetyTimer=null; } }catch(e){}
-      _paint(data||{});
-    });
+    return _loadWithTimeout("paymentStatus", 1200).then(function(payMap){
+      return { data: data, payMap: payMap };
+    }).catch(function(){ return { data: data, payMap: null }; });
+  }).then(function(pack){
+    try{ if(window._hierSafetyTimer){ clearTimeout(window._hierSafetyTimer); window._hierSafetyTimer=null; } }catch(e){}
+    var data=pack&&pack.data;
+    var payMap=pack&&pack.payMap;
+    if(payMap&&typeof payMap==="object") _mergePayment(data, payMap);
+    else if(window._paymentStatusCache) _mergePayment(data, window._paymentStatusCache);
+    if(data&&typeof data==="object"&&Object.keys(data).length){
+      _paint(data);
+    } else if(!_getCacheMU()){
+      // only show error if we never painted anything useful
+      if(/Loading/i.test(el.textContent||"")||/Failed/i.test(el.textContent||"")){
+        _showHierError("No manager data found (mobileUsers empty)");
+      }
+    }
   }).catch(function(err){
     console.error("[renderAdminTeamHierarchy]", err);
     try{ if(window._hierSafetyTimer){ clearTimeout(window._hierSafetyTimer); window._hierSafetyTimer=null; } }catch(e){}
-    var data=null;
-    try{ data=(_cache&&_cache.mobileUsers)||null; }catch(e){}
-    if(!data||!Object.keys(data).length) data=_deriveManagersFromEmployees();
+    var data=_getCacheMU()||_deriveManagersFromEmployees();
     if(data&&Object.keys(data).length) _paint(data);
-    else _showHierError("Failed to load managers");
+    else {
+      var msg="Failed to load managers";
+      try{ if(err&&err.message) msg+=": "+String(err.message).slice(0,100); }catch(e){}
+      if(/Loading/i.test(el.textContent||"")) _showHierError(msg);
+    }
   });
 }
 /** Single source of truth for plan end date (Admin badge + Manager pay card). */
