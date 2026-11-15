@@ -791,7 +791,7 @@ function _resolvePaidUntilMs(u){
   return Math.min.apply(null, candidates);
 }
 try{ window._resolvePaidUntilMs = _resolvePaidUntilMs; }catch(e){}
-function _mobileStatusBadge(u){u=u||{};const[color,label]={approved:["#22c55e","Active"],revoked:["#f43f5e","Revoked"],pending:["#f97316","Pending"]}[u.status]||["#64748b",u.status||"—"];
+function _mobileStatusBadge(u){u=u||{};let[color,label]={approved:["#22c55e","Active"],revoked:["#f43f5e","Revoked"],pending:["#f97316","Pending"]}[u.status]||["#64748b",u.status||"—"];
 let planBit="";
 try{
   // Always prefer explicit teamSize / maxMembers on the manager record
