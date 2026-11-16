@@ -1623,19 +1623,3 @@ input[type="number"] {
   border-radius:8px !important;
   display:inline-block !important;
 }
-
-/* v6.0 — Shift settings / modal content not cropped on mobile */
-.overlay.open .modal, .overlay.open #modalBody {
-  overflow-x: auto !important;
-  max-width: 100vw;
-  box-sizing: border-box;
-}
-#modalBody, #modalBody * {
-  max-width: 100%;
-  box-sizing: border-box;
-}
-#ss_shiftTimings, #ss_machineList, [id^="ss_"] {
-  max-width: 100%;
-  overflow-x: auto;
-}
-.mp-id-chip { vertical-align: middle; }

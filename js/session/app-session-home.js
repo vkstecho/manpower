@@ -1227,35 +1227,12 @@ function renderMyShift(){
     const shEsc = String(sh).replace(/'/g,"\\'");
     const selected = !!(window._myShiftMultiSel && window._myShiftMultiEmp===e.id && window._myShiftMultiSel.has(ds));
     const cls = cellClass(sh);
-    let hrsBadge = '';
-    try{
-      if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled() && sh && typeof mpComputeDayHours==='function'){
-        const h = mpComputeDayHours(e.id, ds, sh);
-        if(h>0) hrsBadge = `<div class="ms-day-hrs" style="font-size:9px;font-weight:800;color:#22c55e;margin-top:2px">${h}h</div>`;
-      }
-    }catch(_h){}
     cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
       style="cursor:${canSelf?'pointer':'default'};touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
       <div class="ms-day-num">${d}</div>
       <div class="ms-day-sh shc ${cls}">${disp}</div>
-      ${hrsBadge}
     </div>`;
   }
-
-  // v6.0 month hours total
-  let monthHrsBar = '';
-  try{
-    if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()){
-      let tot = 0;
-      for(let d=1;d<=daysInMonth;d++){
-        const ds2 = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-        const sh2 = getShift(e, ds2) || '';
-        if(sh2 && typeof mpComputeDayHours==='function') tot += mpComputeDayHours(e.id, ds2, sh2);
-      }
-      tot = Math.round(tot*100)/100;
-      monthHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${tot} HR</div>`;
-    }
-  }catch(_t){}
 
   // Shift mates today
   const todaySh = getShift(e, TODAY_STR);
@@ -1285,7 +1262,7 @@ function renderMyShift(){
       <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}+1,1);renderMyShift()">›</button>
     </div>
     <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
-    <div class="ms-grid">${cells}</div>${monthHrsBar||""}
+    <div class="ms-grid">${cells}</div>
     <div class="ms-hint">${canEditSchedule()
       ? L('दिन पर टैप करें — यहीं save होगा (अपनी shift पर WhatsApp नहीं)','Tap a day to change shift — saves here (no WhatsApp for your own shift)')
       : L('दिन पर टैप करें — Manager approve करेगा तब schedule अपडेट होगा','Tap a day to request a shift change — your Manager will approve')}</div>

@@ -142,8 +142,6 @@ if(d.minAll==null) d.minAll = 4;
   if(!d.waMemberLeaveToMgrTemplate) d.waMemberLeaveToMgrTemplate = _d0.waMemberLeaveToMgrTemplate;
   if(!d.waMemberShiftToMgrTemplate) d.waMemberShiftToMgrTemplate = _d0.waMemberShiftToMgrTemplate;
   if(d.waNotifyOnSave==null) d.waNotifyOnSave = true;
-  if(d.timeLegendEnabled==null) d.timeLegendEnabled = false;
-
   if(d.waShiftEnabled==null) d.waShiftEnabled = true;
   if(d.waLeaveEnabled==null) d.waLeaveEnabled = true;
   if(d.waAbsentEnabled==null) d.waAbsentEnabled = true;
@@ -161,17 +159,6 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:12px;font-weight:800;color:#f97316;margin:4px 0 6px">⏰ Shifts — for Auto Schedule</div>
   <div style="font-size:11px;color:#64748b;margin-bottom:10px;line-height:1.5">
     ✅ <b>Work shifts</b> tick = Auto Schedule rotate + legend.<br>
-  <div style="margin:10px 0 12px;padding:12px;border-radius:12px;border:1.5px solid rgba(34,197,94,.35);background:rgba(34,197,94,.06)">
-    <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
-      <input type="checkbox" id="ss_timeLegendEnabled" ${d.timeLegendEnabled?'checked':''} style="width:18px;height:18px;margin-top:2px;accent-color:#22c55e"
-        onchange="_shiftDraft.timeLegendEnabled=this.checked">
-      <span>
-        <span style="font-size:13px;font-weight:800;color:#22c55e">⏱️ ${L('समय लेजेंड / कार्य घंटे','Time legend / Worked hours')}</span><br>
-        <span style="font-size:11px;color:#64748b;line-height:1.4">${L('चालू करें तो दिन मार्क करते समय 24-घंटे from–to समय पूछेगा, Schedule व My Shift में कुल घंटे दिखेंगे।','When on, marking a day asks 24-hour from–to times; Schedule & My Shift show total hours.')}</span>
-      </span>
-    </label>
-  </div>
-
     ✅ <b>Status legends</b> (O L CO Ab ½ H GP…) tick = keyboard, picker & schedule legend.<br>
     ${L('Manager अपने team के लिए नाम और visibility बदल सकता है।','Manager can change names and visibility for their own team.')}
   </div>
@@ -499,8 +486,10 @@ function _renderShiftTimingRows(){
         </label>
         <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:0;padding:8px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px;box-sizing:border-box" oninput="_shiftDraft.shifts[${i}].label=this.value">
         <span style="display:inline-flex;align-items:center;gap:4px;flex-shrink:0" title="Background + font colour">
-          <button type="button" title="Background colour" onclick="_mpOpenColourPicker(${i},'bg')" style="width:32px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:${(s.color||s.bg||'#334155')};cursor:pointer"></button>
-          <button type="button" title="Font colour" onclick="_mpOpenColourPicker(${i},'fg')" style="width:28px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:${(s.fg||s.fontColor||'#ffffff')};cursor:pointer"></button>
+          <input type="color" title="Background" value="${(s.color||s.bg||'#334155')}" style="width:32px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
+            onchange="_shiftDraft.shifts[${i}].color=this.value;_shiftDraft.shifts[${i}].bg=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
+          <input type="color" title="Font colour" value="${(s.fg||s.fontColor||'#ffffff')}" style="width:28px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer"
+            onchange="_shiftDraft.shifts[${i}].fg=this.value;_shiftDraft.shifts[${i}].fontColor=this.value;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
         </span>
         ${(['D','N','A','B','C','G'].indexOf(String(s.code||'').toUpperCase())<0)?`<button type="button" onclick="_ssRemoveCustomShift('${String(s.code).replace(/'/g,"\\'")}')" title="Remove" style="padding:4px 8px;border-radius:8px;border:1px solid rgba(244,63,94,.4);background:rgba(244,63,94,.12);color:#fb7185;font-size:11px;font-weight:800;cursor:pointer">✕</button>`:''}
       </div>
@@ -568,7 +557,7 @@ function _renderDynamicMinRows(kind){
 
 function _renderMachineRows(field){
   return _shiftDraft[field].map((m,i)=>`
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;min-width:0;max-width:100%;box-sizing:border-box">
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
       <input type="text" value="${m}" style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.${field}[${i}]=this.value">
       <button onclick="_removeMachine('${field}',${i})" style="width:32px;height:32px;border-radius:8px;border:1px solid rgba(244,63,94,.3);background:rgba(244,63,94,.08);color:#f43f5e;font-size:14px;cursor:pointer">✕</button>
     </div>`).join('');
@@ -765,68 +754,3 @@ async function _saveShiftSettings(){
 
 
 
-
-
-/** v6.0 — 12-colour palette picker (8 classic + orange/purple/teal/stone) */
-function _mpOpenColourPicker(shiftIndex, which){
-  try{
-    var presets = (window.MP_COLOR_PRESETS && window.MP_COLOR_PRESETS.length) ? window.MP_COLOR_PRESETS : [
-      '#ef4444','#06b6d4','#2563eb','#22c55e','#ec4899','#eab308','#0f172a','#f8fafc','#f97316','#a855f7','#14b8a6','#78716c'
-    ];
-    var s = (_shiftDraft.shifts||[])[shiftIndex] || {};
-    var cur = which==='fg' ? (s.fg||s.fontColor||'#ffffff') : (s.color||s.bg||'#334155');
-    var Lfn = (typeof L==='function') ? L : function(h,e){return e||h;};
-    var sw = presets.map(function(c){
-      var sel = String(c).toLowerCase()===String(cur).toLowerCase();
-      return '<button type="button" data-c="'+c+'" class="mp-pick-sw" style="width:40px;height:40px;border-radius:10px;border:2px solid '+(sel?'#38bdf8':'rgba(148,163,184,.45)')+';background:'+c+';cursor:pointer;box-shadow:'+(sel?'0 0 0 2px rgba(56,189,248,.3)':'none')+'"></button>';
-    }).join('');
-    var html = '<div class="modal-handle"></div>'+
-      '<div class="modal-title">'+Lfn('रंग चुनें','Select colour')+'</div>'+
-      '<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;padding:8px 4px 12px">'+sw+'</div>'+
-      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0 12px">'+
-      '<span style="font-size:12px;color:#64748b;font-weight:700">'+Lfn('कस्टम','Customise')+'</span>'+
-      '<input type="color" id="mpPickCustom" value="'+cur+'" style="width:44px;height:34px;padding:0;border:1px solid var(--border2);border-radius:8px;background:transparent;cursor:pointer">'+
-      '<span style="font-size:12px;color:#64748b">'+Lfn('चुना रंग','Chosen colour')+'</span>'+
-      '<span id="mpPickChosen" style="display:inline-block;width:40px;height:30px;border-radius:8px;border:1px solid var(--border2);background:'+cur+'"></span>'+
-      '</div>'+
-      '<div style="display:flex;gap:10px">'+
-      '<button type="button" class="cancel-btn" style="flex:1" onclick="closeModal()">'+Lfn('रद्द','Cancel')+'</button>'+
-      '<button type="button" class="submit-btn" style="flex:1" id="mpPickSet">'+Lfn('सेट','Set')+'</button>'+
-      '</div>';
-    if(typeof openModal==='function') openModal(html);
-    else return;
-    var chosen = cur;
-    function paintChosen(c){
-      chosen = c;
-      var el = document.getElementById('mpPickChosen');
-      if(el) el.style.background = c;
-      document.querySelectorAll('.mp-pick-sw').forEach(function(b){
-        var on = String(b.getAttribute('data-c')).toLowerCase()===String(c).toLowerCase();
-        b.style.borderColor = on ? '#38bdf8' : 'rgba(148,163,184,.45)';
-        b.style.boxShadow = on ? '0 0 0 2px rgba(56,189,248,.3)' : 'none';
-      });
-    }
-    document.querySelectorAll('.mp-pick-sw').forEach(function(b){
-      b.onclick = function(){ paintChosen(b.getAttribute('data-c')); };
-    });
-    var cust = document.getElementById('mpPickCustom');
-    if(cust) cust.oninput = function(){ paintChosen(this.value); };
-    var setBtn = document.getElementById('mpPickSet');
-    if(setBtn) setBtn.onclick = function(){
-      if(!_shiftDraft.shifts[shiftIndex]) return;
-      if(which==='fg'){
-        _shiftDraft.shifts[shiftIndex].fg = chosen;
-        _shiftDraft.shifts[shiftIndex].fontColor = chosen;
-      } else {
-        _shiftDraft.shifts[shiftIndex].color = chosen;
-        _shiftDraft.shifts[shiftIndex].bg = chosen;
-      }
-      try{ closeModal(); }catch(e){}
-      try{
-        var box = document.getElementById('ss_shiftTimings');
-        if(box && typeof _renderShiftTimingRows==='function') box.innerHTML = _renderShiftTimingRows();
-      }catch(e){}
-    };
-  }catch(err){ console.warn('[colour picker]', err); }
-}
-try{ window._mpOpenColourPicker = _mpOpenColourPicker; }catch(e){}
