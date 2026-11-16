@@ -776,6 +776,14 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
       showLeaveReasonForDay(empId, empName, date, currentShift);
       return;
     }
+    // Custom time-only (4H / T:…) — show worked from–to first, like Leave details
+    const isTimeOnly = (typeof mpIsTimeOnlyShiftCode==='function' && mpIsTimeOnlyShiftCode(currentShift))
+      || /^T([:\-_].*)?$/i.test(String(currentShift||''))
+      || /^\d+(\.\d+)?H$/i.test(String(currentShift||''));
+    if(isTimeOnly && typeof showShiftInfo==='function'){
+      showShiftInfo(empId, empName, date, currentShift);
+      return;
+    }
     if(typeof editShiftCell === 'function'){
       editShiftCell(empId, empName, date, currentShift);
     } else {

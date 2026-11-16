@@ -435,41 +435,62 @@
     refreshPreview();
   }
 
+  function isTimeOnlyShiftCode(code) {
+    var s = String(code || '').trim();
+    if (!s) return false;
+    if (/^T([:\-_].*)?$/i.test(s)) return true;
+    if (/^HR$/i.test(s)) return true;
+    if (/^\d+(\.\d+)?H$/i.test(s)) return true;
+    return false;
+  }
+
   function detailHoursHtml(empId, dateStr, shiftCode) {
     var meta = getDayMeta(empId, dateStr);
     var hrs = computeDayHours(empId, dateStr, shiftCode);
     var lines = [];
+    var isCustom = false;
     if (meta && Array.isArray(meta.segments) && meta.segments.length) {
+      isCustom = true;
       meta.segments.forEach(function (s) {
-        lines.push((s.from || s.start || '') + ' → ' + (s.to || s.end || ''));
+        var a = s.from || s.start || '';
+        var b = s.to || s.end || '';
+        if (a && b) lines.push(_L('काम किया ', 'Worked ') + a + _L(' से ', ' to ') + b);
+        else if (a || b) lines.push(a || b);
       });
     } else {
       try {
         var cfg = typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : null;
         var up = String(shiftCode || '').toUpperCase();
+        var base = up.split(/[:\-_]/)[0];
         ((cfg && cfg.shifts) || []).forEach(function (s) {
-          if (s && String(s.code).toUpperCase() === up && s.start && s.end) {
-            lines.push(s.start + ' → ' + s.end + ' (' + _L('लेजेंड', 'legend') + ')');
+          if (!s || !s.start || !s.end) return;
+          var sc = String(s.code).toUpperCase();
+          if (sc === up || sc === base) {
+            lines.push(s.start + _L(' से ', ' to ') + s.end + ' (' + _L('लेजेंड', 'legend') + ')');
           }
         });
       } catch (e) {}
     }
     if (!hrs && !lines.length) return '';
+    var useOrange = isCustom || isTimeOnlyShiftCode(shiftCode);
+    var bg = useOrange
+      ? 'rgba(249,115,22,.1);border-left:3px solid #f97316'
+      : 'rgba(34,197,94,.08);border-left:3px solid #22c55e';
+    var col = useOrange ? '#f97316' : '#22c55e';
     return (
-      '<div style="margin-top:12px;padding:12px 14px;background:rgba(34,197,94,.08);border-left:3px solid #22c55e;border-radius:0 10px 10px 0">' +
-      '<div style="font-size:11px;color:#22c55e;font-weight:800;margin-bottom:4px">⏱️ ' +
-      _L('कार्य घंटे', 'Worked hours') +
+      '<div style="margin-top:12px;padding:12px 14px;background:' + bg + ';border-radius:0 10px 10px 0">' +
+      '<div style="font-size:11px;color:' + col + ';font-weight:800;margin-bottom:6px">⏱️ ' +
+      _L('कार्य समय विवरण', 'Work time details') +
       '</div>' +
       (lines.length
-        ? '<div style="font-size:13px;color:var(--text);font-weight:600;line-height:1.5">' +
-          lines.map(function (x) {
-            return esc(x);
-          }).join('<br>') +
+        ? '<div style="font-size:15px;color:var(--text);font-weight:700;line-height:1.6">' +
+          lines.map(function (x) { return esc(x); }).join('<br>') +
           '</div>'
-        : '') +
-      '<div style="margin-top:6px;font-size:14px;font-weight:800;color:#22c55e">' +
-      hrs +
-      ' HR</div></div>'
+        : '<div style="font-size:13px;color:var(--muted2)">' +
+          _L('समय सेगमेंट उपलब्ध नहीं', 'No time segments saved') +
+          '</div>') +
+      '<div style="margin-top:8px;font-size:16px;font-weight:900;color:' + col + '">' +
+      hrs + ' HR</div></div>'
     );
   }
 
@@ -552,6 +573,7 @@
     persistDayMeta: persistDayMeta,
     loadMonthMeta: loadMonthMeta,
     computeDayHours: computeDayHours,
+    isTimeOnlyShiftCode: isTimeOnlyShiftCode,
     sumMonthHours: sumMonthHours,
     identityChipHtml: identityChipHtml,
     getCareerHistory: getCareerHistory,
@@ -605,6 +627,7 @@
   global.mpMonthRowAnnotation = monthRowAnnotation;
   global.mpIsTimeLegendEnabled = isTimeLegendEnabled;
   global.mpDetailHoursHtml = detailHoursHtml;
+  global.mpIsTimeOnlyShiftCode = isTimeOnlyShiftCode;
   global.mpPersistDayMeta = persistDayMeta;
   global.mpLoadMonthMeta = loadMonthMeta;
   global.mpBindTimeSegmentsUi = bindTimeSegmentsUi;
