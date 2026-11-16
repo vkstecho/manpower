@@ -1720,3 +1720,31 @@ body.light .sched-tbl th.sched-hrs-th * {
 .sched-tbl thead th.sched-hrs-th {
   overflow: hidden;
 }
+
+
+/* v6.0.16 — Download Trend Excel: always readable */
+.mp-trend-excel-btn,
+button.mp-trend-excel-btn {
+  background: #15803d !important;
+  color: #ffffff !important;
+  border: 2px solid #14532d !important;
+  font-weight: 900 !important;
+  font-size: 14px !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #ffffff !important;
+}
+.mp-trend-excel-btn:hover,
+button.mp-trend-excel-btn:hover {
+  background: #166534 !important;
+  color: #ffffff !important;
+  -webkit-text-fill-color: #ffffff !important;
+  filter: brightness(1.05);
+}
+body.light .mp-trend-excel-btn,
+body.light button.mp-trend-excel-btn {
+  background: #15803d !important;
+  color: #ffffff !important;
+  border-color: #14532d !important;
+  -webkit-text-fill-color: #ffffff !important;
+}

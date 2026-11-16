@@ -966,11 +966,37 @@ function _fbPhoneAuthReady(){
 function _fbEnsureRecaptchaHost(containerId, visible){
   let el = document.getElementById(containerId);
 
-  // Desktop bottom bar wins when present — never steal host into login-card inline
-  // (that was leaving the yellow bar empty / checkbox disappeared)
+  // Desktop bottom bar is the ONLY visible captcha host on laptop.
+  // Never append other container ids into the bar (that produced TWO "I'm not a robot" boxes).
   if(visible){
     const bar = document.getElementById('rcDesktopBar');
     if(bar){
+      const isBarHost = (containerId === 'recaptcha-container-desktop-bar');
+      if(!isBarHost){
+        // Keep non-bar hosts off the bar — hide/clear them instead of mounting a 2nd widget
+        try{
+          if(el && el.parentElement === bar){
+            try{ bar.removeChild(el); }catch(e){}
+          }
+          if(el){
+            el.innerHTML = '';
+            el.className = '';
+            el.style.cssText = 'display:none!important;height:0;min-height:0;overflow:hidden;pointer-events:none';
+          }
+        }catch(eHide){}
+        // Prefer dedicated bar host if present
+        const barHost = document.getElementById('recaptcha-container-desktop-bar');
+        if(barHost) return barHost;
+        // Fall through to create/use body host hidden
+        if(!el){
+          el = document.createElement('div');
+          el.id = containerId;
+          document.body.appendChild(el);
+        }
+        el.style.cssText = 'display:none!important;height:0;min-height:0;overflow:hidden;pointer-events:none';
+        return el;
+      }
+      // Allowed: the dedicated desktop-bar host
       if(!el || el.parentElement !== bar){
         if(el && el.parentElement) try{ el.parentElement.removeChild(el); }catch(e){}
         el = document.createElement('div');
@@ -1104,6 +1130,9 @@ function _fbShowRecaptchaSlotNow(containerId){
  * Speeds up Send OTP: widget already loaded when user clicks.
  */
 async function _fbWarmDesktopRecaptcha(containerId, storeKey){
+  // Disabled: pre-warming a visible widget races with the desktop bottom-bar captcha
+  // and produced two "I'm not a robot" checkboxes. Desktop OTP uses the bar only.
+  if(true) return null;
   if(!_isDesktopLoginUA()) return null;
   if(!_fbPhoneAuthReady()){
     for(let i=0;i<15 && !_fbPhoneAuthReady();i++) await new Promise(r=>setTimeout(r,150));
@@ -1210,13 +1239,44 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       var barCid = 'recaptcha-container-desktop-bar';
       var barKey = key + '_visibleBar';
 
-      // Tear down any previous bar / host
+      // Tear down any previous bar / host AND every other recaptcha host
+      // so only ONE "I'm not a robot" widget can appear.
       try{
         var _prevBar = document.getElementById('rcDesktopBar');
         if(_prevBar) _prevBar.remove();
         var _prevH = document.getElementById(barCid);
         if(_prevH && _prevH.parentElement) _prevH.parentElement.removeChild(_prevH);
         _fbClearRecaptcha(barKey);
+        // Clear warm + default verifiers
+        try{ _fbClearRecaptcha(key); }catch(eK){}
+        try{ _fbClearRecaptcha('_fbRecaptchaWarm'); }catch(eW){}
+        try{ window._fbRecaptchaWarm = null; window._fbRecaptchaWarmReady = false; window._fbRecaptchaWarmSolved = false; }catch(eW2){}
+        // Wipe body/inline hosts so they cannot render a second checkbox
+        ['recaptcha-container','recaptcha-inline','recaptcha-container-device'].forEach(function(id){
+          try{
+            var n = document.getElementById(id);
+            if(!n) return;
+            // remove any google iframes / g-recaptcha children
+            try{ n.querySelectorAll('iframe, .g-recaptcha, div').forEach(function(c){ try{ c.remove(); }catch(e){} }); }catch(eQ){}
+            n.innerHTML = '';
+            if(id !== 'recaptcha-inline'){
+              n.style.cssText = 'display:none!important;height:0;min-height:0;overflow:hidden;pointer-events:none';
+            } else {
+              n.style.minHeight = '0';
+              n.style.display = 'none';
+            }
+          }catch(eN){}
+        });
+        // Remove stray google recaptcha badges/widgets left in body (not the challenge iframe)
+        try{
+          document.querySelectorAll('div.g-recaptcha').forEach(function(g){
+            try{
+              if(g.closest && g.closest('#rcDesktopBar')) return;
+              g.innerHTML = '';
+              g.style.display = 'none';
+            }catch(eG){}
+          });
+        }catch(eStray){}
       }catch(eRm){}
 
       var bar = document.createElement('div');
@@ -1256,6 +1316,14 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
       ].join(';');
       // IMPORTANT: do NOT put placeholder HTML inside host — causes auth/argument-error
       bar.appendChild(host);
+      // Safety: only one captcha host may live inside the bar
+      try{
+        Array.prototype.slice.call(bar.querySelectorAll('[id^="recaptcha-container"]')).forEach(function(node){
+          if(node.id !== barCid){
+            try{ node.innerHTML=''; node.remove(); }catch(eX){}
+          }
+        });
+      }catch(eOne){}
 
       // Create verifier directly on bar host — do NOT call _fbEnsureRecaptchaHost
       _fbClearRecaptcha(barKey);

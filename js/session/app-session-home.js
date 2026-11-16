@@ -1262,9 +1262,11 @@ function renderMyShift(){
       }
       tot = Math.round(tot*100)/100;
       const mkKey = y+'_'+String(m+1).padStart(2,'0');
+      const mkKeyAlt = y+'-'+String(m+1).padStart(2,'0');
       let target = 0;
       try{
-        const th = (e.targetHoursByMonth&&e.targetHoursByMonth[mkKey])
+        const thMap = (e.targetHoursByMonth && typeof e.targetHoursByMonth==='object') ? e.targetHoursByMonth : {};
+        const th = thMap[mkKey] || thMap[mkKeyAlt]
           || e.targetHoursMonth || e.monthlyTargetHours || 0;
         target = Number(th)||0;
       }catch(_th){ target = 0; }
@@ -1384,25 +1386,34 @@ function renderMyShift(){
               if(!sh) continue;
               tot += (typeof mpComputeDayHours==='function') ? (mpComputeDayHours(selEmp.id, ds, sh)||0) : 0;
             }
-            const mk = y+'-'+String(m+1).padStart(2,'0');
+            const mk = y+'_'+String(m+1).padStart(2,'0');
+            const mkAlt = y+'-'+String(m+1).padStart(2,'0');
             const thMap = (selEmp.targetHoursByMonth && typeof selEmp.targetHoursByMonth==='object') ? selEmp.targetHoursByMonth : {};
+            // Resolve target: YYYY_MM, YYYY-MM, then convenience fields (member may have saved under either key)
             let target = parseFloat(thMap[mk]);
-            if(isNaN(target) || target<=0) target = 160;
-            const gap = tot - target;
-            const emoji = gap>=0 ? '😊' : '😔';
-            const gapTxt = gap>=0
-              ? ((typeof L==='function'?L('लक्ष्य से ऊपर','Above target'):'Above target')+': +'+Math.abs(gap)+' HR')
-              : ((typeof L==='function'?L('लक्ष्य से पीछे','Behind target'):'Behind target')+': -'+Math.abs(gap)+' HR');
-            memberHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${tot} HR
+            if(isNaN(target) || target<=0) target = parseFloat(thMap[mkAlt]);
+            if(isNaN(target) || target<=0) target = parseFloat(selEmp.targetHoursMonth);
+            if(isNaN(target) || target<=0) target = parseFloat(selEmp.monthlyTargetHours);
+            if(isNaN(target) || target<=0) target = 0; // 0 = not set (do not invent 160)
+            const gap = target>0 ? (tot - target) : null;
+            const emoji = gap==null ? '' : (gap>=0 ? '😊' : '😔');
+            const gapTxt = gap==null
+              ? ((typeof L==='function'?L('लक्ष्य सेट नहीं','No target set'):'No target set'))
+              : (gap>=0
+                ? ((typeof L==='function'?L('लक्ष्य से ऊपर','Above target'):'Above target')+': +'+Math.abs(Math.round(gap*10)/10)+' HR')
+                : ((typeof L==='function'?L('लक्ष्य से पीछे','Behind target'):'Behind target')+': -'+Math.abs(Math.round(gap*10)/10)+' HR'));
+            const gapColor = gap==null ? 'var(--muted2)' : (gap>=0 ? '#22c55e' : '#f97316');
+            memberHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${Math.round(tot*10)/10} HR
               <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--text)">
                 <span>${typeof L==='function'?L('लक्ष्य कार्य घंटे (महीना)','Target working hours (month)'):'Target working hours (month)'}:</span>
-                <input type="number" min="0" step="1" value="${target}" id="mpMemberTargetHrs"
-                  style="width:72px;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:800"
-                  onchange="try{window._mpSaveMemberTargetHours&&window._mpSaveMemberTargetHours('${selEmp.id}','${mk}',this.value)}catch(e){}">
-                <button type="button" onclick="try{window._mpSaveMemberTargetHours&&window._mpSaveMemberTargetHours('${selEmp.id}','${mk}',document.getElementById('mpMemberTargetHrs').value)}catch(e){}"
-                  style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-weight:800;cursor:pointer">${typeof L==='function'?L('सेव','Save'):'Save'}</button>
+                <input type="number" min="0" step="1" value="${target>0?target:''}" id="mpMemberTargetHrs" placeholder="e.g. 210"
+                  style="width:80px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();try{window.mpSaveMemberTargetHours&&window.mpSaveMemberTargetHours('${selEmp.id}','${mk}',this.value)}catch(e){}}">
+                <button type="button" id="mpMemberTargetSaveBtn"
+                  onclick="event.preventDefault();event.stopPropagation();try{var v=(document.getElementById('mpMemberTargetHrs')||{}).value;window.mpSaveMemberTargetHours&&window.mpSaveMemberTargetHours('${selEmp.id}','${mk}',v)}catch(e){console.warn(e)}"
+                  style="padding:8px 14px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer;font-size:13px">${typeof L==='function'?L('सेव','Save'):'Save'}</button>
               </div>
-              <div style="margin-top:6px;font-size:12px;font-weight:800;color:${gap>=0?'#22c55e':'#f97316'}">${emoji} ${gapTxt}</div>
+              <div style="margin-top:6px;font-size:12px;font-weight:800;color:${gapColor}">${emoji} ${gapTxt}</div>
             </div>`;
           }
         }catch(_mh){}
@@ -1414,7 +1425,6 @@ function renderMyShift(){
             <div class="ms-cal-title" style="color:#f97316">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
             <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}+1,1);renderMyShift()" aria-label="Next month">›</button>
           </div>
-          ${_selCareer}
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
           ${memberHrsBar}
@@ -1427,6 +1437,7 @@ function renderMyShift(){
               ? L('दिन टैप करें → Copy, फिर Paste','Tap days → Copy, then Paste')
               : L('दिन टैप करें → shift चुनें (Save से commit)','Tap a day → pick shift (then Save)')}</span>
           </div>
+          ${_selCareer}
         </div>`;
       }
       el.innerHTML += `
@@ -1477,6 +1488,69 @@ window._paymentSettingsAt = 0;
 
 
 
+
+/** Manager saves target hours for a selected team member (My Shift member calendar) */
+async function mpSaveMemberTargetHours(empId, monthKey, rawVal){
+  try{
+    const val = Math.max(0, Math.round(Number(rawVal)||0));
+    if(!empId){ toast('Missing employee'); return; }
+    if(!monthKey){ toast('Missing month'); return; }
+    // Normalize key to YYYY_MM and also keep YYYY-MM alias for older data
+    var mk = String(monthKey||'').replace(/-/g,'_');
+    var mkAlt = mk.replace('_','-');
+    if(/^\d{4}_\d{2}$/.test(mk)){
+      var p = mk.split('_');
+      mkAlt = p[0]+'-'+p[1];
+    }
+    let map = {};
+    try{
+      const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>x.id===empId)
+        || ((_cache&&_cache.employees||[]).find(x=>x.id===empId));
+      if(emp && emp.targetHoursByMonth && typeof emp.targetHoursByMonth==='object')
+        map = Object.assign({}, emp.targetHoursByMonth);
+    }catch(e){}
+    map[mk] = val;
+    map[mkAlt] = val; // dual-write so member/manager always read the same value
+    const patch = {
+      targetHoursByMonth: map,
+      targetHoursMonth: val,
+      monthlyTargetHours: val,
+      updatedAt: new Date().toISOString()
+    };
+    if(typeof fbUpdate==='function'){
+      await fbUpdate('employees/'+empId, patch);
+    } else if(typeof fbSet==='function'){
+      // fallback
+      await fbSet('employees/'+empId+'/targetHoursByMonth', map);
+    } else {
+      toast('❌ Save unavailable');
+      return;
+    }
+    // Update every in-memory copy so UI refreshes correctly
+    function _patchEmp(emp){
+      if(!emp) return;
+      emp.targetHoursByMonth = Object.assign({}, map);
+      emp.targetHoursMonth = val;
+      emp.monthlyTargetHours = val;
+    }
+    try{
+      if(typeof _cache!=='undefined' && _cache && Array.isArray(_cache.employees)){
+        _patchEmp(_cache.employees.find(x=>x.id===empId));
+      }
+    }catch(e){}
+    try{
+      const list = typeof getEmps==='function'?getEmps():[];
+      _patchEmp(list.find(x=>x.id===empId));
+    }catch(_e){}
+    toast((typeof L==='function'?L('✅ लक्ष्य सेव: ','✅ Target saved: '):'✅ Target saved: ')+val+' HR');
+    if(typeof renderMyShift==='function') renderMyShift();
+  }catch(err){
+    console.warn('[mpSaveMemberTargetHours]', err);
+    toast('❌ '+(err&&err.message?err.message:'Could not save target'));
+  }
+}
+try{ window.mpSaveMemberTargetHours = mpSaveMemberTargetHours; window._mpSaveMemberTargetHours = mpSaveMemberTargetHours; }catch(e){}
+
 /** Save per-member monthly target hours (employee.targetHoursByMonth[YYYY_MM]) */
 async function mpSaveTargetHours(empId, monthKey){
   try{
@@ -1493,9 +1567,14 @@ async function mpSaveTargetHours(empId, monthKey){
       if(emp && emp.targetHoursByMonth && typeof emp.targetHoursByMonth==='object')
         map = Object.assign({}, emp.targetHoursByMonth);
     }catch(e){}
-    map[monthKey] = val;
+    var mk = String(monthKey||'').replace(/-/g,'_');
+    var mkAlt = mk;
+    if(/^\d{4}_\d{2}$/.test(mk)){ var pp=mk.split('_'); mkAlt=pp[0]+'-'+pp[1]; }
+    map[mk] = val;
+    map[mkAlt] = val;
     patch['targetHoursByMonth'] = map;
-    patch['targetHoursMonth'] = val; // latest convenience field
+    patch['targetHoursMonth'] = val;
+    patch['monthlyTargetHours'] = val;
     patch['updatedAt'] = new Date().toISOString();
     if(typeof fbUpdate==='function'){
       await fbUpdate('employees/'+empId, patch);

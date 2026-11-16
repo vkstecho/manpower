@@ -81,16 +81,18 @@ function showStep(n){
   } else {
     console.warn('[showStep] missing step element for', n, map[n]);
   }
-  // Laptop: show reCAPTCHA immediately on login step (don't wait for Send OTP click)
+  // Desktop: do NOT pre-render captcha on step 1.
+  // Pre-warming caused a second "I'm not a robot" box next to the bottom security bar.
+  // Captcha is created once when user taps Send OTP (desktop bar path).
   if(n===1){
     try{
-      if(typeof _isDesktopLoginUA==='function' ? _isDesktopLoginUA() : !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''))){
-        if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container');
-        setTimeout(function(){
-          try{
-            if(typeof _fbWarmDesktopRecaptcha==='function') _fbWarmDesktopRecaptcha('recaptcha-container', '_fbRecaptchaWarm');
-          }catch(e){}
-        }, 100);
+      // Clear any leftover inline/body hosts so the form stays clean
+      var inline = document.getElementById('recaptcha-inline');
+      if(inline){ inline.innerHTML=''; inline.style.minHeight='0'; inline.style.display='none'; }
+      var rc = document.getElementById('recaptcha-container');
+      if(rc && !document.getElementById('rcDesktopBar')){
+        rc.innerHTML='';
+        rc.style.cssText='display:none!important;height:0;min-height:0;overflow:hidden';
       }
     }catch(e){}
   }
@@ -318,8 +320,7 @@ async function _sendOTP(isResend){
     if(_desk){
       try{ _setBtnCaptchaWait(); }catch(e){}
       toast(L('🔐 नीचे Security checkbox ✓ करें — tick के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
-      try{ if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container'); }catch(e){}
-      // Do NOT warm a second verifier while send is in flight — causes blank/stuck captcha
+      // Single captcha only: desktop bar is created inside _fbSendPhoneOtp — do not pre-mount another host
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
@@ -363,7 +364,8 @@ async function _sendOTP(isResend){
     // Captcha not done / send failed — stay on mobile step, do not leave user on empty OTP screen
     try{ showStep(1); }catch(e){}
     try{
-      if((typeof _isDesktopLoginUA==='function' && _isDesktopLoginUA()) || !(/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent||''))){
+      // Desktop uses bottom security bar on next Send — do not inject a second inline widget
+      if(!(typeof _isDesktopLoginUA==='function' && _isDesktopLoginUA())){
         if(typeof _fbShowRecaptchaSlotNow==='function') _fbShowRecaptchaSlotNow('recaptcha-container');
       }
     }catch(e){}
