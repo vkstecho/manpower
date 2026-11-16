@@ -521,6 +521,8 @@
     computeDayHours: computeDayHours,
     sumMonthHours: sumMonthHours,
     identityChipHtml: identityChipHtml,
+    getCareerHistory: getCareerHistory,
+    careerHistoryHtml: careerHistoryHtml,
     monthRowAnnotation: monthRowAnnotation,
     timeSegmentsFormHtml: timeSegmentsFormHtml,
     readTimeSegmentsFromDom: readTimeSegmentsFromDom,
@@ -534,6 +536,8 @@
   global.mpComputeDayHours = computeDayHours;
   global.mpSumMonthHours = sumMonthHours;
   global.mpIdentityChipHtml = identityChipHtml;
+  global.mpCareerHistoryHtml = careerHistoryHtml;
+  global.mpGetCareerHistory = getCareerHistory;
   global.mpMonthRowAnnotation = monthRowAnnotation;
   global.mpIsTimeLegendEnabled = isTimeLegendEnabled;
   global.mpDetailHoursHtml = detailHoursHtml;
@@ -546,6 +550,125 @@
 
 
   /** After schedule renders, annotate name cells with company/emp code chip. */
+
+  /** Career periods: company + emp code ranges (from emp.companyHistory or current). */
+  function getCareerHistory(emp) {
+    if (!emp) return [];
+    var hist = [];
+    try {
+      if (Array.isArray(emp.companyHistory) && emp.companyHistory.length) {
+        emp.companyHistory.forEach(function (h) {
+          if (!h) return;
+          hist.push({
+            company: h.company || h.companyName || h.companyId || '',
+            empCode: h.empCode || h.empId || h.code || '',
+            from: h.from || h.start || h.joiningDate || '',
+            to: h.to || h.end || ''
+          });
+        });
+      }
+    } catch (e) {}
+    if (!hist.length) {
+      hist.push({
+        company: emp.company || emp.companyName || emp.companyId || '',
+        empCode: emp.empId || emp.empCode || emp.code || '',
+        from: emp.joiningDate || emp.doj || '',
+        to: ''
+      });
+    }
+    // Enrich from scheduleMeta day nodes (phone key) if present
+    try {
+      var phone = empPhone(emp);
+      var meta = metaCache();
+      var found = {};
+      Object.keys(meta || {}).forEach(function (mk) {
+        var month = meta[mk] || {};
+        var row = (phone && month['p:' + phone]) || month[emp.id] || month[String(emp.empId || '')] || null;
+        if (!row || typeof row !== 'object') return;
+        Object.keys(row).forEach(function (di) {
+          var node = row[di];
+          if (!node || typeof node !== 'object') return;
+          var co = node.company || node.companyName || '';
+          var code = node.empCode || node.empId || '';
+          if (!co && !code) return;
+          var key = co + '|' + code;
+          var parts = String(mk).split('_');
+          var y = parts[0], m = parts[1];
+          var day = parseInt(di, 10);
+          if (isNaN(day)) day = parseInt(di, 10) + 1;
+          else day = day + 1;
+          var ds = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+          if (!found[key]) found[key] = { company: co, empCode: code, from: ds, to: ds };
+          else {
+            if (ds < found[key].from) found[key].from = ds;
+            if (ds > found[key].to) found[key].to = ds;
+          }
+        });
+      });
+      Object.keys(found).forEach(function (k) {
+        var f = found[k];
+        var exists = hist.some(function (h) {
+          return String(h.company) === String(f.company) && String(h.empCode) === String(f.empCode);
+        });
+        if (!exists) hist.push(f);
+      });
+    } catch (e) {}
+    return hist;
+  }
+
+  function careerHistoryHtml(emp) {
+    var rows = getCareerHistory(emp);
+    if (!rows || !rows.length) {
+      return (
+        '<div style="margin-top:14px;padding:12px;border-radius:12px;border:1px dashed var(--border2);color:var(--muted2);font-size:12px">' +
+        _L('अभी Company / Emp Code इतिहास नहीं', 'No company / emp code history yet') +
+        '</div>'
+      );
+    }
+    var body = rows
+      .map(function (h) {
+        var co = h.company ? String(h.company) : '—';
+        var code = h.empCode ? String(h.empCode) : '—';
+        var from = h.from || '—';
+        var to = h.to || _L('अब तक', 'Present');
+        return (
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin-bottom:8px">' +
+          '<div style="font-size:11px;color:var(--muted2)">🏢 Company</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
+          esc(co) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">🪪 Emp Code</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
+          esc(code) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">📅 ' +
+          _L('से', 'From') +
+          '</div><div style="font-size:12px;font-weight:700">' +
+          esc(from) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">📅 ' +
+          _L('तक', 'To') +
+          '</div><div style="font-size:12px;font-weight:700">' +
+          esc(to) +
+          '</div></div>'
+        );
+      })
+      .join('');
+    return (
+      '<div class="mp-career-hist" style="margin-top:16px">' +
+      '<div style="font-size:14px;font-weight:900;color:var(--text);margin-bottom:8px">🏢 ' +
+      _L('Company / Emp Code इतिहास', 'Company / Emp Code history') +
+      '</div>' +
+      '<div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.4">' +
+      _L(
+        'जब आप Company या Emp Code बदलते हैं, पुरानी अवधि यहाँ सुरक्षित रहती है। Schedule ग्रिड में नहीं दिखती।',
+        'When you change company or emp code, past periods stay here. Not shown on the schedule grid.'
+      ) +
+      '</div>' +
+      body +
+      '</div>'
+    );
+  }
+
+
   function annotateScheduleIdentity() {
     try {
       var tbl = document.getElementById('schedTbl');
@@ -586,7 +709,7 @@
               mk = d.getFullYear() + '_' + String(d.getMonth() + 1).padStart(2, '0');
             } catch (e) {}
             if (mk && typeof loadMonthMeta === 'function') loadMonthMeta(mk);
-            setTimeout(annotateScheduleIdentity, 50);
+            /* v6.0.5: do not inject Company/Emp chips into schedule grid (overspill) */
           } catch (e) {}
           return r;
         };

@@ -800,7 +800,10 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
     closeModal();
     openDualShiftPicker(empId, empName, date, currentShift);
   } else {
-    stageSingleShiftChange(empId, empName, date, currentShift, shiftVal);
+    try{ closeModal(); }catch(e){}
+    setTimeout(function(){
+      stageSingleShiftChange(empId, empName, date, currentShift, shiftVal);
+    }, 40);
   }
 }
 
@@ -1301,6 +1304,7 @@ function editShiftCell(empId, empName, date, currentShift){
       <div style="margin-top:6px;font-size:12px;color:var(--muted2)">
         ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: <span class="shc ${cellClass(currentShift)}" style="display:inline-flex;vertical-align:middle">${cellDisp(currentShift)}</span>
         ${alreadyPending?`<span style="color:var(--day);margin-left:8px">⚡ pending: ${cellDisp(alreadyPending.newShift)}</span>`:''}
+        ${(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()) ? `<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(249,115,22,.08);border:1px dashed rgba(249,115,22,.4);font-size:11px;color:#f97316;font-weight:700;text-align:left;line-height:1.4">⏱️ ${typeof L==='function'?L('कार्य शिफ्ट चुनने के बाद 24-घंटे समय (से–तक) पूछा जाएगा','After you pick a work shift, you will enter 24-hour from–to times'):'After you pick a work shift, you will enter 24-hour from–to times'}</div>` : ''}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">

@@ -871,8 +871,21 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
   let existing = null;
   try{ existing = await fbGet('mobileUsers/'+mob); }catch(e){}
 
+  // v6.0.7: if employee row is under another manager as worker/member, FORCE member role
+  // (stale mobileUsers.role=manager was causing "only my shift" after joining another team)
+  const underOtherMgr = !!(managerId && managerId.length===10 && managerId !== mob);
+  const empSaysWorker = (
+    String(empMatch.accessLevel||'').toLowerCase()==='worker'
+    || String(empMatch.role||'').toLowerCase()==='member'
+    || empMatch._forceMemberLogin
+  );
+  const forceMember = underOtherMgr && (empSaysWorker || empMatch._forceMemberLogin || underOtherMgr);
+  const resolvedRole = forceMember ? 'member' : (
+    (!underOtherMgr && existing && existing.role==='manager') ? 'manager' : 'member'
+  );
+
   const userData = {
-    role: (existing && existing.role==='manager') ? 'manager' : 'member',
+    role: resolvedRole,
     name: empMatch.name || (existing && existing.name) || '',
     mobile: '+91'+mob,
     phone: mob,
@@ -882,12 +895,13 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
     empId: empMatch.empId || (existing && existing.empId) || '',
     empObjId: empMatch.id || (existing && (existing.empObjId||existing.employeeId)) || '',
     employeeId: empMatch.id || (existing && (existing.empObjId||existing.employeeId)) || '',
-    managerId: managerId || (existing && existing.managerId) || '',
+    managerId: managerId || (forceMember ? managerId : (existing && existing.managerId)) || '',
     managerMobile: managerId || (existing && existing.managerMobile) || '',
     section: empMatch.sec || empMatch.section || (existing && existing.section) || '',
     registeredAt: (existing && existing.registeredAt) || new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
-    linkedVia: 'roster_otp',
+    linkedVia: forceMember ? 'roster_member' : 'roster_otp',
+    wasManager: forceMember && existing && existing.role==='manager' ? true : (existing && existing.wasManager) || false,
     validTill: (existing && existing.validTill) || new Date(Date.now()+365*86400000).toISOString()
   };
 
@@ -896,10 +910,9 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
     if(!existing){
       await fbSet('mobileUsers/'+mob, userData);
     } else {
-      // Prefer update; keep role if already manager
       const patch = Object.assign({}, userData);
-      if(existing.role==='manager') patch.role = 'manager';
-      // If existing was pending/left — set approved (rules updated to allow own-phone heal)
+      // Never keep manager role when joining another manager's roster as member
+      if(forceMember) patch.role = 'member';
       patch.status = 'approved';
       await fbUpdate('mobileUsers/'+mob, patch);
     }
@@ -976,23 +989,53 @@ async function _checkUserAfterOTP(){
         }
       }
     }catch(e){ console.warn('[otp] rejoin', e); }
-    // Roster auto-link ONLY when mobileUsers already marks them as approved member/worker.
-    // Brand-new numbers (no mobileUsers) always see Manager / Team Member choice — even if
-    // the same phone appears on someone's Excel roster (that was the registration gap).
+    // Roster auto-link:
+    // 1) mobileUsers approved as member/worker, OR
+    // 2) NO mobileUsers (e.g. deleted account) but phone is active on a manager's employees roster, OR
+    // 3) mobileUsers still says manager, but employee row is worker/member under another managerId
+    // → enter app as MEMBER (never force registration when already on roster).
     try{
       const earlyRoster = await _resolveEmpByMobile(mobile);
       if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
           && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
         const mu = await fbGet('mobileUsers/'+mobile);
-        const canAutoRoster = mu && (
-          (mu.status==='approved' && (mu.role==='member' || mu.role==='worker'))
-          || (mu.linkedVia==='roster' && mu.status!=='rejected' && mu.status!=='revoked')
+        const rosterMgr = (typeof _normMobileKey==='function')
+          ? _normMobileKey(earlyRoster.managerId||earlyRoster.managerMobile||'')
+          : String(earlyRoster.managerId||'').replace(/\D/g,'').slice(-10);
+        const rosterIsWorker = (
+          String(earlyRoster.accessLevel||'').toLowerCase()==='worker'
+          || String(earlyRoster.role||'').toLowerCase()==='member'
+          || String(earlyRoster.accessLevel||'').toLowerCase()==='member'
+          || (!!rosterMgr && rosterMgr!==mobile)
         );
-        if(canAutoRoster && !(mu.role==='manager' && mu.status==='approved')){
+        const canAutoRoster = (
+          // Classic: approved member/worker in mobileUsers
+          (mu && mu.status==='approved' && (mu.role==='member' || mu.role==='worker'))
+          || (mu && mu.linkedVia==='roster' && mu.status!=='rejected' && mu.status!=='revoked')
+          // Deleted account / no mobileUsers, but live on roster under a manager
+          || (!mu && rosterMgr && rosterMgr.length===10)
+          // Stale manager mobileUsers but employee row is under another manager as worker
+          || (mu && rosterIsWorker && rosterMgr && rosterMgr.length===10 && rosterMgr!==mobile
+              && !(mu.role==='manager' && String(earlyRoster.accessLevel||'').toLowerCase()==='manager'
+                  && String(earlyRoster.managerId||'')===mobile))
+        );
+        // Do NOT auto-login as member if they are still the owning manager of this row
+        const stillOwningMgr = (
+          (String(earlyRoster.accessLevel||'').toLowerCase()==='manager'
+            || String(earlyRoster.role||'').toLowerCase()==='manager')
+          && (!rosterMgr || rosterMgr===mobile)
+        );
+        if(canAutoRoster && !stillOwningMgr){
+          // Force member role on login when roster says worker under another mgr
+          try{
+            if(rosterIsWorker && rosterMgr && rosterMgr!==mobile){
+              earlyRoster._forceMemberLogin = true;
+              earlyRoster._forceManagerId = rosterMgr;
+            }
+          }catch(ex){}
           const ok = await _loginRosterMemberAfterOtp(mobile, earlyRoster);
           if(ok) return;
         }
-        // Stash roster hit so Member registration can pre-fill / one-tap join
         try{ window._otpRosterEmp = earlyRoster; }catch(e){}
       }
     }catch(e){ console.warn('[otp] early roster', e); }

@@ -1242,7 +1242,7 @@ function renderMyShift(){
     </div>`;
   }
 
-  // v6.0 month hours total
+  // v6.0 month hours total + v6.0.7 target hours + gap emoji
   let monthHrsBar = '';
   try{
     if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()){
@@ -1253,7 +1253,36 @@ function renderMyShift(){
         if(sh2 && typeof mpComputeDayHours==='function') tot += mpComputeDayHours(e.id, ds2, sh2);
       }
       tot = Math.round(tot*100)/100;
-      monthHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${tot} HR</div>`;
+      const mkKey = y+'_'+String(m+1).padStart(2,'0');
+      let target = 0;
+      try{
+        const th = (e.targetHoursByMonth&&e.targetHoursByMonth[mkKey])
+          || e.targetHoursMonth || e.monthlyTargetHours || 0;
+        target = Number(th)||0;
+      }catch(_th){ target = 0; }
+      const canEditTarget = (typeof isMgr==='function'&&isMgr()) || (typeof isAdmin==='function'&&isAdmin())
+        || (SESSION&&e&&(SESSION.empObjId===e.id||SESSION.mobile&&String(SESSION.mobile).replace(/\D/g,'').slice(-10)===String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10)));
+      const gap = target>0 ? Math.round((tot-target)*10)/10 : null;
+      let gapLine = '';
+      if(target>0){
+        if(gap>=0){
+          gapLine = `<div style="margin-top:6px;font-size:13px;font-weight:800;color:#16a34a">😊 ${typeof L==='function'?L('लक्ष्य से आगे','Above target'):'Above target'}: +${gap} HR</div>`;
+        } else {
+          gapLine = `<div style="margin-top:6px;font-size:13px;font-weight:800;color:#ea580c">😔 ${typeof L==='function'?L('लक्ष्य से पीछे','Behind target'):'Behind target'}: ${gap} HR</div>`;
+        }
+      }
+      const targetRow = canEditTarget
+        ? `<div style="margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:700;color:var(--muted2)">${typeof L==='function'?L('मासिक लक्ष्य घंटे','Target working hours (month)'):'Target working hours (month)'}:</span>
+            <input type="number" min="0" step="1" id="mpTargetHrsInput" value="${target||''}" placeholder="e.g. 208"
+              style="width:88px;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;text-align:center">
+            <button type="button" class="act-btn" style="padding:6px 12px;font-size:12px;font-weight:800;background:rgba(249,115,22,.15);border:1px solid rgba(249,115,22,.4);color:#f97316;border-radius:8px;cursor:pointer"
+              onclick="mpSaveTargetHours('${e.id}','${mkKey}')">${typeof L==='function'?L('सेव','Save'):'Save'}</button>
+          </div>`
+        : (target>0 ? `<div style="margin-top:6px;font-size:12px;font-weight:700;color:var(--muted2)">${typeof L==='function'?L('मासिक लक्ष्य','Month target'):'Month target'}: <b style="color:var(--text)">${target} HR</b></div>` : '');
+      monthHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${tot} HR
+        ${targetRow}${gapLine}
+      </div>`;
     }
   }catch(_t){}
 
@@ -1291,6 +1320,7 @@ function renderMyShift(){
       : L('दिन पर टैप करें — Manager approve करेगा तब schedule अपडेट होगा','Tap a day to request a shift change — your Manager will approve')}</div>
     <div id="myShiftPendingReqs"></div>
   </div>
+  ${(function(){ try{ if(typeof mpCareerHistoryHtml==='function') return mpCareerHistoryHtml(e); }catch(ex){} return ''; })()}
   <div class="stitle" style="margin-top:18px">👥 ${L('आज के Shift Mates','Shift Mates Today')}</div>
   <div class="ms-mates">
     ${mates.length?mates.slice(0,30).map(emp=>`<div class="ms-mate-chip"><b>${escHtml(emp.name||'')}</b><span>${escHtml(emp.mc||emp.sec||'')}</span></div>`).join('')
@@ -1393,3 +1423,40 @@ let _myShiftMonth = null;
 window._paymentSettingsCache = window._paymentSettingsCache || null;
 window._paymentSettingsAt = 0;
 
+
+
+/** Save per-member monthly target hours (employee.targetHoursByMonth[YYYY_MM]) */
+async function mpSaveTargetHours(empId, monthKey){
+  try{
+    const inp = document.getElementById('mpTargetHrsInput');
+    if(!inp) return;
+    const val = Math.max(0, Math.round(Number(inp.value)||0));
+    if(!empId){ toast('Missing employee'); return; }
+    const patch = {};
+    // merge existing map
+    let map = {};
+    try{
+      const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>x.id===empId)
+        || ((_cache.employees||[]).find(x=>x.id===empId));
+      if(emp && emp.targetHoursByMonth && typeof emp.targetHoursByMonth==='object')
+        map = Object.assign({}, emp.targetHoursByMonth);
+    }catch(e){}
+    map[monthKey] = val;
+    patch['targetHoursByMonth'] = map;
+    patch['targetHoursMonth'] = val; // latest convenience field
+    patch['updatedAt'] = new Date().toISOString();
+    if(typeof fbUpdate==='function'){
+      await fbUpdate('employees/'+empId, patch);
+    }
+    try{
+      const emp = (_cache.employees||[]).find(x=>x.id===empId);
+      if(emp){ emp.targetHoursByMonth = map; emp.targetHoursMonth = val; }
+    }catch(e){}
+    toast((typeof L==='function'?L('✅ लक्ष्य सेव: ','✅ Target saved: '):'✅ Target saved: ')+val+' HR');
+    if(typeof renderMyShift==='function') renderMyShift();
+  }catch(err){
+    console.warn('[mpSaveTargetHours]', err);
+    toast('❌ Could not save target');
+  }
+}
+try{ window.mpSaveTargetHours = mpSaveTargetHours; }catch(e){}

@@ -102,8 +102,10 @@ function openEditEmpForm(empId){
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const statusSel = ['active','resigned'].map(s=>`<option value="${s}"${(e.status||'active')===s?' selected':''}>${s}</option>`).join('');
   const curSec = (e.section||e.sec||'');
+  const _careerBlock = (typeof mpCareerHistoryHtml==='function') ? mpCareerHistoryHtml(e) : '';
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">✏️ ${L('संपादित करें','Edit')} ${escHtml(e.name)}</div>
+  ${_careerBlock}
   <div class="grid2">
     <div class="field"><label>${L('नाम','Name')}</label><input class="inp-field" id="ee_name" value="${escHtml(e.name)}"></div>
     <div class="field"><label>Employee Code / ID</label><input class="inp-field" id="ee_code" value="${escHtml(e.empId||'')}"></div>
@@ -263,6 +265,23 @@ async function saveEmployee(empId){
     updatedAt:   new Date().toISOString(),
     updatedBy:   SESSION.name || SESSION.mobile || 'manager'
   };
+
+  // v6.0.5: when Emp Code changes, archive previous code under companyHistory (mobile stays primary)
+  try{
+    const oldCode = e ? String(e.empId||e.empCode||'').trim() : '';
+    const newCode = String(update.empId||'').trim();
+    const oldCo = e ? String(e.company||e.companyName||e.companyId||'').trim() : '';
+    if(oldCode && newCode && oldCode !== newCode){
+      const hist = Array.isArray(e.companyHistory) ? e.companyHistory.slice() : [];
+      hist.push({
+        company: oldCo,
+        empCode: oldCode,
+        from: e.joiningDate || e.doj || '',
+        to: new Date().toISOString().slice(0,10)
+      });
+      update.companyHistory = hist;
+    }
+  }catch(_ch){}
 
   // Team authorization (always write when manager/admin edits a member — not self)
   if((isMgr()||isAdmin()) && !(e && isManagerSelfRecord(e))){
