@@ -799,6 +799,20 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   } else if(shiftVal === '__DUAL__'){
     closeModal();
     openDualShiftPicker(empId, empName, date, currentShift);
+  } else if(shiftVal === '__TIME__'){
+    closeModal();
+    setTimeout(function(){
+      try{
+        if(typeof _mpOpenTimeLegendStep==='function'){
+          _mpOpenTimeLegendStep(empId, empName, date, currentShift, currentShift||'', {_timeDone:false, _timeOnly:true});
+        } else if(typeof mpTimeSegmentsFormHtml==='function'){
+          // fallback: open time form for current shift without changing code
+          _mpOpenTimeLegendStep(empId, empName, date, currentShift, currentShift||'', {_timeOnly:true});
+        } else {
+          toast(typeof L==='function'?L('Time legend उपलब्ध नहीं','Time legend not available'):'Time legend not available');
+        }
+      }catch(err){ console.warn('[time btn]', err); toast('Time entry failed'); }
+    }, 40);
   } else {
     try{ closeModal(); }catch(e){}
     setTimeout(function(){
@@ -1268,6 +1282,10 @@ function editShiftCell(empId, empName, date, currentShift){
     }),
     // Dual Shift entry opens full combination list (not every pair on main screen)
     {v:'__DUAL__', label:(typeof L==='function'?L('Dual Shift (दो शिफ्ट जोड़ें)','Dual Shift (combine two)'):'Dual Shift (combine two)'), bg:'#6d28d9', color:'#ffffff'},
+    // v6.0.8: explicit Time button (not auto after work-shift pick)
+    ...((typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled())
+      ? [{v:'__TIME__', label:(typeof L==='function'?L('Time (कार्य समय)','Time (worked hours)'):'Time (worked hours)'), bg:'#f97316', color:'#ffffff'}]
+      : []),
     ...[
       {v:'O',   label:'Weekly Off',       bg:'#64748b', color:'#ffffff'},
       {v:'L',   label:'Leave (pick type)', bg:'#fb7185', color:'#ffffff'},
@@ -1304,7 +1322,7 @@ function editShiftCell(empId, empName, date, currentShift){
       <div style="margin-top:6px;font-size:12px;color:var(--muted2)">
         ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: <span class="shc ${cellClass(currentShift)}" style="display:inline-flex;vertical-align:middle">${cellDisp(currentShift)}</span>
         ${alreadyPending?`<span style="color:var(--day);margin-left:8px">⚡ pending: ${cellDisp(alreadyPending.newShift)}</span>`:''}
-        ${(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()) ? `<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(249,115,22,.08);border:1px dashed rgba(249,115,22,.4);font-size:11px;color:#f97316;font-weight:700;text-align:left;line-height:1.4">⏱️ ${typeof L==='function'?L('कार्य शिफ्ट चुनने के बाद 24-घंटे समय (से–तक) पूछा जाएगा','After you pick a work shift, you will enter 24-hour from–to times'):'After you pick a work shift, you will enter 24-hour from–to times'}</div>` : ''}
+        ${(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()) ? `<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(249,115,22,.08);border:1px dashed rgba(249,115,22,.4);font-size:11px;color:#f97316;font-weight:700;text-align:left;line-height:1.4">⏱️ ${typeof L==='function'?L('कार्य समय के लिए नीचे Time बटन दबाएँ','Use the Time button below to enter worked hours'):'Use the Time button below to enter worked hours'}</div>` : ''}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -1315,8 +1333,8 @@ function editShiftCell(empId, empName, date, currentShift){
           color:var(--text);cursor:pointer;font-weight:700;font-size:13px;
           display:flex;align-items:center;gap:8px;position:relative">
           <span style="display:inline-flex;min-width:28px;height:26px;padding:0 6px;background:${s.bg};color:${s.color||'#fff'};
-            border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:${(s.v==='__DUAL__'||String(s.v).length>2)?'11px':'12px'};line-height:1;box-sizing:border-box">
-            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':(s.v==='__DUAL__'?'2×':s.v)}
+            border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:${(s.v==='__DUAL__'||s.v==='__TIME__'||String(s.v).length>2)?'11px':'12px'};line-height:1;box-sizing:border-box">
+            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':(s.v==='__DUAL__'?'2×':s.v==='__TIME__'?'⏱':s.v)}
           </span>
           <span style="font-size:12px;text-align:left;line-height:1.3">${escHtml(s.label)}</span>
           ${''}
@@ -1874,19 +1892,7 @@ function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, 
 }
 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){
-  // v6.0: optional time-legend step for work shifts (manager-enabled)
-  try{
-    if(!window._mpSkipTimeLegend && typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()){
-      var code = String(newShift||'').trim();
-      var up = code.toUpperCase();
-      var status = {O:1,L:1,'C/O':1,CO:1,H:1,HLF:1,Ab:1,AB:1,OD:1,GP:1};
-      var isWork = code && !status[code] && !status[up] && code.indexOf('L')!==0;
-      if(isWork && !(coMeta && coMeta._timeDone)){
-        _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coMeta);
-        return;
-      }
-    }
-  }catch(e){ console.warn('[time legend gate]', e); }
+  // v6.0.8: time entry is via explicit "Time" button in Select shift — not auto after every work shift
   try{ if(!window._msBulkCommit) closeModal(); }catch(e){}
   const key = empId+'__'+date;
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
@@ -2227,7 +2233,15 @@ function _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coM
         var meta2 = Object.assign({}, coMeta||{}, { _timeDone: true, segments: segs, hours: hours });
         window._mpSkipTimeLegend = true;
         try{
-          stageSingleShiftChange(empId, empName, date, currentShift, newShift, meta2);
+          if(coMeta && coMeta._timeOnly){
+            // Time button only — do not change shift code
+            try{ closeModal(); }catch(e){}
+            try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
+            try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
+            try{ toast((typeof L==='function'?L('✅ कार्य समय सेव: ','✅ Work time saved: '):'✅ Work time saved: ')+hours+' HR'); }catch(e){}
+          } else {
+            stageSingleShiftChange(empId, empName, date, currentShift, newShift, meta2);
+          }
         }finally{
           window._mpSkipTimeLegend = false;
         }

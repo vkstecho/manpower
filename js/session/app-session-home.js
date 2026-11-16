@@ -1357,6 +1357,7 @@ function renderMyShift(){
             <div class="ms-day-sh shc ${cls}">${disp}</div>
           </div>`;
         }
+        const _selCareer = (typeof mpCareerHistoryHtml==='function') ? mpCareerHistoryHtml(selEmp) : '';
         memberCal = `
         <div class="ms-cal-wrap" style="margin-top:10px;border-color:rgba(249,115,22,.35)">
           <div class="ms-cal-nav" style="margin-bottom:8px">
@@ -1364,6 +1365,7 @@ function renderMyShift(){
             <div class="ms-cal-title" style="color:#f97316">📅 ${escHtml(selEmp.name||'')} · ${monthName}</div>
             <button type="button" class="ms-nav-btn" onclick="_myShiftMonth=new Date(${y},${m}+1,1);renderMyShift()" aria-label="Next month">›</button>
           </div>
+          ${_selCareer}
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">

@@ -84,7 +84,10 @@ async function addEmployee(){
   const emp={id,name,empId:code,sec,section:sectionRaw||sec,mc,resp,woff,status:'active',
     designation,
     companyId:myCompanyId()==='ALL'?'default':myCompanyId(),
-    companyLabel:SESSION.company||'Man Power',
+    companyLabel:SESSION.companyLabel||SESSION.company||'Man Power',
+    company:SESSION.companyLabel||SESSION.company||'Man Power',
+    accessLevel:'worker',
+    role:'member',
     ms:Array(31).fill('D')};
   if(SESSION.role==='manager' && SESSION.mobile){ emp.managerId=_normMobileKey(SESSION.mobile); }
   if(phoneNorm && phoneNorm.length===10) emp.phone=phoneNorm;
@@ -1741,6 +1744,20 @@ async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta){
       patch.handedTeamToName = handoffMeta.successorName;
       patch.handedTeamToEmpId = handoffMeta.successorId;
     }
+    // v6.0.8: archive previous company + set new manager company
+    try{
+      const oldCo = e.company || e.companyName || e.companyLabel || '';
+      const oldCode = e.empId || e.empCode || '';
+      const hist = Array.isArray(e.companyHistory) ? e.companyHistory.slice() : [];
+      if(oldCo || oldCode){
+        hist.push({ company: oldCo, empCode: oldCode, from: e.joiningDate||e.doj||'', to: new Date().toISOString().slice(0,10) });
+        patch.companyHistory = hist;
+      }
+      const mgrCo = (typeof SESSION!=='undefined' && (SESSION.companyLabel||SESSION.company)) || '';
+      if(mgrCo){ patch.company = mgrCo; patch.companyLabel = mgrCo; }
+      patch.role = 'member';
+      patch.accessLevel = 'worker';
+    }catch(_ch){}
     await fbUpdate('employees/'+e.id, patch);
   }
   try{

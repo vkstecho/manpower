@@ -569,12 +569,35 @@
       }
     } catch (e) {}
     if (!hist.length) {
+      var co = emp.company || emp.companyName || emp.companyId || '';
+      // Prefer live team company from SESSION / manager profile when member is under a mgr
+      try {
+        if (typeof SESSION !== 'undefined' && SESSION) {
+          if (SESSION.companyLabel) co = SESSION.companyLabel || SESSION.company || co;
+          else if (SESSION.company && SESSION.role === 'manager') co = SESSION.company;
+        }
+        // If viewing another member, use that emp's company but fall back to mgr label
+        if (!co && typeof getEmps === 'function') {
+          var mgrId = emp.managerId || '';
+          var mgr = (getEmps() || []).find(function (x) {
+            return x && (String(x.phone || x.mobile || '').replace(/\D/g, '').slice(-10) === String(mgrId).replace(/\D/g, '').slice(-10));
+          });
+          if (mgr) co = mgr.company || mgr.companyName || mgr.companyLabel || co;
+        }
+      } catch (e) {}
       hist.push({
-        company: emp.company || emp.companyName || emp.companyId || '',
+        company: co,
         empCode: emp.empId || emp.empCode || emp.code || '',
         from: emp.joiningDate || emp.doj || '',
         to: ''
       });
+    } else {
+      // Ensure last/current entry reflects latest company if empty
+      try {
+        var last = hist[hist.length - 1];
+        if (last && !last.company && typeof SESSION !== 'undefined' && SESSION.companyLabel)
+          last.company = SESSION.companyLabel;
+      } catch (e) {}
     }
     // Enrich from scheduleMeta day nodes (phone key) if present
     try {
@@ -612,6 +635,30 @@
         });
         if (!exists) hist.push(f);
       });
+    } catch (e) {}
+    // Append current team company if different from last history row
+    try {
+      var liveCo = emp.company || emp.companyName || emp.companyLabel || '';
+      var liveCode = emp.empId || emp.empCode || emp.code || '';
+      try {
+        if (typeof SESSION !== 'undefined' && SESSION && SESSION.role === 'manager' && (SESSION.companyLabel || SESSION.company)) {
+          // Manager viewing member: show manager's company as current period if emp still on this team
+          var mgrKey = (typeof _normMobileKey === 'function') ? _normMobileKey(SESSION.mobile || '') : '';
+          var empMgr = (typeof _normMobileKey === 'function') ? _normMobileKey(emp.managerId || emp.managerMobile || '') : '';
+          if (mgrKey && empMgr && mgrKey === empMgr) {
+            liveCo = SESSION.companyLabel || SESSION.company || liveCo;
+          }
+        }
+      } catch (e) {}
+      if (liveCo || liveCode) {
+        var last = hist.length ? hist[hist.length - 1] : null;
+        if (!last || String(last.company) !== String(liveCo) || String(last.empCode) !== String(liveCode)) {
+          hist.push({ company: liveCo, empCode: liveCode, from: '', to: '' });
+        } else if (last && !last.to) {
+          last.company = liveCo || last.company;
+          last.empCode = liveCode || last.empCode;
+        }
+      }
     } catch (e) {}
     return hist;
   }
