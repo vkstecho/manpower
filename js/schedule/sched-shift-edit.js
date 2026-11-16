@@ -1870,6 +1870,19 @@ function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, 
 }
 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){
+  // v6.0: optional time-legend step for work shifts (manager-enabled)
+  try{
+    if(!window._mpSkipTimeLegend && typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()){
+      var code = String(newShift||'').trim();
+      var up = code.toUpperCase();
+      var status = {O:1,L:1,'C/O':1,CO:1,H:1,HLF:1,Ab:1,AB:1,OD:1,GP:1};
+      var isWork = code && !status[code] && !status[up] && code.indexOf('L')!==0;
+      if(isWork && !(coMeta && coMeta._timeDone)){
+        _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coMeta);
+        return;
+      }
+    }
+  }catch(e){ console.warn('[time legend gate]', e); }
   try{ if(!window._msBulkCommit) closeModal(); }catch(e){}
   const key = empId+'__'+date;
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
@@ -2178,3 +2191,49 @@ function _sbLockLandscape(on){
   }catch(e){}
 }
 
+
+
+/** v6.0 — time legend step before committing a work shift */
+function _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coMeta){
+  try{
+    var meta = (typeof MPWorkHours!=='undefined' && MPWorkHours.getDayMeta) ? MPWorkHours.getDayMeta(empId, date) : null;
+    var form = (typeof mpTimeSegmentsFormHtml==='function') ? mpTimeSegmentsFormHtml(meta) : '';
+    var Lfn = (typeof L==='function') ? L : function(h,e){return e||h;};
+    var html = '<div class="modal-handle"></div>'+
+      '<div class="modal-title">⏱️ '+Lfn('कार्य समय','Work time')+' · '+String(newShift||'')+'</div>'+
+      '<div style="font-size:12px;color:var(--muted2);margin-bottom:8px">'+escHtml(empName||'')+' · '+String(date||'')+'</div>'+
+      form+
+      '<button class="submit-btn" id="mpTimeLegendSave" style="margin-top:12px">'+Lfn('सेव करें','Save')+'</button>'+
+      '<button class="cancel-btn" onclick="closeModal()">'+Lfn('रद्द करें','Cancel')+'</button>';
+    if(typeof openModal==='function') openModal(html);
+    setTimeout(function(){
+      try{ if(typeof mpBindTimeSegmentsUi==='function') mpBindTimeSegmentsUi(); }catch(e){}
+      var btn = document.getElementById('mpTimeLegendSave');
+      if(btn) btn.onclick = function(){
+        var segs = (typeof mpReadTimeSegmentsFromDom==='function') ? mpReadTimeSegmentsFromDom() : [];
+        var hours = (typeof MPWorkHours!=='undefined' && MPWorkHours.segmentsHours) ? MPWorkHours.segmentsHours(segs) : 0;
+        if(!segs.length && typeof MPWorkHours!=='undefined' && MPWorkHours.legendHoursForCode){
+          hours = MPWorkHours.legendHoursForCode(newShift);
+        }
+        var payload = { segments: segs, hours: hours };
+        try{
+          if(typeof mpPersistDayMeta==='function') mpPersistDayMeta(empId, date, payload);
+          else if(MPWorkHours && MPWorkHours.setDayMetaLocal) MPWorkHours.setDayMetaLocal(empId, date, payload);
+        }catch(e){}
+        var meta2 = Object.assign({}, coMeta||{}, { _timeDone: true, segments: segs, hours: hours });
+        window._mpSkipTimeLegend = true;
+        try{
+          stageSingleShiftChange(empId, empName, date, currentShift, newShift, meta2);
+        }finally{
+          window._mpSkipTimeLegend = false;
+        }
+      };
+    }, 30);
+  }catch(err){
+    console.warn('[time legend step]', err);
+    window._mpSkipTimeLegend = true;
+    try{ stageSingleShiftChange(empId, empName, date, currentShift, newShift, Object.assign({}, coMeta||{}, {_timeDone:true})); }
+    finally{ window._mpSkipTimeLegend = false; }
+  }
+}
+try{ window._mpOpenTimeLegendStep = _mpOpenTimeLegendStep; }catch(e){}
