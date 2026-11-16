@@ -1009,6 +1009,18 @@ function mpShiftStyle(code){
   if(/^L[:\-_]/i.test(k)) k = 'L';
   if(/^HLF[:\-_]/i.test(k) || k==='½' || /^1\/2/i.test(k)) k = 'HLF';
   if(k==='CO' || k==='C/O') k = 'C/O';
+  // Time-only custom hours (T / nH) — colours from Time legend settings
+  try{
+    const u0 = k.toUpperCase();
+    if(u0==='T' || u0==='HR' || /^\d+(\.\d+)?H$/i.test(k)){
+      const cfg0 = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+      return {
+        bg: cfg0.timeLegendBg || '#f97316',
+        fg: cfg0.timeLegendFg || '#ffffff',
+        color: cfg0.timeLegendBg || '#f97316'
+      };
+    }
+  }catch(e){}
   // Manager-configured colour (M/c Shift Setting colour picker)
   try{
     const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
@@ -1109,6 +1121,8 @@ function normalizeShiftCode(code, label){
 
 function cellClass(s){
   if(!s) return 'blank';
+  const t0 = String(s).trim();
+  if(/^T([:\-_].*)?$/i.test(t0) || /^HR$/i.test(t0) || /^\d+(\.\d+)?H$/i.test(t0)) return 't-time';
   const raw0 = String(s).trim();
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
   if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)) return 'HLF';
@@ -1123,6 +1137,12 @@ function cellClass(s){
 function cellDisp(s){
   if(!s) return '';
   const raw0 = String(s).trim();
+  // Custom time-only day: show hours if encoded as 4H / T:4
+  if(/^T([:\-_](\d+(\.\d+)?))?$/i.test(raw0) || /^HR$/i.test(raw0)){
+    const m = raw0.match(/(\d+(?:\.\d+)?)/);
+    return m ? (m[1]+'H') : 'T';
+  }
+  if(/^\d+(\.\d+)?H$/i.test(raw0)) return raw0.toUpperCase();
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
   if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)){
     const half = (typeof parseHlfHalfOf==='function') ? parseHlfHalfOf(raw0) : '';

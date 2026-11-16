@@ -2227,18 +2227,39 @@ function _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coM
         }
         var payload = { segments: segs, hours: hours };
         try{
-          if(typeof mpPersistDayMeta==='function') mpPersistDayMeta(empId, date, payload);
-          else if(MPWorkHours && MPWorkHours.setDayMetaLocal) MPWorkHours.setDayMetaLocal(empId, date, payload);
-        }catch(e){}
+          // Always write local first (sync) so grid can read hours immediately
+          if(MPWorkHours && MPWorkHours.setDayMetaLocal) MPWorkHours.setDayMetaLocal(empId, date, payload);
+          if(typeof mpPersistDayMeta==='function'){
+            Promise.resolve(mpPersistDayMeta(empId, date, payload)).catch(function(err){
+              console.warn('[time persist]', err);
+            });
+          }
+        }catch(e){ console.warn('[time local]', e); }
         var meta2 = Object.assign({}, coMeta||{}, { _timeDone: true, segments: segs, hours: hours });
         window._mpSkipTimeLegend = true;
         try{
           if(coMeta && coMeta._timeOnly){
-            // Time button only — do not change shift code
+            // Custom times that do not map to a named work shift → mark day as T (show e.g. 4H)
             try{ closeModal(); }catch(e){}
-            try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
-            try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
-            try{ toast((typeof L==='function'?L('✅ कार्य समय सेव: ','✅ Work time saved: '):'✅ Work time saved: ')+hours+' HR'); }catch(e){}
+            var matchedCode = '';
+            try{
+              if(typeof mpMatchShiftFromSegments==='function') matchedCode = mpMatchShiftFromSegments(segs) || '';
+            }catch(e){}
+            var codeToSet = matchedCode || ('T:' + (hours % 1 === 0 ? String(hours) : String(hours)));
+            // Apply as real schedule change so B/B2 is replaced by 4H
+            try{
+              window._mpSkipTimeLegend = true;
+              stageSingleShiftChange(empId, empName, date, currentShift, codeToSet, Object.assign({}, meta2, {timeOnly:true, hours:hours, segments:segs}));
+            }catch(e){
+              console.warn('[time→T]', e);
+              try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(x){}
+              try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(x){}
+            }
+            try{
+              toast(matchedCode
+                ? ((typeof L==='function'?L('✅ समय = शिफ्ट ','✅ Time matches shift '):'✅ Time matches shift ')+matchedCode+' ('+hours+' HR)')
+                : ((typeof L==='function'?L('✅ कार्य समय सेव: ','✅ Work time saved: '):'✅ Work time saved: ')+hours+'H'));
+            }catch(e){}
           } else {
             stageSingleShiftChange(empId, empName, date, currentShift, newShift, meta2);
           }

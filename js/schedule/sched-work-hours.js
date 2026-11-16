@@ -96,6 +96,11 @@
   }
 
   function legendHoursForCode(code) {
+    try {
+      var c0 = String(code || '').trim();
+      var mh = c0.match(/^T[:\-_]?(\d+(?:\.\d+)?)$/i) || c0.match(/^(\d+(?:\.\d+)?)H$/i);
+      if (mh) return parseFloat(mh[1]) || 0;
+    } catch (e) {}
     if (!code) return 0;
     var raw = String(code).trim();
     if (raw.indexOf('+') >= 0) {
@@ -166,12 +171,22 @@
     var phone = empPhone(emp);
     var store = metaCache();
     if (!store[mk]) store[mk] = {};
+    var node = Object.assign({}, meta || {});
+    if (Array.isArray(node.segments) && node.segments.length && (node.hours == null || isNaN(node.hours))) {
+      node.hours = segmentsHours(node.segments);
+    }
     var keys = [];
     if (phone) keys.push('p:' + phone);
     if (empId) keys.push(String(empId));
+    // also raw emp.empId code if different from firebase id
+    try {
+      if (emp && emp.empId) keys.push(String(emp.empId));
+      if (emp && emp.id) keys.push(String(emp.id));
+    } catch (e) {}
+    keys = keys.filter(function (k, i, a) { return k && a.indexOf(k) === i; });
     keys.forEach(function (k) {
       if (!store[mk][k]) store[mk][k] = {};
-      store[mk][k][di] = meta;
+      store[mk][k][di] = node;
     });
   }
 
@@ -336,16 +351,34 @@
     );
   }
 
+  function _normTimeInput(t) {
+    if (t == null) return '';
+    var s = String(t).trim().replace(/\./g, ':');
+    if (/^\d{3,4}$/.test(s)) {
+      s = s.padStart(4, '0');
+      s = s.slice(0, 2) + ':' + s.slice(2);
+    }
+    if (typeof formatHHMM === 'function' && typeof parseHHMM === 'function') {
+      var m = parseHHMM(s);
+      if (m != null) return formatHHMM(m);
+    }
+    if (/^([01]?\d|2[0-3]):[0-5]\d$/.test(s)) {
+      var p = s.split(':');
+      return String(p[0]).padStart(2, '0') + ':' + p[1];
+    }
+    return s;
+  }
+
   function readTimeSegmentsFromDom() {
-    var box = document.getElementById('mpTimeSegList');
+    var box = document.getElementById('mpTimeSegList') || document.getElementById('mpTimeLegendBox');
     if (!box) return [];
     var segs = [];
     box.querySelectorAll('.mp-time-seg').forEach(function (row) {
       var from = (row.querySelector('.mp-time-from') || {}).value || '';
       var to = (row.querySelector('.mp-time-to') || {}).value || '';
-      from = (typeof _mpNormTime24 === 'function' ? _mpNormTime24(from) : from) || from;
-      to = (typeof _mpNormTime24 === 'function' ? _mpNormTime24(to) : to) || to;
-      if (from && to) segs.push({ from: from, to: to });
+      from = _normTimeInput(from);
+      to = _normTimeInput(to);
+      if (from && to && parseHHMM(from) != null && parseHHMM(to) != null) segs.push({ from: from, to: to });
     });
     return segs;
   }
@@ -533,6 +566,37 @@
   };
 
   // Global shortcuts used by HTML onclick / other modules
+
+  /** If segments exactly match a configured work shift start/end, return that code; else ''. */
+  function matchShiftFromSegments(segs) {
+    if (!segs || !segs.length) return '';
+    try {
+      var cfg = typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : null;
+      var list = (cfg && cfg.shifts) || [];
+      // Single contiguous segment required for exact match
+      if (segs.length === 1) {
+        var from = _normTimeInput ? _normTimeInput(segs[0].from) : segs[0].from;
+        var to = _normTimeInput ? _normTimeInput(segs[0].to) : segs[0].to;
+        for (var i = 0; i < list.length; i++) {
+          var s = list[i];
+          if (!s || s.active === false) continue;
+          var code = String(s.code || '').toUpperCase();
+          if (!code || code === 'O' || code === 'L' || code === 'H' || code === 'T') continue;
+          var st = String(s.start || s.from || '').trim();
+          var en = String(s.end || s.to || '').trim();
+          if (!st || !en) continue;
+          if (_normTimeInput) {
+            st = _normTimeInput(st);
+            en = _normTimeInput(en);
+          }
+          if (st === from && en === to) return code;
+        }
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  global.mpMatchShiftFromSegments = matchShiftFromSegments;
   global.mpComputeDayHours = computeDayHours;
   global.mpSumMonthHours = sumMonthHours;
   global.mpIdentityChipHtml = identityChipHtml;

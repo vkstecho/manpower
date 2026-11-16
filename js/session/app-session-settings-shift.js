@@ -143,6 +143,8 @@ if(d.minAll==null) d.minAll = 4;
   if(!d.waMemberShiftToMgrTemplate) d.waMemberShiftToMgrTemplate = _d0.waMemberShiftToMgrTemplate;
   if(d.waNotifyOnSave==null) d.waNotifyOnSave = true;
   if(d.timeLegendEnabled==null) d.timeLegendEnabled = false;
+  if(!d.timeLegendBg) d.timeLegendBg = '#f97316';
+  if(!d.timeLegendFg) d.timeLegendFg = '#ffffff';
 
   if(d.waShiftEnabled==null) d.waShiftEnabled = true;
   if(d.waLeaveEnabled==null) d.waLeaveEnabled = true;
@@ -167,9 +169,19 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
         onchange="_shiftDraft.timeLegendEnabled=this.checked">
       <span>
         <span style="font-size:13px;font-weight:800;color:#22c55e">⏱️ ${L('समय लेजेंड / कार्य घंटे','Time legend / Worked hours')}</span><br>
-        <span style="font-size:11px;color:#64748b;line-height:1.4">${L('चालू करें तो दिन मार्क करते समय 24-घंटे from–to समय पूछेगा, Schedule व My Shift में कुल घंटे दिखेंगे।','When on, marking a day asks 24-hour from–to times; Schedule & My Shift show total hours.')}</span>
+        <span style="font-size:11px;color:#64748b;line-height:1.4">${L('चालू करें तो दिन मार्क करते समय 24-घंटे from–to समय पूछेगा। शिफ्ट से न मिलने पर केवल घंटे (जैसे 4H) दिखेंगे।','When on, use Time to enter 24h from–to. If times do not match a work shift, cell shows only hours (e.g. 4H).')}</span>
       </span>
     </label>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;padding-top:8px;border-top:1px dashed rgba(249,115,22,.35)">
+      <span style="font-size:12px;font-weight:800;color:#f97316">${L('Time legend रंग','Time legend colours')}</span>
+      <span style="font-size:11px;color:#64748b">${L('पृष्ठभूमि','Background')}</span>
+      <button type="button" title="Time legend background" onclick="_mpOpenColourPicker('timeLegend','bg')"
+        style="width:32px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:${d.timeLegendBg||'#f97316'};cursor:pointer"></button>
+      <span style="font-size:11px;color:#64748b">${L('फ़ॉन्ट','Font')}</span>
+      <button type="button" title="Time legend font" onclick="_mpOpenColourPicker('timeLegend','fg')"
+        style="width:28px;height:28px;padding:0;border:1px solid var(--border2);border-radius:8px;background:${d.timeLegendFg||'#ffffff'};cursor:pointer"></button>
+      <span style="display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:24px;padding:0 8px;border-radius:6px;font-size:11px;font-weight:900;background:${d.timeLegendBg||'#f97316'};color:${d.timeLegendFg||'#ffffff'}">4H</span>
+    </div>
   </div>
 
     ✅ <b>Status legends</b> (O L CO Ab ½ H GP…) tick = keyboard, picker & schedule legend.<br>
@@ -773,9 +785,15 @@ function _mpOpenColourPicker(shiftIndex, which){
     var presets = (window.MP_COLOR_PRESETS && window.MP_COLOR_PRESETS.length) ? window.MP_COLOR_PRESETS : [
       '#ef4444','#06b6d4','#2563eb','#22c55e','#ec4899','#eab308','#0f172a','#f8fafc','#f97316','#a855f7','#14b8a6','#78716c'
     ];
-    var row = (_shiftDraft && _shiftDraft.shifts) ? _shiftDraft.shifts[shiftIndex] : null;
-    if(!row){ try{ if(typeof toast==='function') toast('Shift row missing'); }catch(e){} return; }
-    var cur = which==='fg' ? (row.fg||row.fontColor||'#ffffff') : (row.color||row.bg||'#334155');
+    var isTimeLeg = (shiftIndex === 'timeLegend');
+    var row = null;
+    if(!isTimeLeg){
+      row = (_shiftDraft && _shiftDraft.shifts) ? _shiftDraft.shifts[shiftIndex] : null;
+      if(!row){ try{ if(typeof toast==='function') toast('Shift row missing'); }catch(e){} return; }
+    }
+    var cur = isTimeLeg
+      ? (which==='fg' ? (_shiftDraft.timeLegendFg||'#ffffff') : (_shiftDraft.timeLegendBg||'#f97316'))
+      : (which==='fg' ? (row.fg||row.fontColor||'#ffffff') : (row.color||row.bg||'#334155'));
     var Lfn = (typeof L==='function') ? L : function(h,e){return e||h;};
 
     // Nested overlay — does NOT replace Shift Settings modal (openModal would destroy it)
@@ -839,13 +857,19 @@ function _mpOpenColourPicker(shiftIndex, which){
       ev.preventDefault();
       ev.stopPropagation();
       try{
-        if(!_shiftDraft || !_shiftDraft.shifts || !_shiftDraft.shifts[shiftIndex]) return;
-        if(which==='fg'){
-          _shiftDraft.shifts[shiftIndex].fg = chosen;
-          _shiftDraft.shifts[shiftIndex].fontColor = chosen;
+        if(!_shiftDraft) return;
+        if(shiftIndex === 'timeLegend'){
+          if(which==='fg') _shiftDraft.timeLegendFg = chosen;
+          else _shiftDraft.timeLegendBg = chosen;
         } else {
-          _shiftDraft.shifts[shiftIndex].color = chosen;
-          _shiftDraft.shifts[shiftIndex].bg = chosen;
+          if(!_shiftDraft.shifts || !_shiftDraft.shifts[shiftIndex]) return;
+          if(which==='fg'){
+            _shiftDraft.shifts[shiftIndex].fg = chosen;
+            _shiftDraft.shifts[shiftIndex].fontColor = chosen;
+          } else {
+            _shiftDraft.shifts[shiftIndex].color = chosen;
+            _shiftDraft.shifts[shiftIndex].bg = chosen;
+          }
         }
       }catch(e){ console.warn('[colour set]', e); }
       dismissPicker();

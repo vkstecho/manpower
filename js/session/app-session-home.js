@@ -1351,12 +1351,53 @@ function renderMyShift(){
           const nm = String(selEmp.name||'').replace(/'/g,"\\'");
           const shEsc = String(sh).replace(/'/g,"\\'");
           const selected = (window._myShiftMultiSel && window._myShiftMultiSel.has(ds));
+          let hrsLine = '';
+          try{
+            if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled() && sh){
+              const hh = (typeof mpComputeDayHours==='function') ? mpComputeDayHours(selEmp.id, ds, sh) : 0;
+              if(hh) hrsLine = `<div style="font-size:10px;font-weight:800;color:#22c55e;margin-top:2px">${hh}h</div>`;
+            }
+          }catch(_h){}
           mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
             style="cursor:pointer;touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
             <div class="ms-day-num">${d}</div>
             <div class="ms-day-sh shc ${cls}">${disp}</div>
+            ${hrsLine}
           </div>`;
         }
+        // Month total + target for selected member (same as own My Shift)
+        let memberHrsBar = '';
+        try{
+          if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()){
+            let tot = 0;
+            for(let d=1;d<=daysInMonth;d++){
+              const ds = y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+              const sh = getShift(selEmp, ds) || '';
+              if(!sh) continue;
+              tot += (typeof mpComputeDayHours==='function') ? (mpComputeDayHours(selEmp.id, ds, sh)||0) : 0;
+            }
+            const mk = y+'-'+String(m+1).padStart(2,'0');
+            const thMap = (selEmp.targetHoursByMonth && typeof selEmp.targetHoursByMonth==='object') ? selEmp.targetHoursByMonth : {};
+            let target = parseFloat(thMap[mk]);
+            if(isNaN(target) || target<=0) target = 160;
+            const gap = tot - target;
+            const emoji = gap>=0 ? '😊' : '😔';
+            const gapTxt = gap>=0
+              ? ((typeof L==='function'?L('लक्ष्य से ऊपर','Above target'):'Above target')+': +'+Math.abs(gap)+' HR')
+              : ((typeof L==='function'?L('लक्ष्य से पीछे','Behind target'):'Behind target')+': -'+Math.abs(gap)+' HR');
+            memberHrsBar = `<div style="margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);font-size:13px;font-weight:800;color:#22c55e">⏱️ ${typeof L==='function'?L('महीने के कुल कार्य घंटे','Month total worked hours'):'Month total worked hours'}: ${tot} HR
+              <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--text)">
+                <span>${typeof L==='function'?L('लक्ष्य कार्य घंटे (महीना)','Target working hours (month)'):'Target working hours (month)'}:</span>
+                <input type="number" min="0" step="1" value="${target}" id="mpMemberTargetHrs"
+                  style="width:72px;padding:6px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:800"
+                  onchange="try{window._mpSaveMemberTargetHours&&window._mpSaveMemberTargetHours('${selEmp.id}','${mk}',this.value)}catch(e){}">
+                <button type="button" onclick="try{window._mpSaveMemberTargetHours&&window._mpSaveMemberTargetHours('${selEmp.id}','${mk}',document.getElementById('mpMemberTargetHrs').value)}catch(e){}"
+                  style="padding:6px 12px;border-radius:8px;border:none;background:#22c55e;color:#fff;font-weight:800;cursor:pointer">${typeof L==='function'?L('सेव','Save'):'Save'}</button>
+              </div>
+              <div style="margin-top:6px;font-size:12px;font-weight:800;color:${gap>=0?'#22c55e':'#f97316'}">${emoji} ${gapTxt}</div>
+            </div>`;
+          }
+        }catch(_mh){}
         const _selCareer = (typeof mpCareerHistoryHtml==='function') ? mpCareerHistoryHtml(selEmp) : '';
         memberCal = `
         <div class="ms-cal-wrap" style="margin-top:10px;border-color:rgba(249,115,22,.35)">
@@ -1368,6 +1409,7 @@ function renderMyShift(){
           ${_selCareer}
           <div class="ms-weekdays">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(x=>'<div>'+x+'</div>').join('')}</div>
           <div class="ms-grid">${mcells}</div>
+          ${memberHrsBar}
           <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center">
             <button type="button" onclick="toggleMyShiftMultiMode()" id="myShiftMultiBtn"
               style="padding:8px 12px;border-radius:10px;border:1.5px solid ${window._myShiftMultiMode?'#f97316':'var(--border2)'};background:${window._myShiftMultiMode?'rgba(249,115,22,.2)':'var(--card)'};color:${window._myShiftMultiMode?'#f97316':'var(--text)'};font-weight:800;font-size:12px;cursor:pointer">
