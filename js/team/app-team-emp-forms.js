@@ -1952,7 +1952,7 @@ async function renderTeamPendingTransfers(){
   }catch(e){ console.warn('[team pending transfers]', e); }
 }
 
-window.openPhoneTransferModalwindow.openPhoneTransferModal = openPhoneTransferModal;
+window.openPhoneTransferModal = openPhoneTransferModal;
 window.loadMyPendingTeamTransfers = loadMyPendingTeamTransfers;
 window.loadMyOutgoingTeamTransfers = loadMyOutgoingTeamTransfers;
 window.loadTeamPageTransferRequests = loadTeamPageTransferRequests;

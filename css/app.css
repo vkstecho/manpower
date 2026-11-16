@@ -1639,3 +1639,24 @@ input[type="number"] {
   overflow-x: auto;
 }
 .mp-id-chip { vertical-align: middle; }
+
+
+/* v6.0.4: desktop sidebar must stay above main content; Home not covered */
+@media (min-width:900px){
+  #pcSidebar{
+    display:flex !important;
+    z-index: 200 !important;
+    top: var(--hdr-height, 72px) !important;
+    padding-top: 8px !important;
+  }
+  #mainContent, .main-content, #appMain {
+    margin-left: 220px !important;
+    position: relative;
+    z-index: 1;
+  }
+  /* first nav item (Home) fully visible */
+  #pcSidebar .pc-nav-btn:first-child,
+  #pcSidebar button.pc-nav-btn:first-of-type {
+    margin-top: 4px;
+  }
+}
