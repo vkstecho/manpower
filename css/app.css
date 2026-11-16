@@ -1661,7 +1661,7 @@ input[type="number"] {
   }
 }
 
-/* v6.0.13: schedule last column — worked hours total (solid bg so text stays readable while scrolling) */
+/* v6.0.14: schedule last column — solid hours total; header always dark + white text */
 .sched-tbl th.sched-hrs-th,
 .sched-tbl td.sched-hrs-col {
   min-width: 48px !important;
@@ -1671,15 +1671,22 @@ input[type="number"] {
   text-align: center;
   vertical-align: middle;
 }
+/* Header (⏱️ / HR): always solid dark + white so never black-on-dark or invisible */
 .sched-tbl th.sched-hrs-th {
   position: sticky;
   right: 0;
-  z-index: 6;
-  background: #0f172a !important;
-  color: #4ade80 !important;
+  z-index: 8;
+  background: #0a1628 !important;
+  color: #ffffff !important;
   font-weight: 900;
-  border-left: 2px solid rgba(34,197,94,.55);
+  font-size: 11px !important;
+  border-left: 2px solid rgba(34,197,94,.65);
+  box-shadow: -4px 0 10px rgba(0,0,0,.4);
 }
+.sched-tbl th.sched-hrs-th * {
+  color: #ffffff !important;
+}
+/* Body cells: solid dark green text */
 .sched-tbl td.sched-hrs-col {
   position: sticky;
   right: 0;
@@ -1690,10 +1697,26 @@ input[type="number"] {
   border-left: 2px solid rgba(34,197,94,.55);
   box-shadow: -4px 0 8px rgba(0,0,0,.35);
 }
-body.light .sched-tbl th.sched-hrs-th,
+/* Light mode: body cells soft green; header still dark+white for maximum contrast */
 body.light .sched-tbl td.sched-hrs-col {
   background: #dcfce7 !important;
   color: #166534 !important;
   border-left: 2px solid #16a34a;
   box-shadow: -4px 0 8px rgba(0,0,0,.08);
+}
+body.light .sched-tbl th.sched-hrs-th {
+  background: #0a1628 !important;
+  color: #ffffff !important;
+  border-left: 2px solid rgba(34,197,94,.65);
+}
+body.light .sched-tbl th.sched-hrs-th * {
+  color: #ffffff !important;
+}
+/* Prevent month label overflow into sticky hours column */
+.sched-tbl th.sched-month-th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sched-tbl thead th.sched-hrs-th {
+  overflow: hidden;
 }
