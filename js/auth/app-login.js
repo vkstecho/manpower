@@ -1486,6 +1486,61 @@ async function _submitManagerReg(){
       });
     }catch(e){ console.warn('[mgrReg] adminNotifications', e); }
     try{ await notifyAdmin('🆕 New Manager joined', name+' · '+comp+' · '+(_loginMobile||mobile)); }catch(e){}
+    // Auto-add Manager to own Team roster (blank schedule until they add shifts)
+    try{
+      const mgrMob = mobile;
+      const today = new Date().toISOString().slice(0,10);
+      let existingId = null;
+      try{
+        const all = (_cache && _cache.employees) || (typeof getEmps==='function' ? getEmps() : []) || [];
+        const found = (all||[]).find(function(e){
+          if(!e) return false;
+          const ph = String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+          return ph === mgrMob;
+        });
+        if(found && found.id) existingId = found.id;
+      }catch(x){}
+      const selfEmp = {
+        name: name,
+        empId: '',
+        phone: mgrMob,
+        mobile: mgrMob,
+        company: comp,
+        companyId: comp,
+        companyName: comp,
+        sec: dept || 'General',
+        section: dept || 'General',
+        designation: desig || 'Manager',
+        accessLevel: 'manager',
+        role: 'manager',
+        managerId: mgrMob,
+        status: 'active',
+        joiningDate: today,
+        createdAt: new Date().toISOString(),
+        createdBy: 'mgr_self_register',
+        isManagerSelf: true
+      };
+      if(existingId){
+        await fbUpdate('employees/'+existingId, selfEmp);
+        try{ userData.empObjId = existingId; }catch(x){}
+        try{ await fbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
+      }else if(typeof fbPush==='function'){
+        const newRef = await fbPush('employees', selfEmp);
+        const newId = (newRef && (newRef.key || newRef.name)) || null;
+        if(newId){
+          try{ userData.empObjId = newId; }catch(x){}
+          try{ await fbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
+          try{
+            if(typeof _cache!=='undefined' && _cache){
+              _cache.employees = _cache.employees || [];
+              _cache.employees.push(Object.assign({id:newId}, selfEmp));
+            }
+          }catch(x){}
+        }
+      }
+      console.log('[mgrReg] self roster ensured', existingId || userData.empObjId || '');
+    }catch(eRoster){ console.warn('[mgrReg] self roster', eRoster); }
+
     // Browser push for Admin if they allowed notifications on this device earlier (best-effort)
     try{
       if(typeof Notification!=='undefined' && Notification.permission==='granted'){

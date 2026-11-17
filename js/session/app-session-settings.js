@@ -864,7 +864,8 @@ try{ window.mpEnsureScheduleMonth = mpEnsureScheduleMonth; }catch(e){}
 
 function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
-  try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
+  // NOTE: joining-date filter applied only when schedule cell is empty.
+  // Excel historical uploads must still show even if joiningDate is recent.
   const d=new Date(dateStr+'T12:00:00');
   const monthKey = dateStr.substring(0,7).replace('-','_');
   const dayIdx = d.getDate()-1;
@@ -918,9 +919,15 @@ function getBaseShift(emp, dateStr){
   const fbRow = fbLookup(fbSched);
   if(fbRow != null){
     const val = rowVal(fbRow);
-    if(val === null || val === undefined || val === '') return '';
+    if(val === null || val === undefined || val === ''){
+      // empty cell — respect joining date (no phantom shifts before join)
+      try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
+      return '';
+    }
+    // Non-empty schedule cell wins (Excel / auto schedule source of truth)
     return val;
   }
+  try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
   if(typeof EXCEL_SCHEDULES!=='undefined' && EXCEL_SCHEDULES[monthKey]){
     const exRow = fbLookup(EXCEL_SCHEDULES[monthKey]);
     if(exRow != null){
