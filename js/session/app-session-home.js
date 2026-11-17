@@ -1208,6 +1208,29 @@ async function applyMyShiftBulk(empId, empName, shiftVal){
 
 
 function renderMyShift(){
+  try{
+    if(!_myShiftMonth) _myShiftMonth = new Date((typeof TODAY_STR!=='undefined'?TODAY_STR:new Date().toISOString().slice(0,10))+'T12:00:00');
+    var _y = _myShiftMonth.getFullYear();
+    var _m = _myShiftMonth.getMonth();
+    var _mk = _y+'_'+String(_m+1).padStart(2,'0');
+    // Load this month from Firebase if missing (Excel upload months)
+    if(typeof mpEnsureScheduleMonth==='function' && !window._wdEnsuringMonth){
+      var cached = (_cache&&_cache.schedules&&_cache.schedules[_mk]);
+      var need = !cached || typeof cached!=='object' || !Object.keys(cached).length;
+      // Always soft-refresh once per month navigation
+      if(need || window._msNeedSchedRefresh){
+        window._wdEnsuringMonth = true;
+        window._msNeedSchedRefresh = false;
+        mpEnsureScheduleMonth(_mk).then(function(){
+          window._wdEnsuringMonth = false;
+          try{ if(typeof _shiftResCache!=='undefined'&&_shiftResCache&&_shiftResCache.clear)_shiftResCache.clear(); }catch(e){}
+          renderMyShift();
+        }).catch(function(){ window._wdEnsuringMonth = false; });
+        // fall through to render with whatever is in cache (may re-render when fetch completes)
+      }
+    }
+  }catch(eEns){}
+
   const el = document.getElementById('myShiftContent');
   if(!el) return;
   const e = myEmp();

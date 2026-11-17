@@ -789,6 +789,45 @@ function _rebuildLeaveIndex(){
 try{ window._rebuildLeaveIndex = _rebuildLeaveIndex; }catch(e){}
 
 /** Base roster shift from schedule/Excel only — ignores overrides (used for holiday duty check). */
+
+/** Ensure schedules/{YYYY_MM} is in _cache (Excel months outside live window) */
+async function mpEnsureScheduleMonth(mk){
+  try{
+    if(!mk) return null;
+    _cache.schedules = _cache.schedules || {};
+    var cur = _cache.schedules[mk];
+    var hasRows = cur && typeof cur==='object' && Object.keys(cur).length>0;
+    // Always refresh from Firebase for the viewed month so Excel uploads appear
+    if(typeof fbGet==='function'){
+      try{
+        var snap = await fbGet('schedules/'+mk);
+        if(snap && typeof snap==='object' && Object.keys(snap).length){
+          _cache.schedules[mk] = Object.assign({}, cur||{}, snap);
+          // dual-key: copy empId rows onto employee.id
+          try{
+            var emps = (typeof getEmps==='function'?getEmps():[])||[];
+            var sched = _cache.schedules[mk];
+            emps.forEach(function(e){
+              if(!e||!e.id) return;
+              var code = e.empId!=null?String(e.empId).trim():'';
+              var row = sched[e.id];
+              if(row==null && code) row = sched[code]||sched[String(code).toUpperCase()];
+              if(row!=null){
+                sched[e.id]=row;
+                if(code){ sched[code]=row; }
+              }
+            });
+          }catch(x){}
+          hasRows = true;
+        }
+      }catch(e){ console.warn('[mpEnsureScheduleMonth]', mk, e); }
+    }
+    try{ if(typeof _shiftResCache!=='undefined' && _shiftResCache && _shiftResCache.clear) _shiftResCache.clear(); }catch(e){}
+    return _cache.schedules[mk]||null;
+  }catch(e){ return null; }
+}
+try{ window.mpEnsureScheduleMonth = mpEnsureScheduleMonth; }catch(e){}
+
 function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
   try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
