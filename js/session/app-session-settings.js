@@ -790,38 +790,72 @@ try{ window._rebuildLeaveIndex = _rebuildLeaveIndex; }catch(e){}
 
 /** Base roster shift from schedule/Excel only — ignores overrides (used for holiday duty check). */
 
-/** Ensure schedules/{YYYY_MM} is in _cache (Excel months outside live window) */
+/** Ensure schedules/{YYYY_MM} is in _cache — always pull from Firebase + dual-key Emp ID ↔ id */
 async function mpEnsureScheduleMonth(mk){
   try{
     if(!mk) return null;
     _cache.schedules = _cache.schedules || {};
     var cur = _cache.schedules[mk];
-    var hasRows = cur && typeof cur==='object' && Object.keys(cur).length>0;
-    // Always refresh from Firebase for the viewed month so Excel uploads appear
     if(typeof fbGet==='function'){
       try{
         var snap = await fbGet('schedules/'+mk);
         if(snap && typeof snap==='object' && Object.keys(snap).length){
-          _cache.schedules[mk] = Object.assign({}, cur||{}, snap);
-          // dual-key: copy empId rows onto employee.id
-          try{
-            var emps = (typeof getEmps==='function'?getEmps():[])||[];
-            var sched = _cache.schedules[mk];
-            emps.forEach(function(e){
-              if(!e||!e.id) return;
-              var code = e.empId!=null?String(e.empId).trim():'';
-              var row = sched[e.id];
-              if(row==null && code) row = sched[code]||sched[String(code).toUpperCase()];
-              if(row!=null){
-                sched[e.id]=row;
-                if(code){ sched[code]=row; }
-              }
-            });
-          }catch(x){}
-          hasRows = true;
+          // Prefer server rows when they have shift data
+          var merged = Object.assign({}, cur||{});
+          Object.keys(snap).forEach(function(k){
+            var sr = snap[k], lr = merged[k];
+            var sHas = false;
+            if(Array.isArray(sr)) sHas = sr.some(function(x){ return x!=null && String(x).trim()!==''; });
+            else if(sr && typeof sr==='object') sHas = Object.keys(sr).some(function(i){ return sr[i]!=null && String(sr[i]).trim()!==''; });
+            if(sHas || lr==null) merged[k] = sr;
+          });
+          _cache.schedules[mk] = merged;
         }
       }catch(e){ console.warn('[mpEnsureScheduleMonth]', mk, e); }
     }
+    // Dual-key remap on whatever is in cache
+    try{
+      var emps = (typeof getEmps==='function'?getEmps():[])||[];
+      var sched = _cache.schedules[mk] || {};
+      var byCode = {};
+      emps.forEach(function(e){
+        if(!e||!e.id) return;
+        var code = e.empId!=null?String(e.empId).trim():'';
+        if(code){
+          byCode[code]=e.id;
+          byCode[code.toUpperCase()]=e.id;
+          byCode[code.replace(/^0+/,'')]=e.id;
+        }
+      });
+      Object.keys(sched).forEach(function(k){
+        var row = sched[k];
+        if(row==null) return;
+        var id = byCode[k] || byCode[String(k).toUpperCase()] || byCode[String(k).replace(/^0+/,'')];
+        if(id){
+          sched[id] = row;
+          // also keep original key
+        }
+      });
+      // Forward: id → also under emp code
+      emps.forEach(function(e){
+        if(!e||!e.id) return;
+        var code = e.empId!=null?String(e.empId).trim():'';
+        var row = sched[e.id];
+        if(row==null && code) row = sched[code]||sched[code.toUpperCase()];
+        if(row!=null){
+          sched[e.id]=row;
+          if(code){ sched[code]=row; sched[String(code).toUpperCase()]=row; }
+        }
+      });
+      _cache.schedules[mk] = sched;
+      try{ console.log('[mpEnsureScheduleMonth]', mk, 'keys', Object.keys(sched).slice(0,8), 'sample', (function(){
+        var e0 = emps[0]; if(!e0) return null;
+        var r = sched[e0.id]||sched[e0.empId];
+        if(!r) return 'no-row-for-'+e0.empId;
+        if(Array.isArray(r)) return r.slice(0,5);
+        return r;
+      })()); }catch(x){}
+    }catch(x){}
     try{ if(typeof _shiftResCache!=='undefined' && _shiftResCache && _shiftResCache.clear) _shiftResCache.clear(); }catch(e){}
     return _cache.schedules[mk]||null;
   }catch(e){ return null; }

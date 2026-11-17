@@ -62,6 +62,88 @@
     }catch(e){ return { code:'', label:'—' }; }
   }
 
+
+  // ── Realtime auto-save (debounced) so notes are not lost ──
+  var _wdAutoTimer = null;
+  var _wdAutoBusy = false;
+
+  function wdScheduleAutoSave(){
+    try{
+      var st = document.getElementById('wdStatus');
+      if(st) st.textContent = '… editing — auto-save soon';
+    }catch(e){}
+    if(_wdAutoTimer) clearTimeout(_wdAutoTimer);
+    _wdAutoTimer = setTimeout(function(){ wdAutoSave(); }, 1200);
+  }
+
+  async function wdAutoSave(){
+    if(_wdAutoBusy) return;
+    var mob = _wdMobile();
+    if(!mob) return;
+    var inp = document.getElementById('wdDate');
+    var dateStr = (inp && inp.value) || _wdToday();
+    var slots = wdCollectSlots();
+    // Skip empty brand-new page
+    var has = slots.some(function(s){ return (s.notes&&s.notes.trim()) || s.drawing || s.from || s.to; });
+    if(!has) return;
+    _wdAutoBusy = true;
+    var st = document.getElementById('wdStatus');
+    try{
+      if(st) st.textContent = '💾 Auto-saving…';
+      var sh = _wdFetchShift(dateStr);
+      var allNotes = slots.map(function(s){
+        return (s.from||'?')+'–'+(s.to||'?')+': '+(s.notes||'');
+      }).join('\n');
+      var payload = {
+        date: dateStr,
+        day: _wdDayName(dateStr),
+        shift: sh.code || '',
+        shiftLabel: sh.label || '',
+        slots: slots,
+        notes: allNotes,
+        notesHtml: '',
+        mobile: mob,
+        updatedAt: new Date().toISOString(),
+        updatedBy: (SESSION && SESSION.name) || mob,
+        autoSaved: true
+      };
+      var path = _wdPath(dateStr);
+      if(path && typeof fbSet==='function'){
+        await fbSet(path, payload);
+        try{
+          await fbSet('workDiary/'+mob+'/_index/'+dateStr, {
+            date: dateStr, preview: allNotes.slice(0,160),
+            shift: sh.code||'', updatedAt: payload.updatedAt
+          });
+        }catch(ix){}
+        if(st) st.textContent = '✅ Auto-saved '+new Date().toLocaleTimeString();
+      }
+    }catch(e){
+      console.warn('[wdAutoSave]', e);
+      if(st) st.textContent = '⚠️ Auto-save failed — use Save';
+    }
+    _wdAutoBusy = false;
+  }
+
+  function wdBindAutoSave(block){
+    if(!block || block._wdAutoBound) return;
+    block._wdAutoBound = true;
+    var notes = block.querySelector('.wd-block-notes');
+    if(notes){
+      notes.addEventListener('input', wdScheduleAutoSave);
+      notes.addEventListener('blur', function(){ wdScheduleAutoSave(); });
+    }
+    block.querySelectorAll('.wd-from, .wd-to').forEach(function(inp){
+      inp.addEventListener('change', wdScheduleAutoSave);
+    });
+    var canvas = block.querySelector('.wd-draw-canvas');
+    if(canvas){
+      ['mouseup','touchend'].forEach(function(ev){
+        canvas.addEventListener(ev, function(){ wdScheduleAutoSave(); });
+      });
+    }
+  }
+
   /** One block = From–To + type notes + finger/mouse draw pad */
   function wdAddSlot(from, to, notesHtml, notesText, drawDataUrl){
     var host = document.getElementById('wdSlots');
@@ -102,6 +184,7 @@
       if(ne) ne.textContent = notesText;
     }
     wdInitDrawCanvas(block, drawDataUrl||'');
+    wdBindAutoSave(block);
     wdRenumberSlots();
     try{
       block.scrollIntoView({behavior:'smooth', block:'nearest'});

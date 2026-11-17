@@ -1213,20 +1213,18 @@ function renderMyShift(){
     var _y = _myShiftMonth.getFullYear();
     var _m = _myShiftMonth.getMonth();
     var _mk = _y+'_'+String(_m+1).padStart(2,'0');
-    // Load this month from Firebase if missing (Excel upload months)
+    // Always load/refresh this month from Firebase when month changes or after Excel
     if(typeof mpEnsureScheduleMonth==='function' && !window._wdEnsuringMonth){
-      var cached = (_cache&&_cache.schedules&&_cache.schedules[_mk]);
-      var need = !cached || typeof cached!=='object' || !Object.keys(cached).length;
-      // Always soft-refresh once per month navigation
-      if(need || window._msNeedSchedRefresh){
+      var need = window._msNeedSchedRefresh || window._msEnsuredMk !== _mk;
+      if(need){
         window._wdEnsuringMonth = true;
         window._msNeedSchedRefresh = false;
+        window._msEnsuredMk = _mk;
         mpEnsureScheduleMonth(_mk).then(function(){
           window._wdEnsuringMonth = false;
           try{ if(typeof _shiftResCache!=='undefined'&&_shiftResCache&&_shiftResCache.clear)_shiftResCache.clear(); }catch(e){}
           renderMyShift();
         }).catch(function(){ window._wdEnsuringMonth = false; });
-        // fall through to render with whatever is in cache (may re-render when fetch completes)
       }
     }
   }catch(eEns){}

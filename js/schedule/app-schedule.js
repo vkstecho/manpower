@@ -287,6 +287,33 @@ try{
     _cache.schedules[mk]=sched;
   });
 }catch(eDual){ console.warn('[upload dual-key]', eDual); }
+try{ window._msNeedSchedRefresh=true; window._msEnsuredMk=null; }catch(e){}
+
+// Persist dual keys (empId + internal id) to Firebase so My Shift always resolves
+try{
+  const emps=(typeof getEmps==='function'?getEmps():[])||[];
+  for(const mk of (months||[])){
+    const sched=(_cache.schedules||{})[mk];
+    if(!sched||typeof sched!=='object') continue;
+    const patch={};
+    emps.forEach(function(e){
+      if(!e||!e.id) return;
+      var code=e.empId!=null?String(e.empId).trim():'';
+      var row=sched[e.id]||(code?(sched[code]||sched[String(code).toUpperCase()]):null);
+      if(row==null) return;
+      patch[e.id]=row;
+      if(code) patch[code]=row;
+      sched[e.id]=row;
+      if(code) sched[code]=row;
+    });
+    if(Object.keys(patch).length && typeof fbUpdate==='function'){
+      try{ await fbUpdate('schedules/'+mk, patch); }catch(pe){ console.warn('[upload dual persist]', mk, pe); }
+    }
+    _cache.schedules[mk]=sched;
+    try{ console.log('[upload dual persist]', mk, Object.keys(patch)); }catch(x){}
+  }
+}catch(eDualP){ console.warn('[upload dual persist]', eDualP); }
+
 try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
 try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
 try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
