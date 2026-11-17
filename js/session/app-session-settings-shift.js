@@ -531,7 +531,7 @@ function _renderShiftTimingRows(){
       <label style="display:flex;align-items:center;gap:4px;cursor:pointer;flex-shrink:0">
         <input type="checkbox" ${s.active!==false?'checked':''} style="width:16px;height:16px;accent-color:#a855f7"
           onchange="_shiftDraft.shifts[${i}].active=this.checked;document.getElementById('ss_shiftTimings').innerHTML=_renderShiftTimingRows()">
-        <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px" class="shc ${cellClass(s.code)}">${escHtml(s.code==='HLF'?'½':s.code)}</span>
+        <span style="width:36px;height:24px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:11px;background:${(s.color||s.bg||'#334155')};color:${(s.fg||s.fontColor||'#fff')}" class="shc ${cellClass(s.code)}">${escHtml(s.code==='HLF'?'½':s.code)}</span>
       </label>
       <input type="text" value="${escHtml(s.label)}" style="flex:1;min-width:80px;padding:7px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:12px" oninput="_shiftDraft.shifts[${i}].label=this.value">
       <span style="font-size:10px;color:#94a3b8">${L('टाइप','type')} <b>${escHtml(s.code)}</b></span>
@@ -770,6 +770,8 @@ async function _saveShiftSettings(){
     }catch(e){}
     closeModal();
     toast(L('✅ शिफ्ट सेटिंग सेव हो गई','✅ Shift settings saved'));
+    try{ if(typeof _forceShiftBadgeColors==='function') _forceShiftBadgeColors(); }catch(e){}
+    try{ if(typeof mpRefreshShiftColourLock==='function') mpRefreshShiftColourLock(); }catch(e){}
     try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
     try{ if(typeof renderScheduleLegend==='function') renderScheduleLegend(); }catch(e){}
   }

@@ -596,6 +596,19 @@
   };
   window.SHIFT_LEGEND_COLORS = SHIFT_LEGEND_COLORS;
 
+  /** Prefer manager Shift Settings colours when available */
+  function getShiftLegendColor(code) {
+    try {
+      if (typeof mpShiftStyle === 'function') {
+        var st = mpShiftStyle(code);
+        if (st && st.bg) return { bg: st.bg, fg: st.fg || '#fff' };
+      }
+    } catch (e) {}
+    var u = String(code || '').toUpperCase();
+    return SHIFT_LEGEND_COLORS[u] || SHIFT_LEGEND_COLORS[code] || { bg: '#334155', fg: '#fff' };
+  }
+  window.getShiftLegendColor = getShiftLegendColor;
+
   function getManagerShiftTimes() {
     // Prefer live manager shift settings if app exposes them
     try {

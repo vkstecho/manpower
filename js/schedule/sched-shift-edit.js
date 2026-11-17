@@ -59,7 +59,9 @@ function _updateSaveBar(){
     list.innerHTML = entries.map(e=>{
       const fmtD = new Date(e.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'});
       const shiftBg = {'D':'#f59e0b','N':'#4f46e5','O':'#334155','L':'#be123c','G':'#0284c7','C/O':'#92400e','HLF':'#ea580c','Ab':'#7f1d1d','H':'#ea580c','OD':'#0d9488','GP':'#6d28d9','A':'#16a34a','B':'#db2777','C':'#0891b2'};
-      const bg = shiftBg[e.newShift] || '#444';
+      let bg = shiftBg[e.newShift] || shiftBg[String(e.newShift||'').toUpperCase()] || '#444';
+      try{ if(typeof mpShiftStyle==='function'){ const st=mpShiftStyle(e.newShift); if(st&&st.bg) bg=st.bg; } }catch(_e){}
+
       return `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px">
       <span style="display:inline-flex;width:30px;height:26px;background:${bg};border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex-shrink:0">${cellDisp(e.newShift)}</span>
       <div style="flex:1;min-width:0">
@@ -100,7 +102,7 @@ function removePendingChange(empId, date){
   const cellEl = document.querySelector(`[data-pending="${key}"]`);
   if(cellEl){
     const orig = cellEl.dataset.origShift || 'O';
-    cellEl.innerHTML = `<span class="shc ${cellClass(orig)}">${cellDisp(orig)}</span>`;
+    cellEl.innerHTML = (typeof mpShiftBadgeHtml==='function') ? mpShiftBadgeHtml(orig,{w:28,h:24,fs:12}) : `<span class="shc ${cellClass(orig)}">${cellDisp(orig)}</span>`;
     cellEl.removeAttribute('data-pending');
   }
   _updateSaveBar();
@@ -112,7 +114,7 @@ function discardAllShiftChanges(){
     const cellEl = document.querySelector(`[data-pending="${key}"]`);
     if(cellEl){
       const orig = cellEl.dataset.origShift || 'O';
-      cellEl.innerHTML = `<span class="shc ${cellClass(orig)}">${cellDisp(orig)}</span>`;
+      cellEl.innerHTML = (typeof mpShiftBadgeHtml==='function') ? mpShiftBadgeHtml(orig,{w:28,h:24,fs:12}) : `<span class="shc ${cellClass(orig)}">${cellDisp(orig)}</span>`;
       cellEl.removeAttribute('data-pending');
     }
   });
@@ -1269,8 +1271,10 @@ function editShiftCell(empId, empName, date, currentShift){
   const SHIFT_OPTIONS = [
     ..._stdCodes.map(code=>{
       const s=_cfgByCode[String(code).toUpperCase()]||_cfgByCode[code]||{code,label:code};
+      // v6.0.33: manager colours (mpShiftStyle) first; MP_SHIFT_COLORS only as fallback
       const stStyle=(typeof mpShiftStyle==='function'?mpShiftStyle(code):null);
-      const st=_fixedShiftStyle[code]||_fixedShiftStyle[String(code).toUpperCase()]||(stStyle?{bg:stStyle.bg,color:stStyle.fg}:{bg:'#334155',color:'#fff'});
+      const stFall=_fixedShiftStyle[code]||_fixedShiftStyle[String(code).toUpperCase()]||{bg:'#334155',color:'#fff'};
+      const st=stStyle?{bg:stStyle.bg||stFall.bg,color:stStyle.fg||stStyle.color||stFall.color}:stFall;
       const _defTimes={D:['07:00','19:00'],N:['19:00','07:00'],G:['08:00','20:00'],A:['06:00','14:00'],B:['14:00','22:00'],C:['22:00','06:00']};
       let stt=s.start, enn=s.end;
       const cu=String(code).toUpperCase();
@@ -1320,7 +1324,7 @@ function editShiftCell(empId, empName, date, currentShift){
       <div style="font-size:17px;font-weight:900;color:#fff">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD}</div>
       <div style="margin-top:6px;font-size:12px;color:var(--muted2)">
-        ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: <span class="shc ${cellClass(currentShift)}" style="display:inline-flex;vertical-align:middle">${cellDisp(currentShift)}</span>
+        ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: ${(typeof mpShiftBadgeHtml==='function')?mpShiftBadgeHtml(currentShift,{w:28,h:24,fs:12,extraStyle:'display:inline-flex;vertical-align:middle'}):('<span class="shc '+cellClass(currentShift)+'" style="display:inline-flex;vertical-align:middle">'+cellDisp(currentShift)+'</span>')}
         ${alreadyPending?`<span style="color:var(--day);margin-left:8px">⚡ pending: ${cellDisp(alreadyPending.newShift)}</span>`:''}
         ${(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled()) ? `<div style="margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(249,115,22,.08);border:1px dashed rgba(249,115,22,.4);font-size:11px;color:#f97316;font-weight:700;text-align:left;line-height:1.4">⏱️ ${typeof L==='function'?L('कार्य समय के लिए नीचे Time बटन दबाएँ','Use the Time button below to enter worked hours'):'Use the Time button below to enter worked hours'}</div>` : ''}
       </div>
@@ -1903,7 +1907,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
     delete _pendingShiftChanges[key];
     const cellEl = document.querySelector(`[data-pending="${key}"]`);
     if(cellEl){
-      cellEl.innerHTML = `<span class="shc ${cellClass(currentShift)}">${cellDisp(currentShift)}</span>`;
+      cellEl.innerHTML = (typeof mpShiftBadgeHtml==='function') ? mpShiftBadgeHtml(currentShift,{w:28,h:24,fs:12}) : `<span class="shc ${cellClass(currentShift)}">${cellDisp(currentShift)}</span>`;
       cellEl.removeAttribute('data-pending');
     }
     _updateSaveBar();
@@ -1956,7 +1960,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
     cellEl.dataset.pending = key;
     cellEl.dataset.origShift = currentShift;
     cellEl.innerHTML = `
-      <span class="shc ${cellClass(newShift)}" style="outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)">${cellDisp(newShift)}</span>
+      ${(typeof mpShiftBadgeHtml==='function')?mpShiftBadgeHtml(newShift,{w:28,h:24,fs:12,extraStyle:'outline:2px solid var(--m1);border-radius:4px;box-shadow:0 0 6px rgba(249,115,22,.5)'}):('<span class="shc '+cellClass(newShift)+'" style="outline:2px solid var(--m1);border-radius:4px">'+cellDisp(newShift)+'</span>')}
       <div style="font-size:7px;color:var(--m1);text-align:center;line-height:1;margin-top:1px;font-weight:900">NEW</div>`;
   }
   try{

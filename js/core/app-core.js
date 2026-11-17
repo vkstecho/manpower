@@ -353,7 +353,18 @@ function getActiveWorkShifts(){
     if(s.kind==="status") return false;
     return true;
   }).map(function(s){
-    return {code:String(s.code).trim(),label:(s.label&&String(s.label).trim())||String(s.code),start:s.start||"",end:s.end||"",active:true,kind:"work"};
+    return {
+      code:String(s.code).trim(),
+      label:(s.label&&String(s.label).trim())||String(s.code),
+      start:s.start||"",
+      end:s.end||"",
+      active:true,
+      kind:"work",
+      color:s.color||s.bg||"",
+      bg:s.bg||s.color||"",
+      fg:s.fg||s.fontColor||"",
+      fontColor:s.fontColor||s.fg||""
+    };
   });
   if(!list.length) list=[{code:"D",label:"Day Shift",start:"07:00",end:"19:00"},{code:"N",label:"Night Shift",start:"19:00",end:"07:00"}];
   return list;

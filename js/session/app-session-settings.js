@@ -1019,53 +1019,78 @@ window.MP_SHIFT_COLORS = {
 
 /** Force D/N/G badge colours identical on Home + Schedule (overrides any theme drift) */
 function _forceShiftBadgeColors(){
-  if(document.getElementById('mpShiftColorLock')) return;
-  const s = document.createElement('style');
-  s.id = 'mpShiftColorLock';
-  s.textContent = `
-    /* FONT colours locked to match Schedule exactly */
-    .shc.D, .shc.shc-sm.D, .hm-chip .shc.D, .hm-chip-meta .shc.D, .hm-chips .shc.D,
-    .sched-tbl .shc.D, .ms-day-sh.shc.D, span.shc.D {
-      background: #a16207 !important;
-      color: #ffffff !important;
-      -webkit-text-fill-color: #ffffff !important;
+  // v6.0.33: inject manager colours from Shift Settings for ALL legend codes (not only D/N/G defaults)
+  try{
+    var cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+    var defaults = (window.MP_SHIFT_COLORS)||{};
+    var codes = {};
+    // defaults first
+    Object.keys(defaults).forEach(function(k){ codes[String(k).toUpperCase()] = {bg:defaults[k].bg, fg:defaults[k].fg}; });
+    // manager overrides
+    (cfg.shifts||[]).forEach(function(s){
+      if(!s || !s.code) return;
+      var u = String(s.code).toUpperCase();
+      var bg = s.color || s.bg;
+      var fg = s.fg || s.fontColor || s.textColor;
+      if(bg || fg){
+        codes[u] = {
+          bg: bg || (codes[u]&&codes[u].bg) || '#334155',
+          fg: fg || (codes[u]&&codes[u].fg) || '#ffffff'
+        };
+      }
+    });
+    // alias CO
+    if(codes['C/O'] && !codes['CO']) codes['CO'] = codes['C/O'];
+    if(codes['CO'] && !codes['C/O']) codes['C/O'] = codes['CO'];
+    // time legend
+    var tBg = cfg.timeLegendBg || '#f97316';
+    var tFg = cfg.timeLegendFg || '#ffffff';
+
+    function esc(c){ return String(c||'').replace(/[^\w#(),.%\s-]/g,''); }
+    function rule(cls, bg, fg){
+      bg = esc(bg); fg = esc(fg);
+      return '.shc.'+cls+', .shc.shc-sm.'+cls+', .ms-day-sh.shc.'+cls+', .sched-tbl .shc.'+cls+', span.shc.'+cls+', .hm-chip .shc.'+cls+', .hm-chips .shc.'+cls+'{'+
+        'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}'+
+        '.hm-shift-badge.'+cls+', .hm-shift-badge.'+cls+' .hm-shift-letter, .hm-shift-badge.'+cls+' .hm-shift-word{'+
+        'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}';
     }
-    .shc.N, .shc.shc-sm.N, .hm-chip .shc.N, .hm-chip-meta .shc.N, .hm-chips .shc.N,
-    .sched-tbl .shc.N, .ms-day-sh.shc.N, span.shc.N {
-      background: #4f46e5 !important;
-      color: #ffffff !important;
-      -webkit-text-fill-color: #ffffff !important;
+    var css = '/* v6.0.33 manager shift colours */\n';
+    Object.keys(codes).forEach(function(u){
+      var c = codes[u];
+      if(!c || !c.bg) return;
+      var cls = (u==='C/O') ? 'CO' : u;
+      // CSS class names: only safe identifier chars
+      if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(cls) && cls!=='CO') return;
+      css += rule(cls, c.bg, c.fg||'#fff');
+    });
+    // time-only cells
+    css += '.shc.t-time, .shc.shc-sm.t-time, .ms-day-sh.shc.t-time, .sched-tbl .shc.t-time, span.shc.t-time{'+
+      'background:'+esc(tBg)+' !important;color:'+esc(tFg)+' !important;-webkit-text-fill-color:'+esc(tFg)+' !important;}';
+
+    var el = document.getElementById('mpShiftColorLock');
+    if(!el){
+      el = document.createElement('style');
+      el.id = 'mpShiftColorLock';
+      document.head.appendChild(el);
     }
-    .shc.G, .shc.shc-sm.G, .hm-chip .shc.G, .hm-chip-meta .shc.G, .hm-chips .shc.G,
-    .sched-tbl .shc.G, .ms-day-sh.shc.G, span.shc.G {
-      background: #0284c7 !important;
-      color: #ffffff !important;
-      -webkit-text-fill-color: #ffffff !important;
-    }
-    .hm-shift-badge.D, .hm-shift-badge.D .hm-shift-letter, .hm-shift-badge.D .hm-shift-word {
-      background: #f59e0b !important; color: #000000 !important; -webkit-text-fill-color: #000000 !important;
-    }
-    .hm-shift-badge.N, .hm-shift-badge.N .hm-shift-letter, .hm-shift-badge.N .hm-shift-word {
-      background: #4f46e5 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
-    }
-    .hm-shift-badge.G, .hm-shift-badge.G .hm-shift-letter, .hm-shift-badge.G .hm-shift-word {
-      background: #0284c7 !important; color: #ffffff !important; -webkit-text-fill-color: #ffffff !important;
-    }
-    /* Prevent parent .hm-chip-meta muted colour from leaking onto badge letters */
-    .hm-chip-meta .shc.D, .hm-chips .shc.D { -webkit-text-fill-color: #000000 !important; color: #000000 !important; }
-    .hm-chip-meta .shc.N, .hm-chips .shc.N { -webkit-text-fill-color: #ffffff !important; color: #ffffff !important; }
-    .hm-chip-meta .shc.G, .hm-chips .shc.G { -webkit-text-fill-color: #ffffff !important; color: #ffffff !important; }
-  `;
-  document.head.appendChild(s);
+    el.textContent = css;
+  }catch(e){ console.warn('[shift colour lock]', e); }
 }
-try{ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', _forceShiftBadgeColors); else _forceShiftBadgeColors(); }catch(e){}
+try{ window._forceShiftBadgeColors = _forceShiftBadgeColors; window.mpRefreshShiftColourLock = _forceShiftBadgeColors; }catch(e){}
+try{
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', _forceShiftBadgeColors);
+  else _forceShiftBadgeColors();
+}catch(e){}
 
 
 /** One badge HTML for Home + Schedule + My Shift — identical colours always */
 function mpShiftBadgeHtml(code, opts){
   opts = opts || {};
   const disp = (typeof cellDisp==='function' ? cellDisp(code) : code) || '';
-  const st = (typeof mpShiftStyle==='function') ? mpShiftStyle(disp||code) : {bg:'#475569',fg:'#fff'};
+  // Prefer original code for colour (disp may be "11 H" with space; code may be T:11 / 11H)
+  const st = (typeof mpShiftStyle==='function')
+    ? (mpShiftStyle(code) || mpShiftStyle(disp) || {bg:'#475569',fg:'#fff'})
+    : {bg:'#475569',fg:'#fff'};
   const cls = (typeof cellClass==='function' ? cellClass(code) : '') || '';
   const w = opts.w || 28;
   const h = opts.h || 24;
@@ -1090,10 +1115,13 @@ function mpShiftStyle(code){
   if(/^L[:\-_]/i.test(k)) k = 'L';
   if(/^HLF[:\-_]/i.test(k) || k==='½' || /^1\/2/i.test(k)) k = 'HLF';
   if(k==='CO' || k==='C/O') k = 'C/O';
-  // Time-only custom hours (T / nH) — colours from Time legend settings
+  // Time-only custom hours (T / T:11 / 11H / "11 H") — colours from Time legend settings
   try{
-    const u0 = k.toUpperCase();
-    if(u0==='T' || u0==='HR' || /^\d+(\.\d+)?H$/i.test(k)){
+    const compact = k.replace(/\s+/g,'').toUpperCase();
+    const isTimeOnly = compact==='T' || compact==='HR'
+      || /^T:?\d+(\.\d+)?H?$/i.test(compact)
+      || /^\d+(\.\d+)?H$/i.test(compact);
+    if(isTimeOnly){
       const cfg0 = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
       return {
         bg: cfg0.timeLegendBg || '#f97316',
@@ -1105,15 +1133,21 @@ function mpShiftStyle(code){
   // Manager-configured colour (M/c Shift Setting colour picker)
   try{
     const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-    const u = k.toUpperCase();
-    const found = (cfg.shifts||[]).find(function(s){ return s && String(s.code||'').toUpperCase()===u; });
+    const u = k.toUpperCase().replace(/\s+/g,'');
+    const found = (cfg.shifts||[]).find(function(s){
+      return s && String(s.code||'').toUpperCase().replace(/\s+/g,'')===u;
+    });
+    // Accept any non-empty colour string (hex / css); legend uses the same fields
     const col = found && (found.color || found.bg);
     const fgCol = found && (found.fg || found.fontColor || found.textColor);
-    if(col && (/^#?[0-9a-fA-F]{3,8}$/.test(String(col).replace('#','')) || String(col).indexOf('#')===0)){
-      const bg = String(col).indexOf('#')===0 ? col : ('#'+String(col).replace(/^#/,''));
+    if(col && String(col).trim()){
+      let bg = String(col).trim();
+      if(bg.indexOf('#')!==0 && /^[0-9a-fA-F]{3,8}$/.test(bg)) bg = '#'+bg;
       let fg = '#ffffff';
-      if(fgCol && (String(fgCol).indexOf('#')===0 || /^[0-9a-fA-F]{3,8}$/.test(String(fgCol))))
-        fg = String(fgCol).indexOf('#')===0 ? fgCol : ('#'+fgCol);
+      if(fgCol && String(fgCol).trim()){
+        fg = String(fgCol).trim();
+        if(fg.indexOf('#')!==0 && /^[0-9a-fA-F]{3,8}$/.test(fg)) fg = '#'+fg;
+      }
       return {bg:bg, fg:fg};
     }
   }catch(e){}
@@ -1284,7 +1318,8 @@ function getShiftTimingStripHtml(){
     const t=(stt&&enn)?(stt+'–'+enn):'';
     let lab = (s.label && String(s.label).trim()) ? String(s.label).trim() : (code==='G' ? 'General Shift' : code);
     if(code==='G' && (lab==='G' || lab==='General' || lab.toLowerCase()==='general')) lab = 'General Shift';
-    return '<span class="shc '+cellClass(code)+'" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px">'+code+'</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">'+escHtml(lab)+(t?' · '+t:'')+'</span>';
+    var _ts=(typeof mpShiftStyle==='function'?mpShiftStyle(code):null)||{};var _tsSt=_ts.bg?('background:'+_ts.bg+' !important;color:'+(_ts.fg||'#fff')+' !important;'):'';
+    return '<span class="shc '+cellClass(code)+'" style="width:auto;min-width:22px;height:18px;padding:0 5px;font-size:10px;margin-right:2px;'+_tsSt+'">'+code+'</span><span style="font-size:10px;color:var(--muted2);margin-right:10px">'+escHtml(lab)+(t?' · '+t:'')+'</span>';
   }).join('');
   return `<div style="margin-top:4px;display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;opacity:.95">${bits}</div>`;
 }
@@ -1468,6 +1503,8 @@ function _homeTodaySummaryHtml(){
       D:'#f59e0b', N:'#4f46e5', G:'#0284c7', A:'#16a34a', B:'#db2777', C:'#0891b2',
       O:'#64748b', L:'#f43f5e', 'C/O':'#92400e', H:'#ea580c', Ab:'#991b1b', GP:'#9333ea', OD:'#0d9488', HLF:'#c2410c'
     };
+    try{ if(typeof mpShiftStyle==='function'){ Object.keys(colors).forEach(function(c){ try{ var st=mpShiftStyle(c); if(st&&st.bg) colors[c]=st.bg; }catch(e){} }); } }catch(e){}
+
 
     // Collect non-zero codes (known order first, then any extras)
     const seen = new Set();

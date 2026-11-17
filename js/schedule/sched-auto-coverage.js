@@ -1224,7 +1224,13 @@ function _applyScheduleToGrid(empId, schedule, cells, empLeaves, yr, mo){
 
     cell.dataset.val = val;
     cell.className = 'shc ' + (val ? cellClass(val) : '');
-    // Prefer CSS classes for colours — only set size/layout inline
+    // v6.0.34: manager legend colours inline
+    try{
+      if(val && typeof mpShiftStyle==='function'){
+        var st = mpShiftStyle(val) || {};
+        if(st.bg){ cell.style.background = st.bg; cell.style.color = st.fg || '#fff'; }
+      }
+    }catch(_c){}
     cell.style.width = '30px';
     cell.style.height = '28px';
     cell.style.minWidth = '30px';
@@ -1291,6 +1297,8 @@ function _forceOverrideLeaveCell(empId, dayIdx){
   cell.dataset.val = 'D';
   cell.className = 'shc ' + cellClass('D');
   cell.textContent = cellDisp('D');
+  try{ if(typeof mpShiftStyle==='function'){ var st=mpShiftStyle('D')||{}; if(st.bg){ cell.style.background=st.bg; cell.style.color=st.fg||'#fff'; } } }catch(e){}
+
   if(!_sbData[empId]){
     const allCells = queryRoot.querySelectorAll(`[data-empid="${empId}"]`);
     _sbData[empId] = Array.from(allCells).map(c => c.dataset.val || '');

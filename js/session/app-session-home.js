@@ -614,9 +614,28 @@ async function downloadMyShiftCalendar(){
   const monthName = first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
   const genAt = new Date().toLocaleString('en-IN');
 
-  // Same palette as printSched / _execPrint
+  // v6.0.36: same palette as print — overlay manager Shift Settings colours
   const SBG={D:'#f59e0b',N:'#4f46e5',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#dcfce7',L:'#fee2e2','C/O':'#ede9fe',G:'#e0f2fe',H:'#ffedd5',OD:'#ccfbf1',HLF:'#fed7aa',Ab:'#fecaca',GP:'#fdf4ff'};
   const SCL={D:'#000',N:'#fff',A:'#fff',B:'#fff',C:'#fff',O:'#16a34a',L:'#dc2626','C/O':'#7c3aed',G:'#0369a1',H:'#c2410c',OD:'#0d9488',HLF:'#c2410c',Ab:'#991b1b',GP:'#9333ea'};
+  try{
+    if(typeof mpShiftStyle==='function'){
+      const codes = new Set(Object.keys(SBG));
+      try{
+        const cfg=(typeof getShiftConfigSync==='function'?getShiftConfigSync():null)||{};
+        (cfg.shifts||[]).forEach(function(s){ if(s&&s.code) codes.add(String(s.code)); });
+      }catch(e){}
+      codes.forEach(function(code){
+        try{
+          const st=mpShiftStyle(code);
+          if(st&&st.bg){
+            SBG[code]=st.bg; SBG[String(code).toUpperCase()]=st.bg;
+            SCL[code]=st.fg||'#fff'; SCL[String(code).toUpperCase()]=st.fg||'#fff';
+          }
+        }catch(e){}
+      });
+    }
+  }catch(e){}
+
 
   let logoDataUrl = null;
   try{ logoDataUrl = await _loadVksLogoDataUrl(); }catch(e){}
@@ -628,9 +647,15 @@ async function downloadMyShiftCalendar(){
     const ds = yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
     let sh = '';
     try{ sh = String(getShift(emp, ds)||''); }catch(e){}
-    const bg = SBG[sh] || '#f1f5f9';
-    const cl = SCL[sh] || '#475569';
-    const disp = sh==='C/O'?'CO':(sh==='HLF'?'½':(sh||'·'));
+    let bg = SBG[sh] || SBG[String(sh||'').toUpperCase()] || '#f1f5f9';
+    let cl = SCL[sh] || SCL[String(sh||'').toUpperCase()] || '#475569';
+    try{
+      if(sh && typeof mpShiftStyle==='function'){
+        const st=mpShiftStyle(sh);
+        if(st&&st.bg){ bg=st.bg; cl=st.fg||'#fff'; }
+      }
+    }catch(e){}
+    const disp = (typeof cellDisp==='function'?cellDisp(sh):null)||(sh==='C/O'?'CO':(sh==='HLF'?'½':(sh||'·')));
     const isToday = (typeof TODAY_STR!=='undefined' && ds===TODAY_STR);
     dayCells += `<div style="min-height:64px;background:#fff;border:1px solid ${isToday?'#f97316':'#e2e8f0'};border-radius:8px;padding:6px;${isToday?'box-shadow:0 0 0 2px rgba(249,115,22,.25)':''}">
       <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:4px">${d}</div>
@@ -1064,10 +1089,11 @@ function _showMyShiftBulkBar(empId, empName){
         var code = String(s.code).trim();
         var bg='#334155', fg='#fff';
         try{
-          if(typeof mpShiftStyle==='function'){
-            var st = mpShiftStyle(code);
-            if(st){ bg = st.bg || bg; fg = st.fg || st.color || fg; }
-          }
+          var cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+          var cfgS = (cfg.shifts||[]).find(function(x){ return x && String(x.code||'').toUpperCase()===code.toUpperCase(); }) || s || {};
+          var st = (typeof mpShiftStyle==='function' ? mpShiftStyle(code) : null) || {};
+          bg = st.bg || cfgS.color || cfgS.bg || bg;
+          fg = st.fg || cfgS.fg || cfgS.fontColor || fg;
         }catch(eSt){}
         codes.push({c:code, bg:bg, fg:fg, lab:code});
       });
@@ -1233,7 +1259,7 @@ async function applyMyShiftBulk(empId, empName, shiftVal){
 }
 
 
-function renderMyShift(){
+function renderMyShift(){/*v6033 colour lock*/try{if(typeof _forceShiftBadgeColors==='function')_forceShiftBadgeColors();}catch(_e){}
   try{
     if(!_myShiftMonth) _myShiftMonth = new Date((typeof TODAY_STR!=='undefined'?TODAY_STR:new Date().toISOString().slice(0,10))+'T12:00:00');
     var _y = _myShiftMonth.getFullYear();
@@ -1282,6 +1308,14 @@ function renderMyShift(){
     const shEsc = String(sh).replace(/'/g,"\\'");
     const selected = !!(window._myShiftMultiSel && window._myShiftMultiEmp===e.id && window._myShiftMultiSel.has(ds));
     const cls = cellClass(sh);
+    // v6.0.32: inline colours from manager shift / time-legend settings (not CSS class alone)
+    let badgeStyle = '';
+    try{
+      if(sh && typeof mpShiftStyle==='function'){
+        const st = mpShiftStyle(sh) || mpShiftStyle(disp) || {};
+        if(st.bg) badgeStyle = 'background:'+st.bg+' !important;color:'+(st.fg||'#fff')+' !important;-webkit-text-fill-color:'+(st.fg||'#fff')+' !important;border-color:transparent;';
+      }
+    }catch(_st){}
     let hrsBadge = '';
     try{
       if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled() && sh && typeof mpComputeDayHours==='function'){
@@ -1292,7 +1326,7 @@ function renderMyShift(){
     cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
       style="cursor:${canSelf?'pointer':'default'};touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
       <div class="ms-day-num">${d}</div>
-      <div class="ms-day-sh shc ${cls}">${disp}</div>
+      <div class="ms-day-sh shc ${cls}" style="${badgeStyle}">${disp}</div>
       ${hrsBadge}
     </div>`;
   }
@@ -1418,7 +1452,7 @@ function renderMyShift(){
           mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
             style="cursor:pointer;touch-action:none;user-select:none;${selected?'outline:2px solid #f97316;background:rgba(249,115,22,.12);':''}">
             <div class="ms-day-num">${d}</div>
-            <div class="ms-day-sh shc ${cls}">${disp}</div>
+            <div class="ms-day-sh shc ${cls}" style="${(function(){try{if(sh&&typeof mpShiftStyle==='function'){var st=mpShiftStyle(sh)||mpShiftStyle(disp)||{};if(st.bg)return 'background:'+st.bg+' !important;color:'+(st.fg||'#fff')+' !important;-webkit-text-fill-color:'+(st.fg||'#fff')+' !important;border-color:transparent;'}}catch(e){}return '';})()}">${disp}</div>
             ${hrsLine}
           </div>`;
         }
@@ -1563,14 +1597,17 @@ function mpHoursColorForShift(sh){
     try{ if(typeof normalizeShiftCode==='function') key = String(normalizeShiftCode(code)||up).toUpperCase(); }catch(e){}
     if(map[key]) return map[key];
     if(map[up]) return map[up];
-    // v6.0.31: use manager Time legend colours for pure hour / T codes
-    if(/^\d+(\.\d+)?H$/i.test(code) || /^T/i.test(code) || /^HR$/i.test(code)){
-      try{
-        const cfgT = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-        if(cfgT.timeLegendFg) return cfgT.timeLegendFg;
-        if(cfgT.timeLegendBg) return cfgT.timeLegendBg;
-      }catch(eT){}
-      return '#f97316';
+    // v6.0.32: use manager Time legend colours for pure hour / T / "11 H" codes
+    {
+      const compact = code.replace(/\s+/g,'').toUpperCase();
+      if(compact==='T' || compact==='HR' || /^T:?\d+(\.\d+)?H?$/i.test(compact) || /^\d+(\.\d+)?H$/i.test(compact)){
+        try{
+          const cfgT = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+          if(cfgT.timeLegendFg) return cfgT.timeLegendFg;
+          if(cfgT.timeLegendBg) return cfgT.timeLegendBg;
+        }catch(eT){}
+        return '#f97316';
+      }
     }
     return '#16a34a';
   }catch(e){ return '#16a34a'; }

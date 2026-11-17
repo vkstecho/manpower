@@ -140,8 +140,30 @@ async function _execPrint(){
   const sectionLabel = PRINT_GROUPS.map(g=>g.label).join(' · ') || 'Current View';
 
   // Shift colours
+  // v6.0.35: SBG/SCL from manager Shift Settings (fallback defaults)
   const SBG={D:'#f59e0b',N:'#4f46e5',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#dcfce7',L:'#fee2e2','C/O':'#ede9fe',G:'#e0f2fe',H:'#ffedd5',OD:'#ccfbf1',HLF:'#fed7aa',Ab:'#fecaca',GP:'#fdf4ff'};
   const SCL={D:'#000',N:'#fff',A:'#fff',B:'#fff',C:'#fff',O:'#16a34a',L:'#dc2626','C/O':'#7c3aed',G:'#0369a1',H:'#c2410c',OD:'#0d9488',HLF:'#c2410c',Ab:'#991b1b',GP:'#9333ea'};
+  try{
+    if(typeof mpShiftStyle==='function'){
+      const _allCodes = new Set(Object.keys(SBG));
+      try{
+        const _cfgP = (typeof getShiftConfigSync==='function'?getShiftConfigSync():null)||{};
+        (_cfgP.shifts||[]).forEach(function(s){ if(s&&s.code) _allCodes.add(String(s.code)); });
+      }catch(_e){}
+      _allCodes.forEach(function(code){
+        try{
+          const st = mpShiftStyle(code);
+          if(st && st.bg){
+            SBG[code] = st.bg;
+            SBG[String(code).toUpperCase()] = st.bg;
+            SCL[code] = st.fg || '#fff';
+            SCL[String(code).toUpperCase()] = st.fg || '#fff';
+          }
+        }catch(_e2){}
+      });
+    }
+  }catch(_e3){}
+
 
   // Build tbody
   let tbodyHtml='';
@@ -161,8 +183,14 @@ async function _execPrint(){
         ${dates.map(d=>{
           const sh=getShift(emp,d)||'';
           const isT=d===TODAY_STR;
-          const bg=SBG[sh]||'#f1f5f9', cl=SCL[sh]||'#475569';
-          const disp=sh==='C/O'?'CO':sh==='HLF'?'½':sh;
+          let bg=SBG[sh]||SBG[String(sh||'').toUpperCase()]||'#f1f5f9', cl=SCL[sh]||SCL[String(sh||'').toUpperCase()]||'#475569';
+          try{
+            if(sh && typeof mpShiftStyle==='function'){
+              const st=mpShiftStyle(sh);
+              if(st&&st.bg){ bg=st.bg; cl=st.fg||'#fff'; }
+            }
+          }catch(_e){}
+          const disp=(typeof cellDisp==='function'?cellDisp(sh):null)||(sh==='C/O'?'CO':sh==='HLF'?'½':sh);
           return `<td style="text-align:center;padding:2px;border:1px solid #e2e8f0;${isT?'background:rgba(249,115,22,.07)':''}">
             <span style="display:inline-block;width:22px;height:18px;line-height:18px;border-radius:3px;font-weight:900;font-size:10px;background:${bg};color:${cl};border:1px solid rgba(0,0,0,.15)">${disp}</span>
           </td>`;
@@ -189,6 +217,17 @@ async function _execPrint(){
     HLF:{cl:'#c2410c', icon:'½', lab:'Half Day'},
     Ab:{cl:'#991b1b', icon:'🚫', lab:'Absent'}
   };
+  // v6.0.35: overlay manager legend colours onto summary row palette
+  try{
+    if(typeof mpShiftStyle==='function'){
+      Object.keys(_pColor).forEach(function(code){
+        try{
+          const st = mpShiftStyle(code);
+          if(st && st.bg){ _pColor[code].cl = st.bg; }
+        }catch(_e){}
+      });
+    }
+  }catch(_e){}
   // Prefer live shift config order; always include G/O/L when present in grid
   let _pCodes = [];
   try{
@@ -255,10 +294,39 @@ async function _execPrint(){
 
   // Legend
   const _pcfg = (typeof getShiftConfigSync==='function') ? getShiftConfigSync() : {};
-  let LI=[{bg:'#f59e0b',c:'#000',t:'D = Day',code:'D'},{bg:'#4f46e5',c:'#fff',t:'N = Night',code:'N'},{bg:'#16a34a',c:'#fff',t:'A = A Shift',code:'A'},{bg:'#db2777',c:'#fff',t:'B = B Shift',code:'B'},{bg:'#0891b2',c:'#fff',t:'C = C Shift',code:'C'},{bg:'#dcfce7',c:'#16a34a',t:'O = Weekly Off'},{bg:'#fee2e2',c:'#dc2626',t:'L = Leave'},{bg:'#ede9fe',c:'#7c3aed',t:'C/O = Comp Off'},{bg:'#e0f2fe',c:'#0369a1',t:'G = General'},{bg:'#ffedd5',c:'#c2410c',t:'H = Holiday'},{bg:'#ccfbf1',c:'#0d9488',t:'OD = Other Dept'},{bg:'#ede9fe',c:'#6d28d9',t:'GP = Gate Pass'},{bg:'#fed7aa',c:'#c2410c',t:'½ = Half Day'},{bg:'#fecaca',c:'#991b1b',t:'Ab = Absent'}];
+  let LI=[{bg:'#f59e0b',c:'#000',t:'D = Day',code:'D'},{bg:'#4f46e5',c:'#fff',t:'N = Night',code:'N'},{bg:'#16a34a',c:'#fff',t:'A = A Shift',code:'A'},{bg:'#db2777',c:'#fff',t:'B = B Shift',code:'B'},{bg:'#0891b2',c:'#fff',t:'C = C Shift',code:'C'},{bg:'#dcfce7',c:'#16a34a',t:'O = Weekly Off',code:'O'},{bg:'#fee2e2',c:'#dc2626',t:'L = Leave',code:'L'},{bg:'#ede9fe',c:'#7c3aed',t:'C/O = Comp Off',code:'C/O'},{bg:'#e0f2fe',c:'#0369a1',t:'G = General',code:'G'},{bg:'#ffedd5',c:'#c2410c',t:'H = Holiday',code:'H'},{bg:'#ccfbf1',c:'#0d9488',t:'OD = Other Dept',code:'OD'},{bg:'#ede9fe',c:'#6d28d9',t:'GP = Gate Pass',code:'GP'},{bg:'#fed7aa',c:'#c2410c',t:'½ = Half Day',code:'HLF'},{bg:'#fecaca',c:'#991b1b',t:'Ab = Absent',code:'Ab'}];
+  // v6.0.35: overlay manager colours + add active custom work shifts (A2/B3…)
+  try{
+    if(typeof mpShiftStyle==='function'){
+      LI.forEach(function(item){
+        if(!item.code) return;
+        try{
+          const st = mpShiftStyle(item.code);
+          if(st && st.bg){ item.bg = st.bg; item.c = st.fg || item.c || '#fff'; }
+        }catch(_e){}
+      });
+    }
+    const seen = {};
+    LI.forEach(function(item){ if(item.code) seen[String(item.code).toUpperCase()] = true; });
+    ((_pcfg && _pcfg.shifts) || []).forEach(function(s){
+      if(!s || !s.code || s.active===false) return;
+      const u = String(s.code).toUpperCase();
+      if(seen[u]) return;
+      if(['O','L','C/O','CO','H','HLF','AB','OD','GP'].indexOf(u)>=0) return;
+      let bg = '#334155', c = '#fff', lab = (s.label&&String(s.label).trim())||s.code;
+      try{
+        if(typeof mpShiftStyle==='function'){
+          const st = mpShiftStyle(s.code);
+          if(st && st.bg){ bg = st.bg; c = st.fg || '#fff'; }
+        }
+      }catch(_e){}
+      LI.push({bg:bg, c:c, t:s.code+' = '+lab, code:s.code});
+      seen[u] = true;
+    });
+  }catch(_e){}
   LI = LI.filter(i=>{
     if(!i.code) return true;
-    const sh = (_pcfg.shifts||[]).find(s=>String(s.code).toUpperCase()===i.code);
+    const sh = (_pcfg.shifts||[]).find(s=>String(s.code).toUpperCase()===String(i.code).toUpperCase());
     if(sh && sh.active===false) return false;
     return true;
   });

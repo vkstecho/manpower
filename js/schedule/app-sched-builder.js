@@ -336,7 +336,7 @@ async function loadScheduleBuilder(){
       const leaveStyle = isLeaveDate ? 'outline:2px solid #f43f5e;border-radius:4px;box-shadow:0 0 4px rgba(244,63,94,.5);' : '';
       const leaveClick = isLeaveDate ? ` onclick="_confirmLeaveOverride(this,'${_sbEmpKey(emp)}',${dayIdx},'${dateStr}')"` : '';
       return `<td style="padding:0;margin:0;border:0;border-right:1px solid rgba(148,163,184,.06);width:${_sbColW}px;min-width:${_sbColW}px;max-width:${_sbColW}px;box-sizing:border-box;${isWoffDay?'background:rgba(249,115,22,0.06);':''}" title="${isLeaveDate?'🛡️ Approved Leave':isWoffDay?emp.woff+' (Weekly Off)':''}">
-        <div class="shc ${cls}" style="width:100%;height:28px;font-size:12px;font-weight:800;cursor:pointer;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
+        <div class="shc ${cls}" style="width:100%;height:28px;font-size:12px;font-weight:800;cursor:pointer;box-sizing:border-box;touch-action:none;user-select:none;display:flex;align-items:center;justify-content:center;${(function(){try{if(val&&typeof mpShiftStyle==='function'){var st=mpShiftStyle(val)||{};if(st.bg)return 'background:'+st.bg+' !important;color:'+(st.fg||'#fff')+' !important;';}}catch(e){}return '';})()}${leaveStyle}${isWoffDay&&!val&&!isLeaveDate?'border:1px dashed rgba(249,115,22,0.3);':''}"${leaveClick}
           data-empid="${_sbEmpKey(emp)}" data-day="${dayIdx}" data-row="${rowIdx}" data-val="${val}" data-isleave="${isLeaveDate?'1':'0'}">
           ${val ? cellDisp(val) : '—'}
         </div>
@@ -528,6 +528,14 @@ function _sbSetCellValue(cell, val){
   const selected=cell.classList.contains('sb-selected');
   cell.className='shc '+(val?cellClass(val):'')+(selected?' sb-selected':'');
   cell.textContent=val?cellDisp(val):'—';
+  try{
+    if(val && typeof mpShiftStyle==='function'){
+      var st=mpShiftStyle(val)||{};
+      if(st.bg){ cell.style.background=st.bg; cell.style.color=st.fg||'#fff'; }
+      else { cell.style.background=''; cell.style.color=''; }
+    } else { cell.style.background=''; cell.style.color=''; }
+  }catch(_e){}
+
   const dim = window._sbDaysInMonth || 31;
   if(!_sbData[empId] || _sbData[empId].length < dim){
     const base = Array.isArray(_sbData[empId]) ? _sbData[empId].slice() : new Array(dim).fill('');
@@ -640,11 +648,20 @@ function _sbShowToolbar(){
   if(!_sbSelectedCells.length){ bar.innerHTML=''; bar.style.display='none'; setTimeout(_sbPositionStickyTableHeader,10); return; }
   const activeCodes = (typeof _sbActiveShiftCodes==='function') ? _sbActiveShiftCodes() : ['D','N'];
   const clearLbl = (typeof L==='function')?L('✖ साफ','✖ Clear'):'✖ Clear';
+  // v6.0.33: chips use manager legend colours
+  function _sbChipStyle(code){
+    try{
+      if(!code) return 'background:var(--card);color:var(--text)';
+      const st=(typeof mpShiftStyle==='function'?mpShiftStyle(code):null)||{};
+      const bg=st.bg||'#334155', fg=st.fg||st.color||'#fff';
+      return 'background:'+bg+' !important;color:'+fg+' !important;border-color:transparent';
+    }catch(e){ return 'background:var(--card);color:var(--text)'; }
+  }
+  const statusCodes=['O','L','C/O','H','OD','HLF','Ab'];
   const values=[
     ...activeCodes.map(c=>({v:c,l:c})),
-    {v:'O',l:'O'},{v:'L',l:'L'},
-    {v:'G',l:'G'},{v:'C/O',l:'CO'},{v:'H',l:'H'},{v:'OD',l:'OD'},
-    {v:'HLF',l:'½'},{v:'Ab',l:'Ab'},{v:'',l:clearLbl}
+    ...statusCodes.filter(c=>!activeCodes.map(x=>String(x).toUpperCase()).includes(String(c).toUpperCase())).map(c=>({v:c,l:(c==='C/O'?'CO':c==='HLF'?'½':c)})),
+    {v:'',l:clearLbl}
   ];
   const selLbl = (typeof L==='function')
     ? L(_sbSelectedCells.length+' Cell चुने गए', _sbSelectedCells.length+' cells selected')
@@ -663,7 +680,7 @@ function _sbShowToolbar(){
       </div>
       <div style="font-size:9px;color:#64748b;margin:4px 0 2px">${fillLbl}</div>
       <div class="sb-fill-chips" style="display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;flex-wrap:nowrap">
-        ${values.map(o=>`<button type="button" onclick="_sbFillSelection('${o.v}')" style="flex-shrink:0;min-width:32px;padding:5px 7px;border-radius:6px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:11px;font-weight:800;cursor:pointer">${o.l}</button>`).join('')}
+        ${values.map(o=>`<button type="button" onclick="_sbFillSelection('${o.v}')" style="flex-shrink:0;min-width:32px;padding:5px 7px;border-radius:6px;border:1px solid var(--border2);${_sbChipStyle(o.v)};font-size:11px;font-weight:800;cursor:pointer">${o.l}</button>`).join('')}
       </div>
     </div>`;
   setTimeout(_sbPositionStickyTableHeader,10);
@@ -957,6 +974,8 @@ function _sbUpdateShiftCounts(){
     dayNums.sort(function(a,b){ return a-b; });
     const codes = ['A','B','C','D','N','O'];
     const colors = {A:'#16a34a',B:'#db2777',C:'#0891b2',D:'#f59e0b',N:'#4f46e5',O:'#64748b'};
+    try{ if(typeof mpShiftStyle==='function'){ Object.keys(colors).forEach(function(c){ try{ var st=mpShiftStyle(c); if(st&&st.bg) colors[c]=st.bg; }catch(e){} }); } }catch(e){}
+
     // Per-day counts
     const byDay = {};
     dayNums.forEach(function(d){ byDay[d] = {A:0,B:0,C:0,D:0,N:0,O:0}; });

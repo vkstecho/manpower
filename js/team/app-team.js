@@ -180,7 +180,7 @@ function _renderTeamImpl(search=''){
             <div class="card-name">${escHtml(e.name)}${isMe?(' <span style="font-size:10px;color:var(--m1)">'+L("(आप)","(You)")+'</span>'):''}</div>
             <div class="card-sub">${escHtml(e.empId||'—')}${e.mc&&e.mc!=='—'?(' · '+escHtml(e.mc)):''}${(()=>{const r=String(e.resp||'').trim(),d=String(e.designation||'').trim();const parts=[];if(r&&r!=='—')parts.push(r);if(d&&d!=='—'&&d.toLowerCase()!==r.toLowerCase())parts.push(d);const al=String(e.accessLevel||e.role||'').toLowerCase();if((al==='manager'||e.isTeamManager)&&!parts.some(p=>/manager/i.test(p)))parts.push('Manager');return parts.length?(' · '+parts.map(p=>`<span style="color:var(--desig-color,#7c3aed)">${escHtml(p)}</span>`).join(' · ')):''})()}</div>
             <div style="margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-              <span class="shc ${cellClass(sh)}">${cellDisp(sh)}</span>
+              ${(typeof mpShiftBadgeHtml==="function")?mpShiftBadgeHtml(sh,{w:24,h:20,fs:11}):("<span class=\"shc "+cellClass(sh)+"\">"+cellDisp(sh)+"</span>")}
               <span style="font-size:10px;color:var(--muted)">W-OFF: ${e.woff||'—'}</span>
               ${e.phone?`<span style="font-size:10px;color:var(--green)">📱 ${escHtml(e.phone)}</span>`:''}
               ${ncrBadge}
