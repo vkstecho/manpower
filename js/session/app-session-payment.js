@@ -97,7 +97,7 @@ window._refreshUserPaidUntilFromServer = _refreshUserPaidUntilFromServer;
 function _paymentGateAllows(tab){
   const t = String(tab||'').toLowerCase();
   // Always free tabs (+ Learn & Grow overlay is never paywalled)
-  if(!t || t==='home' || t==='myshift' || t==='my-shift' || t==='learn' || t==='learngrow' || t==='train') return true;
+  if(!t || t==='home' || t==='myshift' || t==='my-shift' || t==='learn' || t==='learngrow' || t==='train' || t==='diary') return true;
   if(_isPaymentExemptUser()) return true;
   const cfg = window._paymentSettingsCache;
   // Only OFF when explicitly disabled

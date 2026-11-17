@@ -468,6 +468,7 @@ function _goTabDirect(t){
   if(t==='leave')        { try{ renderLeaves(); }catch(e){ console.warn('[leave]',e); } try{ renderResignations(); }catch(e){ console.warn('[resign]',e); } }
   if(t==='reports')      renderReports();
   if(t==='pending')      renderPending();
+  if(t==='diary')        { try{ if(typeof renderWorkDiary==='function') renderWorkDiary(); }catch(e){ console.warn('[diary]',e); } }
   if(t==='team')         { try{ renderTeam(); }catch(e){ console.warn('[team]',e); } try{ renderAdminTeamHierarchy(); }catch(e){ console.warn('[teamHier]',e); } }
   if(t==='instructions') renderInstructions();
   try{ if(typeof syncHandoverChipForTab==='function') syncHandoverChipForTab(); }catch(e){}
@@ -578,7 +579,7 @@ function goTab(t){
 
   if(typeof isPendingMember==='function' && isPendingMember()){
     // Still pending AND no elevated rights
-    const allowed = ['home','myshift','todo'];
+    const allowed = ['home','myshift','todo','diary'];
     if(t && !allowed.includes(t)){
       toast(L('⏳ Manager approve होने तक सिर्फ Home / My Shift / To-Do / Learn उपलब्ध हैं','⏳ Until Manager approves, only Home / My Shift / To-Do / Learn are available'));
       t = 'home';

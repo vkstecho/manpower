@@ -1,0 +1,65 @@
+<!-- ── WORK DIARY (personal per mobile) ── -->
+<div class="tab" id="tab-diary">
+  <div class="page-title" style="margin-bottom:4px">📔 Work Diary</div>
+  <div class="page-sub" style="margin-bottom:12px" data-i18n-diary-sub>Date-wise personal diary · only you can see it</div>
+
+  <!-- Search -->
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+    <input type="search" id="wdSearchInput" placeholder="Search in your diaries…"
+      style="flex:1;min-width:160px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:600"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();wdRunSearch();}">
+    <button type="button" class="act-btn" onclick="wdRunSearch()"
+      style="padding:10px 16px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">🔍 Search</button>
+    <button type="button" class="act-btn" onclick="wdClearSearch()"
+      style="padding:10px 12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;cursor:pointer">Clear</button>
+  </div>
+  <div id="wdSearchResults" style="display:none;margin-bottom:14px"></div>
+
+  <!-- A4 diary page -->
+  <div id="wdPage" class="wd-a4" style="max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:18px 18px 22px;box-shadow:0 8px 28px rgba(0,0,0,.12)">
+    <div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--border2)">
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Date</label>
+        <input type="date" id="wdDate" onchange="wdOnDateChange()"
+          style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Day</label>
+        <div id="wdDay" style="padding:8px 12px;border-radius:10px;background:rgba(37,99,235,.1);color:#2563eb;font-weight:800;min-width:100px">—</div>
+      </div>
+      <div style="flex:1;min-width:140px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Shift (from schedule)</label>
+        <div id="wdShift" style="padding:8px 12px;border-radius:10px;background:rgba(34,197,94,.1);color:#16a34a;font-weight:800">—</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:8px">Time slots (From – To) · add more as needed</div>
+    <div id="wdSlots"></div>
+    <button type="button" onclick="wdAddSlot()"
+      style="margin:8px 0 14px;padding:8px 14px;border-radius:10px;border:1.5px dashed var(--border2);background:transparent;color:var(--text);font-weight:700;cursor:pointer;width:100%">＋ Add time slot</button>
+
+    <label style="font-size:12px;font-weight:800;color:var(--muted2);display:block;margin-bottom:6px">Work notes (type or write with stylus)</label>
+    <div id="wdNotes" contenteditable="true" spellcheck="true"
+      data-placeholder="Write today’s work here… stylus / keyboard both work"
+      style="min-height:220px;max-height:50vh;overflow:auto;padding:14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:15px;line-height:1.55;outline:none;-webkit-user-select:text;user-select:text;touch-action:manipulation"></div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;flex-wrap:wrap">
+      <button type="button" onclick="wdSave()"
+        style="flex:1;min-width:120px;padding:14px;border-radius:12px;border:none;background:#16a34a;color:#fff;font-weight:900;font-size:15px;cursor:pointer">💾 Save diary</button>
+      <button type="button" onclick="wdNewToday()"
+        style="padding:14px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">Today</button>
+    </div>
+    <div id="wdStatus" style="margin-top:10px;font-size:12px;font-weight:700;color:var(--muted2)"></div>
+  </div>
+</div>
+<style>
+#wdNotes:empty:before{content:attr(data-placeholder);color:var(--muted2);font-weight:500}
+.wd-slot{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.wd-slot input[type="time"]{padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700}
+.wd-hit{padding:10px 12px;border-radius:12px;border:1px solid var(--border2);background:var(--card);margin-bottom:8px;cursor:pointer}
+.wd-hit:hover{border-color:#2563eb}
+@media print{
+  .nb,.pc-sidebar,#mainNav,#mainHdr,.wd-a4 button,#wdSearchInput{display:none!important}
+  .wd-a4{box-shadow:none!important;border:none!important;max-width:100%!important}
+}
+</style>

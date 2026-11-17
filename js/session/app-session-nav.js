@@ -207,6 +207,7 @@ async function buildNav(){
     // Action (not a tab page) — sits beside Reports in nav / More sheet
     {id:'resign',    ico:'📝', lbl:'त्यागपत्र',  lblEn:'Resign',    roles:['worker','manager','supervisor','member'], action:true},
     {id:'todo',      ico:'✅', lbl:'कार्य सूची',  lblEn:'To-Do',     roles:['guest','worker','manager','supervisor','member','pending_member']},
+    {id:'diary',     ico:'📔', lbl:'वर्क डायरी', lblEn:'Work Diary', roles:['worker','manager','supervisor','member','pending_member','admin']},
     {id:'pending',   ico:'⏳', lbl:'पेंडिंग',   lblEn:'Pending',   roles:['admin','manager']},
     {id:'team',      ico:'👥', lbl:'टीम',        lblEn:'Team',      roles:['admin','manager']},
   ];
@@ -243,7 +244,7 @@ async function buildNav(){
   } else if(effectiveRole === 'manager'){
     tabs = ALL_TABS.filter(t => t.roles.includes('manager'));
   } else if(effectiveRole === 'pending_member'){
-    tabs = ALL_TABS.filter(t => t.roles.includes('pending_member')); // home + todo only
+    tabs = ALL_TABS.filter(t => t.roles.includes('pending_member')); // home + todo + diary
   } else if(effectiveRole === 'member'){
     tabs = ALL_TABS.filter(t => t.roles.includes('member'));
     try{
@@ -280,7 +281,7 @@ async function buildNav(){
   if(syncRow) syncRow.style.display = isGuest() ? 'none' : '';
 
   // Prefer primary tabs; overflow into More sheet (max 5 bottom items)
-  const PRIMARY_ORDER = ['home','myshift','schedule','leave','pending','team','todo','reports','resign'];
+  const PRIMARY_ORDER = ['home','myshift','schedule','leave','pending','team','todo','diary','reports','resign'];
   tabs = tabs.slice().sort((a,b)=>PRIMARY_ORDER.indexOf(a.id)-PRIMARY_ORDER.indexOf(b.id));
   const maxPrimary = 4;
   const primaryTabs = tabs.length <= 5 ? tabs : tabs.slice(0, maxPrimary);
