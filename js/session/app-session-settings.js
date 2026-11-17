@@ -1140,9 +1140,9 @@ function cellDisp(s){
   // Custom time-only day: show hours if encoded as 4H / T:4
   if(/^T([:\-_](\d+(\.\d+)?))?$/i.test(raw0) || /^HR$/i.test(raw0)){
     const m = raw0.match(/(\d+(?:\.\d+)?)/);
-    return m ? (m[1]+'H') : 'T';
+    return m ? (m[1]+' H') : 'T';
   }
-  if(/^\d+(\.\d+)?H$/i.test(raw0)) return raw0.toUpperCase();
+  if(/^\d+(\.\d+)?H$/i.test(raw0)){ const mH=raw0.match(/^(\d+(?:\.\d+)?)H$/i); return mH ? (mH[1]+' H') : raw0.toUpperCase(); }
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
   if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)){
     const half = (typeof parseHlfHalfOf==='function') ? parseHlfHalfOf(raw0) : '';

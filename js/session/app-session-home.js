@@ -1239,7 +1239,7 @@ function renderMyShift(){
     try{
       if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled() && sh && typeof mpComputeDayHours==='function'){
         const h = mpComputeDayHours(e.id, ds, sh);
-        if(h>0) hrsBadge = `<div class="ms-day-hrs" style="font-size:9px;font-weight:800;color:#22c55e;margin-top:2px">${h}h</div>`;
+        if(h>0){ const _hc=(typeof mpHoursColorForShift==='function'?mpHoursColorForShift(sh):'#16a34a'); hrsBadge = `<div class="ms-day-hrs" style="font-size:9px;font-weight:800;color:${_hc};margin-top:2px">${h}&nbsp;h</div>`; }
       }
     }catch(_h){}
     cells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${e.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
@@ -1365,7 +1365,7 @@ function renderMyShift(){
           try{
             if(typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled() && sh){
               const hh = (typeof mpComputeDayHours==='function') ? mpComputeDayHours(selEmp.id, ds, sh) : 0;
-              if(hh) hrsLine = `<div style="font-size:10px;font-weight:800;color:#22c55e;margin-top:2px">${hh}h</div>`;
+              if(hh){ const _hc=(typeof mpHoursColorForShift==='function'?mpHoursColorForShift(sh):'#16a34a'); hrsLine = `<div style="font-size:10px;font-weight:800;color:${_hc};margin-top:2px">${hh}&nbsp;h</div>`; }
             }
           }catch(_h){}
           mcells += `<div class="ms-day${isToday?' today':''}${selected?' ms-multi-on':''}" data-ms-date="${ds}" data-ms-shift="${sh}" data-ms-empid="${selEmp.id}" data-ms-empname="${nm}" data-ms-sh="${shEsc}"
@@ -1488,6 +1488,39 @@ window._paymentSettingsAt = 0;
 
 
 
+
+
+/** Colour for hours badge under a day — match Schedule legend colour for that shift */
+function mpHoursColorForShift(sh){
+  try{
+    const code = String(sh||'').trim();
+    if(!code) return '#16a34a';
+    const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+    const shifts = cfg.shifts || [];
+    const up = code.toUpperCase().replace(/\s+/g,'');
+    for(let i=0;i<shifts.length;i++){
+      const s = shifts[i];
+      if(!s || !s.code) continue;
+      if(String(s.code).toUpperCase().replace(/\s+/g,'')===up){
+        if(s.color) return s.color;
+        if(s.fg) return s.fg;
+        if(s.bg) return s.bg;
+      }
+    }
+    const map = {
+      G:'#38bdf8', D:'#f59e0b', N:'#4f46e5', A:'#16a34a', B:'#db2777', C:'#0891b2',
+      O:'#64748b', L:'#f43f5e', 'C/O':'#ca8a04', CO:'#ca8a04', H:'#ea580c',
+      HLF:'#f59e0b', Ab:'#b91c1c', OD:'#0d9488', GP:'#7c3aed'
+    };
+    let key = up;
+    try{ if(typeof normalizeShiftCode==='function') key = String(normalizeShiftCode(code)||up).toUpperCase(); }catch(e){}
+    if(map[key]) return map[key];
+    if(map[up]) return map[up];
+    if(/^\d+(\.\d+)?H$/i.test(code) || /^T/i.test(code)) return '#f97316';
+    return '#16a34a';
+  }catch(e){ return '#16a34a'; }
+}
+try{ window.mpHoursColorForShift = mpHoursColorForShift; }catch(e){}
 
 /** Manager saves target hours for a selected team member (My Shift member calendar) */
 async function mpSaveMemberTargetHours(empId, monthKey, rawVal){
