@@ -623,8 +623,6 @@
   global.mpSumMonthHours = sumMonthHours;
   global.mpIdentityChipHtml = identityChipHtml;
   global.mpCareerHistoryHtml = careerHistoryHtml;
-  try{ global.mpAddCareerEntry = mpAddCareerEntry; global.mpRemoveCareerEntry = mpRemoveCareerEntry; }catch(e){}
-  try{ window.mpAddCareerEntry = mpAddCareerEntry; window.mpRemoveCareerEntry = mpRemoveCareerEntry; }catch(e){}
   global.mpGetCareerHistory = getCareerHistory;
   global.mpMonthRowAnnotation = monthRowAnnotation;
   global.mpIsTimeLegendEnabled = isTimeLegendEnabled;
@@ -753,90 +751,41 @@
   }
 
   function careerHistoryHtml(emp) {
-    if (!emp) return '';
     var rows = getCareerHistory(emp);
-    var jd = '';
-    try {
-      if (typeof getJoiningDate === 'function') jd = getJoiningDate(emp) || '';
-      else jd = emp.joiningDate || emp.doj || '';
-    } catch (e) {}
-    var eid = emp.id || '';
-    var body = '';
-    if (rows && rows.length) {
-      body = rows
-        .map(function (h, idx) {
-          var co = h.company ? String(h.company) : '—';
-          var code = h.empCode ? String(h.empCode) : '—';
-          var from = h.from || '—';
-          var to = h.to || _L('अब तक', 'Present');
-          return (
-            '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px 12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin-bottom:8px;align-items:center">' +
-            '<div><div style="font-size:11px;color:var(--muted2)">🏢 Company</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
-            esc(co) +
-            '</div></div>' +
-            '<div><div style="font-size:11px;color:var(--muted2)">🪪 Emp Code</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
-            esc(code) +
-            '</div></div>' +
-            '<button type="button" title="Remove" onclick="mpRemoveCareerEntry(\'' +
-            String(eid).replace(/'/g, '') +
-            '\',' +
-            idx +
-            ')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);cursor:pointer">✕</button>' +
-            '<div style="grid-column:1/-1;font-size:12px;color:var(--muted2)">📅 ' +
-            esc(from) +
-            ' → ' +
-            esc(to) +
-            (jd && from && from < jd
-              ? ' · <span style="color:#ea580c;font-weight:700">' +
-                _L('joining से पहले', 'before joining') +
-                '</span>'
-              : '') +
-            '</div></div>'
-          );
-        })
-        .join('');
-    } else {
-      body =
-        '<div style="padding:10px;border-radius:10px;border:1px dashed var(--border2);color:var(--muted2);font-size:12px;margin-bottom:8px">' +
-        _L('अभी इतिहास नहीं — नीचे पुरानी company जोड़ें', 'No history yet — add past company below') +
-        '</div>';
+    if (!rows || !rows.length) {
+      return (
+        '<div style="margin-top:14px;padding:12px;border-radius:12px;border:1px dashed var(--border2);color:var(--muted2);font-size:12px">' +
+        _L('अभी Company / Emp Code इतिहास नहीं', 'No company / emp code history yet') +
+        '</div>'
+      );
     }
-    var form =
-      '<div style="margin-top:10px;padding:12px;border-radius:12px;border:1.5px dashed rgba(37,99,235,.4);background:rgba(37,99,235,.06)">' +
-      '<div style="font-size:12px;font-weight:800;color:#2563eb;margin-bottom:8px">＋ ' +
-      _L('पुरानी Company / Emp Code जोड़ें', 'Add past Company / Emp Code') +
-      '</div>' +
-      (jd
-        ? '<div style="font-size:11px;color:var(--muted2);margin-bottom:8px">' +
-          _L('Current team joining: ', 'Current team joining: ') +
-          esc(jd) +
-          ' — ' +
-          _L('us se pehle ki company yahan add karein', 'add companies before this date here') +
-          '</div>'
-        : '') +
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">' +
-      '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">Company</label>' +
-      '<input id="mpCareerCo_' +
-      eid +
-      '" type="text" placeholder="Company name" style="width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;box-sizing:border-box"></div>' +
-      '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">Emp Code</label>' +
-      '<input id="mpCareerCode_' +
-      eid +
-      '" type="text" placeholder="E-code" style="width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;box-sizing:border-box"></div>' +
-      '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">From</label>' +
-      '<input id="mpCareerFrom_' +
-      eid +
-      '" type="date" style="width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;box-sizing:border-box"></div>' +
-      '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">To</label>' +
-      '<input id="mpCareerTo_' +
-      eid +
-      '" type="date" style="width:100%;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;box-sizing:border-box"></div>' +
-      '</div>' +
-      '<button type="button" onclick="mpAddCareerEntry(\'' +
-      String(eid).replace(/'/g, '') +
-      '\')" style="margin-top:10px;width:100%;padding:10px;border-radius:10px;border:none;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">' +
-      _L('💾 Save past company', '💾 Save past company') +
-      '</button></div>';
+    var body = rows
+      .map(function (h) {
+        var co = h.company ? String(h.company) : '—';
+        var code = h.empCode ? String(h.empCode) : '—';
+        var from = h.from || '—';
+        var to = h.to || _L('अब तक', 'Present');
+        return (
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin-bottom:8px">' +
+          '<div style="font-size:11px;color:var(--muted2)">🏢 Company</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
+          esc(co) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">🪪 Emp Code</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
+          esc(code) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">📅 ' +
+          _L('से', 'From') +
+          '</div><div style="font-size:12px;font-weight:700">' +
+          esc(from) +
+          '</div>' +
+          '<div style="font-size:11px;color:var(--muted2)">📅 ' +
+          _L('तक', 'To') +
+          '</div><div style="font-size:12px;font-weight:700">' +
+          esc(to) +
+          '</div></div>'
+        );
+      })
+      .join('');
     return (
       '<div class="mp-career-hist" style="margin-top:16px">' +
       '<div style="font-size:14px;font-weight:900;color:var(--text);margin-bottom:8px">🏢 ' +
@@ -844,107 +793,13 @@
       '</div>' +
       '<div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.4">' +
       _L(
-        'Joining date current manager team ke liye hai. Us se pehle ki company / E-code yahan add karein — schedule grid alag rehta hai.',
-        'Joining date is for the current manager team. Add earlier company / E-code here — schedule grid stays separate.'
+        'जब आप Company या Emp Code बदलते हैं, पुरानी अवधि यहाँ सुरक्षित रहती है। Schedule ग्रिड में नहीं दिखती।',
+        'When you change company or emp code, past periods stay here. Not shown on the schedule grid.'
       ) +
       '</div>' +
       body +
-      form +
       '</div>'
     );
-  }
-
-  async function mpAddCareerEntry(empId) {
-    try {
-      if (!empId) return;
-      var coEl = document.getElementById('mpCareerCo_' + empId);
-      var codeEl = document.getElementById('mpCareerCode_' + empId);
-      var fromEl = document.getElementById('mpCareerFrom_' + empId);
-      var toEl = document.getElementById('mpCareerTo_' + empId);
-      var company = (coEl && coEl.value) || '';
-      var empCode = (codeEl && codeEl.value) || '';
-      var from = (fromEl && fromEl.value) || '';
-      var to = (toEl && toEl.value) || '';
-      company = String(company).trim();
-      empCode = String(empCode).trim();
-      if (!company && !empCode) {
-        if (typeof toast === 'function') toast('Company or Emp Code required');
-        return;
-      }
-      if (from && to && from > to) {
-        if (typeof toast === 'function') toast('From date must be before To');
-        return;
-      }
-      var emp = null;
-      try {
-        emp = (typeof getEmps === 'function' ? getEmps() : []).find(function (e) {
-          return e && e.id === empId;
-        });
-      } catch (e) {}
-      if (!emp && typeof _cache !== 'undefined') {
-        emp = (_cache.employees || []).find(function (e) {
-          return e && e.id === empId;
-        });
-      }
-      if (!emp) {
-        if (typeof toast === 'function') toast('Employee not found');
-        return;
-      }
-      var hist = Array.isArray(emp.companyHistory) ? emp.companyHistory.slice() : [];
-      hist.push({
-        company: company,
-        empCode: empCode,
-        from: from,
-        to: to,
-        addedAt: new Date().toISOString(),
-        addedBy: (typeof SESSION !== 'undefined' && SESSION && SESSION.name) || ''
-      });
-      // sort by from date
-      hist.sort(function (a, b) {
-        return String(a.from || '').localeCompare(String(b.from || ''));
-      });
-      if (typeof fbUpdate === 'function') {
-        await fbUpdate('employees/' + empId, { companyHistory: hist });
-      }
-      emp.companyHistory = hist;
-      try {
-        if (_cache && Array.isArray(_cache.employees)) {
-          var ix = _cache.employees.findIndex(function (e) {
-            return e && e.id === empId;
-          });
-          if (ix >= 0) _cache.employees[ix].companyHistory = hist;
-        }
-      } catch (e) {}
-      if (typeof toast === 'function') toast('✅ Past company saved');
-      try {
-        if (typeof renderMyShift === 'function') renderMyShift();
-      } catch (e) {}
-    } catch (e) {
-      console.warn('[mpAddCareerEntry]', e);
-      if (typeof toast === 'function') toast('❌ ' + (e.message || 'Save failed'));
-    }
-  }
-
-  async function mpRemoveCareerEntry(empId, idx) {
-    try {
-      var emp = (typeof getEmps === 'function' ? getEmps() : []).find(function (e) {
-        return e && e.id === empId;
-      });
-      if (!emp) return;
-      var hist = Array.isArray(emp.companyHistory) ? emp.companyHistory.slice() : [];
-      if (idx < 0 || idx >= hist.length) return;
-      hist.splice(idx, 1);
-      if (typeof fbUpdate === 'function') {
-        await fbUpdate('employees/' + empId, { companyHistory: hist });
-      }
-      emp.companyHistory = hist;
-      if (typeof toast === 'function') toast('Removed');
-      try {
-        if (typeof renderMyShift === 'function') renderMyShift();
-      } catch (e) {}
-    } catch (e) {
-      console.warn('[mpRemoveCareerEntry]', e);
-    }
   }
 
 

@@ -74,7 +74,7 @@ if(!rows||rows.length<2)return void(statusEl.innerHTML='<span style="color:var(-
 // Prefer Flat Team+Schedule (Name + Emp ID + date columns like 2026-11-01) over Horizontal
 const _hdrNorm=function(s){return String(s||"").trim().toLowerCase().replace(/\s+/g," ");};
 const _hdrCells=(titleRow||[]).map(function(c){return _hdrNorm(c instanceof Date ? "" : c);});
-const _isFlatTeamHeader=_hdrCells.some(function(c){return c==="name"||c==="employee name"||c==="emp name";}) && (_hdrCells.some(function(c){return /^(emp id|e code|emp code|code|empid|employee id|employee code)$/.test(c);}) || _hdrCells.some(function(c){return /^(mobile|phone|mobile no|mobile number|phone no|phone number|contact)$/.test(c);}));
+const _isFlatTeamHeader=_hdrCells.some(function(c){return c==="name"||c==="employee name"||c==="emp name";}) && _hdrCells.some(function(c){return /^(emp id|e code|emp code|code|empid|employee id|employee code)$/.test(c);});
 const titleCells=titleRow.map(function(c,i){
   var v;
   if(c instanceof Date && !isNaN(c.getTime())) return null; // Date objects are day columns, not month titles
@@ -89,140 +89,7 @@ const titleCells=titleRow.map(function(c,i){
   return {i:i,v:v};
 }).filter(Boolean);
 const hasDayNums=!_isFlatTeamHeader && dayNumRow.some(function(c){var n=parseInt(String(c||"").trim(),10);return!isNaN(n)&&n>=1&&n<=31;});
-if(!_isFlatTeamHeader&&titleCells.length>0&&hasDayNums){formatName="Man Power Horizontal All-Months Format";const empCodeCol=2,sections=[];titleCells.sort((a,b)=>a.i-b.i),titleCells.forEach((tc,idx)=>{const yearMatch=tc.v.match(/\b(20\d{2})\b/),monMatch=tc.v.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/);if(!yearMatch||!monMatch)return;const year=parseInt(yearMatch[1]),month=MONTHS[monMatch[1]],monthKey=`${year}_${String(month).padStart(2,"0")}`,startCol=tc.i,endCol=idx+1<titleCells.length?titleCells[idx+1].i-1:rows[0].length-1;sections.push({monthKey:monthKey,year:year,month:month,startCol:startCol,endCol:endCol})}),sections.forEach(sec=>{const colToDayIdx={};for(let c=sec.startCol;c<=sec.endCol;c++){const val=String(dayNumRow[c]||"").trim(),dayNum=parseInt(val);!isNaN(dayNum)&&dayNum>=1&&dayNum<=31&&(colToDayIdx[c]=dayNum-1)}sec.colToDayIdx=colToDayIdx;const daysInMonth=new Date(sec.year,sec.month,0).getDate();sec.daysInMonth=daysInMonth});const SH_NORM={"C/O":"C/O",CO:"C/O",COFF:"C/O","C-OFF":"C/O",GP:"GP",HLF:"HLF",HALF:"HLF",H:"H",AB:"Ab",ABSENT:"Ab",OD:"OD",G:"G",GENERAL:"G",SL:"L",A:"A"};for(let r=3;r<rows.length;r++){const row=rows[r],rawEmpId=String(row[empCodeCol]||"").trim().replace(/[^0-9A-Za-z]/g,"");rawEmpId&&!isNaN(Number(rawEmpId))&&(sections.forEach(sec=>{schedByMonth[sec.monthKey]||(schedByMonth[sec.monthKey]={}),schedByMonth[sec.monthKey][rawEmpId]||(schedByMonth[sec.monthKey][rawEmpId]=new Array(sec.daysInMonth).fill("")),Object.entries(sec.colToDayIdx).forEach(([col,dayIdx])=>{if(dayIdx>=sec.daysInMonth)return;let sh=String(row[parseInt(col)]||"").trim().toUpperCase();sh=SH_NORM[sh]||sh,sh&&(["D","N","O","L","C/O","G","GP","HLF","H","Ab","OD"].includes(sh)||sh.length<=3)&&(schedByMonth[sec.monthKey][rawEmpId][dayIdx]=sh)})}),empCount++)}}else if(rows.some(r=>r.some(c=>/e\.?\s*code/i.test(String(c||""))))){formatName="Man Power Section-Block Format";let i=0;for(;i<rows.length;){const rowText=rows[i].map(c=>String(c||"")).join(" "),yearMatch=rowText.match(/\b(20\d{2})\b/),monMatch=rowText.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/);if(yearMatch&&monMatch){const year=parseInt(yearMatch[1]),month=MONTHS[monMatch[1]],monthKey=`${year}_${String(month).padStart(2,"0")}`,daysInMonth=new Date(year,month,0).getDate();let headerRow=null,headerRowIdx=-1;for(let h=i+1;h<Math.min(i+6,rows.length);h++)if(rows[h].some(c=>/e\.?\s*code/i.test(String(c||"")))){headerRow=rows[h],headerRowIdx=h;break}if(!headerRow){i++;continue}let codeCol=-1;const dayColMap={};if(headerRow.forEach((cell,ci)=>{const s=String(cell||"").trim();/^e\.?\s*code$/i.test(s)&&(codeCol=ci);const d=parseInt(s);!isNaN(d)&&d>=1&&d<=31&&(dayColMap[d]=ci)}),-1===codeCol||0===Object.keys(dayColMap).length){i=headerRowIdx+1;continue}let r=headerRowIdx+1;for(;r<rows.length;){const dr=rows[r],empId=String(dr[codeCol]||"").trim().replace(/[^0-9A-Za-z]/g,"");if(!empId){r++;break}/s\.?\s*no/i.test(empId)||/name/i.test(empId)||(schedByMonth[monthKey]||(schedByMonth[monthKey]={}),schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=new Array(daysInMonth).fill("")),Object.entries(dayColMap).forEach(([day,ci])=>{const dayIdx=parseInt(day)-1;if(dayIdx>=daysInMonth)return;let sh=String(dr[ci]||"").trim().toUpperCase();sh={"C/O":"C/O",CO:"C/O",GP:"GP",HLF:"HLF",AB:"Ab",OD:"OD",G:"G"}[sh]||sh,sh&&(schedByMonth[monthKey][empId][dayIdx]=sh)}),empCount++),r++}i=r}else i++}}else{const headerRowIdx=rows.findIndex(r=>{const cells=(r||[]).map(c=>String(c||"").trim().toLowerCase()),hasName=cells.some(c=>"name"===c||c==="employee name"||c==="emp name"),hasCode=cells.some(c=>/^(emp\s*id|e\s*code|emp\s*code|code|empid|employee\s*id|employee\s*code)$/.test(c));return hasCode||(hasName&&hasCode);});if(headerRowIdx>=0){formatName="Flat Team+Schedule (Name / Emp ID / Section + dates)";try{window._lastExcelHeaderIdx=headerRowIdx;}catch(x){}const header=rows[headerRowIdx]||[],norm=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");let empCodeCol=-1,nameCol=-1,phoneCol=-1;const dayColMap={},MONTH_ABBR={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};header.forEach((cell,ci)=>{const n=norm(cell);if("name"===n||n==="employee name"||n==="emp name")nameCol=ci;if(/^(emp id|e code|emp code|code|empid|employee id|employee code)$/.test(n))empCodeCol=ci;if(/^(mobile|phone|mobile no|mobile number|phone no|phone number|contact)$/.test(n))phoneCol=ci;let dObj=null;if(cell instanceof Date&&!isNaN(cell.getTime()))dObj=cell;else if("number"==typeof cell&&cell>3e4&&cell<8e4)dObj=new Date(Math.round(86400*(cell-25569)*1e3));else{const s=String(cell||"").trim();if(!s||/^(name|emp|section|department|dept|machine|mobile|phone|designation|salary|joining|birth|weekly|responsib|woff|week)/i.test(s))return;let m=s.match(/^(\d{1,2})[-/ .](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .](\d{2,4})$/i);if(m){let year=parseInt(m[3],10);year<100&&(year+=2e3);const month=MONTH_ABBR[m[2].toLowerCase().slice(0,3)],day=parseInt(m[1],10);return void(month&&day&&(dayColMap[ci]={year:year,month:month,day:day}))}if(m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),m)return void(dayColMap[ci]={year:+m[1],month:+m[2],day:+m[3]});if(m=s.replace(/\s/g,"").match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/),m){let year=parseInt(m[3],10);year<100&&(year+=2e3);let day,month,a=parseInt(m[1],10),b=parseInt(m[2],10);return a>12?(day=a,month=b):b>12?(day=b,month=a):(day=a,month=b),void(month>=1&&month<=12&&day>=1&&day<=31&&(dayColMap[ci]={year:year,month:month,day:day}))}const tryD=new Date(s);!isNaN(tryD.getTime())&&tryD.getFullYear()>=2020&&tryD.getFullYear()<=2035&&(dObj=tryD)}dObj&&(dayColMap[ci]={year:dObj.getFullYear(),month:dObj.getMonth()+1,day:dObj.getDate()})}),empCodeCol<0&&(empCodeCol=1),console.log("[Excel upload] FORMAT C date columns:",Object.keys(dayColMap).length,dayColMap);const SH_NORM2={"C/O":"C/O",CO:"C/O",COFF:"C/O","C-OFF":"C/O",GP:"GP",HLF:"HLF",HALF:"HLF",H:"H",AB:"Ab",ABSENT:"Ab",OD:"OD",G:"G",GENERAL:"G",SL:"L"};for(let r=headerRowIdx+1;r<rows.length;r++){const row=rows[r];if(!row)continue;const cell0=String(row[0]||"").trim();if(/^---/.test(cell0)||/^notes?\b/i.test(cell0)||/^en:/i.test(cell0)||/^hi:/i.test(cell0)||/कॉलम|उद्देश्य|सुझाव|उपयोग/.test(cell0))continue;// Match priority: Mobile (unique) → Emp Code → Name. Emp Code optional.
-var phoneRaw="";
-try{
-  if(typeof phoneCol==="number"&&phoneCol>=0) phoneRaw=String(row[phoneCol]||"").trim();
-}catch(x){}
-// Also scan row for 10-digit mobile if no phone column
-var phone10="";
-try{
-  var dig=String(phoneRaw||"").replace(/\D/g,"").slice(-10);
-  if(dig.length===10) phone10=dig;
-  if(!phone10){
-    for(var _ci=0;_ci<Math.min(row.length,8);_ci++){
-      var _d=String(row[_ci]||"").replace(/\D/g,"").slice(-10);
-      if(_d.length===10){ phone10=_d; break; }
-    }
-  }
-}catch(x){}
-var empIdRaw=(empCodeCol>=0)?String(row[empCodeCol]||"").trim():"";
-var empId="";
-if(empIdRaw&&!/^---/.test(empIdRaw)){
-  empId=empIdRaw.replace(/[^0-9A-Za-z]/g,"");
-}
-var nameRaw="";
-try{
-  nameRaw=String((nameCol>=0?row[nameCol]:row[0])||"").trim();
-}catch(x){ nameRaw=String(row[0]||"").trim(); }
-
-var roster=[];
-try{ roster=(typeof getEmps==="function"?getEmps():[])||[]; }catch(x){}
-var matched=null;
-// 1) Mobile match — unique
-if(phone10&&phone10.length===10){
-  matched=roster.find(function(e){
-    if(!e) return false;
-    var ph=String(e.phone||e.mobile||"").replace(/\D/g,"").slice(-10);
-    return ph===phone10;
-  })||null;
-}
-// 2) Emp code match
-if(!matched&&empId&&empId.length>=2){
-  var codeU=String(empId).toUpperCase();
-  matched=roster.find(function(e){
-    if(!e||e.empId==null) return false;
-    return String(e.empId).trim().toUpperCase()===codeU;
-  })||null;
-}
-// 3) Name match
-if(!matched&&nameRaw&&!/^(name|emp|date|notes?)$/i.test(nameRaw)){
-  var want=nameRaw.toLowerCase().replace(/\s+/g," ").trim();
-  matched=roster.find(function(e){
-    if(!e||!e.name) return false;
-    return String(e.name).toLowerCase().replace(/\s+/g," ").trim()===want;
-  })||null;
-}
-
-// Schedule key: prefer internal id when matched (works without Emp Code)
-if(matched&&matched.id){
-  empId=matched.id;
-  // Also keep emp code alias filled later via dual-key
-}else if(empId&&empId.length>=2){
-  // keep empId as-is for new/unknown codes
-}else if(phone10){
-  empId="M_"+phone10; // mobile-keyed until Company/E-code set in My Shift
-}else if(nameRaw){
-  empId="N_"+nameRaw.toUpperCase().replace(/[^A-Z0-9]+/g,"_").slice(0,24);
-}else{
-  continue;
-}
-if(!empId||empId.length<2)continue;
-if(/^(notes?|salary|section|name|emp|date|column|tip|how|en|hi)$/i.test(empId))continue;const first=String(row[0]||"").trim().toLowerCase();/^(sun|mon|tue|wed|thu|fri|sat)$/.test(first)&&!String(row[empCodeCol]||"").trim()||Object.entries(dayColMap).forEach(([col,dm])=>{const monthKey=dm.year+"_"+String(dm.month).padStart(2,"0"),dayIdx=dm.day-1,daysInMonth=new Date(dm.year,dm.month,0).getDate();if(dayIdx<0||dayIdx>=daysInMonth)return;schedByMonth[monthKey]||(schedByMonth[monthKey]={}),schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=new Array(daysInMonth).fill(""));let sh=String(row[parseInt(col,10)]||"").trim().toUpperCase();sh=SH_NORM2[sh]||sh,sh&&(["D","N","O","L","C/O","G","GP","HLF","H","Ab","OD","A","B","C"].includes(sh)||(sh.length>=1&&sh.length<=6&&!/[^A-Z0-9\/\+]/.test(sh)))&&(schedByMonth[monthKey][empId][dayIdx]=sh,empCount++)})}}else{formatName="Simple Date-Row Format";const header=rows[0],now=new Date,cutoffStr=new Date(now.getFullYear(),now.getMonth()-12,1).toISOString().split("T")[0];for(let r=1;r<rows.length;r++){const row=rows[r];if(!row||!row[0])continue;let dateStr="";const raw=String(row[0]).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(raw))dateStr=raw;else if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(raw)){const p=raw.split(/[\/\-]/);dateStr=`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`}else{const d=new Date(raw);isNaN(d)||(dateStr=d.toISOString().split("T")[0])}if(!dateStr||dateStr<cutoffStr)continue;const monthKey=dateStr.substring(0,7).replace("-","_"),dayIdx=parseInt(dateStr.split("-")[2],10)-1;schedByMonth[monthKey]||(schedByMonth[monthKey]={});for(let c=1;c<header.length;c++){const empId=String(header[c]||"").trim();if(!empId)continue;const sh=String(row[c]||"O").trim().toUpperCase()||"O";schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=[]),schedByMonth[monthKey][empId][dayIdx]=sh,empCount++}}}}const months=Object.keys(schedByMonth);if(0===months.length)return void(statusEl.innerHTML=`<span style="color:var(--lv)">❌ कोई valid data नहीं मिला<br>
-        <span style="color:var(--muted2)">Format detected: ${formatName||"Unknown"}<br>
-        Expected: row 1 headers Name + Emp ID + date columns (YYYY-MM-DD or 01-Nov-2026), or Horizontal All-Months template</span></span>`);
-// Build member list (Name + Mobile) for overwrite confirmation
-try{
-  const roster=(typeof getEmps==='function'?getEmps():[])||[];
-  const keySet=new Set();
-  months.forEach(function(mk){
-    const block=schedByMonth[mk]||{};
-    Object.keys(block).forEach(function(k){ keySet.add(String(k)); });
-  });
-  const memberList=[];
-  const seen=new Set();
-  keySet.forEach(function(k){
-    var emp=null;
-    var phone='';
-    var name='';
-    var code='';
-    // direct id / code / M_phone / N_name
-    emp=roster.find(function(e){ return e&&(e.id===k||String(e.empId||'').trim()===k||String(e.empId||'').trim().toUpperCase()===String(k).toUpperCase()); });
-    if(!emp&&/^M_\d{10}$/.test(k)){
-      var p=k.slice(2);
-      emp=roster.find(function(e){ var ph=String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10); return ph===p; });
-      phone=p;
-    }
-    if(!emp&&/^\d{10}$/.test(k)){
-      emp=roster.find(function(e){ var ph=String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10); return ph===k; });
-      phone=k;
-    }
-    if(emp){
-      name=emp.name||'';
-      code=emp.empId!=null?String(emp.empId):'';
-      phone=phone||String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
-    }else{
-      name=String(k);
-    }
-    var uniq=(phone||code||name);
-    if(seen.has(uniq)) return;
-    seen.add(uniq);
-    memberList.push({ name: name||'—', mobile: phone?('+91 '+phone):'—', empCode: code });
-  });
-  memberList.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
-  statusEl.innerHTML='<span style="color:var(--day)">⏳ Confirm overwrite…</span>';
-  const ok=await _confirmExcelOverwrite(memberList, months);
-  if(!ok){
-    statusEl.innerHTML='<span style="color:var(--muted2)">❌ Upload cancelled — existing shifts kept</span>';
-    try{ if(typeof toast==='function') toast('Upload cancelled'); }catch(e){}
-    return;
-  }
-}catch(confErr){ console.warn('[excel confirm]', confErr); }
-statusEl.innerHTML=`<span style="color:var(--day)">`+(typeof L==='function'?L('⏳ Firebase में '+months.length+' महीने save हो रहे हैं...','⏳ Saving '+months.length+' month(s) to Firebase...'):('⏳ Saving '+months.length+' month(s)...'))+`</span>`;
-let saved=0;const saveErrors=[],empIdToInternal={};getEmps().forEach(e=>{
-  if(!e) return;
-  if(e.empId){ empIdToInternal[String(e.empId).trim()]=e.id; empIdToInternal[String(e.empId).trim().toUpperCase()]=e.id; }
-  if(e.id) empIdToInternal[e.id]=e.id;
-  if(e.name){
-    var nk="N_"+String(e.name).toUpperCase().replace(/[^A-Z0-9]+/g,"_").slice(0,24);
-    empIdToInternal[nk]=e.id;
-  }
-  var ph=String(e.phone||e.mobile||"").replace(/\D/g,"").slice(-10);
-  if(ph.length===10){
-    empIdToInternal["M_"+ph]=e.id;
-    empIdToInternal[ph]=e.id;
-  }
-});
+if(!_isFlatTeamHeader&&titleCells.length>0&&hasDayNums){formatName="Man Power Horizontal All-Months Format";const empCodeCol=2,sections=[];titleCells.sort((a,b)=>a.i-b.i),titleCells.forEach((tc,idx)=>{const yearMatch=tc.v.match(/\b(20\d{2})\b/),monMatch=tc.v.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/);if(!yearMatch||!monMatch)return;const year=parseInt(yearMatch[1]),month=MONTHS[monMatch[1]],monthKey=`${year}_${String(month).padStart(2,"0")}`,startCol=tc.i,endCol=idx+1<titleCells.length?titleCells[idx+1].i-1:rows[0].length-1;sections.push({monthKey:monthKey,year:year,month:month,startCol:startCol,endCol:endCol})}),sections.forEach(sec=>{const colToDayIdx={};for(let c=sec.startCol;c<=sec.endCol;c++){const val=String(dayNumRow[c]||"").trim(),dayNum=parseInt(val);!isNaN(dayNum)&&dayNum>=1&&dayNum<=31&&(colToDayIdx[c]=dayNum-1)}sec.colToDayIdx=colToDayIdx;const daysInMonth=new Date(sec.year,sec.month,0).getDate();sec.daysInMonth=daysInMonth});const SH_NORM={"C/O":"C/O",CO:"C/O",COFF:"C/O","C-OFF":"C/O",GP:"GP",HLF:"HLF",HALF:"HLF",H:"H",AB:"Ab",ABSENT:"Ab",OD:"OD",G:"G",GENERAL:"G",SL:"L",A:"A"};for(let r=3;r<rows.length;r++){const row=rows[r],rawEmpId=String(row[empCodeCol]||"").trim().replace(/[^0-9A-Za-z]/g,"");rawEmpId&&!isNaN(Number(rawEmpId))&&(sections.forEach(sec=>{schedByMonth[sec.monthKey]||(schedByMonth[sec.monthKey]={}),schedByMonth[sec.monthKey][rawEmpId]||(schedByMonth[sec.monthKey][rawEmpId]=new Array(sec.daysInMonth).fill("")),Object.entries(sec.colToDayIdx).forEach(([col,dayIdx])=>{if(dayIdx>=sec.daysInMonth)return;let sh=String(row[parseInt(col)]||"").trim().toUpperCase();sh=SH_NORM[sh]||sh,sh&&(["D","N","O","L","C/O","G","GP","HLF","H","Ab","OD"].includes(sh)||sh.length<=3)&&(schedByMonth[sec.monthKey][rawEmpId][dayIdx]=sh)})}),empCount++)}}else if(rows.some(r=>r.some(c=>/e\.?\s*code/i.test(String(c||""))))){formatName="Man Power Section-Block Format";let i=0;for(;i<rows.length;){const rowText=rows[i].map(c=>String(c||"")).join(" "),yearMatch=rowText.match(/\b(20\d{2})\b/),monMatch=rowText.toLowerCase().match(/\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b/);if(yearMatch&&monMatch){const year=parseInt(yearMatch[1]),month=MONTHS[monMatch[1]],monthKey=`${year}_${String(month).padStart(2,"0")}`,daysInMonth=new Date(year,month,0).getDate();let headerRow=null,headerRowIdx=-1;for(let h=i+1;h<Math.min(i+6,rows.length);h++)if(rows[h].some(c=>/e\.?\s*code/i.test(String(c||"")))){headerRow=rows[h],headerRowIdx=h;break}if(!headerRow){i++;continue}let codeCol=-1;const dayColMap={};if(headerRow.forEach((cell,ci)=>{const s=String(cell||"").trim();/^e\.?\s*code$/i.test(s)&&(codeCol=ci);const d=parseInt(s);!isNaN(d)&&d>=1&&d<=31&&(dayColMap[d]=ci)}),-1===codeCol||0===Object.keys(dayColMap).length){i=headerRowIdx+1;continue}let r=headerRowIdx+1;for(;r<rows.length;){const dr=rows[r],empId=String(dr[codeCol]||"").trim().replace(/[^0-9A-Za-z]/g,"");if(!empId){r++;break}/s\.?\s*no/i.test(empId)||/name/i.test(empId)||(schedByMonth[monthKey]||(schedByMonth[monthKey]={}),schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=new Array(daysInMonth).fill("")),Object.entries(dayColMap).forEach(([day,ci])=>{const dayIdx=parseInt(day)-1;if(dayIdx>=daysInMonth)return;let sh=String(dr[ci]||"").trim().toUpperCase();sh={"C/O":"C/O",CO:"C/O",GP:"GP",HLF:"HLF",AB:"Ab",OD:"OD",G:"G"}[sh]||sh,sh&&(schedByMonth[monthKey][empId][dayIdx]=sh)}),empCount++),r++}i=r}else i++}}else{const headerRowIdx=rows.findIndex(r=>{const cells=(r||[]).map(c=>String(c||"").trim().toLowerCase()),hasName=cells.some(c=>"name"===c||c==="employee name"||c==="emp name"),hasCode=cells.some(c=>/^(emp\s*id|e\s*code|emp\s*code|code|empid|employee\s*id|employee\s*code)$/.test(c));return hasCode||(hasName&&hasCode);});if(headerRowIdx>=0){formatName="Flat Team+Schedule (Name / Emp ID / Section + dates)";try{window._lastExcelHeaderIdx=headerRowIdx;}catch(x){}const header=rows[headerRowIdx]||[],norm=s=>String(s||"").trim().toLowerCase().replace(/\s+/g," ");let empCodeCol=-1,nameCol=-1;const dayColMap={},MONTH_ABBR={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,oct:10,nov:11,dec:12};header.forEach((cell,ci)=>{const n=norm(cell);if("name"===n||n==="employee name"||n==="emp name")nameCol=ci;if(/^(emp id|e code|emp code|code|empid|employee id|employee code)$/.test(n))empCodeCol=ci;let dObj=null;if(cell instanceof Date&&!isNaN(cell.getTime()))dObj=cell;else if("number"==typeof cell&&cell>3e4&&cell<8e4)dObj=new Date(Math.round(86400*(cell-25569)*1e3));else{const s=String(cell||"").trim();if(!s||/^(name|emp|section|department|dept|machine|mobile|phone|designation|salary|joining|birth|weekly|responsib|woff|week)/i.test(s))return;let m=s.match(/^(\d{1,2})[-/ .](Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[-/ .](\d{2,4})$/i);if(m){let year=parseInt(m[3],10);year<100&&(year+=2e3);const month=MONTH_ABBR[m[2].toLowerCase().slice(0,3)],day=parseInt(m[1],10);return void(month&&day&&(dayColMap[ci]={year:year,month:month,day:day}))}if(m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/),m)return void(dayColMap[ci]={year:+m[1],month:+m[2],day:+m[3]});if(m=s.replace(/\s/g,"").match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/),m){let year=parseInt(m[3],10);year<100&&(year+=2e3);let day,month,a=parseInt(m[1],10),b=parseInt(m[2],10);return a>12?(day=a,month=b):b>12?(day=b,month=a):(day=a,month=b),void(month>=1&&month<=12&&day>=1&&day<=31&&(dayColMap[ci]={year:year,month:month,day:day}))}const tryD=new Date(s);!isNaN(tryD.getTime())&&tryD.getFullYear()>=2020&&tryD.getFullYear()<=2035&&(dObj=tryD)}dObj&&(dayColMap[ci]={year:dObj.getFullYear(),month:dObj.getMonth()+1,day:dObj.getDate()})}),empCodeCol<0&&(empCodeCol=1),console.log("[Excel upload] FORMAT C date columns:",Object.keys(dayColMap).length,dayColMap);const SH_NORM2={"C/O":"C/O",CO:"C/O",COFF:"C/O","C-OFF":"C/O",GP:"GP",HLF:"HLF",HALF:"HLF",H:"H",AB:"Ab",ABSENT:"Ab",OD:"OD",G:"G",GENERAL:"G",SL:"L"};for(let r=headerRowIdx+1;r<rows.length;r++){const row=rows[r];if(!row)continue;const cell0=String(row[0]||"").trim();if(/^---/.test(cell0)||/^notes?\b/i.test(cell0)||/^en:/i.test(cell0)||/^hi:/i.test(cell0)||/कॉलम|उद्देश्य|सुझाव|उपयोग/.test(cell0))continue;const empIdRaw=String(row[empCodeCol]||"").trim();if(!empIdRaw||/^---/.test(empIdRaw))continue;const empId=empIdRaw.replace(/[^0-9A-Za-z]/g,"");if(!empId||empId.length<2)continue;if(/^(notes?|salary|section|name|emp|date|column|tip|how|en|hi)$/i.test(empId))continue;const first=String(row[0]||"").trim().toLowerCase();/^(sun|mon|tue|wed|thu|fri|sat)$/.test(first)&&!String(row[empCodeCol]||"").trim()||Object.entries(dayColMap).forEach(([col,dm])=>{const monthKey=dm.year+"_"+String(dm.month).padStart(2,"0"),dayIdx=dm.day-1,daysInMonth=new Date(dm.year,dm.month,0).getDate();if(dayIdx<0||dayIdx>=daysInMonth)return;schedByMonth[monthKey]||(schedByMonth[monthKey]={}),schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=new Array(daysInMonth).fill(""));let sh=String(row[parseInt(col,10)]||"").trim().toUpperCase();sh=SH_NORM2[sh]||sh,sh&&(["D","N","O","L","C/O","G","GP","HLF","H","Ab","OD","A","B","C"].includes(sh)||(sh.length>=1&&sh.length<=6&&!/[^A-Z0-9\/\+]/.test(sh)))&&(schedByMonth[monthKey][empId][dayIdx]=sh,empCount++)})}}else{formatName="Simple Date-Row Format";const header=rows[0],now=new Date,cutoffStr=new Date(now.getFullYear(),now.getMonth()-12,1).toISOString().split("T")[0];for(let r=1;r<rows.length;r++){const row=rows[r];if(!row||!row[0])continue;let dateStr="";const raw=String(row[0]).trim();if(/^\d{4}-\d{2}-\d{2}$/.test(raw))dateStr=raw;else if(/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(raw)){const p=raw.split(/[\/\-]/);dateStr=`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`}else{const d=new Date(raw);isNaN(d)||(dateStr=d.toISOString().split("T")[0])}if(!dateStr||dateStr<cutoffStr)continue;const monthKey=dateStr.substring(0,7).replace("-","_"),dayIdx=parseInt(dateStr.split("-")[2],10)-1;schedByMonth[monthKey]||(schedByMonth[monthKey]={});for(let c=1;c<header.length;c++){const empId=String(header[c]||"").trim();if(!empId)continue;const sh=String(row[c]||"O").trim().toUpperCase()||"O";schedByMonth[monthKey][empId]||(schedByMonth[monthKey][empId]=[]),schedByMonth[monthKey][empId][dayIdx]=sh,empCount++}}}}const months=Object.keys(schedByMonth);if(0===months.length)return void(statusEl.innerHTML=`<span style="color:var(--lv)">❌ कोई valid data नहीं मिला<br>\n        <span style="color:var(--muted2)">Format detected: ${formatName||"Unknown"}<br>\n        Expected: row 1 headers Name + Emp ID + date columns (YYYY-MM-DD or 01-Nov-2026), or Horizontal All-Months template</span></span>`);statusEl.innerHTML=`<span style="color:var(--day)">`+(typeof L==='function'?L('⏳ Firebase में '+months.length+' महीने save हो रहे हैं...','⏳ Saving '+months.length+' month(s) to Firebase...'):('⏳ Saving '+months.length+' month(s)...'))+`</span>`;let saved=0;const saveErrors=[],empIdToInternal={};getEmps().forEach(e=>{e.empId&&(empIdToInternal[String(e.empId).trim()]=e.id)});
 // Create missing Team members from schedule codes (Flat Team+Schedule / any code-only upload)
 try{
   const need=[];
@@ -389,44 +256,6 @@ try{
       }
     }
   }catch(x){}
-}catch(x){}
-// Expand every Emp ID row onto internal Firebase id (and reverse)
-try{
-  if(typeof empIdToInternal==='object' && empIdToInternal){
-    Object.keys(empIdToInternal).forEach(function(code){
-      var iid = empIdToInternal[code];
-      if(!iid) return;
-      var row = merged[code] || merged[String(code).toUpperCase()] || merged[iid];
-      if(row!=null){
-        merged[iid]=row;
-        merged[code]=row;
-        merged[String(code).toUpperCase()]=row;
-      }
-    });
-  }
-  // also map from live employees
-  try{
-    (typeof getEmps==='function'?getEmps():[]).forEach(function(e){
-      if(!e||!e.id) return;
-      var code=e.empId!=null?String(e.empId).trim():'';
-      var row=merged[e.id]||(code?(merged[code]||merged[String(code).toUpperCase()]):null);
-      if(row!=null){
-        merged[e.id]=row;
-        if(code){ merged[code]=row; merged[String(code).toUpperCase()]=row; }
-      }
-    });
-  }catch(x){}
-}catch(xDual){}
-// Diagnostic: non-empty days per key (first 3 keys)
-try{
-  var diag=[];
-  Object.keys(merged).slice(0,4).forEach(function(k){
-    var row=merged[k], n=0;
-    if(Array.isArray(row)) n=row.filter(function(x){return x!=null&&String(x).trim()!=='';}).length;
-    else if(row&&typeof row==='object') n=Object.keys(row).filter(function(i){return row[i]!=null&&String(row[i]).trim()!=='';}).length;
-    diag.push(k+':'+n);
-  });
-  console.log('[upload] '+mk+' nonEmpty', diag.join(', '), 'keys', Object.keys(merged));
 }catch(x){}
 try{await fbSet("schedules/"+mk,merged)}catch(e1){console.warn("[upload] fbSet failed, trying per-emp",mk,e1&&e1.message);for(const[empId,arr]of Object.entries(merged))try{await fbSet("schedules/"+mk+"/"+empId,arr)}catch(e2){throw e2}}
 try{_cache.schedules||(_cache.schedules={});_cache.schedules[mk]=merged;}catch(e){}
