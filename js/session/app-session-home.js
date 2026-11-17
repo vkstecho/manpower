@@ -1055,21 +1055,44 @@ function _showMyShiftBulkBar(empId, empName){
   // Shift palette (same codes as Schedule multi-select) — shown whenever days are selected
   var palette = '';
   if(n > 0){
-    var codes = [
-      {c:'D', bg:'#f59e0b', fg:'#000', cls:'ms-shift-dn'},
-      {c:'N', bg:'#4f46e5', fg:'#fff', cls:'ms-shift-dn'},
-      {c:'A', bg:'#16a34a', fg:'#fff', cls:'ms-shift-abc'},
-      {c:'B', bg:'#db2777', fg:'#fff', cls:'ms-shift-abc'},
-      {c:'C', bg:'#0891b2', fg:'#fff', cls:'ms-shift-abc'},
-      {c:'O', bg:'#334155', fg:'#94a3b8', cls:''},
-      {c:'L', bg:'#be123c', fg:'#fda4af', cls:''},
-      {c:'G', bg:'#0c4a6e', fg:'#7dd3fc', cls:''},
-      {c:'C/O', bg:'#713f12', fg:'#fde68a', cls:'', lab:'CO'},
-      {c:'HLF', bg:'#f97316', fg:'#fff', cls:'', lab:'½'},
-      {c:'Ab', bg:'#7f1d1d', fg:'#fca5a5', cls:''},
-      {c:'H', bg:'#ea580c', fg:'#fff', cls:''}
+    // v6.0.31: build from manager active work shifts (incl. A2/A3/B3…) + status legends
+    var codes = [];
+    try{
+      var work = (typeof getActiveWorkShifts==='function' ? getActiveWorkShifts() : null) || [];
+      work.forEach(function(s){
+        if(!s || !s.code) return;
+        var code = String(s.code).trim();
+        var bg='#334155', fg='#fff';
+        try{
+          if(typeof mpShiftStyle==='function'){
+            var st = mpShiftStyle(code);
+            if(st){ bg = st.bg || bg; fg = st.fg || st.color || fg; }
+          }
+        }catch(eSt){}
+        codes.push({c:code, bg:bg, fg:fg, lab:code});
+      });
+    }catch(eW){}
+    if(!codes.length){
+      codes = [
+        {c:'D', bg:'#f59e0b', fg:'#000'},
+        {c:'N', bg:'#4f46e5', fg:'#fff'},
+        {c:'A', bg:'#16a34a', fg:'#fff'},
+        {c:'B', bg:'#db2777', fg:'#fff'},
+        {c:'C', bg:'#0891b2', fg:'#fff'},
+        {c:'G', bg:'#0c4a6e', fg:'#7dd3fc'}
+      ];
+    }
+    // Status legends
+    var statusList = [
+      {c:'O', bg:'#334155', fg:'#94a3b8'},
+      {c:'L', bg:'#be123c', fg:'#fda4af'},
+      {c:'C/O', bg:'#713f12', fg:'#fde68a', lab:'CO'},
+      {c:'HLF', bg:'#f97316', fg:'#fff', lab:'½'},
+      {c:'Ab', bg:'#7f1d1d', fg:'#fca5a5'},
+      {c:'H', bg:'#ea580c', fg:'#fff'},
+      {c:'OD', bg:'#0d9488', fg:'#fff'},
+      {c:'GP', bg:'#7c3aed', fg:'#fff'}
     ];
-    // Hide inactive shift codes when config is available
     var activeMap = null;
     try{
       var cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
@@ -1080,13 +1103,16 @@ function _showMyShiftBulkBar(empId, empName){
         });
       }
     }catch(eCfg){}
+    statusList.forEach(function(x){
+      var u = String(x.c).toUpperCase();
+      if(activeMap && activeMap[u] === false) return;
+      if(codes.some(function(w){ return String(w.c).toUpperCase()===u; })) return;
+      codes.push(x);
+    });
     codes.forEach(function(x){
-      var codeUp = String(x.c).toUpperCase();
-      if(activeMap && (codeUp==='D'||codeUp==='N'||codeUp==='A'||codeUp==='B'||codeUp==='C'||codeUp==='G')){
-        if(activeMap[codeUp] === false) return;
-      }
       var lab = x.lab || x.c;
-      palette += '<button type="button" class="ms-bulk-shift '+(x.cls||'')+'" data-shift="'+x.c+'" style="min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:none;background:'+x.bg+';color:'+x.fg+';font-weight:900;font-size:13px;cursor:pointer">'+lab+'</button>';
+      var esc = String(x.c).replace(/'/g, "\\'");
+      palette += '<button type="button" class="ms-bulk-shift" data-shift="'+esc+'" style="min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:none;background:'+x.bg+';color:'+x.fg+';font-weight:900;font-size:13px;cursor:pointer">'+lab+'</button>';
     });
   }
 
@@ -1537,7 +1563,15 @@ function mpHoursColorForShift(sh){
     try{ if(typeof normalizeShiftCode==='function') key = String(normalizeShiftCode(code)||up).toUpperCase(); }catch(e){}
     if(map[key]) return map[key];
     if(map[up]) return map[up];
-    if(/^\d+(\.\d+)?H$/i.test(code) || /^T/i.test(code)) return '#f97316';
+    // v6.0.31: use manager Time legend colours for pure hour / T codes
+    if(/^\d+(\.\d+)?H$/i.test(code) || /^T/i.test(code) || /^HR$/i.test(code)){
+      try{
+        const cfgT = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
+        if(cfgT.timeLegendFg) return cfgT.timeLegendFg;
+        if(cfgT.timeLegendBg) return cfgT.timeLegendBg;
+      }catch(eT){}
+      return '#f97316';
+    }
     return '#16a34a';
   }catch(e){ return '#16a34a'; }
 }
