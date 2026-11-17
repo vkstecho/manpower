@@ -1049,10 +1049,14 @@ function _forceShiftBadgeColors(){
     function esc(c){ return String(c||'').replace(/[^\w#(),.%\s-]/g,''); }
     function rule(cls, bg, fg){
       bg = esc(bg); fg = esc(fg);
+      // v6.0.38: also lock multi-select .ms-btn[data-shift] chips (picker was missed)
       return '.shc.'+cls+', .shc.shc-sm.'+cls+', .ms-day-sh.shc.'+cls+', .sched-tbl .shc.'+cls+', span.shc.'+cls+', .hm-chip .shc.'+cls+', .hm-chips .shc.'+cls+'{'+
         'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}'+
         '.hm-shift-badge.'+cls+', .hm-shift-badge.'+cls+' .hm-shift-letter, .hm-shift-badge.'+cls+' .hm-shift-word{'+
-        'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}';
+        'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}'+
+        '.ms-btn[data-shift="'+cls+'"], #msShiftChips .ms-btn[data-shift="'+cls+'"], #multiSelectBar .ms-btn[data-shift="'+cls+'"], .ms-bulk-shift[data-shift="'+cls+'"]{'+
+        'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}'+
+        '.ms-btn[data-shift="'+cls.toLowerCase()+'"], .ms-bulk-shift[data-shift="'+cls.toLowerCase()+'"]{background:'+bg+' !important;color:'+fg+' !important;}';
     }
     var css = '/* v6.0.33 manager shift colours */\n';
     Object.keys(codes).forEach(function(u){
@@ -1063,9 +1067,18 @@ function _forceShiftBadgeColors(){
       if(!/^[A-Za-z][A-Za-z0-9_]*$/.test(cls) && cls!=='CO') return;
       css += rule(cls, c.bg, c.fg||'#fff');
     });
-    // time-only cells
+    // time-only cells + multi-select time chips if any
     css += '.shc.t-time, .shc.shc-sm.t-time, .ms-day-sh.shc.t-time, .sched-tbl .shc.t-time, span.shc.t-time{'+
       'background:'+esc(tBg)+' !important;color:'+esc(tFg)+' !important;-webkit-text-fill-color:'+esc(tFg)+' !important;}';
+    // C/O button uses data-shift="C/O" or CO
+    if(codes['C/O']||codes['CO']){
+      var co = codes['C/O']||codes['CO'];
+      css += '.ms-btn[data-shift="C/O"], .ms-btn[data-shift="CO"]{background:'+esc(co.bg)+' !important;color:'+esc(co.fg||'#fff')+' !important;}';
+    }
+    // HLF / ½
+    if(codes['HLF']){
+      css += '.ms-btn[data-shift="HLF"], .ms-btn[data-shift="½"]{background:'+esc(codes['HLF'].bg)+' !important;color:'+esc(codes['HLF'].fg||'#fff')+' !important;}';
+    }
 
     var el = document.getElementById('mpShiftColorLock');
     if(!el){
@@ -1237,7 +1250,10 @@ function normalizeShiftCode(code, label){
 function cellClass(s){
   if(!s) return 'blank';
   const t0 = String(s).trim();
-  if(/^T([:\-_].*)?$/i.test(t0) || /^HR$/i.test(t0) || /^\d+(\.\d+)?H$/i.test(t0)) return 't-time';
+  const tCompact = t0.replace(/\s+/g,'');
+  // v6.0.38: "11 H" / "11H" / T:11 / T all map to time-legend class
+  if(/^T([:\-_].*)?$/i.test(t0) || /^HR$/i.test(t0) || /^\d+(\.\d+)?H$/i.test(t0)
+    || /^\d+(\.\d+)?H$/i.test(tCompact) || /^T:?\d+(\.\d+)?H?$/i.test(tCompact)) return 't-time';
   const raw0 = String(s).trim();
   if(/^L([:\-_].*)?$/i.test(raw0)) return 'L';
   if(/^HLF([:\-_].*)?$/i.test(raw0) || raw0==='½' || /^1\/2/i.test(raw0)) return 'HLF';

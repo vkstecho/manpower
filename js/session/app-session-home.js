@@ -1132,13 +1132,23 @@ function _showMyShiftBulkBar(empId, empName){
     statusList.forEach(function(x){
       var u = String(x.c).toUpperCase();
       if(activeMap && activeMap[u] === false) return;
-      if(codes.some(function(w){ return String(w.c).toUpperCase()===u; })) return;
+      if(codes.some(function(w){ return String(w.c).toUpperCase()===u; }) return;
+      try{
+        var st = (typeof mpShiftStyle==='function' ? mpShiftStyle(x.c) : null) || {};
+        if(st.bg){ x.bg = st.bg; x.fg = st.fg || x.fg || '#fff'; }
+      }catch(eSt){}
       codes.push(x);
     });
     codes.forEach(function(x){
       var lab = x.lab || x.c;
-      var esc = String(x.c).replace(/'/g, "\\'");
-      palette += '<button type="button" class="ms-bulk-shift" data-shift="'+esc+'" style="min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:none;background:'+x.bg+';color:'+x.fg+';font-weight:900;font-size:13px;cursor:pointer">'+lab+'</button>';
+      var esc = String(x.c).replace(/'/g, "\\'");;
+      var bg = x.bg, fg = x.fg;
+      try{
+        var st2 = (typeof mpShiftStyle==='function' ? mpShiftStyle(x.c) : null) || {};
+        if(st2.bg){ bg = st2.bg; fg = st2.fg || fg || '#fff'; }
+      }catch(e2){}
+      palette += '<button type="button" class="ms-bulk-shift" data-shift="'+esc+'" style="min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:none;background:'+bg+' !important;color:'+fg+' !important;font-weight:900;font-size:13px;cursor:pointer">'+lab+'</button>';
+
     });
   }
 
