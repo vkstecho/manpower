@@ -1132,7 +1132,7 @@ function _showMyShiftBulkBar(empId, empName){
     statusList.forEach(function(x){
       var u = String(x.c).toUpperCase();
       if(activeMap && activeMap[u] === false) return;
-      if(codes.some(function(w){ return String(w.c).toUpperCase()===u; }) return;
+      if(codes.some(function(w){ return String(w.c).toUpperCase()===u; })) return;
       try{
         var st = (typeof mpShiftStyle==='function' ? mpShiftStyle(x.c) : null) || {};
         if(st.bg){ x.bg = st.bg; x.fg = st.fg || x.fg || '#fff'; }
@@ -1141,7 +1141,7 @@ function _showMyShiftBulkBar(empId, empName){
     });
     codes.forEach(function(x){
       var lab = x.lab || x.c;
-      var esc = String(x.c).replace(/'/g, "\\'");;
+      var esc = String(x.c).replace(/'/g, "\\'");
       var bg = x.bg, fg = x.fg;
       try{
         var st2 = (typeof mpShiftStyle==='function' ? mpShiftStyle(x.c) : null) || {};
