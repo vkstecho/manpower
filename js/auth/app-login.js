@@ -160,14 +160,26 @@ function goToStep2(){ try{ showStep(1); }catch(e){} }
 let _loginMobile='', _loginConfirmResult=null, _otpResendInterval=null;
 
 function _onMobileInput(val){
+  val = String(val||'').replace(/\D/g,'').slice(0,10);
   const btn=document.getElementById('sendOtpBtn');
+  const sticky=document.getElementById('loginStickyCta');
+  const ok=val.length===10;
   if(btn){
-    const ok=val.length===10;
+    btn.disabled=!ok;
+    btn.removeAttribute('aria-disabled');
+    if(ok) btn.removeAttribute('disabled'); else btn.setAttribute('disabled','disabled');
     btn.disabled=!ok;
     btn.style.opacity=ok?'1':'.5';
-    btn.style.pointerEvents=ok?'auto':'none';
+    // Do NOT set pointer-events:none — it can trap the button after label updates / recaptcha
+    btn.style.pointerEvents='auto';
     btn.style.cursor=ok?'pointer':'not-allowed';
   }
+  if(sticky){
+    sticky.disabled=!ok;
+    sticky.style.opacity=ok?'1':'.5';
+    sticky.style.pointerEvents='auto';
+  }
+  try{ window._mpOtpSendInFlight = false; }catch(e){}
 }
 function _onOtpInput(val){
   val = String(val||'').replace(/\D/g,'').slice(0,6);
@@ -184,6 +196,13 @@ function _onOtpInput(val){
 }
 
 async function _sendOTP(isResend){
+  // v6.0.41: clear stale lock older than 45s (hung recaptcha / network)
+  try{
+    var _t0 = window._mpOtpSendStartedAt || 0;
+    if(window._mpOtpSendInFlight && _t0 && (Date.now()-_t0) > 45000){
+      window._mpOtpSendInFlight = false;
+    }
+  }catch(e){}
   // Prevent double-click / concurrent OTP sends (button stuck on Sending…)
   if(window._mpOtpSendInFlight){
     try{ toast(L('⏳ OTP पहले से भेज रहे हैं — Security check पूरा करें','⏳ OTP already sending — complete the security check')); }catch(e){}
@@ -203,6 +222,7 @@ async function _sendOTP(isResend){
   if(errEl) errEl.textContent='';
 
   window._mpOtpSendInFlight = true;
+  try{ window._mpOtpSendStartedAt = Date.now(); }catch(e){}
   // Instant UI feedback — was delayed until after several Firebase reads
   const sendBtn = document.getElementById('sendOtpBtn');
   const stickyBtn = document.getElementById('loginStickyCta');
@@ -216,12 +236,13 @@ async function _sendOTP(isResend){
   if(stickyBtn){ stickyBtn.disabled = true; stickyBtn.style.opacity = '0.7'; }
   const _restoreBtn = ()=>{
     window._mpOtpSendInFlight = false;
+    try{ window._mpOtpSendStartedAt = 0; }catch(e){}
     if(!sendBtn) return;
     const mob = (document.getElementById('loginMobile')?.value||'').replace(/\D/g,'');
     const ok = mob.length === 10;
     sendBtn.disabled = !ok;
     sendBtn.style.opacity = ok ? '1' : '.5';
-    sendBtn.style.pointerEvents = ok ? 'auto' : 'none';
+    sendBtn.style.pointerEvents = 'auto';
     sendBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
     // Prefer current language label over stale HTML
     try{

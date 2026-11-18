@@ -114,9 +114,25 @@
 
     if (primaryBtn) {
       primaryBtn.innerHTML = primaryLabel + ' &#128172;';
+      // Keep clickable state in sync (do not leave pointer-events:none from initial HTML)
+      try {
+        var mobEl = document.getElementById('loginMobile');
+        var digits = (mobEl && mobEl.value ? mobEl.value : '').replace(/\D/g, '');
+        var okMob = digits.length === 10;
+        primaryBtn.disabled = !okMob;
+        primaryBtn.style.opacity = okMob ? '1' : '.5';
+        primaryBtn.style.pointerEvents = 'auto';
+        if (typeof _onMobileInput === 'function') _onMobileInput(digits);
+      } catch (e) {}
     }
     if (stickyBtn) {
       stickyBtn.textContent = primaryLabel;
+      try {
+        var mobEl2 = document.getElementById('loginMobile');
+        var d2 = (mobEl2 && mobEl2.value ? mobEl2.value : '').replace(/\D/g, '');
+        stickyBtn.disabled = d2.length !== 10;
+        stickyBtn.style.pointerEvents = 'auto';
+      } catch (e) {}
     }
 
     if (!showCommercial) {

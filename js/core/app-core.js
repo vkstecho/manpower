@@ -110,7 +110,7 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
   }catch(ex){}
   const key=_normMobileKey(SESSION.mobile);
   const selfId=SESSION.empObjId||SESSION.employeeId||"";
-  // v6.0.40: nested manager — still see parent team (view-only unless parent granted perms)
+  // v6.0.41: nested manager — still see parent team (view-only unless parent granted perms)
   let parentKey="";
   try{
     const self=_findOwnEmployeeRecord&&_findOwnEmployeeRecord();
@@ -669,9 +669,10 @@ try{
       if(isWorkerish&&_sr!=="manager") return!1;
     }
   }catch(e){}
-  if("manager"===SESSION.role)return!0;
-  const emp2=myEmp();
-  return emp2&&("manager"===emp2.accessLevel||"MGR"===emp2.sec||"Manager"===emp2.designation)
+  if("manager"===String(SESSION.role||"").toLowerCase())return!0;
+  // Do not treat designation/accessLevel alone as manager when session role is missing/unknown
+  // (prevents schedule Upload tools leaking to members)
+  return!1;
 }function isSupervisor(){if("admin"===SESSION.role)return!1;const emp=myEmp();return emp&&("supervisor"===emp.accessLevel||"Supervisor"===emp.designation)}function isAdminOrMgr(){return isAdmin()||isMgr()}function _managerEmptyTeamHtml(){if(!("manager"===SESSION.role||"function"==typeof isMgr&&isMgr()))return"";if(("function"==typeof getEmps?getEmps():[]).filter(e=>"resigned"!==e.status&&"left"!==e.status).length>0)return"";const en=void 0!==_lang&&"hi"!==_lang;return`<div class="hm-empty" style="margin:10px 12px;padding:14px;border-radius:12px;border:1px dashed rgba(249,115,22,.45);background:rgba(249,115,22,.08);text-align:left">\n    <div style="font-weight:900;color:var(--text);margin-bottom:4px">${en?"Your team is empty":"आपकी Team अभी खाली है"}</div>\n    <div style="font-size:12px;color:var(--muted2);line-height:1.5">${en?"Managers only see staff they add. Open <b>Team</b> → <b>Add employee</b>. This is not a data loss bug.":"Manager को सिर्फ वही कर्मचारी दिखते हैं जिन्हें वे खुद जोड़ते हैं। <b>Team</b> → <b>नया कर्मचारी जोड़ें</b>। यह data loss नहीं है।"}</div>\n  </div>`}function isGuest(){return"guest"===SESSION.role}function isPendingMember(){
   if(SESSION.role!=="member")return!1;
   // Manager granted rights → full app access (Home + Schedule + Leave + Reports)
@@ -680,19 +681,42 @@ try{
     if(raw.schedule||raw.leave||raw.reports||raw.pending)return!1;
   }catch(ex){}
   return!0===SESSION.pendingApproval||"pending"===SESSION.status
-}function _myEmployeeRecord(){try{if(SESSION.empObjId){const e=(_cache.employees||[]).find(x=>x.id===SESSION.empObjId);if(e)return e}const mob=_normMobileKey(SESSION.mobile||SESSION.uid||"");if(mob)return(_cache.employees||[]).find(x=>_normMobileKey(x.phone||x.mobile||"")===mob)||null}catch(e){}return null}function myTeamPerms(){if(isAdmin()||isMgr())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};const e=_myEmployeeRecord(),p=e&&e.perms||{};return{schedule:!!p.schedule,leave:!!p.leave,reports:!!p.reports,pending:!(!p.pending&&!p.leave),team:!1,full:!1}}function canEditSchedule(){
+}function _myEmployeeRecord(){try{if(SESSION.empObjId){const e=(_cache.employees||[]).find(x=>x.id===SESSION.empObjId);if(e)return e}const mob=_normMobileKey(SESSION.mobile||SESSION.uid||"");if(mob)return(_cache.employees||[]).find(x=>_normMobileKey(x.phone||x.mobile||"")===mob)||null}catch(e){}return null}function myTeamPerms(){
+  // v6.0.41: members/workers NEVER inherit full manager perms via isMgr() side-paths
+  try{
+    var sr=String(SESSION.role||"").toLowerCase();
+    if(sr==="member"||sr==="worker"||sr==="pending_member"){
+      var eM=_myEmployeeRecord(),pM=(eM&&eM.perms)||{};
+      return{schedule:!!pM.schedule,leave:!!pM.leave,reports:!!pM.reports,pending:!(!pM.pending&&!pM.leave),team:!1,full:!1};
+    }
+  }catch(e){}
+  if(isAdmin())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};
+  // True session manager only (not designation/accessLevel heuristics alone)
+  if(String(SESSION.role||"").toLowerCase()==="manager"&&isMgr())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};
+  const e=_myEmployeeRecord(),p=e&&e.perms||{};
+  return{schedule:!!p.schedule,leave:!!p.leave,reports:!!p.reports,pending:!(!p.pending&&!p.leave),team:!1,full:!1};
+}function canEditSchedule(){
   if(isPendingMember()) return!1;
   if(isAdmin()) return!0;
-  // True managers only — not demoted / SESSION.role=member
-  if(isMgr() && String(SESSION.role||"").toLowerCase()==="manager") return!0;
-  // Members: only when manager explicitly granted schedule perm
+  var sr="";
+  try{ sr=String(SESSION.role||"").toLowerCase(); }catch(e){}
+  // Session member/worker: ONLY explicit perms.schedule from employee record (manager tick box)
+  if(sr==="member"||sr==="worker"||sr==="pending_member"){
+    try{
+      var e=_myEmployeeRecord(),p=(e&&e.perms)||{};
+      return!!p.schedule;
+    }catch(e){ return!1; }
+  }
+  // True managers only
+  if(sr==="manager" && isMgr()) return!0;
+  // Unknown role: deny schedule write tools (safer default)
   try{
-    const sr=String(SESSION.role||"").toLowerCase();
-    if(sr==="member"||sr==="worker") return!!myTeamPerms().schedule;
+    var e2=_myEmployeeRecord(),p2=(e2&&e2.perms)||{};
+    return!!p2.schedule;
   }catch(e){}
-  return!!myTeamPerms().schedule;
+  return!1;
 }
-/** v6.0.40: per-employee edit — nested manager can always edit direct reports;
+/** v6.0.41: per-employee edit — nested manager can always edit direct reports;
  *  parent-team rows only if parent granted schedule perm (existing tick boxes). */
 function _canEditEmpSchedule(emp){
   try{

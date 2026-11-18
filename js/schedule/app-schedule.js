@@ -63,8 +63,13 @@ if(_customRangeActive&&_customDateFrom&&_customDateTo)document.getElementById("c
     try{toast(L('✅ Schedule template Excel डाउनलोड','✅ Schedule template Excel downloaded'))}catch(e){}
   };
   run().catch(e=>{console.warn(e);toast('❌ Template download failed')});
-}try{window.downloadScheduleExcelTemplate=downloadScheduleExcelTemplate}catch(e){}function openExcelUpload(){document.getElementById("excelUploadOverlay").classList.add("open"),document.getElementById("excelUploadStatus").style.display="none"}function closeExcelUpload(){document.getElementById("excelUploadOverlay").classList.remove("open")}try{window.openExcelUpload=openExcelUpload,window.closeExcelUpload=closeExcelUpload,window.handleExcelFile=handleExcelFile}catch(e){}function handleExcelDrop(e){e.preventDefault(),document.getElementById("excelUploadDropZone").style.borderColor="var(--border2)";const file=e.dataTransfer.files[0];file&&handleExcelFile(file)}
-/** v6.0.30 / v6.0.40 — confirm before Excel overwrites existing schedule months.
+}try{window.downloadScheduleExcelTemplate=downloadScheduleExcelTemplate}catch(e){}function openExcelUpload(){
+  var sr="";try{sr=String(SESSION.role||"").toLowerCase();}catch(e){}
+  var ok=(typeof isAdmin==="function"&&isAdmin())||(sr==="manager"&&typeof isMgr==="function"&&isMgr());
+  if(!ok){try{toast(L("❌ केवल Manager Upload कर सकता है","❌ Only Manager can upload schedule"));}catch(e){}return;}
+  document.getElementById("excelUploadOverlay").classList.add("open"),document.getElementById("excelUploadStatus").style.display="none"
+}function closeExcelUpload(){document.getElementById("excelUploadOverlay").classList.remove("open")}try{window.openExcelUpload=openExcelUpload,window.closeExcelUpload=closeExcelUpload,window.handleExcelFile=handleExcelFile}catch(e){}function handleExcelDrop(e){e.preventDefault(),document.getElementById("excelUploadDropZone").style.borderColor="var(--border2)";const file=e.dataTransfer.files[0];file&&handleExcelFile(file)}
+/** v6.0.30 / v6.0.41 — confirm before Excel overwrites existing schedule months.
  *  memberList: [{name, mobile, empCode}], months: ['2026_09', ...]
  *  Returns Promise<boolean>
  */
@@ -2470,6 +2475,10 @@ function _mpCalcDefaults(){
 }
 
 function openMinManpowerCalc(){
+  var sr="";try{sr=String(SESSION.role||"").toLowerCase();}catch(e){}
+  var ok=(typeof isAdmin==="function"&&isAdmin())||(sr==="manager"&&typeof isMgr==="function"&&isMgr());
+  if(!ok){try{toast(L("❌ केवल Manager","❌ Manager only"));}catch(e){}return;}
+
   try{
     if(typeof canEditSchedule==='function' && !canEditSchedule()){
       try{ toast(_mpT('❌ Schedule permission नहीं है','❌ No schedule permission')); }catch(e){}

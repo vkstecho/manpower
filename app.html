@@ -954,7 +954,7 @@ html.mp-login-active, body.mp-login-active {
           onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
-      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Continue &#128172;</button>
+      <button class="big-btn" id="sendOtpBtn" type="button" onclick="try{_sendOTP()}catch(e){console.error(e)}" disabled style="opacity:.5;transition:opacity .2s;cursor:not-allowed">Continue &#128172;</button>
       <div id="loginTrustLine" class="mp-login-trust">OTP on this number · no password</div>
       <div id="loginRefundLine" class="mp-login-refund" style="display:none !important" hidden></div>
     </div>
@@ -2208,5 +2208,28 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
+<script>
+/* v6.0.41 login button boot — enable when 10 digits already present; clear stale OTP lock */
+(function(){
+  try{ window._mpOtpSendInFlight = false; }catch(e){}
+  function sync(){
+    try{
+      var m = document.getElementById('loginMobile');
+      if(!m) return;
+      var v = String(m.value||'').replace(/\D/g,'').slice(0,10);
+      if(m.value !== v) m.value = v;
+      if(typeof _onMobileInput==='function') _onMobileInput(v);
+      else {
+        var b = document.getElementById('sendOtpBtn');
+        if(b){ var ok=v.length===10; b.disabled=!ok; b.style.opacity=ok?'1':'.5'; b.style.pointerEvents='auto'; }
+      }
+    }catch(e){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', sync);
+  else sync();
+  setTimeout(sync, 400);
+  setTimeout(sync, 1500);
+})();
+</script>
 </body>
 </html>
