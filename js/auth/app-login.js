@@ -127,7 +127,7 @@ function showPendingBox(msgHtml){
       <div data-pending-msg style="font-size:13px;color:#cbd5e1;line-height:1.7;max-width:320px;margin-bottom:20px">${escHtml(defaultMsg)}</div>
       <button type="button" onclick="hidePendingBox();showStep(2);"
         style="width:min(280px,90%);padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.5);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
-        ← वापस जाएं / Retry Login
+        ${(typeof L==='function')?L('← वापस जाएं','← Back'):'← Back'}
       </button>
       <button type="button" onclick="location.reload()"
         style="width:min(280px,90%);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:transparent;color:#cbd5e1;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">

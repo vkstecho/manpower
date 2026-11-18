@@ -440,6 +440,16 @@ async function showProfile(){
         <div><div class="pa-label">${L('Leave team / Transfer Manager','Leave team / Transfer Manager')}</div><div class="pa-sub">${L('किसी सदस्य को नया Manager बनाकर टीम छोड़ें','Promote a member and leave the team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='left' ? `<button type="button" class="profile-action" onclick="openMemberLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
+        <div class="pa-icon" style="background:rgba(244,63,94,.12)">👋</div>
+        <div><div class="pa-label">${L('Leave this team','Leave this team')}</div><div class="pa-sub">${L('रोस्टर नहीं दिखेगा · अपनी शिफ्ट हिस्ट्री रहेगी','Hide team roster · keep your shift history')}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' ? `<button type="button" class="profile-action" onclick="openUpgradeToManagerModal()" style="border-color:rgba(249,115,22,.4)">
+        <div class="pa-icon" style="background:rgba(249,115,22,.12)">⬆️</div>
+        <div><div class="pa-label">${L('Upgrade to Manager','Upgrade to Manager')}</div><div class="pa-sub">${L('अपनी टीम जोड़ें · ऊपर वाले मैनेजर की टीम सिर्फ देखें','Add your own team · view parent team only')}</div></div>
+        <div class="pa-arrow">›</div>
+      </button>`:''}
       <button class="profile-action" onclick="closeModal();openCustomerCarePage()">
         <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
         <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund','Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund'):'Help · Cancel · 7-day refund'}</div></div>

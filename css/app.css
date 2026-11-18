@@ -945,20 +945,32 @@ body, .tab, .card, .panel, .modal, .modal-body {
   color: var(--text);
 }
 
-/* ---- Dark theme: lift secondary text above muddy slate ---- */
+/* ---- Dark theme: lift secondary text above muddy slate (v6.0.39 stronger) ---- */
 body:not(.light) {
-  --muted: #a8b6c8;
-  --muted2: #d0d8e4;
+  --muted: #b8c5d6;
+  --muted2: #e2e8f0;
+  --text: #f8fafc;
 }
 body:not(.light) .muted,
 body:not(.light) .hint,
 body:not(.light) .sub,
 body:not(.light) .stitle-sub,
+body:not(.light) .card-sub,
+body:not(.light) .card-meta,
+body:not(.light) label,
+body:not(.light) .field-label,
 body:not(.light) [style*="color:#94a3b8"],
 body:not(.light) [style*="color: #94a3b8"],
 body:not(.light) [style*="color:#64748b"],
-body:not(.light) [style*="color: #64748b"] {
-  color: #b8c4d4 !important;
+body:not(.light) [style*="color: #64748b"],
+body:not(.light) [style*="color:#8892a4"],
+body:not(.light) [style*="color: #8892a4"] {
+  color: #c5d0de !important;
+}
+body:not(.light) input::placeholder,
+body:not(.light) textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
 }
 body:not(.light) .nav-btn {
   color: #b0bcc9;
@@ -976,8 +988,8 @@ body:not(.light) .chip.on {
 /* ---- Light theme: dark text on light surfaces ---- */
 body.light {
   --text: #0f172a;
-  --muted: #334155;
-  --muted2: #1e293b;
+  --muted: #1e293b;
+  --muted2: #0f172a;
 }
 body.light,
 body.light .tab,
@@ -1661,48 +1673,55 @@ input[type="number"] {
   }
 }
 
-/* v6.0.14: schedule last column — solid hours total; header always dark + white text */
+/* v6.0.39: schedule last column — solid hours total; clock always visible on scroll */
 .sched-tbl th.sched-hrs-th,
 .sched-tbl td.sched-hrs-col {
-  min-width: 48px !important;
-  width: 48px !important;
-  max-width: 56px !important;
+  min-width: 52px !important;
+  width: 52px !important;
+  max-width: 64px !important;
   box-sizing: border-box;
   text-align: center;
   vertical-align: middle;
 }
-/* Header (⏱️ / HR): always solid dark + white so never black-on-dark or invisible */
+/* Header (⏱️ / HR): sticky right, solid dark + white — never clipped / invisible while scrolling */
 .sched-tbl th.sched-hrs-th {
-  position: sticky;
-  right: 0;
-  z-index: 8;
+  position: sticky !important;
+  right: 0 !important;
+  z-index: 12 !important;
   background: #0a1628 !important;
   color: #ffffff !important;
   font-weight: 900;
-  font-size: 11px !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
   border-left: 2px solid rgba(34,197,94,.65);
-  box-shadow: -4px 0 10px rgba(0,0,0,.4);
+  box-shadow: -6px 0 12px rgba(0,0,0,.45);
+  overflow: visible !important;
+  white-space: nowrap !important;
+  padding: 4px 2px !important;
 }
 .sched-tbl th.sched-hrs-th * {
   color: #ffffff !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
 }
-/* Body cells: solid dark green text */
+/* Body cells: solid dark green text, sticky */
 .sched-tbl td.sched-hrs-col {
-  position: sticky;
-  right: 0;
-  z-index: 3;
+  position: sticky !important;
+  right: 0 !important;
+  z-index: 5 !important;
   background: #0f172a !important;
   color: #4ade80 !important;
   font-weight: 900;
   border-left: 2px solid rgba(34,197,94,.55);
-  box-shadow: -4px 0 8px rgba(0,0,0,.35);
+  box-shadow: -6px 0 10px rgba(0,0,0,.4);
+  overflow: visible !important;
 }
 /* Light mode: body cells soft green; header still dark+white for maximum contrast */
 body.light .sched-tbl td.sched-hrs-col {
   background: #dcfce7 !important;
   color: #166534 !important;
   border-left: 2px solid #16a34a;
-  box-shadow: -4px 0 8px rgba(0,0,0,.08);
+  box-shadow: -6px 0 10px rgba(0,0,0,.1);
 }
 body.light .sched-tbl th.sched-hrs-th {
   background: #0a1628 !important;
@@ -1712,13 +1731,13 @@ body.light .sched-tbl th.sched-hrs-th {
 body.light .sched-tbl th.sched-hrs-th * {
   color: #ffffff !important;
 }
-/* Prevent month label overflow into sticky hours column */
+/* Prevent month label overflow into sticky hours column — but never clip the clock header */
 .sched-tbl th.sched-month-th {
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .sched-tbl thead th.sched-hrs-th {
-  overflow: hidden;
+  overflow: visible !important;
 }
 
 
@@ -1747,4 +1766,28 @@ body.light button.mp-trend-excel-btn {
   color: #ffffff !important;
   border-color: #14532d !important;
   -webkit-text-fill-color: #ffffff !important;
+}
+
+
+/* === v6.0.39 font visibility + sticky hours clock ========================= */
+body:not(.light) .card-name,
+body:not(.light) .stitle,
+body:not(.light) .modal h2,
+body:not(.light) .modal h3 {
+  color: #f8fafc !important;
+}
+body:not(.light) .inp-field,
+body:not(.light) input:not([type=checkbox]):not([type=radio]),
+body:not(.light) select,
+body:not(.light) textarea {
+  color: #f1f5f9 !important;
+}
+/* Keep hours clock glyph from being clipped by parent overflow */
+.sched-scroll, .sched-wrap, #schedTableWrap, .sched-tbl-wrap {
+  overflow-x: auto;
+}
+.sched-tbl thead th.sched-hrs-th,
+.sched-tbl tbody td.sched-hrs-col {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }

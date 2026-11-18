@@ -1848,7 +1848,7 @@ function showNewEmpRegistrationForm(code){
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#a855f7);
                border:none;border-radius:13px;color:#fff;font-size:17px;font-weight:900;
                cursor:pointer;margin-bottom:10px;opacity:.4;pointer-events:none;font-family:inherit">
-        ${typeof L==='function'?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp goes to Admin'):'📲 Submit → WhatsApp goes to Admin'}
+        ${typeof L==='function'?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp to Admin'):'📲 Submit → WhatsApp to Admin'}
       </button>
       <button onclick="document.getElementById('newRegOverlay').style.display='none';showStep(2);"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;
@@ -1948,7 +1948,7 @@ async function submitNewEmpReg(code){
     toast(L('✅ Request भेजी! WhatsApp से Admin को notification जाएगी।','✅ Request sent! Admin will get a WhatsApp notification.'));
   }catch(e){
     if(errEl) errEl.textContent='❌ Error: '+e.message;
-    if(btn){btn.innerHTML='📲 Submit → WhatsApp से Admin को जाएगी';btn.style.opacity='1';btn.style.pointerEvents='auto';}
+    if(btn){btn.innerHTML='${(typeof L==='function')?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp to Admin'):'📲 Submit → WhatsApp to Admin'}';btn.style.opacity='1';btn.style.pointerEvents='auto';}
   }
 }
 
