@@ -613,20 +613,52 @@ async function openPaymentSettingsAdmin(){
   try{
     let mu = _cache.mobileUsers;
     if(!mu) mu = await fbGet('mobileUsers').catch(()=>null);
+    const byPhone = {};
     if(mu){
-      const rows = Object.entries(mu)
-        .filter(([k,v])=>v && v.status!=='rejected' && v.status!=='removed')
-        .map(([k,v])=>{
-          const phone = (typeof _normMobileKey==='function'?_normMobileKey(v.mobile||v.phone||k):String(k).replace(/\D/g,'').slice(-10));
-          const role = v.role || 'user';
-          const paid = v.paymentPaidUntil || v.paidUntil || '';
-          const paidShort = paid ? String(paid).slice(0,10) : 'not set';
-          const ua = v.paymentAmount || '';
-          return { phone, name: v.name||phone, role, paidShort, ua };
-        })
-        .sort((a,b)=>String(a.name).localeCompare(String(b.name)));
-      userOpts += rows.map(r=>`<option value="${r.phone}">${(r.name||'').replace(/</g,'')} (${r.role}) · ₹${r.ua||'—'} · until ${r.paidShort}</option>`).join('');
+      Object.entries(mu).forEach(function(pair){
+        const k = pair[0], v = pair[1];
+        if(!v || v.status==='rejected' || v.status==='removed' || v.role==='removed') return;
+        const phone = (typeof _normMobileKey==='function'?_normMobileKey(v.mobile||v.phone||k):String(k).replace(/\D/g,'').slice(-10));
+        if(!phone || phone.length!==10) return;
+        const paid = v.paymentPaidUntil || v.paidUntil || '';
+        byPhone[phone] = {
+          phone: phone,
+          name: v.name||phone,
+          role: v.role || 'user',
+          paidShort: paid ? String(paid).slice(0,10) : 'not set',
+          ua: v.paymentAmount || ''
+        };
+      });
     }
+    // v6.0.49: also list paymentStatus-only phones (e.g. after delete, sticky pay record)
+    try{
+      const allPs = await fbGet('paymentStatus').catch(function(){return null;}) || {};
+      Object.entries(allPs).forEach(function(pair){
+        const k = pair[0], v = pair[1];
+        if(!v || v.status==='cleared_on_delete') return;
+        const phone = (typeof _normMobileKey==='function'?_normMobileKey(v.mobile||v.phone||k):String(k).replace(/\D/g,'').slice(-10));
+        if(!phone || phone.length!==10) return;
+        if(byPhone[phone]){
+          if((!byPhone[phone].paidShort || byPhone[phone].paidShort==='not set') && (v.paymentPaidUntil||v.paidUntil)){
+            byPhone[phone].paidShort = String(v.paymentPaidUntil||v.paidUntil).slice(0,10);
+          }
+          return;
+        }
+        const paid = v.paymentPaidUntil || v.paidUntil || '';
+        byPhone[phone] = {
+          phone: phone,
+          name: v.name || phone,
+          role: v.role || 'pay-only',
+          paidShort: paid ? String(paid).slice(0,10) : 'not set',
+          ua: v.paymentAmount || ''
+        };
+      });
+    }catch(ePs){}
+    const rows = Object.keys(byPhone).map(function(p){ return byPhone[p]; })
+      .sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+    userOpts += rows.map(function(r){
+      return '<option value="'+r.phone+'">'+(String(r.name||'').replace(/</g,''))+' ('+r.role+') · ₹'+(r.ua||'—')+' · until '+r.paidShort+'</option>';
+    }).join('');
   }catch(e){}
 
   const _trialD = (window._appLicenseCache && parseInt(window._appLicenseCache.freeTrialDays,10)) || 30;
@@ -688,10 +720,10 @@ async function openPaymentSettingsAdmin(){
     </div>
     <div style="font-size:12px;font-weight:800;color:#38bdf8;margin:8px 0 4px">English videos</div>
     <div class="field"><label>EN · Short URL (Auto Schedule · one click)</label>
-      <input id="pay_video_short" class="inp-field" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." value="">
+      <input id="pay_video_short" type="url" inputmode="url" autocomplete="off" class="inp-field" placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." value="">
     </div>
     <div class="field"><label>EN · Long URL (Setup + free trial)</label>
-      <input id="pay_video_long" class="inp-field" placeholder="https://www.youtube.com/watch?v=..." value="">
+      <input id="pay_video_long" type="url" inputmode="url" autocomplete="off" class="inp-field" placeholder="https://www.youtube.com/watch?v=..." value="">
     </div>
     <div class="field"><label>EN · Optional titles</label>
       <input id="pay_video_short_title" class="inp-field" placeholder="Auto Schedule in one click" value="">
@@ -699,22 +731,26 @@ async function openPaymentSettingsAdmin(){
     </div>
     <div style="font-size:12px;font-weight:800;color:#f97316;margin:12px 0 4px">Hindi videos (हिंदी)</div>
     <div class="field"><label>HI · Short URL (ऑटो शेड्यूल · एक क्लिक)</label>
-      <input id="pay_video_short_hi" class="inp-field" placeholder="https://www.youtube.com/watch?v=... (Hindi short)" value="">
+      <input id="pay_video_short_hi" type="url" inputmode="url" autocomplete="off" class="inp-field" placeholder="https://youtu.be/... or YouTube watch link" value="">
     </div>
     <div class="field"><label>HI · Long URL (सेटअप + मुफ्त ट्रायल)</label>
-      <input id="pay_video_long_hi" class="inp-field" placeholder="https://www.youtube.com/watch?v=... (Hindi long)" value="">
+      <input id="pay_video_long_hi" type="url" inputmode="url" autocomplete="off" class="inp-field" placeholder="https://youtu.be/... or YouTube watch link" value="">
     </div>
     <div class="field"><label>HI · Optional titles</label>
       <input id="pay_video_short_title_hi" class="inp-field" placeholder="ऑटो शेड्यूल — एक क्लिक" value="">
       <input id="pay_video_long_title_hi" class="inp-field" style="margin-top:6px" placeholder="सेटअप + मुफ्त 15 दिन" value="">
     </div>
   </div>
-  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="publishPublicOfferSnapshot().then(function(s){if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · videos '+ ((s.videoShortUrl||s.videoLongUrl)?'set':'none') +' · discount '+ (s.annualDiscountPct||0) +'%');try{if(typeof closeModal==='function'){closeModal();closeModal();}}catch(e){}try{document.querySelectorAll('.modal-overlay,.modal-bg,#modalRoot .modal').forEach(function(el){el.style.display='none';el.classList&&el.classList.add('hidden');});}catch(e3){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');else if(typeof showTab==='function')showTab('home');}catch(e2){}try{window.scrollTo(0,0);}catch(e4){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})">📣 Publish to landing page</button>
+  <button type="button" class="big-btn" style="margin-top:8px;background:rgba(59,130,246,.2);border:1px solid #3b82f6;color:#93c5fd" onclick="(async function(){try{if(typeof saveLandingVideosFromPaymentForm==='function')await saveLandingVideosFromPaymentForm();}catch(e){}var s=await publishPublicOfferSnapshot();if(s){toast('✅ Landing: trial '+ (s.trialDays||0) +'d · videos '+ ((s.videoShortUrl||s.videoLongUrl||s.videoShortUrlHi||s.videoLongUrlHi)?'set':'none') +' · discount '+ (s.annualDiscountPct||0) +'%');try{if(typeof closeModal==='function'){closeModal();closeModal();}}catch(e){}try{document.querySelectorAll('.modal-overlay,.modal-bg,#modalRoot .modal').forEach(function(el){el.style.display='none';el.classList&&el.classList.add('hidden');});}catch(e3){}try{if(typeof goTab==='function')goTab('home');else if(typeof _goTabDirect==='function')_goTabDirect('home');else if(typeof showTab==='function')showTab('home');}catch(e2){}try{window.scrollTo(0,0);}catch(e4){}}else{toast('⚠️ Publish failed — deploy rules for publicOffer + Admin login');}})()">📣 Publish to landing page</button>
 
   <hr style="margin:18px 0;border:none;border-top:1px solid var(--border2)">
   <div style="font-size:13px;font-weight:900;margin-bottom:8px">📅 Set amount + paid-until for one user</div>
-  <div class="field"><label>Manager / Member</label>
+  <div class="field"><label>Manager / Member (from list)</label>
     <select id="pay_user" class="inp-field">${userOpts}</select>
+  </div>
+  <div class="field"><label>Or type mobile (10 digits) — for users missing from list</label>
+    <input id="pay_user_manual" type="tel" inputmode="numeric" maxlength="14" class="inp-field" placeholder="e.g. 8929394920" autocomplete="off">
+    <div style="font-size:10px;color:var(--muted2);margin-top:4px">Use this when the number is not in the dropdown (deleted / rejoined / paymentStatus-only).</div>
   </div>
   <div class="field"><label>Subscription amount</label>
     <select id="pay_user_amount" class="inp-field">${userAmtOpts}</select>
@@ -954,7 +990,7 @@ async function loadLandingVideosAdmin(){
     return window._landingVideosCache;
   }catch(e){ return window._landingVideosCache || {}; }
 }
-async function fillLandingVideoFields(){
+async function fillLandingVideoFields(force){
   try{
     const v = await loadLandingVideosAdmin();
     const map = {
@@ -969,7 +1005,26 @@ async function fillLandingVideoFields(){
     };
     Object.keys(map).forEach(function(id){
       const el = document.getElementById(id);
-      if(el) el.value = (v && v[map[id]]) || '';
+      if(!el) return;
+      // v6.0.48: never wipe what the admin is typing/pasting
+      if(!force){
+        if(el.dataset && el.dataset.userEdited === '1') return;
+        if(document.activeElement === el) return;
+        // If user already typed something different from saved, keep it
+        const saved = String((v && v[map[id]]) || '');
+        const cur = String(el.value || '');
+        if(cur && cur !== saved) return;
+      }
+      el.value = (v && v[map[id]]) || '';
+      try{
+        if(!el._mpVidBound){
+          el._mpVidBound = true;
+          var mark = function(){ try{ el.dataset.userEdited = '1'; }catch(e){} };
+          el.addEventListener('input', mark);
+          el.addEventListener('change', mark);
+          el.addEventListener('paste', mark);
+        }
+      }catch(e){}
     });
   }catch(e){}
 }
@@ -1232,10 +1287,13 @@ async function savePaymentSettingsAdmin(){
 
 async function saveUserPaidUntilAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
-  const phone = String((document.getElementById('pay_user')||{}).value||'').replace(/\D/g,'').slice(-10);
+  // v6.0.49: manual mobile overrides dropdown (for deleted/rejoined users missing from list)
+  var manual = String((document.getElementById('pay_user_manual')||{}).value||'').replace(/\D/g,'').slice(-10);
+  var fromSel = String((document.getElementById('pay_user')||{}).value||'').replace(/\D/g,'').slice(-10);
+  const phone = (manual.length===10 ? manual : fromSel);
   const until = String((document.getElementById('pay_until')||{}).value||'').trim();
   const amt = parseInt((document.getElementById('pay_user_amount')||{}).value||'0',10) || null;
-  if(!phone || phone.length!==10){ toast('⚠️ Select user'); return; }
+  if(!phone || phone.length!==10){ toast('⚠️ Select user or type 10-digit mobile'); return; }
   if(!until){ toast('⚠️ Select date'); return; }
   try{
     const iso = new Date(until+'T23:59:59.000Z').toISOString();
@@ -1382,22 +1440,68 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
       return null; // already has trial end — do not extend
     }
 
-    // Manual / Admin paid-until without auto flag → never overwrite
-    if(src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate) return null;
-    if(src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1) return null;
+    // v6.0.49: sticky / expired paid-until after Delete Account must not block a fresh trial.
+    // - forceFreshLogin / cleared_on_delete → always allow new trial
+    // - expired paid-until (past calendar day) → allow new trial (rejoin case)
+    // - future Admin/manual paid-until → never overwrite
+    const forceFresh = !!(src.forceFreshLogin || src.status === 'cleared_on_delete'
+      || src.clearedBy === 'self_delete_account' || src.paymentUpdatedBy === 'cleared_on_delete');
+    let existingEnd = null;
+    try{
+      const rawU = src.paymentPaidUntil || src.paidUntil || src.paymentPaidUntilDate;
+      if(rawU){
+        const d = new Date(rawU);
+        if(!isNaN(d.getTime())) existingEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      }
+    }catch(e){}
+    const existingStillValid = existingEnd && existingEnd.getTime() >= Date.now();
+    if(existingStillValid && !forceFresh) return null; // active paid/trial — keep it
+    if(!forceFresh && !existingEnd && (src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1))
+      return null;
+
+    // Member under a paying manager → inherit manager paid-until when longer than trial
+    let inheritIso = null;
+    try{
+      const mid = (typeof _normMobileKey==='function')
+        ? _normMobileKey(src.managerId || src.managerMobile || (mu && (mu.managerId||mu.managerMobile)) || '')
+        : String(src.managerId || '').replace(/\D/g,'').slice(-10);
+      if(mid && mid.length===10 && mid !== phone){
+        let mgr = null;
+        try{ mgr = await fbGet('mobileUsers/'+mid); }catch(e){}
+        if(!mgr){ try{ mgr = await fbGet('paymentStatus/'+mid); }catch(e){} }
+        if(mgr){
+          const muRaw = mgr.paymentPaidUntil || mgr.paidUntil || mgr.validTill || mgr.paymentPaidUntilDate;
+          if(muRaw){
+            const md = new Date(muRaw);
+            if(!isNaN(md.getTime()) && md.getTime() >= Date.now()){
+              inheritIso = md.toISOString();
+            }
+          }
+        }
+      }
+    }catch(eInh){}
 
     const base = new Date();
     const end = new Date(base.getFullYear(), base.getMonth(), base.getDate() + trialDays, 23, 59, 59, 999);
-    const iso = end.toISOString();
+    let iso = end.toISOString();
+    let updatedBy = 'auto_trial_'+trialDays+'d';
+    if(inheritIso){
+      const inh = new Date(inheritIso);
+      if(!isNaN(inh.getTime()) && inh.getTime() > end.getTime()){
+        iso = inheritIso;
+        updatedBy = 'inherit_manager_paid';
+      }
+    }
     const payload = {
       paymentPaidUntil: iso,
       paidUntil: iso,
       validTill: iso,
-      paymentTrialGranted: true,
+      paymentTrialGranted: updatedBy.indexOf('auto_trial')===0,
       paymentTrialDays: trialDays,
-      firstLoginAt: (src.firstLoginAt) || base.toISOString(),
+      firstLoginAt: base.toISOString(), // fresh start after rejoin
       updatedAt: base.toISOString(),
-      paymentUpdatedBy: 'auto_trial_'+trialDays+'d',
+      paymentUpdatedBy: updatedBy,
+      forceFreshLogin: null,
       // New managers: full trial roster capacity (Admin can lower later)
       teamSize: parseInt(src.teamSize,10) || 200,
       maxMembers: parseInt(src.maxMembers,10) || 200,
@@ -1631,15 +1735,27 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
 
 
 (function(){
-  var _obs = null;
-  function _tryFill(){
-    if(document.getElementById('pay_video_short') && typeof fillLandingVideoFields==='function'){
-      fillLandingVideoFields();
-    }
+  // v6.0.48: fill landing video fields ONCE when payment modal appears.
+  // Do NOT re-fill on an interval — that was wiping pasted YouTube URLs every 2s.
+  var _filledFor = null;
+  function _tryFillOnce(){
+    var el = document.getElementById('pay_video_short');
+    if(!el || typeof fillLandingVideoFields!=='function') return;
+    // New modal instance (node replaced) → allow one fill
+    if(_filledFor === el) return;
+    _filledFor = el;
+    try{ fillLandingVideoFields(false); }catch(e){}
   }
   if(typeof MutationObserver!=='undefined'){
-    _obs = new MutationObserver(function(){ _tryFill(); });
-    try{ _obs.observe(document.documentElement,{childList:true,subtree:true}); }catch(e){}
+    try{
+      var _obs = new MutationObserver(function(){ _tryFillOnce(); });
+      _obs.observe(document.documentElement,{childList:true,subtree:true});
+    }catch(e){}
   }
-  setInterval(_tryFill, 2000);
+  // light fallback only while page is settling — not continuous overwrite
+  var n = 0;
+  var t = setInterval(function(){
+    _tryFillOnce();
+    if(++n > 8) clearInterval(t);
+  }, 400);
 })();

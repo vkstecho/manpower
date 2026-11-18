@@ -601,6 +601,28 @@ async function confirmDeleteMyAccount(){
       }
     }catch(e){}
 
+    // 1b) v6.0.49: clear paymentStatus so rejoin is not blocked by old expired paid-until
+    try{
+      var _psKeys = [mob, '+91'+mob, '91'+mob];
+      for(var _pi=0; _pi<_psKeys.length; _pi++){
+        var _psk = _psKeys[_pi];
+        try{ await fbRemove('paymentStatus/'+_psk); }catch(e){
+          try{
+            await fbSet('paymentStatus/'+_psk, {
+              status: 'cleared_on_delete',
+              paymentPaidUntil: null,
+              paidUntil: null,
+              validTill: null,
+              paymentPaidUntilDate: null,
+              forceFreshLogin: true,
+              clearedAt: new Date().toISOString(),
+              clearedBy: 'self_delete_account'
+            });
+          }catch(e2){ console.warn('[deleteAccount] paymentStatus '+_psk, e2); }
+        }
+      }
+    }catch(ePs){ console.warn('[deleteAccount] paymentStatus', ePs); }
+
     // 2) Managers node
     try{ await fbRemove('managers/'+mob); }catch(e){
       try{ await fbSet('managers/'+mob, null); }catch(e2){}
