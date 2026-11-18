@@ -1032,11 +1032,16 @@ async function _checkUserAfterOTP(){
       _launchAsHardAdmin(mobile || _loginMobile);
       return;
     }
-    // Rejoin only if mobileUsers still exists (user did NOT delete account).
-    // After Delete Account, mobileUsers is gone → always Manager/Member choice.
+    // Rejoin only if mobileUsers still exists and is approved (user did NOT delete account).
+    // After Delete Account → always Manager/Member choice.
     try{
+      let forceFreshLocal = false;
+      try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
       const muPre = await fbGet('mobileUsers/'+mobile);
-      if(muPre && muPre.status==='approved' && typeof _tryRejoinPreserveShifts==='function'){
+      if(forceFreshLocal){
+        try{ localStorage.removeItem('mp_force_fresh_'+mobile); localStorage.removeItem('mp_force_fresh_at_'+mobile); }catch(e){}
+        // skip rejoin
+      } else if(muPre && muPre.status==='approved' && !muPre.forceFreshLogin && typeof _tryRejoinPreserveShifts==='function'){
         const rejoined = await _tryRejoinPreserveShifts(mobile);
         if(rejoined){
           const roster = await _resolveEmpByMobile(mobile);
@@ -1050,16 +1055,33 @@ async function _checkUserAfterOTP(){
         }
       }
     }catch(e){ console.warn('[otp] rejoin', e); }
-    // Roster auto-link:
-    // 1) mobileUsers approved as member/worker, OR
-    // 2) NO mobileUsers (e.g. deleted account) but phone is active on a manager's employees roster, OR
-    // 3) mobileUsers still says manager, but employee row is worker/member under another managerId
-    // → enter app as MEMBER (never force registration when already on roster).
+    // Roster auto-link (v6.0.46):
+    // ONLY when mobileUsers still exists and is usable.
+    // After Delete Account (no mobileUsers / removed / forceFreshLogin) → ALWAYS Manager/Member choice.
+    // Do NOT auto-rejoin from employees roster alone.
     try{
       const earlyRoster = await _resolveEmpByMobile(mobile);
       if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
           && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
         const mu = await fbGet('mobileUsers/'+mobile);
+        // Local flag set by Delete Account on this device
+        let forceFreshLocal = false;
+        try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
+        const muGoneOrRemoved = (
+          !mu
+          || mu.status==='removed' || mu.status==='revoked' || mu.status==='left' || mu.status==='left_team'
+          || mu.role==='removed' || mu.forceFreshLogin === true
+        );
+        if(forceFreshLocal || muGoneOrRemoved){
+          // Explicit self-delete / cleared registration → skip roster auto-login
+          try{
+            if(forceFreshLocal){
+              localStorage.removeItem('mp_force_fresh_'+mobile);
+              localStorage.removeItem('mp_force_fresh_at_'+mobile);
+            }
+          }catch(e){}
+          // fall through to Manager/Member registration below
+        } else {
         const rosterMgr = (typeof _normMobileKey==='function')
           ? _normMobileKey(earlyRoster.managerId||earlyRoster.managerMobile||'')
           : String(earlyRoster.managerId||'').replace(/\D/g,'').slice(-10);
@@ -1073,9 +1095,8 @@ async function _checkUserAfterOTP(){
           // Classic: approved member/worker in mobileUsers
           (mu && mu.status==='approved' && (mu.role==='member' || mu.role==='worker'))
           || (mu && mu.linkedVia==='roster' && mu.status!=='rejected' && mu.status!=='revoked')
-          // Deleted account / no mobileUsers, but live on roster under a manager
-          || (!mu && rosterMgr && rosterMgr.length===10)
           // Stale manager mobileUsers but employee row is under another manager as worker
+          // (still requires live mobileUsers — not after delete)
           || (mu && rosterIsWorker && rosterMgr && rosterMgr.length===10 && rosterMgr!==mobile
               && !(mu.role==='manager' && String(earlyRoster.accessLevel||'').toLowerCase()==='manager'
                   && String(earlyRoster.managerId||'')===mobile))
@@ -1098,6 +1119,7 @@ async function _checkUserAfterOTP(){
           if(ok) return;
         }
         try{ window._otpRosterEmp = earlyRoster; }catch(e){}
+        } // end else (not force-fresh / not deleted)
       }
     }catch(e){ console.warn('[otp] early roster', e); }
 

@@ -1099,16 +1099,58 @@ function _showMyShiftBulkBar(empId, empName){
   if(n === 0 && !hasClip) return;
   var bar = document.createElement('div');
   bar.id = 'myShiftBulkBar';
+
+  // v6.0.47: keep picker OFF the selected cells.
+  // Prefer bottom sheet (thumb zone). If selection sits in the lower area,
+  // park the bar at the top. Cap height + scroll so a tall palette never covers the grid.
   var placeTop = false;
+  var selTop = Infinity, selBottom = 0;
   try{
     var cells = document.querySelectorAll('.ms-day.ms-multi-on');
-    var maxBottom = 0;
-    cells.forEach(function(c){ var r=c.getBoundingClientRect(); if(r.bottom>maxBottom) maxBottom=r.bottom; });
-    if(maxBottom > window.innerHeight * 0.55) placeTop = true;
+    cells.forEach(function(c){
+      var r = c.getBoundingClientRect();
+      if(r.top < selTop) selTop = r.top;
+      if(r.bottom > selBottom) selBottom = r.bottom;
+    });
+    if(cells.length){
+      // If selection is mostly in the lower 45% of the viewport → use top placement
+      if(selBottom > window.innerHeight * 0.55 || selTop > window.innerHeight * 0.42){
+        placeTop = true;
+      }
+    }
   }catch(e){}
+
+  var maxH = Math.round(window.innerHeight * 0.42);
+  if(maxH < 200) maxH = 200;
+  if(maxH > 360) maxH = 360;
+
+  var baseCss = 'position:fixed;left:50%;transform:translateX(-50%);z-index:450;max-width:min(96vw,420px);width:min(96vw,420px);padding:12px 14px;border-radius:16px;background:linear-gradient(165deg,#1e1b4b,#0f172a);border:1.5px solid rgba(99,102,241,.5);box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:8px;color:#f8fafc;max-height:'+maxH+'px;overflow-y:auto;-webkit-overflow-scrolling:touch;';
   bar.style.cssText = placeTop
-    ? 'position:fixed;left:50%;transform:translateX(-50%);top:calc(64px + env(safe-area-inset-top,0px));z-index:400;max-width:min(96vw,480px);width:auto;padding:12px 14px;border-radius:16px;background:linear-gradient(165deg,#1e1b4b,#0f172a);border:1.5px solid rgba(99,102,241,.5);box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;color:#f8fafc;'
-    : 'position:fixed;left:50%;transform:translateX(-50%);bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:400;max-width:min(96vw,480px);width:auto;padding:12px 14px;border-radius:16px;background:linear-gradient(165deg,#1e1b4b,#0f172a);border:1.5px solid rgba(99,102,241,.5);box-shadow:0 12px 36px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;color:#f8fafc;';
+    ? baseCss + 'top:calc(56px + env(safe-area-inset-top,0px));bottom:auto;'
+    : baseCss + 'bottom:calc(64px + env(safe-area-inset-bottom,0px));top:auto;';
+
+  // After paint, if bar still overlaps selection, flip side once
+  setTimeout(function(){
+    try{
+      var br = bar.getBoundingClientRect();
+      if(!br || !isFinite(selTop)) return;
+      var overlaps = !(br.bottom < selTop - 6 || br.top > selBottom + 6);
+      if(!overlaps) return;
+      // Flip
+      if(placeTop){
+        bar.style.top = 'auto';
+        bar.style.bottom = 'calc(64px + env(safe-area-inset-bottom,0px))';
+      } else {
+        bar.style.bottom = 'auto';
+        bar.style.top = 'calc(56px + env(safe-area-inset-top,0px))';
+      }
+      // Scroll first selected cell into the clear band
+      var first = document.querySelector('.ms-day.ms-multi-on');
+      if(first && first.scrollIntoView){
+        first.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      }
+    }catch(e){}
+  }, 40);
 
   var clipN = hasClip ? (window._msClipboard.count || window._msClipboard.flat.length || 0) : 0;
   var title = n > 0

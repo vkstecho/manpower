@@ -639,19 +639,37 @@ async function confirmDeleteMyAccount(){
       for(var i=0;i<teamOrSelf.length;i++){
         var e = teamOrSelf[i];
         if(!e || !e.id) continue;
+        const isOwnRow = !!(empObjId && (e.id===empObjId || e.empId===empObjId)) || (norm(e.phone||e.mobile||'')===mob);
         try{
           // Prefer hard delete so Team roster does not keep ghosts
           if(typeof fbRemove==='function') await fbRemove('employees/'+e.id);
           else await fbSet('employees/'+e.id, null);
         }catch(err){
           try{
+            // v6.0.46: always detach phone on self-delete so next OTP cannot auto-rejoin
             await fbUpdate('employees/'+e.id, {
-              status: 'left_team',
+              status: isOwnRow ? 'removed' : 'left_team',
               leftAt: new Date().toISOString(),
               leftReason: isMgr ? 'manager_self_delete_cascade' : 'self_delete_account',
-              forceFreshLogin: true
+              forceFreshLogin: true,
+              phone: null,
+              mobile: null,
+              phoneClearedAt: new Date().toISOString()
             });
           }catch(err2){ console.warn('[deleteAccount] emp', err2); }
+        }
+        // If hard-delete succeeded for own row, also try explicit phone-clear tombstone under same id (no-op if gone)
+        if(isOwnRow){
+          try{
+            await fbUpdate('employees/'+e.id, {
+              status: 'removed',
+              phone: null,
+              mobile: null,
+              forceFreshLogin: true,
+              leftReason: 'self_delete_account',
+              leftAt: new Date().toISOString()
+            });
+          }catch(_own){}
         }
         // Also remove member mobileUsers that pointed at this manager (not the manager's own — already removed)
         try{
@@ -685,6 +703,9 @@ async function confirmDeleteMyAccount(){
       localStorage.removeItem('mp_write_auth_at');
       sessionStorage.removeItem('mp_write_auth');
       localStorage.removeItem('fp_registered');
+      // v6.0.46: force next OTP on this browser to treat number as brand-new
+      localStorage.setItem('mp_force_fresh_'+mob, '1');
+      localStorage.setItem('mp_force_fresh_at_'+mob, String(Date.now()));
     }catch(e){}
 
     // 6) Notify admin (best effort)
