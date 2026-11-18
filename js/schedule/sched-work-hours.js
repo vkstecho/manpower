@@ -640,32 +640,47 @@
 
   /** After schedule renders, annotate name cells with company/emp code chip. */
 
-  /** Career periods: company + emp code ranges (from emp.companyHistory or current). */
+  /** Career periods: company + emp code ranges (from emp.companyHistory or current).
+   *  Each row tagged _source: 'history' | 'meta' | 'live' and _histIndex when from companyHistory.
+   *  emp.careerHidden: string[] of "company|empCode" keys the user dismissed.
+   */
   function getCareerHistory(emp) {
     if (!emp) return [];
     var hist = [];
+    var hidden = {};
+    try {
+      (Array.isArray(emp.careerHidden) ? emp.careerHidden : []).forEach(function (k) {
+        if (k) hidden[String(k)] = true;
+      });
+    } catch (e) {}
+    function keyOf(co, code) {
+      return String(co || '') + '|' + String(code || '');
+    }
     try {
       if (Array.isArray(emp.companyHistory) && emp.companyHistory.length) {
-        emp.companyHistory.forEach(function (h) {
+        emp.companyHistory.forEach(function (h, i) {
           if (!h) return;
+          var co = h.company || h.companyName || h.companyId || '';
+          var code = h.empCode || h.empId || h.code || '';
+          if (hidden[keyOf(co, code)]) return;
           hist.push({
-            company: h.company || h.companyName || h.companyId || '',
-            empCode: h.empCode || h.empId || h.code || '',
+            company: co,
+            empCode: code,
             from: h.from || h.start || h.joiningDate || '',
-            to: h.to || h.end || ''
+            to: h.to || h.end || '',
+            _source: 'history',
+            _histIndex: i
           });
         });
       }
     } catch (e) {}
     if (!hist.length) {
       var co = emp.company || emp.companyName || emp.companyId || '';
-      // Prefer live team company from SESSION / manager profile when member is under a mgr
       try {
         if (typeof SESSION !== 'undefined' && SESSION) {
           if (SESSION.companyLabel) co = SESSION.companyLabel || SESSION.company || co;
           else if (SESSION.company && SESSION.role === 'manager') co = SESSION.company;
         }
-        // If viewing another member, use that emp's company but fall back to mgr label
         if (!co && typeof getEmps === 'function') {
           var mgrId = emp.managerId || '';
           var mgr = (getEmps() || []).find(function (x) {
@@ -674,21 +689,24 @@
           if (mgr) co = mgr.company || mgr.companyName || mgr.companyLabel || co;
         }
       } catch (e) {}
-      hist.push({
-        company: co,
-        empCode: emp.empId || emp.empCode || emp.code || '',
-        from: emp.joiningDate || emp.doj || '',
-        to: ''
-      });
+      var liveCode0 = emp.empId || emp.empCode || emp.code || '';
+      if (!hidden[keyOf(co, liveCode0)]) {
+        hist.push({
+          company: co,
+          empCode: liveCode0,
+          from: emp.joiningDate || emp.doj || '',
+          to: '',
+          _source: 'live',
+          _histIndex: -1
+        });
+      }
     } else {
-      // Ensure last/current entry reflects latest company if empty
       try {
         var last = hist[hist.length - 1];
         if (last && !last.company && typeof SESSION !== 'undefined' && SESSION.companyLabel)
           last.company = SESSION.companyLabel;
       } catch (e) {}
     }
-    // Enrich from scheduleMeta day nodes (phone key) if present
     try {
       var phone = empPhone(emp);
       var meta = metaCache();
@@ -700,17 +718,18 @@
         Object.keys(row).forEach(function (di) {
           var node = row[di];
           if (!node || typeof node !== 'object') return;
-          var co = node.company || node.companyName || '';
-          var code = node.empCode || node.empId || '';
-          if (!co && !code) return;
-          var key = co + '|' + code;
+          var coM = node.company || node.companyName || '';
+          var codeM = node.empCode || node.empId || '';
+          if (!coM && !codeM) return;
+          var key = keyOf(coM, codeM);
+          if (hidden[key]) return;
           var parts = String(mk).split('_');
           var y = parts[0], m = parts[1];
           var day = parseInt(di, 10);
           if (isNaN(day)) day = parseInt(di, 10) + 1;
           else day = day + 1;
           var ds = y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0');
-          if (!found[key]) found[key] = { company: co, empCode: code, from: ds, to: ds };
+          if (!found[key]) found[key] = { company: coM, empCode: codeM, from: ds, to: ds };
           else {
             if (ds < found[key].from) found[key].from = ds;
             if (ds > found[key].to) found[key].to = ds;
@@ -722,16 +741,23 @@
         var exists = hist.some(function (h) {
           return String(h.company) === String(f.company) && String(h.empCode) === String(f.empCode);
         });
-        if (!exists) hist.push(f);
+        if (!exists) {
+          hist.push({
+            company: f.company,
+            empCode: f.empCode,
+            from: f.from,
+            to: f.to,
+            _source: 'meta',
+            _histIndex: -1
+          });
+        }
       });
     } catch (e) {}
-    // Append current team company if different from last history row
     try {
       var liveCo = emp.company || emp.companyName || emp.companyLabel || '';
       var liveCode = emp.empId || emp.empCode || emp.code || '';
       try {
         if (typeof SESSION !== 'undefined' && SESSION && SESSION.role === 'manager' && (SESSION.companyLabel || SESSION.company)) {
-          // Manager viewing member: show manager's company as current period if emp still on this team
           var mgrKey = (typeof _normMobileKey === 'function') ? _normMobileKey(SESSION.mobile || '') : '';
           var empMgr = (typeof _normMobileKey === 'function') ? _normMobileKey(emp.managerId || emp.managerMobile || '') : '';
           if (mgrKey && empMgr && mgrKey === empMgr) {
@@ -740,12 +766,16 @@
         }
       } catch (e) {}
       if (liveCo || liveCode) {
-        var last = hist.length ? hist[hist.length - 1] : null;
-        if (!last || String(last.company) !== String(liveCo) || String(last.empCode) !== String(liveCode)) {
-          hist.push({ company: liveCo, empCode: liveCode, from: '', to: '' });
-        } else if (last && !last.to) {
-          last.company = liveCo || last.company;
-          last.empCode = liveCode || last.empCode;
+        var kLive = keyOf(liveCo, liveCode);
+        if (!hidden[kLive]) {
+          var last2 = hist.length ? hist[hist.length - 1] : null;
+          if (!last2 || String(last2.company) !== String(liveCo) || String(last2.empCode) !== String(liveCode)) {
+            hist.push({ company: liveCo, empCode: liveCode, from: '', to: '', _source: 'live', _histIndex: -1 });
+          } else if (last2 && !last2.to) {
+            last2.company = liveCo || last2.company;
+            last2.empCode = liveCode || last2.empCode;
+            if (!last2._source) last2._source = last2._source || 'history';
+          }
         }
       }
     } catch (e) {}
@@ -777,11 +807,19 @@
             '<div><div style="font-size:11px;color:var(--muted2)">🪪 Emp Code</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
             esc(code) +
             '</div></div>' +
-            '<button type="button" title="Remove" onclick="mpRemoveCareerEntry(\'' +
-            String(eid).replace(/'/g, '') +
-            '\',' +
-            idx +
-            ')" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);cursor:pointer">✕</button>' +
+            (function(){
+              var src = h._source || 'history';
+              var coEsc = String(co).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
+              var codeEsc = String(code).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
+              var fromEsc = String(from === '—' ? '' : from).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
+              if (src === 'live') {
+                return '<span title="Current team — change Emp Code in form below" style="padding:6px 8px;font-size:11px;color:var(--muted2)">•</span>';
+              }
+              return '<button type="button" title="Remove" onclick="mpRemoveCareerEntry(\'' +
+                String(eid).replace(/'/g, '') +
+                '\',\'' + coEsc + '\',\'' + codeEsc + '\',\'' + fromEsc + '\',\'' + src + '\')" '
+                + 'style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);cursor:pointer;color:#f87171">✕</button>';
+            })() +
             '<div style="grid-column:1/-1;font-size:12px;color:var(--muted2)">📅 ' +
             esc(from) +
             ' → ' +
@@ -917,6 +955,27 @@
       } catch (e) {}
       if (typeof toast === 'function') toast('✅ Past company saved');
       try {
+        var hid = Array.isArray(emp.careerHidden) ? emp.careerHidden.slice() : [];
+        var kAdd = company + '|' + empCode;
+        var hi = hid.indexOf(kAdd);
+        if (hi >= 0) {
+          hid.splice(hi, 1);
+          emp.careerHidden = hid;
+          if (typeof fbUpdate === 'function') {
+            try { await fbUpdate('employees/' + empId, { careerHidden: hid }); } catch (eH) {}
+          }
+        }
+      } catch (eH2) {}
+      try {
+        if (typeof _mpPatchEmpCache === 'function') {
+          _mpPatchEmpCache(empId, { companyHistory: hist, careerHidden: emp.careerHidden });
+        } else if (_cache && Array.isArray(_cache.employees)) {
+          var ix2 = _cache.employees.findIndex(function (e) { return e && e.id === empId; });
+          if (ix2 >= 0) _cache.employees[ix2].companyHistory = hist;
+        }
+      } catch (e) {}
+      try { if (typeof _mpRefreshCareerBlocks === 'function') _mpRefreshCareerBlocks(empId); } catch (e) {}
+      try {
         if (typeof renderMyShift === 'function') renderMyShift();
       } catch (e) {}
     } catch (e) {
@@ -925,28 +984,155 @@
     }
   }
 
-  async function mpRemoveCareerEntry(empId, idx) {
+  function _mpFindEmpById(empId) {
+    var emp = null;
     try {
-      var emp = (typeof getEmps === 'function' ? getEmps() : []).find(function (e) {
+      emp = (typeof getEmps === 'function' ? getEmps() : []).find(function (e) {
         return e && e.id === empId;
       });
-      if (!emp) return;
+    } catch (e) {}
+    if (!emp) {
+      try {
+        emp = ((_cache && _cache.employees) || []).find(function (e) {
+          return e && e.id === empId;
+        });
+      } catch (e) {}
+    }
+    return emp || null;
+  }
+
+  function _mpPatchEmpCache(empId, patch) {
+    try {
+      if (_cache && Array.isArray(_cache.employees)) {
+        var ix = _cache.employees.findIndex(function (e) {
+          return e && e.id === empId;
+        });
+        if (ix >= 0) {
+          Object.keys(patch || {}).forEach(function (k) {
+            _cache.employees[ix][k] = patch[k];
+          });
+        }
+      }
+    } catch (e) {}
+  }
+
+  /** Re-render any visible career history blocks (My Shift + open Team edit modal). */
+  function _mpRefreshCareerBlocks(empId) {
+    try {
+      var emp = _mpFindEmpById(empId);
+      if (!emp || typeof careerHistoryHtml !== 'function') return;
+      var html = careerHistoryHtml(emp);
+      var nodes = document.querySelectorAll('.mp-career-hist');
+      nodes.forEach(function (el) {
+        try {
+          var formProbe = el.querySelector('#mpCareerCo_' + empId);
+          if (formProbe || nodes.length === 1) {
+            el.outerHTML = html;
+          }
+        } catch (e) {}
+      });
+    } catch (e) {
+      console.warn('[career refresh]', e);
+    }
+  }
+
+  /**
+   * Remove a career row. New signature: (empId, company, empCode, from, source)
+   * Back-compat: (empId, idx) still works.
+   */
+  async function mpRemoveCareerEntry(empId, company, empCode, from, source) {
+    try {
+      if (arguments.length === 2 && typeof company === 'number') {
+        var idxOnly = company;
+        var emp0 = _mpFindEmpById(empId);
+        if (!emp0) return;
+        var hist0 = Array.isArray(emp0.companyHistory) ? emp0.companyHistory.slice() : [];
+        if (idxOnly < 0 || idxOnly >= hist0.length) {
+          if (typeof toast === 'function') toast('Nothing to remove');
+          return;
+        }
+        company = hist0[idxOnly].company || hist0[idxOnly].companyName || '';
+        empCode = hist0[idxOnly].empCode || hist0[idxOnly].empId || '';
+        from = hist0[idxOnly].from || '';
+        source = 'history';
+      }
+      var emp = _mpFindEmpById(empId);
+      if (!emp) {
+        if (typeof toast === 'function') toast('Employee not found');
+        return;
+      }
+      company = String(company || '').trim();
+      empCode = String(empCode || '').trim();
+      from = String(from || '').trim();
+      source = String(source || 'history');
+      if (from === '—') from = '';
+      var key = company + '|' + empCode;
+
       var hist = Array.isArray(emp.companyHistory) ? emp.companyHistory.slice() : [];
-      if (idx < 0 || idx >= hist.length) return;
-      hist.splice(idx, 1);
+      var hidden = Array.isArray(emp.careerHidden) ? emp.careerHidden.slice() : [];
+      var changed = false;
+
+      var next = [];
+      hist.forEach(function (h) {
+        if (!h) return;
+        var hc = String(h.company || h.companyName || h.companyId || '').trim();
+        var he = String(h.empCode || h.empId || h.code || '').trim();
+        var hf = String(h.from || h.start || h.joiningDate || '').trim();
+        var match = hc === company && he === empCode;
+        if (match && from && hf && hf !== from) {
+          match = false;
+        }
+        if (match) {
+          changed = true;
+          return;
+        }
+        next.push(h);
+      });
+      hist = next;
+
+      // Meta/live rows (or history row already gone but still shown via enrichment): hide by key
+      if (source === 'meta' || source === 'live' || !changed) {
+        if (key !== '|' && hidden.indexOf(key) < 0) {
+          hidden.push(key);
+          changed = true;
+        }
+      }
+
+      if (!changed) {
+        if (typeof toast === 'function') toast('Nothing to remove');
+        return;
+      }
+
+      var patch = { companyHistory: hist, careerHidden: hidden };
       if (typeof fbUpdate === 'function') {
-        await fbUpdate('employees/' + empId, { companyHistory: hist });
+        await fbUpdate('employees/' + empId, patch);
       }
       emp.companyHistory = hist;
-      if (typeof toast === 'function') toast('Removed');
+      emp.careerHidden = hidden;
+      _mpPatchEmpCache(empId, patch);
+
+      if (typeof toast === 'function') toast('✅ Removed');
+      try {
+        if (typeof invalidateShiftCache === 'function') invalidateShiftCache();
+      } catch (e) {}
+      _mpRefreshCareerBlocks(empId);
       try {
         if (typeof renderMyShift === 'function') renderMyShift();
       } catch (e) {}
     } catch (e) {
       console.warn('[mpRemoveCareerEntry]', e);
+      if (typeof toast === 'function') toast('❌ ' + (e.message || 'Remove failed'));
     }
   }
 
+  try {
+    global.mpAddCareerEntry = mpAddCareerEntry;
+    global.mpRemoveCareerEntry = mpRemoveCareerEntry;
+    global.mpRefreshCareerBlocks = _mpRefreshCareerBlocks;
+    window.mpAddCareerEntry = mpAddCareerEntry;
+    window.mpRemoveCareerEntry = mpRemoveCareerEntry;
+    window.mpRefreshCareerBlocks = _mpRefreshCareerBlocks;
+  } catch (e) {}
 
   function annotateScheduleIdentity() {
     try {
