@@ -410,8 +410,13 @@ try{
     merged[e.id]=arr;
     if(code){ merged[code]=arr; merged[String(code).trim()]=arr; }
     try{
-      var ph=(typeof _normMobileKey==='function')?_normMobileKey(e.phone||e.mobile||''):'';
-      if(ph&&ph.length===10) merged[ph]=arr;
+      // Durable identity = mobile. Pre-joining Excel months must stay linked to phone
+      // so history remains after current-team joiningDate changes.
+      var ph=(typeof _normMobileKey==='function')?_normMobileKey(e.phone||e.mobile||''):String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
+      if(ph&&ph.length===10){
+        merged[ph]=arr;
+        merged['M_'+ph]=arr;
+      }
     }catch(x){}
   });
 }catch(x){}

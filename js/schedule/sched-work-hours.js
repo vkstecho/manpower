@@ -882,8 +882,8 @@
       '</div>' +
       '<div style="font-size:11px;color:var(--muted2);margin-bottom:10px;line-height:1.4">' +
       _L(
-        'Joining date current manager team ke liye hai. Us se pehle ki company / E-code yahan add karein — schedule grid alag rehta hai.',
-        'Joining date is for the current manager team. Add earlier company / E-code here — schedule grid stays separate.'
+        'Current team joining date Manager set karta hai. Purani company / E-code / dates yahan member bhi add/edit kar sakta hai. Excel history member + Manager dono ko dikhti hai — joining date se hide nahi hoti.',
+        'Current team joining date is set by Manager only. Past company / E-code / dates can be added here by the member. Excel history stays visible to the member and Manager — joining date does not hide it.'
       ) +
       '</div>' +
       body +

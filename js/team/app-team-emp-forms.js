@@ -138,7 +138,8 @@ function openEditEmpForm(empId){
     return `<div class="field"><label>📱 ${L('मोबाइल नंबर','Mobile')}</label><input class="inp-field" id="ee_phone" value="${ph}" placeholder="10-digit" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\D/g,'')"></div>`;
   })()}
   <div class="grid2">
-    <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ee_joining" type="date" value="${e.joiningDate||''}"></div>
+    <div class="field"><label>📅 ${L('इस टीम में Joining Date','Current team joining date')}</label><input class="inp-field" id="ee_joining" type="date" value="${e.joiningDate||''}">
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px;line-height:1.35">${L('केवल Manager बदल सकता है। पुरानी company की dates ऊपर Company history में — schedule इतिहास छुपता नहीं।','Only Manager can change this. Past company dates are in Company history above — does not hide old schedule data.')}</div></div>
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ee_dob" type="date" value="${e.dob||''}"></div>
   </div>
   <div class="grid2">
@@ -360,6 +361,7 @@ async function saveEmployee(empId){
   // Primary write — only this must complete before UI closes
   try{
     await fbUpdate('employees/'+empId, update);
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(_ic){}
     // Knowledge-loss alert when marking left/resigned
     try{
       const st = String(update.status||'').toLowerCase();

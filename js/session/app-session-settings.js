@@ -864,14 +864,16 @@ try{ window.mpEnsureScheduleMonth = mpEnsureScheduleMonth; }catch(e){}
 
 function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
-  // NOTE: joining-date filter applied only when schedule cell is empty.
-  // Excel historical uploads must still show even if joiningDate is recent.
+  // v6.0.39 product rule:
+  // Current-team joiningDate is ONLY for auto-create / "not yet joined" UX.
+  // Stored schedule (Excel upload / Firebase) is always visible to the person
+  // (mobile) and to managers of the team they are on — including months before
+  // current joining date (old company history stays readable).
   const d=new Date(dateStr+'T12:00:00');
   const monthKey = dateStr.substring(0,7).replace('-','_');
   const dayIdx = d.getDate()-1;
   function rowVal(row){
     if(row == null) return null;
-    // Array or Firebase object {0:'D',1:'N',...}
     if(Array.isArray(row)) return row[dayIdx];
     if(typeof row === 'object'){
       const v = row[dayIdx] != null ? row[dayIdx] : row[String(dayIdx)];
@@ -879,21 +881,42 @@ function getBaseShift(emp, dateStr){
     }
     return null;
   }
+  function tryKey(sched, k){
+    if(!sched || k==null || k==='') return null;
+    if(sched[k] != null) return sched[k];
+    const s = String(k);
+    if(sched[s] != null) return sched[s];
+    if(sched[s.toUpperCase()] != null) return sched[s.toUpperCase()];
+    return null;
+  }
   function fbLookup(sched){
     if(!sched) return null;
-    if(emp.id && sched[emp.id] != null) return sched[emp.id];
+    var hit = null;
+    // Primary: Firebase employee id
+    hit = tryKey(sched, emp.id);
+    if(hit != null) return hit;
+    // Current emp code
     const codeRaw = emp.empId != null ? String(emp.empId).trim() : '';
-    if(codeRaw && sched[codeRaw] != null) return sched[codeRaw];
-    if(codeRaw && sched[codeRaw.toUpperCase()] != null) return sched[codeRaw.toUpperCase()];
-    // SESSION.empId fallback (manager viewing own My Shift after Excel keyed by Emp ID)
+    hit = tryKey(sched, codeRaw);
+    if(hit != null) return hit;
+    // Past company emp codes (old Excel rows keyed by previous E-code)
     try{
-      if(typeof SESSION!=='undefined' && SESSION && SESSION.empId){
-        const se=String(SESSION.empId).trim();
-        if(se && sched[se]!=null) return sched[se];
-        if(se && sched[se.toUpperCase()]!=null) return sched[se.toUpperCase()];
+      const hist = Array.isArray(emp.companyHistory) ? emp.companyHistory : [];
+      for(var i=0;i<hist.length;i++){
+        const hc = hist[i] && (hist[i].empCode || hist[i].empId || hist[i].code);
+        if(!hc) continue;
+        hit = tryKey(sched, String(hc).trim());
+        if(hit != null) return hit;
       }
     }catch(x){}
-    // loose match on emp code without leading zeros / case
+    // SESSION empId (manager viewing own schedule)
+    try{
+      if(typeof SESSION!=='undefined' && SESSION && SESSION.empId){
+        hit = tryKey(sched, String(SESSION.empId).trim());
+        if(hit != null) return hit;
+      }
+    }catch(x){}
+    // Loose match current code without leading zeros
     if(codeRaw){
       const code = codeRaw.replace(/^0+/,'').toUpperCase();
       for(const k of Object.keys(sched)){
@@ -901,42 +924,44 @@ function getBaseShift(emp, dateStr){
         if(kk === code) return sched[k];
       }
     }
-    // phone match if schedule was keyed by mobile
+    // Phone keys (mobile is durable identity across companies)
     try{
       const ph = (typeof _normMobileKey==='function')
         ? _normMobileKey(emp.phone||emp.mobile||'')
         : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
-      if(ph && ph.length===10 && sched[ph] != null) return sched[ph];
-      // also SESSION mobile
+      if(ph && ph.length===10){
+        hit = tryKey(sched, ph) || tryKey(sched, 'M_'+ph);
+        if(hit != null) return hit;
+      }
       if(typeof SESSION!=='undefined' && SESSION){
         const sph=(typeof _normMobileKey==='function')?_normMobileKey(SESSION.mobile||SESSION.uid||''):'';
-        if(sph && sph.length===10 && sched[sph]!=null) return sched[sph];
+        if(sph && sph.length===10){
+          hit = tryKey(sched, sph) || tryKey(sched, 'M_'+sph);
+          if(hit != null) return hit;
+        }
       }
     }catch(x){}
     return null;
   }
-  const fbSched = getSchedules()[monthKey];
-  const fbRow = fbLookup(fbSched);
-  if(fbRow != null){
-    const val = rowVal(fbRow);
-    if(val === null || val === undefined || val === ''){
-      // empty cell — respect joining date (no phantom shifts before join)
-      try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
-      return '';
-    }
-    // Non-empty schedule cell wins (Excel / auto schedule source of truth)
-    return val;
+  // Prefer first non-empty among Firebase schedule + in-memory Excel
+  const sources = [];
+  try{
+    const fbSched = (typeof getSchedules==='function' ? getSchedules() : null) || {};
+    sources.push(fbSched[monthKey]);
+  }catch(e){}
+  try{
+    if(typeof EXCEL_SCHEDULES!=='undefined' && EXCEL_SCHEDULES[monthKey])
+      sources.push(EXCEL_SCHEDULES[monthKey]);
+  }catch(e){}
+
+  for(var si=0; si<sources.length; si++){
+    const row = fbLookup(sources[si]);
+    if(row == null) continue;
+    const val = rowVal(row);
+    if(val === null || val === undefined || val === '') continue;
+    return val; // non-empty historical / current cell always wins
   }
-  try{ if(typeof _isBeforeJoining==='function' && _isBeforeJoining(emp, dateStr)) return ''; }catch(e){}
-  if(typeof EXCEL_SCHEDULES!=='undefined' && EXCEL_SCHEDULES[monthKey]){
-    const exRow = fbLookup(EXCEL_SCHEDULES[monthKey]);
-    if(exRow != null){
-      const val = rowVal(exRow);
-      if(val === '' || val === null || val === undefined) return '';
-      return val;
-    }
-    return '';
-  }
+  // No stored shift for this day — blank (do NOT invent from joining date)
   return '';
 }
 
@@ -1365,24 +1390,10 @@ function _isBeforeJoining(emp, dateStr){
  * Mutates array in place; returns number of cells cleared.
  */
 function _sanitizeShiftRow(arr, emp, year, month){
-  if(!Array.isArray(arr) && !(arr && typeof arr==='object')) return 0;
-  let cleared = 0;
-  const jd = getJoiningDate(emp);
-  const days = (year && month) ? new Date(year, month, 0).getDate() : (Array.isArray(arr)?arr.length:31);
-  for(let i=0;i<days;i++){
-    const key = Array.isArray(arr) ? i : String(i);
-    const val = arr[key];
-    if(val == null || val === '') continue;
-    if(jd && year && month){
-      const ds = year+'-'+String(month).padStart(2,'0')+'-'+String(i+1).padStart(2,'0');
-      if(ds < jd){
-        if(Array.isArray(arr)) arr[i] = '';
-        else arr[key] = '';
-        cleared++;
-      }
-    }
-  }
-  return cleared;
+  // v6.0.39: NEVER clear historical schedule cells when joiningDate moves forward.
+  // Old-company / Excel shifts must remain visible to the member (mobile) and team manager.
+  // Joining date only gates auto-create, not stored data.
+  return 0;
 }
 
 /** Run joining-date cleanup across all cached month schedules; optionally persist */
