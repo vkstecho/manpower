@@ -110,7 +110,7 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
   }catch(ex){}
   const key=_normMobileKey(SESSION.mobile);
   const selfId=SESSION.empObjId||SESSION.employeeId||"";
-  // v6.0.41: nested manager — still see parent team (view-only unless parent granted perms)
+  // v6.0.43: nested manager — still see parent team (view-only unless parent granted perms)
   let parentKey="";
   try{
     const self=_findOwnEmployeeRecord&&_findOwnEmployeeRecord();
@@ -682,7 +682,7 @@ try{
   }catch(ex){}
   return!0===SESSION.pendingApproval||"pending"===SESSION.status
 }function _myEmployeeRecord(){try{if(SESSION.empObjId){const e=(_cache.employees||[]).find(x=>x.id===SESSION.empObjId);if(e)return e}const mob=_normMobileKey(SESSION.mobile||SESSION.uid||"");if(mob)return(_cache.employees||[]).find(x=>_normMobileKey(x.phone||x.mobile||"")===mob)||null}catch(e){}return null}function myTeamPerms(){
-  // v6.0.41: members/workers NEVER inherit full manager perms via isMgr() side-paths
+  // v6.0.43: members/workers NEVER inherit full manager perms via isMgr() side-paths
   try{
     var sr=String(SESSION.role||"").toLowerCase();
     if(sr==="member"||sr==="worker"||sr==="pending_member"){
@@ -716,7 +716,7 @@ try{
   }catch(e){}
   return!1;
 }
-/** v6.0.41: per-employee edit — nested manager can always edit direct reports;
+/** v6.0.43: per-employee edit — nested manager can always edit direct reports;
  *  parent-team rows only if parent granted schedule perm (existing tick boxes). */
 function _canEditEmpSchedule(emp){
   try{

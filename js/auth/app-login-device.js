@@ -1571,12 +1571,16 @@ function _fbOtpErrorMessage(err){
 // ════════════════════════════════════════
 // OTP LOGIN SYSTEM
 // ════════════════════════════════════════
-let _otpEmp = null;
-let _otpDeviceId = null;
+// v6.0.43: always on window so app-login.js _sendOTP never hits ReferenceError
+var _otpEmp = null;
+var _otpDeviceId = null;
+try { window._otpEmp = null; window._otpDeviceId = null; } catch (e) {}
 
 async function showOTPLoginScreen(emp, deviceId){
   _otpEmp = emp;
   _otpDeviceId = deviceId;
+  try { window._otpEmp = emp; window._otpDeviceId = deviceId; } catch (e) {}
+
   const maskedPhone = emp.phone.slice(0,2) + '●●●●●●' + emp.phone.slice(-2);
 
   let ov = document.getElementById('otpLoginOverlay');
@@ -1769,7 +1773,7 @@ async function _resendOTP(){
 
 function _cancelOTP(){
   _deviceOtpConfirm=null;
-  _otpEmp=null;
+  _otpEmp=null; try{ window._otpEmp=null; }catch(e){}
   _otpDeviceId=null;
   const ov=document.getElementById('otpLoginOverlay');
   if(ov) ov.style.display='none';

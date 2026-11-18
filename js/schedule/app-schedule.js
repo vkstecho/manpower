@@ -69,7 +69,7 @@ if(_customRangeActive&&_customDateFrom&&_customDateTo)document.getElementById("c
   if(!ok){try{toast(L("❌ केवल Manager Upload कर सकता है","❌ Only Manager can upload schedule"));}catch(e){}return;}
   document.getElementById("excelUploadOverlay").classList.add("open"),document.getElementById("excelUploadStatus").style.display="none"
 }function closeExcelUpload(){document.getElementById("excelUploadOverlay").classList.remove("open")}try{window.openExcelUpload=openExcelUpload,window.closeExcelUpload=closeExcelUpload,window.handleExcelFile=handleExcelFile}catch(e){}function handleExcelDrop(e){e.preventDefault(),document.getElementById("excelUploadDropZone").style.borderColor="var(--border2)";const file=e.dataTransfer.files[0];file&&handleExcelFile(file)}
-/** v6.0.30 / v6.0.41 — confirm before Excel overwrites existing schedule months.
+/** v6.0.30 / v6.0.43 — confirm before Excel overwrites existing schedule months.
  *  memberList: [{name, mobile, empCode}], months: ['2026_09', ...]
  *  Returns Promise<boolean>
  */

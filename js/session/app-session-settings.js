@@ -625,7 +625,7 @@ async function _enforcePaymentGate(tab){
 
 function _updateSchedAdminVisibility(){
   const canEdit = (typeof canEditSchedule==='function') ? canEditSchedule() : false;
-  // v6.0.41: Auto Create / Upload / Min Manpower = true manager or admin only
+  // v6.0.43: Auto Create / Upload / Min Manpower = true manager or admin only
   // Delegated members (perms.schedule) may edit cells + multi-select, not bulk upload tools
   var sr = '';
   try{ sr = String(SESSION.role||'').toLowerCase(); }catch(e){}
@@ -880,7 +880,7 @@ try{ window.mpEnsureScheduleMonth = mpEnsureScheduleMonth; }catch(e){}
 
 function getBaseShift(emp, dateStr){
   if(!emp || !dateStr) return '';
-  // v6.0.41 product rule:
+  // v6.0.43 product rule:
   // Current-team joiningDate is ONLY for auto-create / "not yet joined" UX.
   // Stored schedule (Excel upload / Firebase) is always visible to the person
   // (mobile) and to managers of the team they are on — including months before
@@ -1034,7 +1034,7 @@ function getShift(emp, dateStr){
     }
   }catch(e){}
 
-  // v6.0.41: do NOT hard-blank before joining date here.
+  // v6.0.43: do NOT hard-blank before joining date here.
   // getBaseShift already: non-empty Excel/schedule cells show (historical upload);
   // empty cells before joining stay blank. Matches v6.0.26 intent.
   result = getBaseShift(emp, dateStr) || '';
@@ -1086,7 +1086,7 @@ function _forceShiftBadgeColors(){
     function esc(c){ return String(c||'').replace(/[^\w#(),.%\s-]/g,''); }
     function rule(cls, bg, fg){
       bg = esc(bg); fg = esc(fg);
-      // v6.0.41: also lock multi-select .ms-btn[data-shift] chips (picker was missed)
+      // v6.0.43: also lock multi-select .ms-btn[data-shift] chips (picker was missed)
       return '.shc.'+cls+', .shc.shc-sm.'+cls+', .ms-day-sh.shc.'+cls+', .sched-tbl .shc.'+cls+', span.shc.'+cls+', .hm-chip .shc.'+cls+', .hm-chips .shc.'+cls+'{'+
         'background:'+bg+' !important;color:'+fg+' !important;-webkit-text-fill-color:'+fg+' !important;}'+
         '.hm-shift-badge.'+cls+', .hm-shift-badge.'+cls+' .hm-shift-letter, .hm-shift-badge.'+cls+' .hm-shift-word{'+
@@ -1288,7 +1288,7 @@ function cellClass(s){
   if(!s) return 'blank';
   const t0 = String(s).trim();
   const tCompact = t0.replace(/\s+/g,'');
-  // v6.0.41: "11 H" / "11H" / T:11 / T all map to time-legend class
+  // v6.0.43: "11 H" / "11H" / T:11 / T all map to time-legend class
   if(/^T([:\-_].*)?$/i.test(t0) || /^HR$/i.test(t0) || /^\d+(\.\d+)?H$/i.test(t0)
     || /^\d+(\.\d+)?H$/i.test(tCompact) || /^T:?\d+(\.\d+)?H?$/i.test(tCompact)) return 't-time';
   const raw0 = String(s).trim();
@@ -1406,7 +1406,7 @@ function _isBeforeJoining(emp, dateStr){
  * Mutates array in place; returns number of cells cleared.
  */
 function _sanitizeShiftRow(arr, emp, year, month){
-  // v6.0.41: NEVER clear historical schedule cells when joiningDate moves forward.
+  // v6.0.43: NEVER clear historical schedule cells when joiningDate moves forward.
   // Old-company / Excel shifts must remain visible to the member (mobile) and team manager.
   // Joining date only gates auto-create, not stored data.
   return 0;
@@ -1692,7 +1692,7 @@ try {
 
 
 // ══════════════════════════════════════════════════════════════
-// v6.0.41 — Member Leave team (soft) + Self-upgrade to Manager
+// v6.0.43 — Member Leave team (soft) + Self-upgrade to Manager
 // Phone remains durable identity; history never wiped.
 // ══════════════════════════════════════════════════════════════
 

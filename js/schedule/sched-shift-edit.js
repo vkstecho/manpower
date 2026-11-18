@@ -1213,7 +1213,7 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
 
 function editShiftCell(empId, empName, date, currentShift){
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
-  // v6.0.41: nested manager — edit only direct reports (or parent team if delegated)
+  // v6.0.43: nested manager — edit only direct reports (or parent team if delegated)
   var _empForGate = null;
   try{
     _empForGate = (typeof getEmps==='function' ? getEmps() : []).find(function(e){ return e && e.id===empId; })

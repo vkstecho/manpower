@@ -770,7 +770,7 @@
       });
     } catch (e) {}
     try {
-      // v6.0.41: same current company for Member and Manager — prefer emp record, then manager label only as fallback
+      // v6.0.43: same current company for Member and Manager — prefer emp record, then manager label only as fallback
       var liveCo = pickCanonicalCompany([
         emp.company,
         emp.companyName,
