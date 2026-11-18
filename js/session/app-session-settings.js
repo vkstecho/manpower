@@ -993,13 +993,9 @@ function getShift(emp, dateStr){
     }
   }catch(e){}
 
-  try{
-    if(_isBeforeJoining(emp, dateStr)){
-      _shiftResCache.set(cacheKey, '');
-      return '';
-    }
-  }catch(e){}
-
+  // v6.0.39: do NOT hard-blank before joining date here.
+  // getBaseShift already: non-empty Excel/schedule cells show (historical upload);
+  // empty cells before joining stay blank. Matches v6.0.26 intent.
   result = getBaseShift(emp, dateStr) || '';
   _shiftResCache.set(cacheKey, result);
   return result;
