@@ -62,7 +62,65 @@ if(_customRangeActive&&_customDateFrom&&_customDateTo)document.getElementById("c
     try{toast(L('✅ Schedule template Excel डाउनलोड','✅ Schedule template Excel downloaded'))}catch(e){}
   };
   run().catch(e=>{console.warn(e);toast('❌ Template download failed')});
-}try{window.downloadScheduleExcelTemplate=downloadScheduleExcelTemplate}catch(e){}function openExcelUpload(){document.getElementById("excelUploadOverlay").classList.add("open"),document.getElementById("excelUploadStatus").style.display="none"}function closeExcelUpload(){document.getElementById("excelUploadOverlay").classList.remove("open")}try{window.openExcelUpload=openExcelUpload,window.closeExcelUpload=closeExcelUpload,window.handleExcelFile=handleExcelFile}catch(e){}function handleExcelDrop(e){e.preventDefault(),document.getElementById("excelUploadDropZone").style.borderColor="var(--border2)";const file=e.dataTransfer.files[0];file&&handleExcelFile(file)}async function handleExcelFile(file){if(!file)return;const statusEl=document.getElementById("excelUploadStatus");statusEl.style.display="block",statusEl.innerHTML='<span style="color:var(--day)">'+(typeof L==='function'?L('⏳ फ़ाइल पढ़ी जा रही है...','⏳ Reading file...'):'⏳ Reading file...')+'</span>';try{window.XLSX||("function"==typeof ensureXlsx?await ensureXlsx():await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",s.onload=res,s.onerror=rej,document.head.appendChild(s)}));const buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:"array",cellDates:!0});
+}try{window.downloadScheduleExcelTemplate=downloadScheduleExcelTemplate}catch(e){}function openExcelUpload(){document.getElementById("excelUploadOverlay").classList.add("open"),document.getElementById("excelUploadStatus").style.display="none"}function closeExcelUpload(){document.getElementById("excelUploadOverlay").classList.remove("open")}try{window.openExcelUpload=openExcelUpload,window.closeExcelUpload=closeExcelUpload,window.handleExcelFile=handleExcelFile}catch(e){}function handleExcelDrop(e){e.preventDefault(),document.getElementById("excelUploadDropZone").style.borderColor="var(--border2)";const file=e.dataTransfer.files[0];file&&handleExcelFile(file)}
+/** v6.0.30 / v6.0.39 — confirm before Excel overwrites existing schedule months.
+ *  memberList: [{name, mobile, empCode}], months: ['2026_09', ...]
+ *  Returns Promise<boolean>
+ */
+async function _confirmExcelOverwrite(memberList, months){
+  memberList = memberList || [];
+  months = months || [];
+  const _L = (typeof L==='function') ? L : function(hi,en){ return en||hi; };
+  const monthLabels = months.map(function(mk){
+    const m = String(mk||'').match(/(\d{4})[_-](\d{1,2})/);
+    if(!m) return String(mk);
+    const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const mi = Math.max(0, Math.min(11, (+m[2])-1));
+    return names[mi]+' '+m[1];
+  });
+  const maxShow = 12;
+  let memberHtml = '';
+  if(memberList.length){
+    const show = memberList.slice(0, maxShow);
+    memberHtml = '<div style="text-align:left;max-height:160px;overflow:auto;margin:10px 0;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid rgba(148,163,184,.25)">'+
+      show.map(function(x){
+        const nm = (typeof escHtml==='function'?escHtml(x.name||'—'):String(x.name||'—'));
+        const mob = (typeof escHtml==='function'?escHtml(x.mobile||'—'):String(x.mobile||'—'));
+        const code = x.empCode ? (' · '+(typeof escHtml==='function'?escHtml(x.empCode):String(x.empCode))) : '';
+        return '<div style="font-size:12px;padding:3px 0;border-bottom:1px solid rgba(148,163,184,.12)"><b style="color:var(--text)">'+nm+'</b> <span style="color:var(--muted2)">'+mob+code+'</span></div>';
+      }).join('')+
+      (memberList.length>maxShow ? '<div style="font-size:11px;color:var(--muted2);padding-top:6px">+ '+(memberList.length-maxShow)+' more…</div>' : '')+
+      '</div>';
+  }
+  const title = _L('Excel से Schedule overwrite?','Overwrite schedule from Excel?');
+  const msg =
+    '<div style="text-align:left">'+
+    '<div style="margin-bottom:8px">'+_L(
+      '<b>'+months.length+'</b> महीने की shift data replace हो जाएगी।',
+      '<b>'+months.length+'</b> month(s) of shift data will be replaced.'
+    )+'</div>'+
+    (monthLabels.length ? '<div style="font-size:12px;color:var(--muted2);margin-bottom:8px">'+monthLabels.slice(0,18).join(', ')+(monthLabels.length>18?'…':'')+'</div>' : '')+
+    '<div style="margin-bottom:4px;font-weight:700">'+_L('Affected members','Affected members')+' ('+memberList.length+')</div>'+
+    memberHtml+
+    '<div style="font-size:12px;color:var(--muted2);margin-top:8px">'+_L(
+      'Cancel करने पर existing shifts सुरक्षित रहेंगी।',
+      'Cancel keeps existing shifts unchanged.'
+    )+'</div>'+
+    '</div>';
+  if(typeof confirmModal==='function'){
+    return await confirmModal(
+      title,
+      msg,
+      _L('✅ हाँ, Overwrite करें','✅ Yes, overwrite'),
+      _L('रद्द करें','Cancel')
+    );
+  }
+  // fallback
+  return window.confirm(title+'\n\n'+months.length+' month(s), '+memberList.length+' member(s). Continue?');
+}
+try{ window._confirmExcelOverwrite = _confirmExcelOverwrite; }catch(e){}
+
+async function handleExcelFile(file){if(!file)return;const statusEl=document.getElementById("excelUploadStatus");statusEl.style.display="block",statusEl.innerHTML='<span style="color:var(--day)">'+(typeof L==='function'?L('⏳ फ़ाइल पढ़ी जा रही है...','⏳ Reading file...'):'⏳ Reading file...')+'</span>';try{window.XLSX||("function"==typeof ensureXlsx?await ensureXlsx():await new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js",s.onload=res,s.onerror=rej,document.head.appendChild(s)}));const buf=await file.arrayBuffer(),wb=XLSX.read(buf,{type:"array",cellDates:!0});
 let _sheetName=wb.SheetNames[0];
 try{
   const prefer=wb.SheetNames.find(n=>/schedule|roster|team|employees|members/i.test(String(n||'')));
