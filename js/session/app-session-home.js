@@ -583,20 +583,32 @@ function openShiftCalendarDownload(){
   if(!emp){ toast('⚠️ Profile not found'); return; }
   const now = new Date();
   const months = [];
-  for(let i=-6;i<=3;i++){
+  let curKey = '';
+  if(_myShiftMonth){
+    curKey = _myShiftMonth.getFullYear()+'-'+String(_myShiftMonth.getMonth()+1).padStart(2,'0');
+  } else {
+    curKey = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  }
+  // Wider window: 24 months back, 12 months forward
+  for(let i=-24;i<=12;i++){
     const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
     const key = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
     const label = d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{month:'long',year:'numeric'});
-    const sel = (_myShiftMonth && _myShiftMonth.getFullYear()===d.getFullYear() && _myShiftMonth.getMonth()===d.getMonth()) ? ' selected' : '';
+    const sel = (key === curKey) ? ' selected' : '';
     months.push(`<option value="${key}"${sel}>${label}</option>`);
   }
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">📅 ${L('Shift Calendar Download','Shift Calendar Download')}</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">${L('महीना चुनें — Print जैसा रंग + Man Power / VKS Tech branding','Pick month — same colours as Print + Man Power / VKS Tech branding')}</div>
-    <div class="field" style="margin-bottom:14px">
-      <label>${L('महीना','Month')}</label>
-      <select id="scDlMonth" class="inp-field">${months.join('')}</select>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">${L('महीना रेंज चुनें — Print जैसा रंग + Man Power / VKS Tech branding','Pick month range — same colours as Print + Man Power / VKS Tech branding')}</div>
+    <div class="field" style="margin-bottom:10px">
+      <label>${L('से (From)','From month')}</label>
+      <select id="scDlMonthFrom" class="inp-field">${months.join('')}</select>
     </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>${L('तक (To)','To month')}</label>
+      <select id="scDlMonthTo" class="inp-field">${months.join('')}</select>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">${L('एक महीना = From और To एक ही रखें। अधिकतम 12 महीने।','One month = set From and To same. Max 12 months.')}</div>
     <button class="submit-btn" onclick="downloadMyShiftCalendar()" style="width:100%">📥 ${L('Download Calendar','Download Calendar')}</button>
     <button class="cancel-btn" onclick="closeModal()" style="width:100%;margin-top:8px">${L('रद्द','Cancel')}</button>`);
 }
@@ -605,14 +617,38 @@ function openShiftCalendarDownload(){
 async function downloadMyShiftCalendar(){
   const emp = (typeof myEmp==='function' ? myEmp() : null);
   if(!emp){ toast('⚠️ Profile not found'); return; }
-  const mk = (document.getElementById('scDlMonth')||{}).value || '';
-  if(!mk){ toast(L('⚠️ Month चुनें','⚠️ Select month')); return; }
-  const [yr, mo] = mk.split('-').map(Number);
-  const daysInMonth = new Date(yr, mo, 0).getDate();
-  const first = new Date(yr, mo-1, 1);
-  const startDow = first.getDay();
-  const monthName = first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  // Support range (From/To). Fall back to legacy single select id if present.
+  let mkFrom = (document.getElementById('scDlMonthFrom')||{}).value || '';
+  let mkTo   = (document.getElementById('scDlMonthTo')||{}).value || '';
+  if(!mkFrom && !mkTo){
+    const legacy = (document.getElementById('scDlMonth')||{}).value || '';
+    mkFrom = mkTo = legacy;
+  }
+  if(!mkFrom) mkFrom = mkTo;
+  if(!mkTo) mkTo = mkFrom;
+  if(!mkFrom){ toast(L('⚠️ Month चुनें','⚠️ Select month')); return; }
+  if(mkFrom > mkTo){ const t=mkFrom; mkFrom=mkTo; mkTo=t; }
+
+  // Expand YYYY-MM range into month keys (max 12 months)
+  const monthKeys = [];
+  {
+    let [y,m] = mkFrom.split('-').map(Number);
+    const [y2,m2] = mkTo.split('-').map(Number);
+    for(let guard=0; guard<12; guard++){
+      const key = y+'-'+String(m).padStart(2,'0');
+      monthKeys.push(key);
+      if(y===y2 && m===m2) break;
+      m++; if(m>12){ m=1; y++; }
+    }
+  }
+  if(!monthKeys.length){ toast(L('⚠️ Month चुनें','⚠️ Select month')); return; }
+
   const genAt = new Date().toLocaleString('en-IN');
+  const rangeLabel = monthKeys.length===1
+    ? (new Date(monthKeys[0]+'-01')).toLocaleDateString('en-IN',{month:'long',year:'numeric'})
+    : ((new Date(monthKeys[0]+'-01')).toLocaleDateString('en-IN',{month:'short',year:'numeric'})
+        + ' – ' +
+       (new Date(monthKeys[monthKeys.length-1]+'-01')).toLocaleDateString('en-IN',{month:'short',year:'numeric'}));
 
   // v6.0.36: same palette as print — overlay manager Shift Settings colours
   const SBG={D:'#f59e0b',N:'#4f46e5',A:'#16a34a',B:'#db2777',C:'#0891b2',O:'#dcfce7',L:'#fee2e2','C/O':'#ede9fe',G:'#e0f2fe',H:'#ffedd5',OD:'#ccfbf1',HLF:'#fed7aa',Ab:'#fecaca',GP:'#fdf4ff'};
@@ -636,36 +672,52 @@ async function downloadMyShiftCalendar(){
     }
   }catch(e){}
 
-
   let logoDataUrl = null;
   try{ logoDataUrl = await _loadVksLogoDataUrl(); }catch(e){}
 
   const dows = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  let dayCells = '';
-  for(let i=0;i<startDow;i++) dayCells += `<div style="min-height:64px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"></div>`;
-  for(let d=1; d<=daysInMonth; d++){
-    const ds = yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    let sh = '';
-    try{ sh = String(getShift(emp, ds)||''); }catch(e){}
-    let bg = SBG[sh] || SBG[String(sh||'').toUpperCase()] || '#f1f5f9';
-    let cl = SCL[sh] || SCL[String(sh||'').toUpperCase()] || '#475569';
-    try{
-      if(sh && typeof mpShiftStyle==='function'){
-        const st=mpShiftStyle(sh);
-        if(st&&st.bg){ bg=st.bg; cl=st.fg||'#fff'; }
-      }
-    }catch(e){}
-    const disp = (typeof cellDisp==='function'?cellDisp(sh):null)||(sh==='C/O'?'CO':(sh==='HLF'?'½':(sh||'·')));
-    const isToday = (typeof TODAY_STR!=='undefined' && ds===TODAY_STR);
-    dayCells += `<div style="min-height:64px;background:#fff;border:1px solid ${isToday?'#f97316':'#e2e8f0'};border-radius:8px;padding:6px;${isToday?'box-shadow:0 0 0 2px rgba(249,115,22,.25)':''}">
-      <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:4px">${d}</div>
-      <div style="display:inline-block;min-width:28px;text-align:center;padding:3px 6px;border-radius:6px;font-weight:900;font-size:12px;background:${bg};color:${cl};border:1px solid rgba(0,0,0,.12)">${disp}</div>
-    </div>`;
-  }
-
   const legend = ['D','N','O','L','C/O','H','Ab','G'].map(c=>{
     return `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:10px;color:#334155"><span style="width:14px;height:14px;border-radius:3px;background:${SBG[c]};border:1px solid rgba(0,0,0,.15)"></span>${c}</span>`;
   }).join('');
+
+  function buildMonthBlock(mk){
+    const [yr, mo] = mk.split('-').map(Number);
+    const daysInMonth = new Date(yr, mo, 0).getDate();
+    const first = new Date(yr, mo-1, 1);
+    const startDow = first.getDay();
+    const monthName = first.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+    let dayCells = '';
+    for(let i=0;i<startDow;i++) dayCells += `<div style="min-height:64px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px"></div>`;
+    for(let d=1; d<=daysInMonth; d++){
+      const ds = yr+'-'+String(mo).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+      let sh = '';
+      try{ sh = String(getShift(emp, ds)||''); }catch(e){}
+      let bg = SBG[sh] || SBG[String(sh||'').toUpperCase()] || '#f1f5f9';
+      let cl = SCL[sh] || SCL[String(sh||'').toUpperCase()] || '#475569';
+      try{
+        if(sh && typeof mpShiftStyle==='function'){
+          const st=mpShiftStyle(sh);
+          if(st&&st.bg){ bg=st.bg; cl=st.fg||'#fff'; }
+        }
+      }catch(e){}
+      const disp = (typeof cellDisp==='function'?cellDisp(sh):null)||(sh==='C/O'?'CO':(sh==='HLF'?'½':(sh||'·')));
+      const isToday = (typeof TODAY_STR!=='undefined' && ds===TODAY_STR);
+      dayCells += `<div style="min-height:64px;background:#fff;border:1px solid ${isToday?'#f97316':'#e2e8f0'};border-radius:8px;padding:6px;${isToday?'box-shadow:0 0 0 2px rgba(249,115,22,.25)':''}">
+        <div style="font-size:11px;font-weight:800;color:#64748b;margin-bottom:4px">${d}</div>
+        <div style="display:inline-block;min-width:28px;text-align:center;padding:3px 6px;border-radius:6px;font-weight:900;font-size:12px;background:${bg};color:${cl};border:1px solid rgba(0,0,0,.12)">${disp}</div>
+      </div>`;
+    }
+    return `
+      <div style="margin-bottom:22px;page-break-inside:avoid">
+        <div style="font-size:14px;font-weight:900;color:#0f172a;margin:8px 0 10px;padding:6px 10px;background:#fff7ed;border-left:4px solid #ea580c;border-radius:6px">${monthName}</div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px">
+          ${dows.map(d=>`<div style="text-align:center;font-size:11px;font-weight:800;color:#64748b;padding:4px 0">${d}</div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${dayCells}</div>
+      </div>`;
+  }
+
+  const monthsHtml = monthKeys.map(buildMonthBlock).join('');
 
   const imgWidth = 720;
   const printDiv = document.createElement('div');
@@ -675,15 +727,12 @@ async function downloadMyShiftCalendar(){
       ${logoDataUrl?`<img src="${logoDataUrl}" width="52" height="52" style="border-radius:12px;object-fit:contain;background:#fff;border:1px solid #e2e8f0;padding:2px"/>`:''}
       <div style="flex:1">
         <div style="font-size:20px;font-weight:900;color:#ea580c;letter-spacing:.3px">Man Power App</div>
-        <div style="font-size:13px;font-weight:700;color:#0f172a">My Shift Calendar — ${monthName}</div>
+        <div style="font-size:13px;font-weight:700;color:#0f172a">My Shift Calendar — ${rangeLabel}</div>
         <div style="font-size:11px;color:#64748b">${escHtml(emp.name||'')}${escHtml(emp.empId?' · #'+emp.empId:'')} · ${escHtml(SESSION.company||'')}</div>
       </div>
       <div style="text-align:right;font-size:10px;color:#64748b">VKS Tech<br/>Technology is power</div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px">
-      ${dows.map(d=>`<div style="text-align:center;font-size:11px;font-weight:800;color:#64748b;padding:4px 0">${d}</div>`).join('')}
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px">${dayCells}</div>
+    ${monthsHtml}
     <div style="margin-top:14px;padding-top:10px;border-top:1px solid #e2e8f0">${legend}</div>
     <div style="margin-top:10px;text-align:center;font-size:10px;color:#94a3b8">
       ${logoDataUrl?`<img src="${logoDataUrl}" width="14" height="14" style="vertical-align:middle;border-radius:3px"/>`:''}
@@ -692,10 +741,10 @@ async function downloadMyShiftCalendar(){
   document.body.appendChild(printDiv);
 
   const finish = ()=>{ try{ document.body.removeChild(printDiv); }catch(e){} };
+  const fileTag = monthKeys.length===1 ? monthKeys[0] : (monthKeys[0]+'_to_'+monthKeys[monthKeys.length-1]);
 
   try{
     if(typeof html2canvas !== 'function'){
-      // Fallback: open print window
       const w = window.open('', '_blank');
       if(w){
         w.document.write('<html><head><title>Shift Calendar</title></head><body>'+printDiv.innerHTML+'</body></html>');
@@ -713,7 +762,7 @@ async function downloadMyShiftCalendar(){
     const canvas = await html2canvas(printDiv, { scale: 2, backgroundColor: '#ffffff', useCORS: true, width: imgWidth });
     const a = document.createElement('a');
     a.href = canvas.toDataURL('image/png');
-    a.download = 'ManPower_ShiftCalendar_'+(emp.name||'member').replace(/\s+/g,'_')+'_'+mk+'.png';
+    a.download = 'ManPower_ShiftCalendar_'+(emp.name||'member').replace(/\s+/g,'_')+'_'+fileTag+'.png';
     a.click();
     closeModal();
     toast('📥 Shift calendar downloaded (PNG)');
@@ -724,6 +773,7 @@ async function downloadMyShiftCalendar(){
     finish();
   }
 }
+
 
 var _myShiftViewEmpId=null;
 

@@ -1407,7 +1407,8 @@ async function _loadManagerOptions(){
         const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(k||v.mobile||v.phone||'') : String(k||'').replace(/\D/g,'').slice(-10);
         const nm = String(v.name||phoneKey).replace(/"/g,'&quot;').replace(/</g,'');
         const co = String(v.company||'—').replace(/</g,'');
-        return `<option value="${escAttr(phoneKey)}" data-name="${escAttr(nm)}">${escHtml(nm)} (${escHtml(co)})</option>`;
+        const masked = phoneKey && phoneKey.length>=4 ? (phoneKey.slice(0,2)+'●●●●●●'+phoneKey.slice(-2)) : phoneKey;
+        return `<option value="${escAttr(phoneKey)}" data-name="${escAttr(nm)}">${escHtml(nm)} (${escHtml(co)}) · ${escHtml(masked)}</option>`;
       }).join('');
   }catch(e){
     sel.innerHTML='<option value="">-- Error loading --</option>';
