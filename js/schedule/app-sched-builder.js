@@ -7,6 +7,10 @@
  * Global function names unchanged — load order matters (see index.html).
  */
 function openScheduleBuilder(){
+  var sr="";try{sr=String(SESSION.role||"").toLowerCase();}catch(e){}
+  var ok=(typeof isAdmin==="function"&&isAdmin())||(sr==="manager"&&typeof isMgr==="function"&&isMgr());
+  if(!ok){try{toast(L("❌ Auto Create केवल Manager के लिए","❌ Auto Create is Manager only"));}catch(e){}return;}
+
   if(typeof canEditSchedule==='function' && !canEditSchedule()){
     toast(typeof L==='function'?L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'):'❌ No schedule edit permission');
     return;

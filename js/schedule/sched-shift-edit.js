@@ -1213,7 +1213,15 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
 
 function editShiftCell(empId, empName, date, currentShift){
   const isOwn = (SESSION.empObjId && empId===SESSION.empObjId) || (myEmp() && myEmp().id===empId);
-  if(!canEditSchedule() && !isOwn){ return; }
+  // v6.0.44: nested manager — edit only direct reports (or parent team if delegated)
+  var _empForGate = null;
+  try{
+    _empForGate = (typeof getEmps==='function' ? getEmps() : []).find(function(e){ return e && e.id===empId; })
+      || ((_cache && _cache.employees)||[]).find(function(e){ return e && e.id===empId; });
+  }catch(ex){}
+  if(typeof _canEditEmpSchedule==='function' && _empForGate){
+    if(!_canEditEmpSchedule(_empForGate) && !isOwn){ return; }
+  } else if(!canEditSchedule() && !isOwn){ return; }
   // Own shift change still queues like schedule edit if they have rights; members can request via pending
   if(!canEditSchedule() && isOwn){
     // Allow open picker; save uses same pending path if canEdit OR request-to-manager
