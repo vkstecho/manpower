@@ -654,22 +654,7 @@
       });
     } catch (e) {}
     function keyOf(co, code) {
-      // Case-insensitive so "Telecom Police UK" and "telecom police uk" merge
-      return String(co || '').trim().toLowerCase() + '|' + String(code || '').trim().toLowerCase();
-    }
-    function pickCanonicalCompany(candidates) {
-      // Prefer non-empty with most title-like casing (has uppercase)
-      var best = '';
-      candidates.forEach(function (s) {
-        s = String(s || '').trim();
-        if (!s) return;
-        if (!best) { best = s; return; }
-        var upperBest = (best.match(/[A-Z]/g) || []).length;
-        var upperS = (s.match(/[A-Z]/g) || []).length;
-        if (upperS > upperBest) best = s;
-        else if (upperS === upperBest && s.length > best.length) best = s;
-      });
-      return best;
+      return String(co || '') + '|' + String(code || '');
     }
     try {
       if (Array.isArray(emp.companyHistory) && emp.companyHistory.length) {
@@ -690,12 +675,11 @@
       }
     } catch (e) {}
     if (!hist.length) {
-      var co = pickCanonicalCompany([emp.company, emp.companyName, emp.companyId, emp.companyLabel]);
+      var co = emp.company || emp.companyName || emp.companyId || '';
       try {
-        if (!co && typeof SESSION !== 'undefined' && SESSION) {
-          // Fallback only when emp has no company — keeps Member/Manager in sync
+        if (typeof SESSION !== 'undefined' && SESSION) {
           if (SESSION.companyLabel) co = SESSION.companyLabel || SESSION.company || co;
-          else if (SESSION.company) co = SESSION.company;
+          else if (SESSION.company && SESSION.role === 'manager') co = SESSION.company;
         }
         if (!co && typeof getEmps === 'function') {
           var mgrId = emp.managerId || '';
@@ -770,22 +754,14 @@
       });
     } catch (e) {}
     try {
-      // v6.0.43: same current company for Member and Manager — prefer emp record, then manager label only as fallback
-      var liveCo = pickCanonicalCompany([
-        emp.company,
-        emp.companyName,
-        emp.companyLabel
-      ]);
+      var liveCo = emp.company || emp.companyName || emp.companyLabel || '';
       var liveCode = emp.empId || emp.empCode || emp.code || '';
       try {
-        if (!liveCo && typeof SESSION !== 'undefined' && SESSION && (SESSION.companyLabel || SESSION.company)) {
+        if (typeof SESSION !== 'undefined' && SESSION && SESSION.role === 'manager' && (SESSION.companyLabel || SESSION.company)) {
           var mgrKey = (typeof _normMobileKey === 'function') ? _normMobileKey(SESSION.mobile || '') : '';
           var empMgr = (typeof _normMobileKey === 'function') ? _normMobileKey(emp.managerId || emp.managerMobile || '') : '';
-          // Only use SESSION company when emp has no company set (avoid Member vs Manager mismatch)
-          if (SESSION.role === 'manager' && mgrKey && empMgr && mgrKey === empMgr) {
+          if (mgrKey && empMgr && mgrKey === empMgr) {
             liveCo = SESSION.companyLabel || SESSION.company || liveCo;
-          } else if (SESSION.role === 'member' || SESSION.role === 'worker') {
-            liveCo = liveCo || SESSION.companyLabel || SESSION.company || '';
           }
         }
       } catch (e) {}

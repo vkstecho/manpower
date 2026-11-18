@@ -1571,16 +1571,12 @@ function _fbOtpErrorMessage(err){
 // ════════════════════════════════════════
 // OTP LOGIN SYSTEM
 // ════════════════════════════════════════
-// v6.0.43: always on window so app-login.js _sendOTP never hits ReferenceError
-var _otpEmp = null;
-var _otpDeviceId = null;
-try { window._otpEmp = null; window._otpDeviceId = null; } catch (e) {}
+let _otpEmp = null;
+let _otpDeviceId = null;
 
 async function showOTPLoginScreen(emp, deviceId){
   _otpEmp = emp;
   _otpDeviceId = deviceId;
-  try { window._otpEmp = emp; window._otpDeviceId = deviceId; } catch (e) {}
-
   const maskedPhone = emp.phone.slice(0,2) + '●●●●●●' + emp.phone.slice(-2);
 
   let ov = document.getElementById('otpLoginOverlay');
@@ -1773,7 +1769,7 @@ async function _resendOTP(){
 
 function _cancelOTP(){
   _deviceOtpConfirm=null;
-  _otpEmp=null; try{ window._otpEmp=null; }catch(e){}
+  _otpEmp=null;
   _otpDeviceId=null;
   const ov=document.getElementById('otpLoginOverlay');
   if(ov) ov.style.display='none';
@@ -1852,7 +1848,7 @@ function showNewEmpRegistrationForm(code){
         style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#a855f7);
                border:none;border-radius:13px;color:#fff;font-size:17px;font-weight:900;
                cursor:pointer;margin-bottom:10px;opacity:.4;pointer-events:none;font-family:inherit">
-        ${typeof L==='function'?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp to Admin'):'📲 Submit → WhatsApp to Admin'}
+        ${typeof L==='function'?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp goes to Admin'):'📲 Submit → WhatsApp goes to Admin'}
       </button>
       <button onclick="document.getElementById('newRegOverlay').style.display='none';showStep(2);"
         style="width:100%;padding:13px;background:none;border:1px solid #334155;
@@ -1952,7 +1948,7 @@ async function submitNewEmpReg(code){
     toast(L('✅ Request भेजी! WhatsApp से Admin को notification जाएगी।','✅ Request sent! Admin will get a WhatsApp notification.'));
   }catch(e){
     if(errEl) errEl.textContent='❌ Error: '+e.message;
-    if(btn){btn.innerHTML='${(typeof L==='function')?L('📲 Submit → WhatsApp से Admin को जाएगी','📲 Submit → WhatsApp to Admin'):'📲 Submit → WhatsApp to Admin'}';btn.style.opacity='1';btn.style.pointerEvents='auto';}
+    if(btn){btn.innerHTML='📲 Submit → WhatsApp से Admin को जाएगी';btn.style.opacity='1';btn.style.pointerEvents='auto';}
   }
 }
 

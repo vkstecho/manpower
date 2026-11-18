@@ -114,12 +114,9 @@
 
     if (primaryBtn) {
       primaryBtn.innerHTML = primaryLabel + ' &#128172;';
-      try { primaryBtn.removeAttribute('disabled'); primaryBtn.disabled = false; primaryBtn.style.pointerEvents = 'auto'; } catch (e) {}
-      try { if (typeof mpSyncLoginCta === 'function') mpSyncLoginCta(); } catch (e) {}
     }
     if (stickyBtn) {
       stickyBtn.textContent = primaryLabel;
-      try { stickyBtn.removeAttribute('disabled'); stickyBtn.disabled = false; stickyBtn.style.pointerEvents = 'auto'; } catch (e) {}
     }
 
     if (!showCommercial) {

@@ -110,24 +110,11 @@ async function compressImage(base64,maxWidth,quality){return maxWidth=maxWidth||
   }catch(ex){}
   const key=_normMobileKey(SESSION.mobile);
   const selfId=SESSION.empObjId||SESSION.employeeId||"";
-  // v6.0.43: nested manager — still see parent team (view-only unless parent granted perms)
-  let parentKey="";
-  try{
-    const self=_findOwnEmployeeRecord&&_findOwnEmployeeRecord();
-    if(self){
-      parentKey=_normMobileKey(self.parentManagerId||self.managerId||self.managerMobile||"");
-      if(parentKey&&parentKey===key) parentKey=""; // self is root for this phone
-    }
-    if(!parentKey) parentKey=_normMobileKey(SESSION.parentManagerId||SESSION.managerId||"");
-    if(parentKey&&parentKey===key) parentKey="";
-  }catch(ex){}
   const filtered = activeOnly(all.filter(e=>{
     if(!e) return false;
-    const mid=_normMobileKey(e.managerId||e.managerMobile||"");
-    // Direct reports under this manager
+    const mid=_normMobileKey(e.managerId||"");
+    // Team linked to this manager by phone
     if(mid&&mid===key) return true;
-    // Parent manager's team (view; edit gated by _canEditEmpSchedule)
-    if(parentKey&&mid&&mid===parentKey) return true;
     // Manager's own employee row (profile / my shift)
     const ePhone=_normMobileKey(e.phone||e.mobile||"");
     if(ePhone&&ePhone===key) return true;
@@ -669,10 +656,9 @@ try{
       if(isWorkerish&&_sr!=="manager") return!1;
     }
   }catch(e){}
-  if("manager"===String(SESSION.role||"").toLowerCase())return!0;
-  // Do not treat designation/accessLevel alone as manager when session role is missing/unknown
-  // (prevents schedule Upload tools leaking to members)
-  return!1;
+  if("manager"===SESSION.role)return!0;
+  const emp2=myEmp();
+  return emp2&&("manager"===emp2.accessLevel||"MGR"===emp2.sec||"Manager"===emp2.designation)
 }function isSupervisor(){if("admin"===SESSION.role)return!1;const emp=myEmp();return emp&&("supervisor"===emp.accessLevel||"Supervisor"===emp.designation)}function isAdminOrMgr(){return isAdmin()||isMgr()}function _managerEmptyTeamHtml(){if(!("manager"===SESSION.role||"function"==typeof isMgr&&isMgr()))return"";if(("function"==typeof getEmps?getEmps():[]).filter(e=>"resigned"!==e.status&&"left"!==e.status).length>0)return"";const en=void 0!==_lang&&"hi"!==_lang;return`<div class="hm-empty" style="margin:10px 12px;padding:14px;border-radius:12px;border:1px dashed rgba(249,115,22,.45);background:rgba(249,115,22,.08);text-align:left">\n    <div style="font-weight:900;color:var(--text);margin-bottom:4px">${en?"Your team is empty":"आपकी Team अभी खाली है"}</div>\n    <div style="font-size:12px;color:var(--muted2);line-height:1.5">${en?"Managers only see staff they add. Open <b>Team</b> → <b>Add employee</b>. This is not a data loss bug.":"Manager को सिर्फ वही कर्मचारी दिखते हैं जिन्हें वे खुद जोड़ते हैं। <b>Team</b> → <b>नया कर्मचारी जोड़ें</b>। यह data loss नहीं है।"}</div>\n  </div>`}function isGuest(){return"guest"===SESSION.role}function isPendingMember(){
   if(SESSION.role!=="member")return!1;
   // Manager granted rights → full app access (Home + Schedule + Leave + Reports)
@@ -681,69 +667,18 @@ try{
     if(raw.schedule||raw.leave||raw.reports||raw.pending)return!1;
   }catch(ex){}
   return!0===SESSION.pendingApproval||"pending"===SESSION.status
-}function _myEmployeeRecord(){try{if(SESSION.empObjId){const e=(_cache.employees||[]).find(x=>x.id===SESSION.empObjId);if(e)return e}const mob=_normMobileKey(SESSION.mobile||SESSION.uid||"");if(mob)return(_cache.employees||[]).find(x=>_normMobileKey(x.phone||x.mobile||"")===mob)||null}catch(e){}return null}function myTeamPerms(){
-  // v6.0.43: members/workers NEVER inherit full manager perms via isMgr() side-paths
-  try{
-    var sr=String(SESSION.role||"").toLowerCase();
-    if(sr==="member"||sr==="worker"||sr==="pending_member"){
-      var eM=_myEmployeeRecord(),pM=(eM&&eM.perms)||{};
-      return{schedule:!!pM.schedule,leave:!!pM.leave,reports:!!pM.reports,pending:!(!pM.pending&&!pM.leave),team:!1,full:!1};
-    }
-  }catch(e){}
-  if(isAdmin())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};
-  // True session manager only (not designation/accessLevel heuristics alone)
-  if(String(SESSION.role||"").toLowerCase()==="manager"&&isMgr())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};
-  const e=_myEmployeeRecord(),p=e&&e.perms||{};
-  return{schedule:!!p.schedule,leave:!!p.leave,reports:!!p.reports,pending:!(!p.pending&&!p.leave),team:!1,full:!1};
-}function canEditSchedule(){
+}function _myEmployeeRecord(){try{if(SESSION.empObjId){const e=(_cache.employees||[]).find(x=>x.id===SESSION.empObjId);if(e)return e}const mob=_normMobileKey(SESSION.mobile||SESSION.uid||"");if(mob)return(_cache.employees||[]).find(x=>_normMobileKey(x.phone||x.mobile||"")===mob)||null}catch(e){}return null}function myTeamPerms(){if(isAdmin()||isMgr())return{schedule:!0,leave:!0,reports:!0,team:!0,pending:!0,full:!0};const e=_myEmployeeRecord(),p=e&&e.perms||{};return{schedule:!!p.schedule,leave:!!p.leave,reports:!!p.reports,pending:!(!p.pending&&!p.leave),team:!1,full:!1}}function canEditSchedule(){
   if(isPendingMember()) return!1;
   if(isAdmin()) return!0;
-  var sr="";
-  try{ sr=String(SESSION.role||"").toLowerCase(); }catch(e){}
-  // Session member/worker: ONLY explicit perms.schedule from employee record (manager tick box)
-  if(sr==="member"||sr==="worker"||sr==="pending_member"){
-    try{
-      var e=_myEmployeeRecord(),p=(e&&e.perms)||{};
-      return!!p.schedule;
-    }catch(e){ return!1; }
-  }
-  // True managers only
-  if(sr==="manager" && isMgr()) return!0;
-  // Unknown role: deny schedule write tools (safer default)
+  // True managers only — not demoted / SESSION.role=member
+  if(isMgr() && String(SESSION.role||"").toLowerCase()==="manager") return!0;
+  // Members: only when manager explicitly granted schedule perm
   try{
-    var e2=_myEmployeeRecord(),p2=(e2&&e2.perms)||{};
-    return!!p2.schedule;
+    const sr=String(SESSION.role||"").toLowerCase();
+    if(sr==="member"||sr==="worker") return!!myTeamPerms().schedule;
   }catch(e){}
-  return!1;
-}
-/** v6.0.43: per-employee edit — nested manager can always edit direct reports;
- *  parent-team rows only if parent granted schedule perm (existing tick boxes). */
-function _canEditEmpSchedule(emp){
-  try{
-    if(!emp) return false;
-    if(typeof isAdmin==="function" && isAdmin()) return true;
-    if(typeof isPendingMember==="function" && isPendingMember()) return false;
-    const myKey=(typeof _normMobileKey==="function")
-      ? _normMobileKey(SESSION.mobile||SESSION.phone||"")
-      : String(SESSION.mobile||"").replace(/\D/g,"").slice(-10);
-    const empMgr=(typeof _normMobileKey==="function")
-      ? _normMobileKey(emp.managerId||emp.managerMobile||emp.mgrId||"")
-      : String(emp.managerId||"").replace(/\D/g,"").slice(-10);
-    const empPhone=(typeof _normMobileKey==="function")
-      ? _normMobileKey(emp.phone||emp.mobile||"")
-      : String(emp.phone||emp.mobile||"").replace(/\D/g,"").slice(-10);
-    // Own row — existing self-edit rules elsewhere
-    if(myKey && empPhone && myKey===empPhone) return !!canEditSchedule();
-    // Direct report of this manager → full edit
-    if(myKey && empMgr && myKey===empMgr && typeof isMgr==="function" && isMgr()
-       && String(SESSION.role||"").toLowerCase()==="manager") return true;
-    // Parent team or delegated: only with explicit schedule tick
-    if(typeof myTeamPerms==="function" && myTeamPerms().schedule) return true;
-    return false;
-  }catch(e){ return !!canEditSchedule(); }
-}
-try{ window._canEditEmpSchedule = _canEditEmpSchedule; }catch(e){}
-function canApproveLeave(){return isAdmin()||isMgr()||myTeamPerms().leave}function canManageReports(){return isAdmin()||isMgr()||myTeamPerms().reports}function isTeamOperator(){return isAdmin()||isMgr()||myTeamPerms().schedule||myTeamPerms().leave||myTeamPerms().reports}function canEditInst(){return isAdmin()||SESSION.name===CFG.supervisorInstructor||isMgr()}function isManagerSelfRecord(emp){if(!emp||!isMgr())return!1;const mine=_normMobileKey(SESSION.mobile||SESSION.uid||""),theirs=_normMobileKey(emp.phone||emp.mobile||"");return!(!mine||!theirs||mine!==theirs)||!(!SESSION.empObjId||emp.id!==SESSION.empObjId)}function myEmp(){return("function"==typeof _findOwnEmployeeRecord?_findOwnEmployeeRecord():null)||SESSION.empObjId&&(_cache.employees||[]).find(e=>e.id===SESSION.empObjId)||null}async function _unlinkMobileUserOnLeave(emp){try{if(!emp)return;const mob=_normMobileKey(emp.phone||emp.mobile||"");if(!mob||mob.length<10)return;await fbUpdate("mobileUsers/"+mob,{status:"left_team",managerId:null,leftAt:(new Date).toISOString(),leftReason:emp.status||"removed",name:"",empId:null,empCode:null,empObjId:null,employeeId:null})}catch(e){console.warn("[unlinkMobile]",e)}}function getDeviceId(){try{let did=localStorage.getItem("mp_device_id");if(!did){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent,nav.language,screen.width,screen.height,screen.colorDepth,(new Date).getTimezoneOffset(),nav.hardwareConcurrency||"",nav.platform||""].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;did="dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36);try{localStorage.setItem("mp_device_id",did)}catch(e){}}return did}catch(e){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent||"",nav.language||"",screen.width||0,screen.height||0,Date.now()].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;return"dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36)}}setTimeout(applyLang,200);const INTEGRITY_CACHE_NAME="mp-integrity",INTEGRITY_TOKEN_URL="/integrity-token";async function writeIntegrityToken(){if("caches"in window)try{const cache=await caches.open("mp-integrity");await cache.put("/integrity-token",new Response("1",{headers:{"Content-Type":"text/plain"}}))}catch(e){console.warn("[integrity] write failed:",e)}}async function checkIntegrityToken(){if(!("caches"in window))return!0;try{const cache=await caches.open("mp-integrity");return!!await cache.match("/integrity-token")}catch(e){return!0}}async function enforceIntegrityOnBoot(){try{if(!(localStorage.getItem("mp_session")||sessionStorage.getItem("mp_session_bak")||document.cookie.match(/mp_sess=([^;]+)/))){try{localStorage.removeItem("mp_int_ok")}catch(e){}return}if(!await checkIntegrityToken())return console.warn("[integrity] Token missing — re-binding session (no logout)"),await writeIntegrityToken(),void localStorage.setItem("mp_int_ok","1");localStorage.setItem("mp_int_ok","1")}catch(e){if("INTEGRITY_FAIL"===e.message)throw e;console.warn("[integrity] check error (allowing boot):",e)}}function _clearAllSessionData(){try{localStorage.removeItem("mp_session")}catch(e){}try{localStorage.removeItem("mp_int_ok")}catch(e){}try{localStorage.removeItem("fp_registered")}catch(e){}try{sessionStorage.removeItem("mp_session_bak")}catch(e){}try{sessionStorage.removeItem("expiry_warned")}catch(e){}document.cookie="mp_sess=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/",SESSION={role:"",name:"",empId:"",empObjId:"",dept:"",deviceId:""};try{indexedDB.open("mp_db",1).onsuccess=ev=>{try{const db=ev.target.result;Array.from(db.objectStoreNames).includes("sess")&&db.transaction("sess","readwrite").objectStore("sess").delete("mp_session"),db.close()}catch(x){}}}catch(e){}}function _showLoginScreenSafely(){
+  return!!myTeamPerms().schedule;
+}function canApproveLeave(){return isAdmin()||isMgr()||myTeamPerms().leave}function canManageReports(){return isAdmin()||isMgr()||myTeamPerms().reports}function isTeamOperator(){return isAdmin()||isMgr()||myTeamPerms().schedule||myTeamPerms().leave||myTeamPerms().reports}function canEditInst(){return isAdmin()||SESSION.name===CFG.supervisorInstructor||isMgr()}function isManagerSelfRecord(emp){if(!emp||!isMgr())return!1;const mine=_normMobileKey(SESSION.mobile||SESSION.uid||""),theirs=_normMobileKey(emp.phone||emp.mobile||"");return!(!mine||!theirs||mine!==theirs)||!(!SESSION.empObjId||emp.id!==SESSION.empObjId)}function myEmp(){return("function"==typeof _findOwnEmployeeRecord?_findOwnEmployeeRecord():null)||SESSION.empObjId&&(_cache.employees||[]).find(e=>e.id===SESSION.empObjId)||null}async function _unlinkMobileUserOnLeave(emp){try{if(!emp)return;const mob=_normMobileKey(emp.phone||emp.mobile||"");if(!mob||mob.length<10)return;await fbUpdate("mobileUsers/"+mob,{status:"left_team",managerId:null,leftAt:(new Date).toISOString(),leftReason:emp.status||"removed",name:"",empId:null,empCode:null,empObjId:null,employeeId:null})}catch(e){console.warn("[unlinkMobile]",e)}}function getDeviceId(){try{let did=localStorage.getItem("mp_device_id");if(!did){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent,nav.language,screen.width,screen.height,screen.colorDepth,(new Date).getTimezoneOffset(),nav.hardwareConcurrency||"",nav.platform||""].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;did="dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36);try{localStorage.setItem("mp_device_id",did)}catch(e){}}return did}catch(e){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent||"",nav.language||"",screen.width||0,screen.height||0,Date.now()].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;return"dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36)}}setTimeout(applyLang,200);const INTEGRITY_CACHE_NAME="mp-integrity",INTEGRITY_TOKEN_URL="/integrity-token";async function writeIntegrityToken(){if("caches"in window)try{const cache=await caches.open("mp-integrity");await cache.put("/integrity-token",new Response("1",{headers:{"Content-Type":"text/plain"}}))}catch(e){console.warn("[integrity] write failed:",e)}}async function checkIntegrityToken(){if(!("caches"in window))return!0;try{const cache=await caches.open("mp-integrity");return!!await cache.match("/integrity-token")}catch(e){return!0}}async function enforceIntegrityOnBoot(){try{if(!(localStorage.getItem("mp_session")||sessionStorage.getItem("mp_session_bak")||document.cookie.match(/mp_sess=([^;]+)/))){try{localStorage.removeItem("mp_int_ok")}catch(e){}return}if(!await checkIntegrityToken())return console.warn("[integrity] Token missing — re-binding session (no logout)"),await writeIntegrityToken(),void localStorage.setItem("mp_int_ok","1");localStorage.setItem("mp_int_ok","1")}catch(e){if("INTEGRITY_FAIL"===e.message)throw e;console.warn("[integrity] check error (allowing boot):",e)}}function _clearAllSessionData(){try{localStorage.removeItem("mp_session")}catch(e){}try{localStorage.removeItem("mp_int_ok")}catch(e){}try{localStorage.removeItem("fp_registered")}catch(e){}try{sessionStorage.removeItem("mp_session_bak")}catch(e){}try{sessionStorage.removeItem("expiry_warned")}catch(e){}document.cookie="mp_sess=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/",SESSION={role:"",name:"",empId:"",empObjId:"",dept:"",deviceId:""};try{indexedDB.open("mp_db",1).onsuccess=ev=>{try{const db=ev.target.result;Array.from(db.objectStoreNames).includes("sess")&&db.transaction("sess","readwrite").objectStore("sess").delete("mp_session"),db.close()}catch(x){}}}catch(e){}}function _showLoginScreenSafely(){
 /* v3.2.0: never force landing if session is valid */
 try{
   var raw=null;try{raw=localStorage.getItem("mp_session");}catch(e){}

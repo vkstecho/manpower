@@ -947,15 +947,14 @@ html.mp-login-active, body.mp-login-active {
         <div class="mp-login-cc">+91</div>
         <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
           maxlength="10" autocomplete="tel-national"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);else if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
-          onkeyup="if(typeof _onMobileInput==='function')_onMobileInput(this.value.replace(/[^0-9]/g,''))"
-          onchange="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
-          onblur="if(typeof mpSyncLoginCta==='function')mpSyncLoginCta()"
-          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'},10)"
-          onkeydown="if(event.key==='Enter'){if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();_sendOTP()}">
+          oninput="this.value=this.value.replace(/[^0-9]/g,'');_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
+          onkeyup="_onMobileInput(this.value.replace(/[^0-9]/g,''))"
+          onchange="this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
+          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'},10)"
+          onkeydown="if(event.key==='Enter'&&this.value.length===10)_sendOTP()">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
-      <button class="big-btn" id="sendOtpBtn" type="button" onclick="try{if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();_sendOTP()}catch(e){console.error(e);try{toast(String(e&&e.message||e))}catch(x){}}" style="opacity:.55;transition:opacity .2s;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">Continue &#128172;</button>
+      <button class="big-btn" id="sendOtpBtn" onclick="_sendOTP()" disabled style="opacity:.5;pointer-events:none;transition:opacity .2s">Continue &#128172;</button>
       <div id="loginTrustLine" class="mp-login-trust">OTP on this number · no password</div>
       <div id="loginRefundLine" class="mp-login-refund" style="display:none !important" hidden></div>
     </div>
@@ -2042,11 +2041,11 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/commercial/public-offer.js?v=6042"></script>
+<script src="js/commercial/public-offer.js?v=400020"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=6042"></script>
-<script src="js/auth/app-login.js?v=6043"></script>
-<script src="js/auth/app-login-device.js?v=6043"></script>
+<script src="js/core/app-core.js?v=5133"></script>
+<script src="js/auth/app-login.js?v=6027"></script>
+<script src="js/auth/app-login-device.js?v=6015"></script>
 <script src="js/auth/app-session-auth.js?v=400020"></script>
 <script src="js/session/app-session-nav.js?v=400020"></script>
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
@@ -2209,45 +2208,5 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script>
-/* v6.0.43 login CTA — never HTML-disabled; poll briefly for autofill */
-(function(){
-  try{ window._mpOtpSendInFlight = false; }catch(e){}
-  function sync(){
-    try{
-      if(typeof mpSyncLoginCta==='function') return mpSyncLoginCta();
-      var m = document.getElementById('loginMobile');
-      var b = document.getElementById('sendOtpBtn');
-      if(!m||!b) return;
-      var v = String(m.value||'').replace(/\D/g,'').slice(0,10);
-      if(m.value !== v) m.value = v;
-      b.removeAttribute('disabled'); b.disabled = false;
-      b.style.pointerEvents = 'auto';
-      b.style.opacity = v.length===10 ? '1' : '0.55';
-    }catch(e){}
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', sync);
-  else sync();
-  [200,600,1200,2500,5000].forEach(function(ms){ setTimeout(sync, ms); });
-  try{
-    var m = document.getElementById('loginMobile');
-    if(m){
-      ['input','change','blur','keyup','paste'].forEach(function(ev){
-        m.addEventListener(ev, function(){ setTimeout(sync, 0); setTimeout(sync, 50); });
-      });
-    }
-    var b = document.getElementById('sendOtpBtn');
-    if(b){
-      b.addEventListener('touchend', function(e){
-        try{
-          if(typeof mpSyncLoginCta==='function') mpSyncLoginCta();
-          var v = String((document.getElementById('loginMobile')||{}).value||'').replace(/\D/g,'');
-          if(v.length===10 && typeof _sendOTP==='function'){ e.preventDefault(); _sendOTP(); }
-        }catch(err){ console.error(err); }
-      }, {passive:false});
-    }
-  }catch(e){}
-})();
-</script>
 </body>
 </html>

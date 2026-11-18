@@ -1,8 +1,3 @@
-/* Shared with app-login-device.js — must be var (global), never bare let in another file only */
-var _otpEmp = (typeof window !== 'undefined' && window._otpEmp !== undefined) ? window._otpEmp : null;
-var _otpDeviceId = (typeof window !== 'undefined' && window._otpDeviceId !== undefined) ? window._otpDeviceId : null;
-try { window._otpEmp = _otpEmp; window._otpDeviceId = _otpDeviceId; } catch (e) {}
-
 /**
  * Man Power — OTP / registration / role pick
  * Split from monolithic module for maintainability. Global scope (no ES modules).
@@ -132,7 +127,7 @@ function showPendingBox(msgHtml){
       <div data-pending-msg style="font-size:13px;color:#cbd5e1;line-height:1.7;max-width:320px;margin-bottom:20px">${escHtml(defaultMsg)}</div>
       <button type="button" onclick="hidePendingBox();showStep(2);"
         style="width:min(280px,90%);padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.5);background:rgba(249,115,22,.12);color:#f97316;font-weight:800;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
-        ${(typeof L==='function')?L('← वापस जाएं','← Back'):'← Back'}
+        ← वापस जाएं / Retry Login
       </button>
       <button type="button" onclick="location.reload()"
         style="width:min(280px,90%);padding:10px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:transparent;color:#cbd5e1;font-weight:600;font-size:12px;cursor:pointer;font-family:inherit">
@@ -164,45 +159,16 @@ function goToStep2(){ try{ showStep(1); }catch(e){} }
 
 let _loginMobile='', _loginConfirmResult=null, _otpResendInterval=null;
 
-/** v6.0.43: sync CTA from live input — never leave button HTML-disabled (blocks all taps on mobile). */
-function mpSyncLoginCta(){
-  try{
-    var m = document.getElementById('loginMobile');
-    var val = String((m && m.value) || '').replace(/\D/g, '').slice(0, 10);
-    if(m && m.value !== val) m.value = val;
-    var ok = val.length === 10;
-    var btn = document.getElementById('sendOtpBtn');
-    var sticky = document.getElementById('loginStickyCta');
-    if(btn){
-      // CRITICAL: do not use disabled attribute — Android ignores clicks on disabled buttons
-      // even when opacity looks enabled after autofill / offer-label rewrite
-      try{ btn.removeAttribute('disabled'); }catch(e){}
-      btn.disabled = false;
-      btn.setAttribute('aria-disabled', ok ? 'false' : 'true');
-      btn.style.opacity = ok ? '1' : '0.55';
-      btn.style.pointerEvents = 'auto';
-      btn.style.cursor = ok ? 'pointer' : 'not-allowed';
-      btn.style.touchAction = 'manipulation';
-    }
-    if(sticky){
-      try{ sticky.removeAttribute('disabled'); }catch(e){}
-      sticky.disabled = false;
-      sticky.style.opacity = ok ? '1' : '0.55';
-      sticky.style.pointerEvents = 'auto';
-    }
-    return ok;
-  }catch(e){ return false; }
-}
 function _onMobileInput(val){
-  try{
-    val = String(val||'').replace(/\D/g,'').slice(0,10);
-    var m = document.getElementById('loginMobile');
-    if(m && String(m.value||'').replace(/\D/g,'') !== val) m.value = val;
-  }catch(e){}
-  mpSyncLoginCta();
+  const btn=document.getElementById('sendOtpBtn');
+  if(btn){
+    const ok=val.length===10;
+    btn.disabled=!ok;
+    btn.style.opacity=ok?'1':'.5';
+    btn.style.pointerEvents=ok?'auto':'none';
+    btn.style.cursor=ok?'pointer':'not-allowed';
+  }
 }
-try{ window.mpSyncLoginCta = mpSyncLoginCta; window._onMobileInput = _onMobileInput; }catch(e){}
-
 function _onOtpInput(val){
   val = String(val||'').replace(/\D/g,'').slice(0,6);
   const btn=document.getElementById('verifyOtpBtn');
@@ -218,28 +184,16 @@ function _onOtpInput(val){
 }
 
 async function _sendOTP(isResend){
-  // v6.0.43: always re-read mobile + unlock CTA before anything else
-  try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
-  try{
-    var _t0 = window._mpOtpSendStartedAt || 0;
-    if(window._mpOtpSendInFlight && (!_t0 || (Date.now()-_t0) > 20000)){
-      window._mpOtpSendInFlight = false;
-    }
-  }catch(e){ window._mpOtpSendInFlight = false; }
+  // Prevent double-click / concurrent OTP sends (button stuck on Sending…)
   if(window._mpOtpSendInFlight){
     try{ toast(L('⏳ OTP पहले से भेज रहे हैं — Security check पूरा करें','⏳ OTP already sending — complete the security check')); }catch(e){}
     return;
   }
   // Device-OTP overlay uses same button id sometimes — route if employee flow active
-  // v6.0.43: never ReferenceError if device module lag / let-scope miss
-  try {
-    var __oe = (typeof _otpEmp !== 'undefined') ? _otpEmp : (window._otpEmp || null);
-    var __ov = document.getElementById('otpLoginOverlay');
-    if(__oe && __ov && __ov.style.display !== 'none' && __ov.style.display !== ''){
-      if(typeof _sendDeviceOTP === 'function') return _sendDeviceOTP(!!isResend);
-    }
-  } catch (e) { console.warn('[otp] device route', e); }
-
+  if(_otpEmp && document.getElementById('otpLoginOverlay')?.style.display !== 'none'
+      && document.getElementById('otpLoginOverlay')?.style.display !== ''){
+    return _sendDeviceOTP(!!isResend);
+  }
   const mobileEl=document.getElementById('loginMobile');
   const mobile=(mobileEl?.value||'').trim().replace(/\D/g,'');
   if(mobile.length!==10){ toast(L('⚠️ 10 अंकों का Mobile Number डालें','⚠️ Enter a 10-digit mobile number')); return; }
@@ -249,30 +203,25 @@ async function _sendOTP(isResend){
   if(errEl) errEl.textContent='';
 
   window._mpOtpSendInFlight = true;
-  try{ window._mpOtpSendStartedAt = Date.now(); }catch(e){}
   // Instant UI feedback — was delayed until after several Firebase reads
   const sendBtn = document.getElementById('sendOtpBtn');
   const stickyBtn = document.getElementById('loginStickyCta');
   const _btnPrev = sendBtn ? sendBtn.innerHTML : '';
   if(sendBtn){
-    sendBtn.disabled = false;
-    try{ sendBtn.removeAttribute('disabled'); }catch(e){}
-    sendBtn.style.opacity = '0.85';
-    sendBtn.style.pointerEvents = 'auto';
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.7';
+    sendBtn.style.pointerEvents = 'none';
     sendBtn.innerHTML = '⏳ Sending…';
   }
   if(stickyBtn){ stickyBtn.disabled = true; stickyBtn.style.opacity = '0.7'; }
   const _restoreBtn = ()=>{
     window._mpOtpSendInFlight = false;
-    try{ window._mpOtpSendStartedAt = 0; }catch(e){}
-    try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
     if(!sendBtn) return;
     const mob = (document.getElementById('loginMobile')?.value||'').replace(/\D/g,'');
     const ok = mob.length === 10;
-    try{ sendBtn.removeAttribute('disabled'); }catch(e){}
-    sendBtn.disabled = false;
-    sendBtn.style.opacity = ok ? '1' : '.55';
-    sendBtn.style.pointerEvents = 'auto';
+    sendBtn.disabled = !ok;
+    sendBtn.style.opacity = ok ? '1' : '.5';
+    sendBtn.style.pointerEvents = ok ? 'auto' : 'none';
     sendBtn.style.cursor = ok ? 'pointer' : 'not-allowed';
     // Prefer current language label over stale HTML
     try{
@@ -284,10 +233,9 @@ async function _sendOTP(isResend){
   };
   const _setBtnCaptchaWait = ()=>{
     if(!sendBtn) return;
-    try{ sendBtn.removeAttribute('disabled'); }catch(e){}
-    sendBtn.disabled = false;
-    sendBtn.style.opacity = '0.9';
-    sendBtn.style.pointerEvents = 'auto';
+    sendBtn.disabled = true;
+    sendBtn.style.opacity = '0.85';
+    sendBtn.style.pointerEvents = 'none';
     sendBtn.innerHTML = (typeof L==='function')
       ? L('🔐 Security check पूरा करें','🔐 Complete security check')
       : '🔐 Complete security check';
@@ -773,13 +721,9 @@ async function _verifyOTP(){
 
   // If device OTP overlay is open, use device flow
   const ov = document.getElementById('otpLoginOverlay');
-  try {
-    var __oe2 = (typeof _otpEmp !== 'undefined') ? _otpEmp : (window._otpEmp || null);
-    if(__oe2 && ov && ov.style.display !== 'none' && ov.style.display !== ''){
-      if(typeof _verifyDeviceOTP === 'function') return _verifyDeviceOTP();
-    }
-  } catch (e) { console.warn('[otp] device verify route', e); }
-
+  if(_otpEmp && ov && ov.style.display !== 'none' && ov.style.display !== ''){
+    return _verifyDeviceOTP();
+  }
   const otp=(document.getElementById('otpInput')?.value||'').trim().replace(/\D/g,'');
   if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
   if(!_loginConfirmResult){ toast(L('⚠️ OTP पहले भेजें','⚠️ Send OTP first')); return; }
