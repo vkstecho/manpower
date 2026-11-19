@@ -139,7 +139,7 @@ function openEditEmpForm(empId){
   })()}
   <div class="grid2">
     <div class="field"><label>📅 ${L('इस टीम में Joining Date','Current team joining date')}</label><input class="inp-field" id="ee_joining" type="date" value="${e.joiningDate||''}">
-      <div style="font-size:10px;color:var(--muted2);margin-top:4px;line-height:1.35">${L('केवल Manager बदल सकता है। पुरानी company की dates ऊपर Company history में — schedule इतिहास छुपता नहीं।','Only Manager can change this. Past company dates are in Company history above — does not hide old schedule data.')}</div></div>
+      <div style="font-size:10px;color:var(--muted2);margin-top:4px;line-height:1.35">${L('केवल प्रबंधक बदल सकता है। पुरानी company की dates ऊपर Company history में — schedule इतिहास छुपता नहीं।','Only Manager can change this. Past company dates are in Company history above — does not hide old schedule data.')}</div></div>
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ee_dob" type="date" value="${e.dob||''}"></div>
   </div>
   <div class="grid2">
@@ -207,8 +207,8 @@ async function saveEmployee(empId){
   const e = (getEmps().find(x=>x.id===empId))
     || ((_cache.employees||[]).find(x=>x.id===empId))
     || null;
-  if(!isAdmin() && !isMgr()){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('❌ Only Admin/Manager can edit'); return; }
-  if(!empId){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('❌ Missing employee id'); return; }
+  if(!isAdmin() && !isMgr()){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast(L('❌ संपादन केवल व्यवस्थापक/प्रबंधक','❌ Only Admin/Manager can edit')); return; }
+  if(!empId){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast(L('❌ कर्मचारी आईडी अनुपलब्ध','❌ Missing employee id')); return; }
 
   // Multi-device: each browser needs Phone Auth once; does NOT log out other devices
   // Fast path: skip long waits when device already verified this session
@@ -249,7 +249,7 @@ async function saveEmployee(empId){
     phoneVal = _normMobileKey(SESSION.mobile||SESSION.uid||e.phone||e.mobile||'');
   }
   const nameVal = val('ee_name').toUpperCase();
-  if(!nameVal){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast('⚠️ Name required'); return; }
+  if(!nameVal){ _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel); toast(L('⚠️ नाम आवश्यक','⚠️ Name required')); return; }
 
   const secVal = _resolveDynField('ee_sec','ee_sec_other') || (document.getElementById('ee_sec') ? val('ee_sec') : ((e&&(e.section||e.sec)) || ''));
   const respVal = _resolveDynField('ee_resp','ee_resp_other') || val('ee_resp');
@@ -537,7 +537,7 @@ async function saveEmployee(empId){
     }catch(err2){
       console.error('saveEmployee failed', err2);
       _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
-      toast('❌ Save failed: '+(err2.message||err2.code||'permission/network'));
+      toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(err2.message||err2.code||L('अनुमति/नेटवर्क','permission/network')));
       return;
     }
   }
@@ -632,12 +632,12 @@ async function saveEmployee(empId){
   }catch(err){
     console.error('saveEmployee', err);
     _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
-    toast('❌ Save error: '+(err.message||err));
+    toast(L('❌ सहेजने में त्रुटि: ','❌ Save error: ')+(err.message||err));
   }
 }
 
 function confirmDelEmp(id, name){
-  if(!isAdmin() && !isMgr()){ toast('❌ Admin/Manager only'); return; }
+  if(!isAdmin() && !isMgr()){ toast(L('❌ केवल व्यवस्थापक/प्रबंधक','❌ Admin/Manager only')); return; }
   const safeName = String(name||'').replace(/</g,'').replace(/'/g,"\'");
   const safeId = String(id||'').replace(/'/g,"\'");
   const en = (typeof _lang!=='undefined' && _lang!=='hi');
@@ -666,7 +666,7 @@ function confirmDelEmp(id, name){
 }
 
 async function archiveEmployee(id, name){
-  if(!isAdmin() && !isMgr()){ toast('❌ Admin/Manager only'); return; }
+  if(!isAdmin() && !isMgr()){ toast(L('❌ केवल व्यवस्थापक/प्रबंधक','❌ Admin/Manager only')); return; }
   const reasonSel = document.getElementById('exitReasonSel');
   const reasonOther = document.getElementById('exitReasonText');
   const reason = reasonSel ? (reasonSel.value === 'other' ? ((reasonOther && reasonOther.value) || 'Other') : reasonSel.value) : 'resigned';
@@ -677,7 +677,7 @@ async function archiveEmployee(id, name){
   if(!empData.id){ empData = Object.assign({}, empData, { id, name: name || empData.name || '' }); }
 
   try{
-    toast('⏳ Removing…');
+    toast(L('⏳ हटा रहे हैं…','⏳ Removing…'));
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
       if(!ok){
@@ -714,7 +714,7 @@ async function archiveEmployee(id, name){
           active: false
         });
       }catch(softErr){
-        toast('❌ Delete failed: '+(softErr.message||softErr));
+        toast(L('❌ हटाना विफल: ','❌ Delete failed: ')+(softErr.message||softErr));
         return;
       }
     }
@@ -758,12 +758,12 @@ async function archiveEmployee(id, name){
     }catch(e){}
 
     closeModal();
-    toast('🚪 ' + (name||empData.name||'') + ' → Left Members');
+    toast('🚪 ' + (name||empData.name||'') + L(' → छोड़े सदस्य',' → Left Members'));
     try{ renderTeam(document.querySelector('#teamSearch, input[oninput*=renderTeam]')?.value || ''); }catch(e){ try{ renderTeam(); }catch(e2){} }
     try{ renderLeftMembers(); }catch(e){}
   }catch(err){
     console.error('[archiveEmployee]', err);
-    toast('❌ Delete failed: '+(err.message||err));
+    toast(L('❌ हटाना विफल: ','❌ Delete failed: ')+(err.message||err));
   }
 }
 
@@ -1005,9 +1005,9 @@ function _resolveManagerMobile(){
 }
 
 async function startDeleteAllMembersFlow(){
-  if(SESSION.role !== 'manager' && !isMgr()){ toast('⚠️ Only Manager can do this'); return; }
+  if(SESSION.role !== 'manager' && !isMgr()){ toast(L('⚠️ यह केवल प्रबंधक कर सकते हैं','⚠️ Only Manager can do this')); return; }
   const team = getEmps().filter(e => e.status !== 'left' && e.status !== 'resigned');
-  if(!team.length){ toast('ℹ️ No team members to delete'); return; }
+  if(!team.length){ toast(L('ℹ️ हटाने हेतु कोई टीम सदस्य नहीं','ℹ️ No team members to delete')); return; }
 
   let mobile = _resolveManagerMobile();
 
@@ -1088,27 +1088,27 @@ async function _openDeleteAllOtpModal(teamCount, mobile){
     _deleteAllConfirmResult = await _fbSendPhoneOtp('+91'+mobile, 'recaptcha-container-delall', '_fbRecaptchaDelAll');
     const st = document.getElementById('delAllStatus');
     if(st) st.innerHTML = '✅ OTP sent to +91-'+mobile;
-    toast('✅ OTP sent');
+    toast(L('✅ ओटीपी भेजा गया','✅ OTP sent'));
   }catch(err){
     console.error('Delete-all OTP error', err);
     const st = document.getElementById('delAllStatus');
     if(st) st.innerHTML = '❌ '+_fbOtpErrorMessage(err);
-    toast('❌ '+_fbOtpErrorMessage(err));
+    toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }
 }
 
 async function _resendDeleteAllOtp(){
   const mobile = _deleteAllMobile || _resolveManagerMobile();
-  if(mobile.length!==10){ toast('⚠️ Manager mobile missing'); return; }
+  if(mobile.length!==10){ toast(L('⚠️ प्रबंधक मोबाइल अनुपलब्ध','⚠️ Manager mobile missing')); return; }
   const st = document.getElementById('delAllStatus');
   if(st) st.textContent = '⏳ Resending OTP…';
   try{
     _deleteAllConfirmResult = await _fbSendPhoneOtp('+91'+mobile, 'recaptcha-container-delall', '_fbRecaptchaDelAll');
     if(st) st.innerHTML = '✅ OTP resent to +91-'+mobile;
-    toast('✅ OTP resent');
+    toast(L('✅ ओटीपी पुनः भेजा','✅ OTP resent'));
   }catch(err){
     if(st) st.innerHTML = '❌ '+_fbOtpErrorMessage(err);
-    toast('❌ '+_fbOtpErrorMessage(err));
+    toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }
 }
 
@@ -1122,8 +1122,8 @@ function _cancelDeleteAllFlow(){
 async function _confirmDeleteAllWithOtp(){
   if(_deleteAllInProgress) return;
   const otp = (document.getElementById('delAllOtpInput')?.value||'').trim();
-  if(otp.length !== 6){ toast('⚠️ Enter 6-digit OTP'); return; }
-  if(!_deleteAllConfirmResult){ toast('⚠️ OTP session expired — start again'); return; }
+  if(otp.length !== 6){ toast(L('⚠️ 6 अंकों का ओटीपी दर्ज करें','⚠️ Enter 6-digit OTP')); return; }
+  if(!_deleteAllConfirmResult){ toast(L('⚠️ ओटीपी सत्र समाप्त — फिर शुरू करें','⚠️ OTP session expired — start again')); return; }
 
   _deleteAllInProgress = true;
   const st = document.getElementById('delAllStatus');
@@ -1135,7 +1135,7 @@ async function _confirmDeleteAllWithOtp(){
     _deleteAllInProgress = false;
     console.error(err);
     const msg = _fbOtpErrorMessage(err);
-    toast('❌ '+msg);
+    toast(L('❌ ','❌ ')+msg);
     if(st) st.textContent = '❌ '+msg;
     return;
   }
@@ -1233,7 +1233,7 @@ async function _confirmDeleteAllWithOtp(){
   _deleteAllMobile = '';
   try{ if(window._fbRecaptchaDelAll){ window._fbRecaptchaDelAll.clear(); window._fbRecaptchaDelAll=null; } }catch(e){}
   closeModal();
-  toast(`🗑️ Deleted ${removed} members` + (failed ? `, ${failed} failed` : ''));
+  toast(L('🗑️ ','🗑️ ')+removed+L(' सदस्य हटाए',' members deleted') + (failed ? L(', ',' , ')+failed+L(' विफल',' failed') : ''));
   try{ renderTeam(); }catch(e){}
   try{ refreshAll(); }catch(e){}
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
@@ -1427,7 +1427,7 @@ async function sendTeamTransferRequest(payload){
     toast(typeof L==='function'?L('✅ Request भेज दी — accept करने पर team transfer होगा','✅ Request sent — transfer completes when they accept'):'Request sent');
   }catch(e){
     console.warn('[transfer req]', e);
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 
@@ -1446,7 +1446,7 @@ async function acceptTeamTransferRequest(reqKey, req){
     await _finalizeJoinAsMemberAfterTransfer(reqKey, req, null);
   }catch(e){
     console.warn('[accept transfer]', e);
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 
@@ -1493,15 +1493,15 @@ function openTransferAcceptSuccessorModal(reqKey, req){
       if(b) b.onclick = function(){
         try{
           if(typeof confirmTransferAcceptWithoutSuccessor!=='function'){
-            toast('❌ Accept handler missing — refresh app');
+            toast(L('❌ स्वीकार हैंडलर अनुपलब्ध — ऐप रीफ़्रेश करें','❌ Accept handler missing — refresh app'));
             return;
           }
           b.disabled = true; b.textContent = '⏳…';
           Promise.resolve(confirmTransferAcceptWithoutSuccessor(reqKey, req)).catch(function(err){
-            toast('❌ '+(err&&err.message||err));
+            toast(L('❌ ','❌ ')+(err&&err.message||err));
             try{ b.disabled=false; }catch(e){}
           });
-        }catch(err){ toast('❌ '+(err&&err.message||err)); }
+        }catch(err){ toast(L('❌ ','❌ ')+(err&&err.message||err)); }
       };
     }catch(e){}
     return;
@@ -1535,14 +1535,14 @@ function openTransferAcceptSuccessorModal(reqKey, req){
           const succId = sel && sel.value;
           if(!succId){ toast(typeof L==='function'?L('⚠️ Successor चुनें','⚠️ Select a successor'):'Select successor'); return; }
           if(typeof confirmTransferAcceptWithSuccessor!=='function'){
-            toast('❌ Accept handler missing — refresh app'); return;
+            toast(L('❌ स्वीकार हैंडलर अनुपलब्ध — ऐप रीफ़्रेश करें','❌ Accept handler missing — refresh app')); return;
           }
           btn.disabled = true; btn.textContent = '⏳…';
           Promise.resolve(confirmTransferAcceptWithSuccessor(reqKey, req, succId)).catch(function(err){
-            toast('❌ '+(err&&err.message||err));
+            toast(L('❌ ','❌ ')+(err&&err.message||err));
             try{ btn.disabled=false; }catch(e){}
           });
-        }catch(err){ toast('❌ '+(err&&err.message||err)); }
+        }catch(err){ toast(L('❌ ','❌ ')+(err&&err.message||err)); }
       };
     }
   }catch(e){}
@@ -1555,10 +1555,10 @@ async function confirmTransferAcceptWithoutSuccessor(reqKey, req){
   try{
     const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
     const newMgr = _normMobileKey(req.fromManagerId||'');
-    if(!myKey || !newMgr){ toast('Invalid request'); return; }
+    if(!myKey || !newMgr){ toast(L('अमान्य अनुरोध','Invalid request')); return; }
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast(typeof L==='function'?L('❌ Phone OTP verify करें','❌ Verify phone OTP'):'OTP required'); return; }
+      if(!ok){ toast(typeof L==='function'?L('❌ Phone ओटीपी सत्यापन करें','❌ Verify phone OTP'):'OTP required'); return; }
     }
     toast(typeof L==='function'?L('⏳ Accept हो रहा है…','⏳ Accepting…'):'Accepting…');
     const all = (_cache && _cache.employees) || [];
@@ -1584,7 +1584,7 @@ async function confirmTransferAcceptWithoutSuccessor(reqKey, req){
     try{ if(typeof goTab==='function') goTab('home'); }catch(e){}
   }catch(e){
     console.warn('[confirmTransferAcceptWithoutSuccessor]', e);
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 try{ window.confirmTransferAcceptWithoutSuccessor = confirmTransferAcceptWithoutSuccessor; }catch(e){}
@@ -1595,7 +1595,7 @@ async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
     const all = (_cache && _cache.employees) || [];
     const team = (typeof getEmps==='function'?getEmps():[]) || all.filter(function(e){ return _normMobileKey(e.managerId||'')===myKey; });
     const succ = team.find(function(e){ return e.id===succId; }) || all.find(function(e){ return e.id===succId; });
-    if(!succ){ toast('❌ Member not found'); return; }
+    if(!succ){ toast(L('❌ सदस्य नहीं मिला','❌ Member not found')); return; }
     const newKey = _normMobileKey(succ.phone||succ.mobile||'');
     if(newKey.length !== 10){
       toast(typeof L==='function'?L('❌ चुने गए member के पास valid mobile होना चाहिए','❌ Selected member needs a valid mobile'):'Need valid mobile');
@@ -1609,7 +1609,7 @@ async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
     toast(typeof L==='function'?L('⏳ Team handoff…','⏳ Team handoff…'):'Handoff…');
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast(typeof L==='function'?L('❌ Phone OTP verify करें','❌ Verify phone OTP'):'OTP required'); return; }
+      if(!ok){ toast(typeof L==='function'?L('❌ Phone ओटीपी सत्यापन करें','❌ Verify phone OTP'):'OTP required'); return; }
     }
 
     // 1) Point every member (except leaving manager) at successor
@@ -1717,14 +1717,14 @@ async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
     });
   }catch(e){
     console.warn('[confirmTransferAcceptWithSuccessor]', e);
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 
 async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta){
   const phone = _normMobileKey(req.phone || SESSION.mobile || '');
   const newMgr = _normMobileKey(req.fromManagerId||'');
-  if(!phone||!newMgr){ toast('Invalid request'); return; }
+  if(!phone||!newMgr){ toast(L('अमान्य अनुरोध','Invalid request')); return; }
   const all = (_cache&&_cache.employees)||[];
   const matches = all.filter(function(e){ return e && _normMobileKey(e.phone||e.mobile||'')===phone; });
   const today = (typeof TODAY_STR!=='undefined'?TODAY_STR:(new Date().toISOString().slice(0,10)));
@@ -1812,7 +1812,7 @@ async function rejectTeamTransferRequest(reqKey){
   try{
     await fbUpdate('teamTransferRequests/'+reqKey, { status:'rejected', rejectedAt: new Date().toISOString() });
     toast(typeof L==='function'?L('Request अस्वीकार','Request declined'):'Declined');
-  }catch(e){ toast('❌ '+(e&&e.message||e)); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 
 /** Incoming pending: requests targeting my mobile (person being added) */
@@ -1886,7 +1886,7 @@ async function cancelTeamTransferRequest(reqKey){
     try{ if(typeof renderPendingTeamTransferBanner==='function') await renderPendingTeamTransferBanner(); }catch(e){}
     try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
   }catch(e){
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 

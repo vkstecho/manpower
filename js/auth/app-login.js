@@ -227,7 +227,7 @@ async function _sendOTP(isResend){
     }
   }catch(e){ window._mpOtpSendInFlight = false; }
   if(window._mpOtpSendInFlight){
-    try{ toast(L('⏳ OTP पहले से भेज रहे हैं — Security check पूरा करें','⏳ OTP already sending — complete the security check')); }catch(e){}
+    try{ toast(L('⏳ OTP पहले से भेज रहे हैं — सुरक्षा जाँच पूरा करें','⏳ OTP already sending — complete the security check')); }catch(e){}
     return;
   }
   // Device-OTP overlay uses same button id sometimes — route if employee flow active
@@ -289,7 +289,7 @@ async function _sendOTP(isResend){
     sendBtn.style.opacity = '0.9';
     sendBtn.style.pointerEvents = 'auto';
     sendBtn.innerHTML = (typeof L==='function')
-      ? L('🔐 Security check पूरा करें','🔐 Complete security check')
+      ? L('🔐 सुरक्षा जाँच पूरा करें','🔐 Complete security check')
       : '🔐 Complete security check';
   };
   try{ window._mpSetOtpBtnCaptchaWait = _setBtnCaptchaWait; }catch(e){}
@@ -371,7 +371,7 @@ async function _sendOTP(isResend){
     try{ showStep(1); }catch(e){}
     if(_desk){
       try{ _setBtnCaptchaWait(); }catch(e){}
-      toast(L('🔐 नीचे Security checkbox ✓ करें — tick के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
+      toast(L('🔐 नीचे सुरक्षा चेकबॉक्स ✓ करें — टिक के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
       // Single captcha only: desktop bar is created inside _fbSendPhoneOtp — do not pre-mount another host
     } else {
       toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
@@ -528,7 +528,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     });
   }catch(e){
     console.error('[otp-fallback] loginRequests write failed', e);
-    toast('⚠️ Cannot create login request — enable Anonymous Auth in Firebase, then retry');
+    toast(L('⚠️ लॉगिन अनुरोध नहीं बन सका — फायरबेस में अनाम प्रमाणीकरण सक्षम करें, फिर पुनः प्रयास करें','⚠️ Cannot create login request — enable Anonymous Auth in Firebase, then retry'));
   }
 
   if(reqKey){
@@ -627,7 +627,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
           clearInterval(_odlCtx.poller);
           try{ await doLoginAfterApproval(emp, userData, deviceId); }catch(e){
             console.error('[otp-fallback] doLoginAfterApproval', e);
-            toast('❌ Approval received but login failed: '+(e.message||e));
+            toast(L('❌ अनुमोदन मिला पर लॉगिन विफल: ','❌ Approval received but login failed: ')+(e.message||e));
           }
           closeOtherDeviceLogin();
         } else if(rec && (rec.status==='rejected'||rec.status==='cancelled')){
@@ -638,7 +638,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
       }catch(e){}
     }, 2500);
     window._odlPoller = _odlCtx.poller;
-    toast('✅ Approval request sent — waiting…');
+    toast(L('✅ अनुमोदन अनुरोध भेजा — प्रतीक्षा…','✅ Approval request sent — waiting…'));
   }
 }
 
@@ -732,7 +732,7 @@ async function doLoginAfterApproval(emp, userData, deviceId){
     }catch(e){ console.warn('[doLoginAfterApproval] deviceApprovals', e); }
   }
 
-  toast('✅ Login approved — Welcome '+(ud.name||mobile));
+  toast(L('✅ लॉगिन स्वीकृत — स्वागत ','✅ Login approved — Welcome ')+(ud.name||mobile));
   if(typeof _launchAsNewUser === 'function'){
     await _launchAsNewUser(ud);
   } else {
@@ -789,7 +789,7 @@ async function _verifyOTP(){
   try{
     toast(L('⏳ सत्यापित हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
-    toast('✅ Mobile Verified!');
+    toast(L('✅ मोबाइल सत्यापित!','✅ Mobile Verified!'));
     try{
       if(typeof _isAdminMobileQuick==='function' && _isAdminMobileQuick(_loginMobile)){
         _launchAsHardAdmin(_loginMobile);
@@ -1459,14 +1459,14 @@ async function _submitManagerReg(){
   // No invite code — any new manager can self-register after OTP (auto-approved)
   if(!_loginMobile){
     if(errEl){ errEl.textContent=L('❌ Mobile session lost — OTP दोबारा verify करें','❌ Mobile session lost — verify OTP again'); errEl.classList.add('show'); }
-    toast('❌ Mobile session lost — go back and verify OTP again');
+    toast(L('❌ मोबाइल सत्र खो गया — वापस जाकर ओटीपी फिर सत्यापित करें','❌ Mobile session lost — go back and verify OTP again'));
     try{ showStep(1); }catch(e){}
     return;
   }
   const mobile=_loginMobile.replace('+91','').replace(/[^0-9]/g,'');
   if(mobile.length!==10){
-    if(errEl){ errEl.textContent=L('❌ Invalid mobile — OTP दोबारा करें','❌ Invalid mobile — try OTP again'); errEl.classList.add('show'); }
-    toast('❌ Invalid mobile');
+    if(errEl){ errEl.textContent=L('❌ अमान्य मोबाइल — OTP दोबारा करें','❌ Invalid mobile — try OTP again'); errEl.classList.add('show'); }
+    toast(L('❌ अमान्य मोबाइल','❌ Invalid mobile'));
     try{ showStep(1); }catch(e){}
     return;
   }
@@ -1642,21 +1642,21 @@ async function _submitManagerReg(){
     // Store WA text so Admin can resend from notifications if popup blocked
     try{ sessionStorage.setItem('mp_pending_mgr_wa', JSON.stringify({phone:adminPhone, text:waText})); }catch(e){}
 
-    toast('✅ Manager account ready — logging in...');
+    toast(L('✅ प्रबंधक खाता तैयार — लॉगिन हो रहा है…','✅ Manager account ready — logging in...'));
     // Do NOT auto-open WhatsApp here (was causing black screen / navigation issues).
     // Admin still gets in-app notification. WA text saved for optional later send.
     try{
       _launchAsNewUser(userData);
     }catch(launchErr){
       console.error('[mgrReg] launch failed', launchErr);
-      toast('⚠️ Login shell issue — retrying…');
+      toast(L('⚠️ लॉगिन समस्या — पुनः प्रयास…','⚠️ Login shell issue — retrying…'));
       setTimeout(function(){ try{ _launchAsNewUser(userData); }catch(e2){ try{ location.reload(); }catch(e3){} } }, 400);
     }
   }catch(e){
     console.error('[mgrReg]', e);
     const msg = (e && e.message) ? e.message : String(e);
     if(errEl){ errEl.textContent='❌ Error: '+msg; errEl.classList.add('show'); }
-    toast('❌ Registration failed: '+msg);
+    toast(L('❌ पंजीकरण विफल: ','❌ Registration failed: ')+msg);
     // Keep Manager form visible — never black screen on write failure
     try{ showStep('mgrReg'); }catch(e2){}
   }
@@ -1687,7 +1687,7 @@ async function _submitMemberReg(){
     role:'member', name,
     mobile: '+91'+mobile,
     company:comp,
-    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(),
+    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(), empId:(document.getElementById('memEmpCode')?.value||'').trim(),
     managerId: managerId,
     managerMobile: managerId,
     managerName: String(managerName).replace(/\s*\(.*\)\s*$/,'').trim(),
@@ -1767,7 +1767,7 @@ function _launchAsHardAdmin(mobile10){
       });
     }catch(e){}
     try{ if(typeof _syncAuthRoleNodes==='function') _syncAuthRoleNodes(); }catch(e){}
-    try{ toast('✅ Admin login'); }catch(e){}
+    try{ toast(L('✅ व्यवस्थापक लॉगिन','✅ Admin login')); }catch(e){}
     try{
       const ls = document.getElementById('loginScreen');
       if(ls){ ls.style.display='none'; ls.classList.remove('show'); }
@@ -2044,7 +2044,7 @@ function _launchAsNewUser(userData){
     try{
       document.getElementById('mainHdr').style.display='block';
       document.getElementById('mainContent').style.display='block';
-      toast('⚠️ App load issue — pull to refresh if screen is empty');
+      toast(L('⚠️ ऐप लोड समस्या — स्क्रीन खाली हो तो रीफ़्रेश करें','⚠️ App load issue — pull to refresh if screen is empty'));
     }catch(e){}
   });
   setTimeout(()=>{ try{ _syncAuthRoleNodes(); }catch(e){} }, 500);
@@ -2153,7 +2153,7 @@ async function tryAdminLogin(){
 
   const btn=document.getElementById('aLoginBtn')||(document.querySelector('#adminLoginPanel .big-btn'));
   if(btn){ btn.innerHTML='⏳ Login ho raha hai...'; btn.style.opacity='0.7'; btn.style.pointerEvents='none'; }
-  const restoreBtn=()=>{ if(btn){ btn.innerHTML=L('🔐 Login करें','🔐 Login'); btn.style.opacity='1'; btn.style.pointerEvents='auto'; } };
+  const restoreBtn=()=>{ if(btn){ btn.innerHTML=L('🔐 लॉगिन करें','🔐 Login'); btn.style.opacity='1'; btn.style.pointerEvents='auto'; } };
 
   try{
     const passHash = await hashPass(u+':'+p+':MP_ADMIN');
@@ -2257,28 +2257,28 @@ function recoverStuckPendingStates(){
 
 async function approveManagerLoginRequest(reqKey){
   try{
-    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast('❌ Auth required'); return; } }
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ प्रमाणीकरण आवश्यक','❌ Auth required')); return; } }
     await fbUpdate('loginRequests/'+reqKey, {
       status:'approved',
       approvedAt: new Date().toISOString(),
       approvedBy: SESSION.name||'manager',
       approvedById: SESSION.empObjId||SESSION.uid||''
     });
-    toast('✅ Member can login now (no OTP)');
+    toast(L('✅ सदस्य अब लॉगिन कर सकते हैं (ओटीपी नहीं)','✅ Member can login now (no OTP)'));
     try{ renderPending(); }catch(e){}
-  }catch(e){ toast('❌ '+e.message); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 async function rejectManagerLoginRequest(reqKey){
   try{
-    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast('❌ Auth required'); return; } }
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ प्रमाणीकरण आवश्यक','❌ Auth required')); return; } }
     await fbUpdate('loginRequests/'+reqKey, {
       status:'rejected',
       rejectedAt: new Date().toISOString(),
       rejectedBy: SESSION.name||'manager'
     });
-    toast('Rejected');
+    toast(L('अस्वीकृत','Rejected'));
     try{ renderPending(); }catch(e){}
-  }catch(e){ toast('❌ '+e.message); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 try{ window.approveManagerLoginRequest=approveManagerLoginRequest; window.rejectManagerLoginRequest=rejectManagerLoginRequest; }catch(e){}
 

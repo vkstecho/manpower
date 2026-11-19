@@ -91,7 +91,7 @@ function closeOtherDeviceLogin(){
 }
 
 async function sendOtherDeviceLoginRequest(){
-  if(!_odlCtx){ toast('Session expired — try login again'); return; }
+  if(!_odlCtx){ toast(L('सत्र समाप्त — फिर से लॉगिन करें','Session expired — try login again')); return; }
   const { emp, deviceId } = _odlCtx;
   const empObjId = emp.id;
   const empId = emp.empId||'';
@@ -211,12 +211,12 @@ async function sendOtherDeviceLoginRequest(){
 }
 
 async function fallbackOtherDeviceOTP(){
-  if(!_odlCtx || !_odlCtx.emp){ toast('Session expired'); return; }
+  if(!_odlCtx || !_odlCtx.emp){ toast(L('सत्र समाप्त','Session expired')); return; }
   const { emp, deviceId, reqKey } = _odlCtx;
   let phone = String(emp.phone||emp.mobile||'').replace(/\D/g,'');
   if(phone.length > 10) phone = phone.slice(-10);
   if(phone.length !== 10){
-    toast('⚠️ Mobile number not found on profile — contact Manager');
+    toast(L('⚠️ प्रोफ़ाइल पर मोबाइल नंबर नहीं मिला — प्रबंधक से संपर्क करें','⚠️ Mobile number not found on profile — contact Manager'));
     return;
   }
   emp.phone = phone;
@@ -225,13 +225,13 @@ async function fallbackOtherDeviceOTP(){
     if(reqKey) await fbUpdate('loginRequests/'+reqKey, { status:'cancelled', cancelledAt:new Date().toISOString(), reason:'otp_fallback' });
   }catch(e){}
   closeOtherDeviceLogin();
-  toast('🔐 Sending OTP to +91-'+phone);
+  toast(L('🔐 ओटीपी भेज रहे हैं +91-','🔐 Sending OTP to +91-')+phone);
   try{
     await showOTPLoginScreen(emp, deviceId);
     // auto-trigger send
     setTimeout(()=>{ try{ _sendDeviceOTP(false); }catch(e){} }, 400);
   }catch(e){
-    toast('❌ OTP screen: '+e.message);
+    toast(L('❌ ओटीपी स्क्रीन: ','❌ OTP screen: ')+(e.message||e));
   }
 }
 
@@ -319,16 +319,16 @@ async function approveDeviceTransfer(reqKey, newDeviceId){
         approvedVia: (req && req.type) || 'device_transfer'
       });
     }
-    toast('✅ Login approved — they can continue now');
+    toast(L('✅ लॉगिन स्वीकृत — अब वे जारी रख सकते हैं','✅ Login approved — they can continue now'));
     renderDeviceTransferRequests();
-  }catch(e){ toast('❌ '+e.message); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 async function rejectDeviceTransfer(reqKey){
   try{
     await fbUpdate('loginRequests/'+reqKey, { status:'rejected', rejectedAt:new Date().toISOString() });
-    toast('Rejected');
+    toast(L('अस्वीकृत','Rejected'));
     renderDeviceTransferRequests();
-  }catch(e){ toast('❌ '+e.message); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 try{
   window.showOtherDeviceLoginRequest=showOtherDeviceLoginRequest;
@@ -396,7 +396,7 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
   const mobClean = String(mob||'').replace(/\D/g,'').slice(-10);
   window._pwSetupCtx = { emp, deviceId, afterApproval, userData, mobile10: mobClean };
   const skipLabel = (typeof L==='function')
-    ? (L('अभी नहीं → ','Not now → ') + (afterApproval ? L('App खोलें','Open App') : L('OTP से Login','Login with OTP')))
+    ? (L('अभी नहीं → ','Not now → ') + (afterApproval ? L('App खोलें','Open App') : L('ओटीपी से लॉगिन','Login with OTP')))
     : ('Not now → ' + (afterApproval ? 'Open App' : 'Login with OTP'));
   const nameHtml = escHtml((emp&&emp.name)||'User');
   const subHtml = (typeof L==='function')
@@ -407,7 +407,7 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
     : ('Set a password on this device for <b style="color:#f97316">'+nameHtml+'</b>.<br>Next time <b style="color:#4ade80">no OTP needed</b> — password only.');
   const lab1 = (typeof L==='function') ? L('PASSWORD (कम से कम 5 अक्षर) *','PASSWORD (min 5 characters) *') : 'PASSWORD (min 5 characters) *';
   const lab2 = (typeof L==='function') ? L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *') : 'Re-enter PASSWORD *';
-  const saveLab = (typeof L==='function') ? L('✅ Password Save करें','✅ Save Password') : '✅ Save Password';
+  const saveLab = (typeof L==='function') ? L('✅ पासवर्ड सहेजें','✅ Save Password') : '✅ Save Password';
 
   ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;';
   ov.innerHTML = `
@@ -515,8 +515,8 @@ function _spwValidate(){
   const p2=(document.getElementById('spw2')?.value||'');
   const btn=document.getElementById('spwBtn');
   const err=document.getElementById('spwErr');
-  if(p1.length<5){ if(err) err.textContent=(typeof L==='function'?L('Password कम से कम 5 characters होना चाहिए','Password must be at least 5 characters'):'Password must be at least 5 characters'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
-  if(p2.length>0 && p1!==p2){ if(err) err.textContent=(typeof L==='function'?L('Passwords match नहीं हो रहे','Passwords do not match'):'Passwords do not match'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
+  if(p1.length<5){ if(err) err.textContent=(typeof L==='function'?L('पासवर्ड कम से कम 5 अक्षर होना चाहिए','Password must be at least 5 characters'):'Password must be at least 5 characters'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
+  if(p2.length>0 && p1!==p2){ if(err) err.textContent=(typeof L==='function'?L('पासवर्ड मेल नहीं हो रहे','Passwords do not match'):'Passwords do not match'); if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
   if(p1!==p2){ if(err) err.textContent=''; if(btn){btn.style.opacity='.4';btn.style.pointerEvents='none';} return; }
   if(err) err.textContent='';
   if(btn){ btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
@@ -526,14 +526,14 @@ async function _submitSetPassword(){
   const ctx = window._pwSetupCtx || {};
   const p1=(document.getElementById('spw1')?.value||'');
   const p2=(document.getElementById('spw2')?.value||'');
-  if(p1.length<5 || p1!==p2){ toast(L('⚠️ Password check करें','⚠️ Check password')); return; }
+  if(p1.length<5 || p1!==p2){ toast(L('⚠️ पासवर्ड जाँचें','⚠️ Check password')); return; }
   const emp = ctx.emp || {};
   const empId = emp.id || '';
   const mobile = ctx.mobile10 || String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
   const h = await hashPass(p1+'mp_salt_v24');
   _setDevicePasswordHash(empId, mobile, h);
   const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
-  toast(L('✅ Password save हो गया — अगली बार OTP नहीं लगेगा','✅ Password saved — OTP not needed next time'));
+  toast(L('✅ पासवर्ड सहेजा गया — अगली बार OTP नहीं लगेगा','✅ Password saved — OTP not needed next time'));
   if(ctx.afterApproval){
     // Already logged in — open app
     if(typeof launchApp==='function') launchApp();
@@ -552,11 +552,11 @@ function _skipSetPassword(){
   const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
   if(ctx.afterApproval){
     // Already authenticated this session — app works; next login may need OTP again
-    toast(L('ℹ️ Password बाद में Profile से सेट कर सकते हैं','ℹ️ You can set password later from Profile'));
+    toast(L('ℹ️ पासवर्ड बाद में प्रोफ़ाइल से सेट कर सकते हैं','ℹ️ You can set password later from Profile'));
     if(typeof launchApp==='function') launchApp();
   } else {
     // Need OTP once to establish session
-    toast(L('📱 Password नहीं — OTP से login करें','📱 No password — login with OTP'));
+    toast(L('📱 पासवर्ड नहीं — ओटीपी से लॉगिन करें','📱 No password — login with OTP'));
     window._forceOtpAfterPwForgot = true;
     _sendOTP(false);
   }
@@ -571,7 +571,7 @@ function showPasswordLoginScreen(emp, deviceId){
   const mobile = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
   ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
   const sub = (typeof L==='function')
-    ? L('OTP नहीं — इस device का password डालें','No OTP — enter this device password')
+    ? L('OTP नहीं — इस डिवाइस का पासवर्ड डालें','No OTP — enter this device password')
     : 'No OTP — enter this device password';
   ov.innerHTML=`
     <style id="pwlForceDark">
@@ -620,7 +620,7 @@ function showPasswordLoginScreen(emp, deviceId){
         ${(typeof L==='function')?L('🔓 Login','🔓 Login'):'🔓 Login'}
       </button>
       <button type="button" class="pwl-sec" onclick="_forgotPw('${empId}','${empName}','${mobile}')" style="cursor:pointer;font-family:inherit">
-        ${(typeof L==='function')?L('Password भूल गए? OTP से login','Forgot password? Login with OTP'):'Forgot password? Login with OTP'}
+        ${(typeof L==='function')?L('पासवर्ड भूल गए? ओटीपी से लॉगिन','Forgot password? Login with OTP'):'Forgot password? Login with OTP'}
       </button>
     </div>`;
   ov.style.display='flex';
@@ -636,7 +636,7 @@ async function _submitPwLogin(empId, empName, deviceId){
   const errEl=document.getElementById('pwlErr');
   const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
-    if(errEl) errEl.textContent='❌ गलत Password — दोबारा try करें';
+    if(errEl) errEl.textContent='❌ गलत पासवर्ड — दोबारा try करें';
     const inp=document.getElementById('pwlInput');
     if(inp){ inp.style.borderColor='#f43f5e'; setTimeout(()=>{ if(inp) inp.style.borderColor='#475569'; },1500); }
     return;
@@ -657,7 +657,7 @@ async function _submitPwLogin(empId, empName, deviceId){
   _markWriteAuthFromLogin(mobile);
   writeIntegrityToken();
   saveSession();
-  toast(L('✅ Login हो गया! Welcome ','✅ Login successful! Welcome ')+(emp.name||empName));
+  toast(L('✅ लॉगिन हो गया! स्वागत ','✅ Login successful! Welcome ')+(emp.name||empName));
   launchApp();
 }
 
@@ -665,7 +665,7 @@ function _forgotPw(empId, empName, mobile){
   _clearDevicePassword(empId, mobile);
   const ov=document.getElementById('pwLoginOverlay'); if(ov) ov.remove();
   const ov2=document.getElementById('pwMobileOverlay'); if(ov2) ov2.remove();
-  toast(L('🔑 Password हटाया — OTP से दोबारा verify करें','🔑 Password removed — verify with OTP again'));
+  toast(L('🔑 पासवर्ड हटाया — ओटीपी से फिर सत्यापित करें करें','🔑 Password removed — verify with OTP again'));
   window._forceOtpAfterPwForgot = true;
   try{
     const el=document.getElementById('loginMobile');
@@ -683,9 +683,9 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
   const name = (userData.name||'User').replace(/</g,'');
   ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;color-scheme:dark';
   const forgotLab = (typeof L==='function')
-    ? L('🔑 Password भूल गए? OTP से verify करें','🔑 Forgot password? Verify with OTP')
+    ? L('🔑 पासवर्ड भूल गए? ओटीपी से सत्यापित करें करें','🔑 Forgot password? Verify with OTP')
     : '🔑 Forgot password? Verify with OTP';
-  const loginLab = (typeof L==='function') ? L('✅ Login करें','✅ Login') : '✅ Login';
+  const loginLab = (typeof L==='function') ? L('✅ लॉगिन करें','✅ Login') : '✅ Login';
   const noOtp = (typeof L==='function') ? L('OTP नहीं चाहिए','No OTP needed') : 'No OTP needed';
   ov.innerHTML=`
     <style id="pwmForceDark">
@@ -780,7 +780,7 @@ async function _submitMobilePwLogin(){
   const errEl=document.getElementById('pwmErr');
   const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
-    if(errEl) errEl.textContent=(typeof L==='function'?L('❌ गलत Password','❌ Wrong password'):'❌ Wrong password');
+    if(errEl) errEl.textContent=(typeof L==='function'?L('❌ गलत पासवर्ड','❌ Wrong password'):'❌ Wrong password');
     return;
   }
   const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
@@ -805,7 +805,7 @@ async function _finishMobilePasswordLogin(userData, mobile, deviceId){
   }
   _markWriteAuthFromLogin(mobile);
   _loginMobile = '+91'+mobile;
-  toast('✅ Welcome '+(userData.name||''));
+  toast(L('✅ स्वागत ','✅ Welcome ')+(userData.name||''));
   _launchAsNewUser(userData);
 }
 
@@ -815,7 +815,7 @@ function _forgotMobilePw(){
   const mobile = ctx.mobile10 || '';
   _clearDevicePassword(userData.empObjId||userData.employeeId||'', mobile);
   const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
-  toast(L('🔑 Password हटाया — OTP भेजा जा रहा है','🔑 Password removed — sending OTP'));
+  toast(L('🔑 पासवर्ड हटाया — ओटीपी भेजा जा रहा है','🔑 Password removed — sending OTP'));
   window._forceOtpAfterPwForgot = true;
   try{
     const el=document.getElementById('loginMobile');
@@ -1117,7 +1117,7 @@ function _fbShowRecaptchaSlotNow(containerId){
         const hint = document.createElement('div');
         hint.className = 'rc-hint';
         hint.style.cssText = 'width:100%;text-align:center;font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px';
-        hint.textContent = '🔐 Security check (required on laptop) — tick below, then Send OTP';
+        hint.textContent = '🔐 सुरक्षा जाँच (required on laptop) — tick below, then Send OTP';
         inline.insertBefore(hint, inline.firstChild);
       }
     }
@@ -1232,7 +1232,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     // z-index below Google's challenge (~2e9). Unique host id avoids conflict with
     // body #recaptcha-container and stops _fbEnsureRecaptchaHost moving widget to inline.
     toast(typeof L==='function'
-      ? L('🔐 नीचे Security checkbox ✓ करें — tick के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
+      ? L('🔐 नीचे सुरक्षा चेकबॉक्स ✓ करें — टिक के बाद OTP भेजेगा','🔐 Tick the security checkbox below — then OTP will send')
       : '🔐 Tick the security checkbox below — then OTP will send');
     try{ if(typeof window._mpSetOtpBtnCaptchaWait==='function') window._mpSetOtpBtnCaptchaWait(); }catch(eBtn){}
     try{
@@ -1291,8 +1291,8 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         'opacity:1','visibility:visible','pointer-events:auto'
       ].join(';');
       var _secTitle = (typeof L==='function')
-        ? L('🔐 Security check — tick के बाद OTP','🔐 Security check — tick the box, then wait for OTP')
-        : '🔐 Security check — tick the box, then wait for OTP';
+        ? L('🔐 सुरक्षा जाँच — टिक के बाद OTP','🔐 सुरक्षा जाँच — tick the box, then wait for OTP')
+        : '🔐 सुरक्षा जाँच — tick the box, then wait for OTP';
       bar.innerHTML = '<div class="rc-bar-title" style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
 
       // Loading label OUTSIDE the Firebase host (container MUST be empty)
@@ -1370,7 +1370,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         try{
           var hFail = document.getElementById(barCid);
           var lbF = document.getElementById('rcDesktopBarLoad');
-          if(lbF) lbF.innerHTML = '<span style="color:#f87171">Security check failed to load. Refresh page, allow google.com cookies, confirm domain in Firebase → Authentication → Settings → Authorized domains.</span>';
+          if(lbF) lbF.innerHTML = '<span style="color:#f87171">सुरक्षा जाँच failed to load. Refresh page, allow google.com cookies, confirm domain in Firebase → Authentication → Settings → Authorized domains.</span>';
           if(hFail) hFail.innerHTML = '';
         }catch(eH){}
         throw Object.assign(new Error('reCAPTCHA did not load — refresh page / check authorized domains'), { code: 'auth/captcha-render-failed' });
@@ -1469,7 +1469,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
   // ── MOBILE: visible reCAPTCHA first (Mentor-style — more reliable on Android/Chrome) ──
   // Invisible often hangs or fails on WebViews / TWA / strict browsers; visible checkbox is tappable.
   try{
-    toast(typeof L==='function' ? L('🔐 नीचे Security checkbox ✓ करें','🔐 Complete the security check below') : '🔐 Complete the security check below');
+    toast(typeof L==='function' ? L('🔐 नीचे सुरक्षा चेकबॉक्स ✓ करें','🔐 Complete the security check below') : '🔐 Complete the security check below');
     _fbShowRecaptchaSlotNow(cid);
     // Mentor-style fixed bottom host for easy tapping on small screens
     try{
@@ -1502,7 +1502,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     _fbClearRecaptcha(key);
     // Fallback: one more visible attempt, then invisible last resort
     try{
-      toast(typeof L==='function' ? L('🔐 Security check फिर से…','🔐 Security check again…') : '🔐 Security check again…');
+      toast(typeof L==='function' ? L('🔐 सुरक्षा जाँच फिर से…','🔐 सुरक्षा जाँच again…') : '🔐 सुरक्षा जाँच again…');
       _fbShowRecaptchaSlotNow(cid);
       const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
       return await withTimeout(
@@ -1544,8 +1544,8 @@ function _fbOtpErrorMessage(err){
   const raw = String((err && err.message) || err || '');
   if(code === 'auth/captcha-check-failed' || /captcha/i.test(raw))
     return (typeof L==='function')
-      ? L('Security check failed — page reload करें, checkbox ✓ करें, फिर Send OTP','Security check failed — reload page, tick checkbox, then Send OTP')
-      : 'Security check failed — reload page, tick checkbox, then Send OTP';
+      ? L('सुरक्षा जाँच failed — page reload करें, checkbox ✓ करें, फिर Send OTP','सुरक्षा जाँच failed — reload page, tick checkbox, then Send OTP')
+      : 'सुरक्षा जाँच failed — reload page, tick checkbox, then Send OTP';
   if(code === 'auth/too-many-requests')
     return (typeof L==='function')
       ? L('बहुत कोशिशें — 15–30 मिनट बाद try करें','Too many attempts — try again in 15–30 minutes')
@@ -1695,10 +1695,10 @@ let _deviceOtpBusy = false;
 
 async function _sendDeviceOTP(isResend){
   if(_deviceOtpBusy) return;
-  if(!_otpEmp || !_otpEmp.phone){ toast('⚠️ Employee mobile missing'); return; }
+  if(!_otpEmp || !_otpEmp.phone){ toast(L('⚠️ कर्मचारी मोबाइल उपलब्ध नहीं','⚠️ Employee mobile missing')); return; }
   const digits = String(_otpEmp.phone).replace(/\D/g,'');
   const mobile = (digits.length===12 && digits.startsWith('91')) ? digits.slice(2) : digits;
-  if(mobile.length!==10){ toast('⚠️ Invalid employee mobile'); return; }
+  if(mobile.length!==10){ toast(L('⚠️ अमान्य कर्मचारी मोबाइल','⚠️ Invalid employee mobile')); return; }
   _deviceOtpBusy = true;
   const btn = document.getElementById('sendOtpBtn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Sending…'; }
@@ -1721,7 +1721,7 @@ async function _sendDeviceOTP(isResend){
     toast(L('✅ OTP भेज दिया!','✅ OTP sent!'));
   }catch(err){
     console.error('Device OTP send', err);
-    toast('❌ '+_fbOtpErrorMessage(err));
+    toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }finally{
     _deviceOtpBusy=false;
     if(btn){ btn.disabled=false; btn.textContent='📤 OTP भेजें'; }
@@ -1740,7 +1740,7 @@ async function _verifyDeviceOTP(){
   if(btn){ btn.disabled=true; btn.textContent='⏳ Verifying…'; }
   try{
     await _fbVerifyPhoneOtp(_deviceOtpConfirm, otp);
-    toast('✅ OTP verified!');
+    toast(L('✅ ओटीपी सत्यापित!','✅ OTP verified!'));
     const emp=_otpEmp;
     const deviceId=_otpDeviceId || (typeof getDeviceId==='function'?getDeviceId():'');
     _deviceOtpConfirm=null;
@@ -1753,11 +1753,11 @@ async function _verifyDeviceOTP(){
     }else if(typeof showSetPasswordScreen==='function'){
       showSetPasswordScreen(emp, deviceId, true);
     }else{
-      toast('✅ Verified — continue login');
+      toast(L('✅ सत्यापित — लॉगिन जारी रखें','✅ Verified — continue login'));
     }
   }catch(err){
     console.error('Device OTP verify', err);
-    toast('❌ '+_fbOtpErrorMessage(err));
+    toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }finally{
     _deviceOtpBusy=false;
     if(btn){ btn.disabled=false; btn.textContent='✅ Verify करें'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
@@ -1888,7 +1888,7 @@ function _nrValidate(){
 
 function _newRegNameChanged(){ _nrValidate(); }
 
-function showForgotPassword(){ toast('Password reset ke liye Admin se sampark karein: +91-8929394920'); }
+function showForgotPassword(){ toast(L('पासवर्ड रीसेट के लिए व्यवस्थापक से संपर्क करें: +91-8929394920','Contact Admin for password reset: +91-8929394920')); }
 function startWebOtpListener(){}
 function resendOtp(){ return _resendOTP(); }
 function checkOtpAutoSubmit(){}

@@ -592,7 +592,7 @@ if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.wa
           ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
           : '';
         if(!msgLines || !String(msgLines).trim()){
-          msgLines = '⚠️ *Man Power — Absent*\n_'+todayFmt+'_\n\n*ध्यान दें '+emp.name+'*,\n\nआप *बिना अनुमति* अनुपस्थित (Absent) चिह्नित किए गए हैं:\n'+datesList+'\n\nतुरंत Manager से संपर्क करें।\n_— '+(SESSION.name||'Manager')+'_';
+          msgLines = '⚠️ *Man Power — Absent*\n_'+todayFmt+'_\n\n*ध्यान दें '+emp.name+'*,\n\nआप *बिना अनुमति* अनुपस्थित (Absent) चिह्नित किए गए हैं:\n'+datesList+'\n\nतुरंत प्रबंधक से संपर्क करें।\n_— '+(SESSION.name||'Manager')+'_';
         }
         pushMsg(msgLines);
       }
@@ -813,7 +813,7 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
         } else {
           toast(typeof L==='function'?L('Time legend उपलब्ध नहीं','Time legend not available'):'Time legend not available');
         }
-      }catch(err){ console.warn('[time btn]', err); toast('Time entry failed'); }
+      }catch(err){ console.warn('[time btn]', err); toast(L('समय प्रविष्टि विफल','Time entry failed')); }
     }, 40);
   } else {
     try{ closeModal(); }catch(e){}
@@ -1203,11 +1203,11 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
       if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
       if(typeof openWA==='function') openWA(phone, msg);
       else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
-      toast('✅ Leave marked · WhatsApp');
+      toast(L('✅ अवकाश चिह्नित · व्हाट्सऐप','✅ Leave marked · WhatsApp'));
     } else {
-      toast('✅ Leave marked (no mobile for WhatsApp)');
+      toast(L('✅ अवकाश चिह्नित (व्हाट्सऐप हेतु मोबाइल नहीं)','✅ Leave marked (no mobile for WhatsApp)'));
     }
-  }catch(e){ console.warn('[leave WA]', e); toast('✅ Leave marked'); }
+  }catch(e){ console.warn('[leave WA]', e); toast(L('✅ अवकाश चिह्नित','✅ Leave marked')); }
 }
 
 
@@ -1952,7 +1952,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
     const skipWA = isOwn;
     toast(L('⏳ शिफ्ट सहेजी जा रही है…','⏳ Saving shift…'));
     saveAllShiftChanges({ skipWhatsApp: skipWA, stayOnMyShift: true }).catch(e=>{
-      toast('❌ '+(e&&e.message||e));
+      toast(L('❌ ','❌ ')+(e&&e.message||e));
     });
     return;
   }
@@ -1988,7 +1988,7 @@ async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, 
     const me = myEmp() || {};
     const managerId = SESSION.managerId || me.managerId || '';
     if(!managerId){
-      toast(L('❌ Manager link नहीं है — Admin से संपर्क करें','❌ No manager linked — ask Admin'));
+      toast(L('❌ प्रबंधक लिंक नहीं है — व्यवस्थापक से संपर्क करें','❌ No manager linked — contact Admin'));
       return;
     }
     const req = {
@@ -2058,7 +2058,7 @@ async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, 
     try{ renderMyShift(); }catch(e){}
   }catch(e){
     console.error('[shift change request]', e);
-    toast('❌ '+(e&&e.message||e));
+    toast(L('❌ ','❌ ')+(e&&e.message||e));
   }
 }
 
@@ -2102,9 +2102,9 @@ async function _renderPendingShiftChangeRequests(){
 async function approveShiftChangeRequest(reqKey){
   try{
     const rec = await fbGet('shiftChangeRequests/'+reqKey);
-    if(!rec || rec.status!=='pending'){ toast('Already handled'); return; }
+    if(!rec || rec.status!=='pending'){ toast(L('पहले से निपटाया गया','Already handled')); return; }
     if(!canEditSchedule() && !(typeof isAdmin==='function' && isAdmin())){
-      toast(L('❌ Permission नहीं है','❌ Permission denied')); return;
+      toast(L('❌ अनुमति नहीं है','❌ Permission denied')); return;
     }
     const okAuth = await _ensureWriteAuth();
     if(!okAuth){ toast(L('❌ Phone verify करें','❌ Verify phone')); return; }
@@ -2129,11 +2129,11 @@ async function approveShiftChangeRequest(reqKey){
         });
       }
     }catch(e){}
-    toast('✅ Shift updated');
+    toast(L('✅ शिफ्ट अपडेट','✅ Shift updated'));
     try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
     try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
     try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
-  }catch(e){ toast('❌ '+(e.message||e)); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e.message||e)); }
 }
 
 async function rejectShiftChangeRequest(reqKey){
@@ -2143,9 +2143,9 @@ async function rejectShiftChangeRequest(reqKey){
       rejectedAt: new Date().toISOString(),
       rejectedBy: SESSION.name||''
     });
-    toast('Request rejected');
+    toast(L('अनुरोध अस्वीकृत','Request rejected'));
     try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
-  }catch(e){ toast('❌ '+(e.message||e)); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e.message||e)); }
 }
 
 // Legacy single-call — now just a wrapper used by resetShiftOverride
@@ -2167,7 +2167,7 @@ async function resetShiftOverride(empId, date){
     await fbSet('overrides', existing);
     toast(L('🔄 Original shift restore हो गई','🔄 Original shift restored'));
     renderSchedule();
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 

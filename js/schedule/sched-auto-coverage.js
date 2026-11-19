@@ -1207,7 +1207,7 @@ async function _coverageApplyWoffSuggestions(monthKey){
 
   // Re-run auto schedule
   setTimeout(()=>{
-    try{ autoGenSchedule(monthKey); }catch(e){ toast('❌ '+e.message); }
+    try{ autoGenSchedule(monthKey); }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
   }, 200);
 }
 

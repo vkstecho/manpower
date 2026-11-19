@@ -488,9 +488,9 @@ window.handleCompanyLogoFile = function(input){
         if(prev) prev.innerHTML = '<img src="'+out+'" alt="logo" style="max-width:100%;max-height:100%;object-fit:contain"/>';
         try{ _applyCompanyLogoToUI(out); }catch(e){}
         toast(L('✅ Logo ready — Save दबाएँ','✅ Logo ready — press Save'));
-      }catch(e){ console.warn(e); toast('Logo process failed'); }
+      }catch(e){ console.warn(e); toast(L('लोगो प्रक्रिया विफल','Logo process failed')); }
     };
-    img.onerror = function(){ toast('Invalid image'); };
+    img.onerror = function(){ toast(L('अमान्य चित्र','Invalid image')); };
     img.src = dataUrl;
   };
   reader.readAsDataURL(file);

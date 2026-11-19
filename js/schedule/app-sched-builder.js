@@ -9,10 +9,10 @@
 function openScheduleBuilder(){
   var sr="";try{sr=String(SESSION.role||"").toLowerCase();}catch(e){}
   var ok=(typeof isAdmin==="function"&&isAdmin())||(sr==="manager"&&typeof isMgr==="function"&&isMgr());
-  if(!ok){try{toast(L("❌ Auto Create केवल Manager के लिए","❌ Auto Create is Manager only"));}catch(e){}return;}
+  if(!ok){try{toast(L("❌ Auto Create केवल प्रबंधक के लिए","❌ Auto Create is Manager only"));}catch(e){}return;}
 
   if(typeof canEditSchedule==='function' && !canEditSchedule()){
-    toast(typeof L==='function'?L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'):'❌ No schedule edit permission');
+    toast(typeof L==='function'?L('❌ अनुसूची संपादन की अनुमति नहीं है','❌ No schedule edit permission'):'❌ No schedule edit permission');
     return;
   }
   const now = new Date();
@@ -501,7 +501,7 @@ async function loadScheduleBuilder(){
     console.error('loadScheduleBuilder error:',err);
     const b=document.getElementById('sbOpenBtn');
     if(b){ b.disabled=false; b.classList.remove('is-busy'); if(b.dataset.prevLabel) b.textContent=b.dataset.prevLabel; }
-    toast('❌ Error: '+err.message);
+    toast(L('❌ त्रुटि: ','❌ Error: ')+(err.message||err));
   }
 }
 
@@ -753,7 +753,7 @@ function _sbCopyEntireRow(rowIdx){
   try{ _sbUpdateSelectionVisual(); }catch(e){}
   try{ _sbRefreshRowColButtons(); }catch(e){}
   try{ _sbShowToolbar(); }catch(e){}
-  toast('📋 Row Copy · '+grid[0].length+' days');
+  toast(L('📋 पंक्ति कॉपी · ','📋 Row Copy · ')+grid[0].length+L(' दिन',' days'));
 }
 
 /** Paste clipboard into entire target row (from first day) */
@@ -780,7 +780,7 @@ function _sbPasteEntireRow(rowIdx){
   _sbSelEnd = {row:rowIdx, day:+cells[cells.length-1].dataset.day};
   try{ _sbUpdateSelectionVisual(); }catch(e){}
   try{ _sbRefreshRowColButtons(); }catch(e){}
-  toast('✅ Row Paste');
+  toast(L('✅ पंक्ति चिपकाई','✅ Row Paste'));
 }
 
 function _sbRowBtnClick(rowIdx){
@@ -813,7 +813,7 @@ function _sbCopyEntireCol(dayIdx){
   try{ _sbUpdateSelectionVisual(); }catch(e){}
   try{ _sbRefreshRowColButtons(); }catch(e){}
   try{ _sbShowToolbar(); }catch(e){}
-  toast('📋 Column Copy · '+grid.length+' emp');
+  toast(L('📋 स्तंभ कॉपी · ','📋 Column Copy · ')+grid.length+L(' कर्मचारी',' emp'));
 }
 
 function _sbPasteEntireCol(dayIdx){
@@ -829,7 +829,7 @@ function _sbPasteEntireCol(dayIdx){
     _sbSetCellValue(cell, srcVal);
   });
   try{ _sbRefreshRowColButtons(); }catch(e){}
-  toast('✅ Column Paste');
+  toast(L('✅ स्तंभ चिपकाया','✅ Column Paste'));
 }
 
 function _sbColBtnClick(dayIdx){
@@ -890,7 +890,7 @@ async function saveScheduleBuilder(monthKey){
   // FIX: scope to modal tbody only — background schedule grid also has
   // cells with [data-empid] which would corrupt saved data
   const sbTbody = document.getElementById('sb_tbody');
-  if(!sbTbody){ toast(L('⚠️ Schedule Builder open नहीं है','⚠️ Schedule Builder is not open')); return; }
+  if(!sbTbody){ toast(L('⚠️ अनुसूची बिल्डर खुला नहीं है','⚠️ Schedule Builder is not open')); return; }
 
   // Merge with existing saved data (for sections / days not loaded)
   const existing = (getSchedules() || {})[monthKey.replace('-','_')] || {};
@@ -958,7 +958,7 @@ async function saveScheduleBuilder(monthKey){
     try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
     try{ if(typeof renderHome==='function' && typeof _currentTab!=='undefined' && _currentTab==='home') renderHome(); }catch(e){}
   } catch(e){
-    toast('❌ Error: ' + e.message);
+    toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e));
   }
 }
 

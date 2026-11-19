@@ -899,7 +899,7 @@ html.mp-login-active, body.mp-login-active {
 <div id="expiryScreen">
   <div style="font-size:60px;margin-bottom:16px">🔒</div>
   <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--lv)">LICENSE EXPIRED</div>
-  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">Contact<br>+91-8929397949</div>
+  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">Contact<br>+91-8929394920</div>
   <input type="password" id="unlockKey" placeholder="Enter UNLOCK KEY" class="inp-field" style="max-width:280px;text-align:center;letter-spacing:2px;margin-bottom:10px" onkeydown="if(event.key==='Enter')tryUnlock()">
   <button class="big-btn" style="max-width:280px" onclick="tryUnlock()">🔓 Unlock</button>
 </div>
@@ -1124,7 +1124,7 @@ html.mp-login-active, body.mp-login-active {
         Your registration was sent to Admin.
       </div>
       <div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8">
-        &#128222; VKS Tech: <b style="color:#f97316">+91-8929397949</b>
+        &#128222; VKS Tech: <b style="color:#f97316">+91-8929394920</b>
       </div>
       <button class="back-btn" onclick="backToStep1()">&larr; Back</button>
     </div>
@@ -1183,7 +1183,7 @@ html.mp-login-active, body.mp-login-active {
     </div>
     <div style="padding:12px 16px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);
       border-radius:12px;font-size:13px;color:#f97316;margin-bottom:20px">
-      📞 For faster approval contact <b>+91-8929397949</b>
+      📞 For faster approval contact <b>+91-8929394920</b>
     </div>
     <button onclick="hidePendingBox()"
       style="width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,.15);
@@ -2052,14 +2052,19 @@ window.__sectionsReady = (async function loadSections(){
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
 <script src="js/session/app-session-settings-profile.js?v=5100"></script>
 <script src="js/session/app-session-settings-security.js?v=5100"></script>
+<script src="js/session/app-announce.js?v=6050"></script>
 <script src="js/session/app-session-settings.js?v=6026"></script>
 <script src="js/session/app-account-backup.js?v=500001"></script>
 <script src="js/session/app-session-home.js?v=6026"></script>
 <script src="js/session/app-work-diary.js?v=6025"></script>
-<script src="js/session/app-session-payment.js?v=5012"></script>
+<script src="js/session/pay-gate.js?v=6054"></script>
+<script src="js/session/pay-trial.js?v=6054"></script>
+<script src="js/session/pay-admin.js?v=6054"></script>
+<script src="js/session/app-session-payment.js?v=6054"></script>
 <script src="js/auth/app-login-session.js?v=400020"></script>
 <script src="js/core/app.js?v=400020"></script>
-<script src="js/team/app-team-print-learn.js?v=5014"></script>
+<script src="js/team/app-team-print.js?v=6053"></script>
+<script src="js/team/app-learn.js?v=6053"></script>
 <script src="js/team/app-team-skills.js?v=5014"></script>
 <script src="js/team/app-team-ops-layer.js?v=5014"></script>
 <script src="js/commercial/mp-commercial.js?v=400021-payplan"></script>
@@ -2070,7 +2075,8 @@ window.__sectionsReady = (async function loadSections(){
   var heavy = [
     'js/i18n/i18n_ml.js?v=5100',
     'js/i18n/i18n_dict.js?v=5100',
-    'js/schedule/app-schedule.js?v=6030',
+    'js/schedule/app-schedule.js?v=6053',
+    'js/schedule/sched-admin-teams.js?v=6053',
     'js/team/app-team.js?v=5100',
     'js/team/app-team-import-core.js?v=5100',
     'js/team/app-team-emp-forms.js?v=5130',

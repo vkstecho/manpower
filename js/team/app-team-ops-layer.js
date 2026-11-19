@@ -238,7 +238,7 @@
       try { toast(_L('✅ चेकलिस्ट सेव', '✅ Checklists saved')); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }
@@ -251,7 +251,7 @@
       try { toast(_L('✅ चेकलिस्ट सेव हो गई', '✅ Checklist saved')); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }
@@ -557,7 +557,7 @@
       try { toast(_L('✅ ट्रेनिंग असाइन: ', '✅ Training assigned: ') + _modTitle(mod)); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }
@@ -578,7 +578,7 @@
       try { toast(_L('🗑️ असाइनमेंट हटाया', '🗑️ Assignment removed')); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }
@@ -884,7 +884,7 @@
       try { toast(_L('✅ हैंडओवर फ़ील्ड सेव', '✅ Handover fields saved')); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }
@@ -1197,7 +1197,7 @@
           try { localStorage.setItem('mp_handover_done_' + _todayStr(), id); } catch (e) {}
           ov.remove();
         } catch (err) {
-          try { toast('❌ ' + (err && err.message)); } catch (e2) {}
+          try { toast(L('❌ ','❌ ')+(err && err.message)); } catch (e2) {}
           if (btn) { btn.disabled = false; btn.textContent = _L('✅ हैंडओवर सबमिट · अगली शिफ्ट को सूचना', '✅ Submit handover · notify incoming'); }
         }
       };
@@ -1381,7 +1381,7 @@
       try { toast(_L('✅ फीचर सेटिंग सेव', '✅ Feature settings saved')); } catch (e) {}
       return true;
     } catch (e) {
-      try { toast('❌ ' + (e && e.message)); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message)); } catch (e2) {}
       return false;
     }
   }

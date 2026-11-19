@@ -129,7 +129,7 @@
       _save(remaining);
       _updateBadge();
       if (flushed && typeof global.toast === 'function') {
-        global.toast('✅ Synced ' + flushed + ' offline schedule edit' + (flushed > 1 ? 's' : ''));
+        global.toast(L('✅ सिंक ','✅ Synced ')+flushed+L(' ऑफ़लाइन अनुसूची संपादन',' offline schedule edit')+(flushed>1?'s':''));
       }
       return { ok: true, flushed: flushed, remaining: remaining.length };
     } finally {
@@ -175,7 +175,7 @@
     if (!offline) return false;
     enqueueScheduleEdit({ empId: empId, date: date, shift: shift, monthKey: monthKey });
     if (typeof global.toast === 'function') {
-      global.toast('📴 Offline — change queued, will sync when online');
+      global.toast(L('📴 ऑफ़लाइन — परिवर्तन कतार में, ऑनलाइन होने पर सिंक','📴 Offline — change queued, will sync when online'));
     }
     return true;
   }

@@ -359,7 +359,7 @@
       sendBtn.classList.add('is-busy');
       sendBtn.innerHTML = _L('⏳ OTP भेज रहे हैं…','⏳ Sending OTP…');
     }
-    _delBakSetStatus(_L('🔐 Security check पूरा करें (checkbox)','🔐 Complete security check if shown'), false);
+    _delBakSetStatus(_L('🔐 सुरक्षा जाँच पूरा करें (checkbox)','🔐 Complete security check if shown'), false);
     try{
       if(typeof _fbClearRecaptcha==='function') _fbClearRecaptcha('_fbRecaptchaDelBak');
     }catch(e){}
@@ -390,9 +390,9 @@
       var msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'OTP failed';
       // Friendlier messages
       if(/too-many-requests/i.test(msg)) msg = _L('बहुत कोशिशें — कुछ देर बाद try करें','Too many attempts — try later');
-      else if(/captcha|recaptcha/i.test(msg)) msg = _L('Security check fail — page refresh करें','Security check failed — refresh page');
+      else if(/captcha|recaptcha/i.test(msg)) msg = _L('सुरक्षा जाँच fail — page refresh करें','सुरक्षा जाँच failed — refresh page');
       else if(/network|unavailable/i.test(msg)) msg = _L('Network error — internet check करें','Network error — check internet');
-      try{ toast('❌ '+msg); }catch(x){}
+      try{ toast(L('❌ ','❌ ')+msg); }catch(x){}
       _delBakSetStatus(msg, true);
     }finally{
       _delBakSending = false;
@@ -448,14 +448,14 @@
     var mob = _norm(document.getElementById('delBakMobile') && document.getElementById('delBakMobile').value);
     var code = (document.getElementById('delBakOtp') && document.getElementById('delBakOtp').value || '').trim();
     if(!_delBakConfirm){ try{ toast(_L('❌ पहले OTP भेजें','❌ Send OTP first')); }catch(e){} return; }
-    if(!code){ try{ toast('OTP?'); }catch(e){} return; }
+    if(!code){ try{ toast(L('ओटीपी?','OTP?')); }catch(e){} return; }
     try{
       await _delBakConfirm.confirm(code);
       _delBakVerifiedMobile = mob;
       try{ toast(_L('✅ Verified','✅ Verified')); }catch(e){}
       await _delBakLoadList(mob);
     }catch(e){
-      try{ toast('❌ '+(e&&e.message?e.message:'OTP invalid')); }catch(x){}
+      try{ toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('ओटीपी अमान्य','OTP invalid'))); }catch(x){}
     }
   }
 
@@ -495,7 +495,7 @@
     mob = _norm(mob);
     var adminOk = (typeof isAdmin==='function' && isAdmin());
     if(_delBakVerifiedMobile !== mob && !adminOk){
-      try{ toast(_L('❌ OTP verify करें या Admin से Load करें','❌ Verify OTP or Load as Admin')); }catch(e){}
+      try{ toast(_L('❌ ओटीपी सत्यापन करें या Admin से Load करें','❌ Verify OTP or Load as Admin')); }catch(e){}
       return;
     }
     if(adminOk && _delBakVerifiedMobile !== mob){
@@ -503,11 +503,11 @@
     }
     try{
       var rec = await fbGet('accountBackups/'+mob+'/'+backupId);
-      if(!rec){ toast('Not found'); return; }
+      if(!rec){ toast(L('नहीं मिला','Not found')); return; }
       await downloadBackupExcel(rec);
       try{ toast(_L('✅ Download शुरू','✅ Download started')); }catch(e){}
     }catch(e){
-      try{ toast('❌ '+(e&&e.message?e.message:e)); }catch(x){}
+      try{ toast(L('❌ ','❌ ')+(e&&e.message?e.message:e)); }catch(x){}
     }
   }
 

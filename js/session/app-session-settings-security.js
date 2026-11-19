@@ -139,7 +139,7 @@ async function setupFingerprintFromProfile(){
     if(localStorage.getItem(FP_KEY+'_'+uid)!=='1'){
       // registerFingerprint already asked; if declined, leave OFF
     }
-  }catch(e){ toast('❌ Fingerprint: '+(e.message||e.name||e)); }
+  }catch(e){ toast(L('❌ फिंगरप्रिंट: ','❌ Fingerprint: ')+(e.message||e.name||e)); }
   setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 400);
 }
 
@@ -185,7 +185,7 @@ async function showProfile(){
         <div><div class="pa-label">User Access Extend</div><div class="pa-sub">${typeof L==='function'?L('Validity बढ़ाएं','Extend validity'):'Extend validity'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
-      <button class="profile-action" onclick="closeModal();if(typeof openAppLicenseAdmin==='function')openAppLicenseAdmin();else toast('Update app to latest version');">
+      <button class="profile-action" onclick="closeModal();if(typeof openAppLicenseAdmin==='function')openAppLicenseAdmin();else toast(L('ऐप का नवीनतम संस्करण अपडेट करें','Update app to latest version'));">
         <div class="pa-icon" style="background:rgba(124,58,237,.12)">🔑</div>
         <div><div class="pa-label">${typeof L==='function'?L('App License / Expiry','App License / Expiry'):'App License / Expiry'}</div><div class="pa-sub">${typeof L==='function'?L('पूरी App की expiry date','Whole app expiry date'):'Whole app expiry date'}</div></div>
         <div class="pa-arrow">›</div>
@@ -218,6 +218,11 @@ async function showProfile(){
       <button class="profile-action" onclick="closeModal();setTimeout(function(){openAdminAnalytics()},50)">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">📊</div>
         <div><div class="pa-label">App Analytics</div><div class="pa-sub">Users, active logins, Managers</div></div>
+        <div class="pa-arrow">›</div>
+      </button>
+      <button class="profile-action" onclick="closeModal();setTimeout(function(){if(typeof openAdminAnnounce==='function')openAdminAnnounce()},50)">
+        <div class="pa-icon" style="background:rgba(99,102,241,.15)">📢</div>
+        <div><div class="pa-label">${typeof L==='function'?L('Announce','Announce'):'Announce'}</div><div class="pa-sub">${typeof L==='function'?L('Message / link / video → selected mobiles','Message / link / video → selected mobiles'):'Message / link / video → selected mobiles'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action" onclick="openHolidayListModal()">
@@ -440,12 +445,26 @@ async function showProfile(){
         <div><div class="pa-label">${L('Leave team / Transfer Manager','Leave team / Transfer Manager')}</div><div class="pa-sub">${L('किसी सदस्य को नया Manager बनाकर टीम छोड़ें','Promote a member and leave the team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
-      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='left' ? `<button type="button" class="profile-action" onclick="openMemberLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='left' && SESSION.status!=='individual' && !SESSION.individual ? `<button type="button" class="profile-action" onclick="openMemberLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">👋</div>
         <div><div class="pa-label">${L('Leave this team','Leave this team')}</div><div class="pa-sub">${L('रोस्टर नहीं दिखेगा · अपनी शिफ्ट हिस्ट्री रहेगी','Hide team roster · keep your shift history')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
-      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' ? `<button type="button" class="profile-action" onclick="openUpgradeToManagerModal()" style="border-color:rgba(249,115,22,.4)">
+      ${(function(){
+        try{
+          var st=String(SESSION.status||'').toLowerCase();
+          var ind=!!SESSION.individual || st==='individual' || st==='left_team' || st==='left'
+            || ((SESSION.role==='member'||SESSION.role==='worker') && !SESSION.managerId);
+          if(!ind && SESSION.role!=='member' && SESSION.role!=='worker') return '';
+          if(!ind) return '';
+          return '<button type="button" class="profile-action" onclick="openJoinTeamModal()" style="border-color:rgba(37,99,235,.45)">'
+            +'<div class="pa-icon" style="background:rgba(37,99,235,.12)">👥</div>'
+            +'<div><div class="pa-label">'+(typeof L==='function'?L('Join a team','Join a team'):'Join a team')+'</div>'
+            +'<div class="pa-sub">'+(typeof L==='function'?L('Manager चुनें · request भेजें','Pick a Manager · send request'):'Pick a Manager · send request')+'</div></div>'
+            +'<div class="pa-arrow">›</div></button>';
+        }catch(e){ return ''; }
+      })()}
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='individual' ? `<button type="button" class="profile-action" onclick="openUpgradeToManagerModal()" style="border-color:rgba(249,115,22,.4)">
         <div class="pa-icon" style="background:rgba(249,115,22,.12)">⬆️</div>
         <div><div class="pa-label">${L('Upgrade to Manager','Upgrade to Manager')}</div><div class="pa-sub">${L('अपनी टीम जोड़ें · ऊपर वाले मैनेजर की टीम सिर्फ देखें','Add your own team · view parent team only')}</div></div>
         <div class="pa-arrow">›</div>
@@ -499,8 +518,8 @@ function openDeleteAccountModal(){
   const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
   const warnMgr = (role==='manager')
     ? ('<div style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.35);border-radius:10px;padding:10px 12px;font-size:12px;color:#fecdd3;margin-bottom:12px;line-height:1.5">⚠️ '
-      + T('Manager: Account delete करने पर आपकी पूरी टीम (employees + linked mobiles) हटा दी जाएगी। यह वापस नहीं होगा।',
-          'Manager: deleting your account will remove your FULL team (employees + linked mobiles). This cannot be undone.')
+      + T('Manager: आपकी Account delete होगी। Team members <b>individual users</b> बन जाएंगे — उनका data व shifts सुरक्षित रहेंगे, वे login करके अपना schedule देख सकेंगे (team authority नहीं)।',
+          'Manager: your account will be deleted. Team members become <b>individual users</b> — their data & shifts stay safe; they can login and see their own schedule (no team authority).')
       + '</div>')
     : '';
   openModal('<div class="modal-handle"></div>'
@@ -532,7 +551,7 @@ async function confirmDeleteMyAccount(){
     ? _normMobileKey(SESSION.mobile||SESSION.uid||'')
     : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
   if(!mob || mob.length!==10){
-    toast('❌ Mobile missing');
+    toast(L('❌ मोबाइल अनुपलब्ध','❌ Mobile missing'));
     return;
   }
   try{
@@ -635,8 +654,9 @@ async function confirmDeleteMyAccount(){
       }
     }
 
-    // 4) Manager self-delete → remove FULL team roster + linked mobileUsers under this manager
-    //    Member self-delete → only mark own employee record left
+    // 4) Manager self-delete → convert team members to INDIVIDUAL users (keep data + personal schedules)
+    //    Member self-delete → only mark own employee record removed + clear phone
+    //    v6.0.50: members stay usable as individuals; old shifts remain visible to them
     try{
       const all = (window._cache && Array.isArray(_cache.employees) && _cache.employees.length)
         ? _cache.employees.slice()
@@ -646,14 +666,13 @@ async function confirmDeleteMyAccount(){
       const norm = function(p){
         return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10);
       };
+      const nowIso = new Date().toISOString();
       const teamOrSelf = (all||[]).filter(function(e){
         if(!e) return false;
-        // always include own record
         if(empObjId && (e.id===empObjId || e.empId===empObjId)) return true;
         const ph = norm(e.phone||e.mobile||'');
         if(ph && ph===mob) return true;
         if(!isMgr) return false;
-        // manager cascade: anyone managed by this mobile / emp id
         const mid = norm(e.managerId||e.managerMobile||e.mgrId||'');
         if(mid && (mid===mob || (empObjId && mid===norm(empObjId)))) return true;
         return false;
@@ -662,51 +681,95 @@ async function confirmDeleteMyAccount(){
         var e = teamOrSelf[i];
         if(!e || !e.id) continue;
         const isOwnRow = !!(empObjId && (e.id===empObjId || e.empId===empObjId)) || (norm(e.phone||e.mobile||'')===mob);
-        try{
-          // Prefer hard delete so Team roster does not keep ghosts
-          if(typeof fbRemove==='function') await fbRemove('employees/'+e.id);
-          else await fbSet('employees/'+e.id, null);
-        }catch(err){
-          try{
-            // v6.0.46: always detach phone on self-delete so next OTP cannot auto-rejoin
-            await fbUpdate('employees/'+e.id, {
-              status: isOwnRow ? 'removed' : 'left_team',
-              leftAt: new Date().toISOString(),
-              leftReason: isMgr ? 'manager_self_delete_cascade' : 'self_delete_account',
-              forceFreshLogin: true,
-              phone: null,
-              mobile: null,
-              phoneClearedAt: new Date().toISOString()
-            });
-          }catch(err2){ console.warn('[deleteAccount] emp', err2); }
-        }
-        // If hard-delete succeeded for own row, also try explicit phone-clear tombstone under same id (no-op if gone)
+        const mph = norm(e.phone||e.mobile||'');
+
         if(isOwnRow){
+          // Manager's own employee row → remove
+          try{
+            if(typeof fbRemove==='function') await fbRemove('employees/'+e.id);
+            else await fbSet('employees/'+e.id, null);
+          }catch(err){
+            try{
+              await fbUpdate('employees/'+e.id, {
+                status: 'removed',
+                leftAt: nowIso,
+                leftReason: 'self_delete_account',
+                forceFreshLogin: true,
+                phone: null,
+                mobile: null,
+                phoneClearedAt: nowIso
+              });
+            }catch(err2){ console.warn('[deleteAccount] emp own', err2); }
+          }
+        } else if(isMgr){
+          // Former team member → convert to INDIVIDUAL (keep record, phone, schedules)
           try{
             await fbUpdate('employees/'+e.id, {
-              status: 'removed',
-              phone: null,
-              mobile: null,
-              forceFreshLogin: true,
-              leftReason: 'self_delete_account',
-              leftAt: new Date().toISOString()
+              status: 'individual',
+              managerId: null,
+              managerMobile: null,
+              previousManagerId: mob,
+              leftAt: nowIso,
+              leftReason: 'manager_self_delete',
+              individualSince: nowIso,
+              forceFreshLogin: false,
+              active: true,
+              updatedAt: nowIso
             });
-          }catch(_own){}
-        }
-        // Also remove member mobileUsers that pointed at this manager (not the manager's own — already removed)
-        try{
-          const mph = norm(e.phone||e.mobile||'');
-          if(mph && mph.length===10 && mph!==mob){
-            if(typeof fbRemove==='function') await fbRemove('mobileUsers/'+mph);
-            else await fbSet('mobileUsers/'+mph, null);
+          }catch(err2){ console.warn('[deleteAccount] emp individual', err2); }
+
+          // Keep / ensure mobileUsers so member can still login as individual
+          // Payment: own gate only — clear manager inherit; trial granted on next hydrate if expired
+          if(mph && mph.length===10){
+            try{
+              const existingMu = (window._cache && _cache.mobileUsers && _cache.mobileUsers[mph]) || null;
+              const muPayload = {
+                role: 'member',
+                status: 'approved',
+                individual: true,
+                managerId: null,
+                managerMobile: null,
+                previousManagerId: mob,
+                forceFreshLogin: false,
+                name: (e.name || (existingMu && existingMu.name) || ''),
+                empObjId: e.id,
+                phone: mph,
+                mobile: mph,
+                updatedAt: nowIso,
+                individualSince: nowIso,
+                paymentSource: 'self',
+                // Keep existing own paid-until if still valid; trial engine will not inherit manager
+                paymentUpdatedBy: 'individual_after_manager_delete'
+              };
+              if(typeof fbUpdate==='function'){
+                await fbUpdate('mobileUsers/'+mph, muPayload);
+              } else {
+                await fbSet('mobileUsers/'+mph, Object.assign({}, existingMu||{}, muPayload));
+              }
+            }catch(muErr){ console.warn('[deleteAccount] mu individual', muErr); }
           }
-        }catch(muErr){}
+        }
       }
-      // Clear local cache so UI does not keep showing deleted team
+      // Update local cache: drop manager's own row; mark others individual
       try{
         if(window._cache && Array.isArray(_cache.employees)){
-          const drop = new Set(teamOrSelf.map(function(x){ return x && x.id; }).filter(Boolean));
-          _cache.employees = _cache.employees.filter(function(x){ return x && !drop.has(x.id); });
+          _cache.employees = _cache.employees.map(function(x){
+            if(!x) return x;
+            if(empObjId && (x.id===empObjId || x.empId===empObjId)) return null;
+            const ph = norm(x.phone||x.mobile||'');
+            if(ph && ph===mob) return null;
+            const mid = norm(x.managerId||x.managerMobile||x.mgrId||'');
+            if(isMgr && mid && (mid===mob || (empObjId && mid===norm(empObjId)))){
+              return Object.assign({}, x, {
+                status: 'individual',
+                managerId: null,
+                managerMobile: null,
+                previousManagerId: mob,
+                individualSince: nowIso
+              });
+            }
+            return x;
+          }).filter(Boolean);
         }
       }catch(ce){}
     }catch(e){ console.warn('[deleteAccount] employees', e); }
@@ -755,7 +818,7 @@ async function confirmDeleteMyAccount(){
     }, 900);
   }catch(err){
     console.error('[deleteAccount]', err);
-    toast('❌ '+(err && err.message ? err.message : 'Delete failed'));
+    toast(L('❌ ','❌ ')+(err && err.message ? err.message : L('हटाना विफल','Delete failed')));
   }
 }
 try{
@@ -763,3 +826,123 @@ try{
   window.confirmDeleteMyAccount = confirmDeleteMyAccount;
 }catch(e){}
 
+
+
+
+// ── Join a team (individual / left_team / orphan members) ──
+async function openJoinTeamModal(){
+  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
+  let managers = [];
+  try{
+    const mu = (window._cache && _cache.mobileUsers) || (typeof fbGet==='function' ? await fbGet('mobileUsers') : {}) || {};
+    const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
+    Object.entries(mu).forEach(function([k,u]){
+      if(!u) return;
+      if(String(u.role||'').toLowerCase()!=='manager') return;
+      if(u.status==='removed'||u.status==='revoked'||u.status==='rejected') return;
+      if(u.status && u.status!=='approved' && u.status!=='active') return;
+      const n = norm(u.mobile||u.phone||k);
+      if(n.length!==10) return;
+      managers.push({ mobile: n, name: u.name || n, company: u.company || '' });
+    });
+    managers.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
+  }catch(e){ console.warn('[joinTeam] load managers', e); }
+  const opts = managers.map(function(m){
+    return '<option value="'+m.mobile+'">'+String(m.name).replace(/</g,'')+' · +91-'+m.mobile+(m.company?' · '+String(m.company).replace(/</g,''):'')+'</option>';
+  }).join('');
+  const html = '<div class="modal-handle"></div>'
+    + '<div class="modal-title">👥 '+T('Join a team','Join a team')+'</div>'
+    + '<div style="font-size:13px;color:var(--muted2);margin-bottom:12px;line-height:1.5">'
+    + T('Manager चुनें। Request भेजने पर वे Approve करेंगे — आपके पुराने shifts सुरक्षित रहेंगे।','Pick a Manager. After they Approve, you join their team — your old shifts stay with you.')
+    + '</div>'
+    + (managers.length
+        ? ('<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager','Manager')+'</label>'
+          + '<select id="joinTeamMgr" class="inp-field" style="width:100%;margin:6px 0 14px">'+opts+'</select>')
+        : ('<div style="padding:12px;border-radius:10px;background:rgba(249,115,22,.1);color:#f97316;font-size:13px;margin-bottom:12px">'
+          + T('अभी कोई Manager list में नहीं। Manager का 10-digit mobile डालें।','No managers listed. Enter Manager 10-digit mobile.')
+          + '</div>'
+          + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager mobile','Manager mobile')+'</label>'
+          + '<input id="joinTeamMgrManual" class="inp-field" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" style="width:100%;margin:6px 0 14px">'))
+    + '<button type="button" class="submit-btn" onclick="confirmJoinTeamRequest()">'+T('📩 Request भेजें','📩 Send request')+'</button>'
+    + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+T('रद्द','Cancel')+'</button>';
+  if(typeof openModal==='function') openModal(html);
+}
+
+async function confirmJoinTeamRequest(){
+  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
+  const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
+  let mgr = '';
+  try{
+    const sel = document.getElementById('joinTeamMgr');
+    if(sel && sel.value) mgr = norm(sel.value);
+    else {
+      const man = document.getElementById('joinTeamMgrManual');
+      if(man) mgr = norm(man.value);
+    }
+  }catch(e){}
+  if(!mgr || mgr.length!==10){
+    try{ toast(T('⚠️ Manager चुनें / 10-digit mobile डालें','⚠️ Select Manager or enter 10-digit mobile')); }catch(e){}
+    return;
+  }
+  const myMob = norm(SESSION.mobile||SESSION.uid||'');
+  if(!myMob || myMob.length!==10){
+    try{ toast(T('❌ Session mobile missing','❌ Session mobile missing')); }catch(e){}
+    return;
+  }
+  if(myMob===mgr){
+    try{ toast(T('⚠️ अपना number Manager नहीं बना सकते','⚠️ Cannot set yourself as Manager')); }catch(e){}
+    return;
+  }
+  try{
+    if(typeof _ensureWriteAuth==='function'){ try{ await _ensureWriteAuth(); }catch(e){} }
+    const now = new Date().toISOString();
+    const name = SESSION.name || myMob;
+    // Set pending under chosen manager — keeps individual history (empObjId)
+    const payload = {
+      role: 'member',
+      status: 'pending',
+      name: name,
+      mobile: '+91'+myMob,
+      phone: myMob,
+      managerId: mgr,
+      managerMobile: mgr,
+      individual: false,
+      forceFreshLogin: false,
+      empObjId: SESSION.empObjId || null,
+      empId: SESSION.empId || SESSION.empCode || '',
+      empCode: SESSION.empId || SESSION.empCode || '',
+      joinRequestAt: now,
+      updatedAt: now
+    };
+    if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, payload);
+    else await fbSet('mobileUsers/'+myMob, payload);
+    // Notify manager
+    try{
+      await fbPush('userNotifications/'+mgr, {
+        type: 'join_team_request',
+        title: '👤 Join team request',
+        body: name+' (+91-'+myMob+') wants to join your team',
+        fromMobile: myMob,
+        read: false,
+        at: now
+      });
+    }catch(e){}
+    try{
+      if(typeof notifyAdmin==='function') await notifyAdmin('Join team request', name+' → manager '+mgr);
+    }catch(e){}
+    SESSION.status = 'pending';
+    SESSION.pendingApproval = true;
+    SESSION.managerId = mgr;
+    SESSION.individual = false;
+    try{ if(typeof saveSession==='function') saveSession(); }catch(e){}
+    try{ closeModal(); }catch(e){}
+    try{ toast(T('✅ Request भेज दी — Manager Approve करें','✅ Request sent — wait for Manager Approve')); }catch(e){}
+  }catch(err){
+    console.error('[joinTeam]', err);
+    try{ toast(L('❌ ','❌ ')+(err.message||L('विफल','Failed'))); }catch(e){}
+  }
+}
+try{
+  window.openJoinTeamModal = openJoinTeamModal;
+  window.confirmJoinTeamRequest = confirmJoinTeamRequest;
+}catch(e){}

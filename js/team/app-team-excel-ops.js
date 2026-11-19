@@ -65,7 +65,7 @@ function downloadTeamExcelTemplate(){
     try{ toast(L('✅ Team template Excel डाउनलोड','✅ Team template Excel downloaded')); }catch(e){}
   }).catch(err=>{
     console.warn(err);
-    try{ toast('❌ Template download failed'); }catch(e){}
+    try{ toast(L('❌ टेम्पलेट डाउनलोड विफल','❌ Template download failed')); }catch(e){}
   });
 }
 
@@ -226,7 +226,7 @@ async function handleTeamExcelFile(file){
 
 async function confirmTeamExcelUpload(){
   const parsed = (window._teamExcelParsed||[]).filter(e=>!e._skipSave);
-  if(!parsed.length){ toast('❌ Nothing to save'); return; }
+  if(!parsed.length){ toast(L('❌ सहेजने के लिए कुछ नहीं','❌ Nothing to save')); return; }
   const preview=document.getElementById('teamExcelPreview');
   if(preview) preview.innerHTML='<div style="text-align:center;padding:16px">⏳ Saving…</div>';
 
@@ -418,7 +418,7 @@ function _parseWoff(val){
 
 async function confirmTeamExcelUpdate(){
   const parsed=window._teamExcelParsed;
-  if(!parsed||!parsed.length){ toast(L('❌ कोई data नहीं है','❌ No data')); return; }
+  if(!parsed||!parsed.length){ toast(L('❌ कोई डेटा नहीं है','❌ No data')); return; }
 
   const matched=parsed.filter(p=>p.matched);
   if(!matched.length){ toast(L('❌ कोई match नहीं','❌ No matches')); return; }
@@ -626,7 +626,7 @@ function addInstSection(){
 
 async function saveInstructions(){
   const body = document.getElementById('instEditBody');
-  if(!body){ toast('Error: form not found'); return; }
+  if(!body){ toast(L('त्रुटि: फ़ॉर्म नहीं मिला','Error: form not found')); return; }
   
   const newInst = {};
   // Find all section containers by looking for isec_title_ inputs
@@ -751,7 +751,7 @@ const GUEST_TOGGLEABLE = ['home','schedule','leave','reports'];
 const WORKER_TOGGLEABLE = ['home','schedule','leave','reports'];
 
 async function openTabVisibilitySettings(){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  if(!isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
 
   // Load current settings
   let guestTabs = {};
@@ -898,7 +898,7 @@ async function toggleCompetenceFeature(key, isOn){
     toast((isOn?'✅ ':'🚫 ') + String(key) + (isOn ? ' ON' : ' OFF'));
     try{ if(typeof injectLearnModuleButtons === 'function') injectLearnModuleButtons(); }catch(e){}
   }catch(e){
-    toast('❌ ' + (e && e.message || e));
+    toast(L('❌ ','❌ ')+(e && e.message || e));
   }
 }
 
@@ -916,7 +916,7 @@ async function updateTabToggle(role, tabId, isOn){
       await fbSet(`settings/workerTabsHidden/${tabId}`, !isOn);
       toast(`✅ Worker: ${TAB_META[tabId]?.lbl} ${isOn?L('दिखेगा','shown'):L('हटाया','hidden')}`);
     }
-  }catch(e){ toast('❌ Save failed: '+e.message); }
+  }catch(e){ toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(e.message||e)); }
 }
 
 async function toggleManagerSalaryAccess(isOn){
@@ -929,12 +929,12 @@ async function toggleManagerSalaryAccess(isOn){
     if(!_cache.settings) _cache.settings = {};
     _cache.settings.showSalaryToManager = isOn;
     toast(isOn ? L('✅ Manager अब Salary देख सकेंगे','✅ Managers can view Salary now') : L('🔒 Manager से Salary छुपाई गई','🔒 Salary hidden from Managers'));
-  }catch(e){ toast('❌ Save failed: '+e.message); }
+  }catch(e){ toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(e.message||e)); }
 }
 
 // Open from admin panel
 function openSecuritySettings(){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
+  if(!isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
   openModal(`
     <div style="padding:20px 16px">
       <div style="text-align:center;margin-bottom:18px">
@@ -1099,11 +1099,11 @@ async function saveHolidayList(data){
     const dates = raw.split(/[\n,]+/).map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
     try{
       await fbSet(key, { dates, updatedAt: new Date().toISOString(), updatedBy: SESSION.name||'' });
-      toast('⏳ Applying H + C-Off for team…');
+      toast(L('⏳ टीम पर अवकाश + सी-ऑफ लागू…','⏳ Applying H + C-Off for team…'));
       const n = typeof applyHolidaysToTeam==='function' ? await applyHolidaysToTeam(dates) : 0;
-      toast('✅ '+dates.length+' holidays · '+n+' C-Off requests');
+      toast(L('✅ ','✅ ')+dates.length+L(' छुट्टियाँ · ',' holidays · ')+n+L(' सी-ऑफ अनुरोध',' C-Off requests'));
       closeModal();
-    }catch(e){ toast('❌ '+e.message); }
+    }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
     return;
   }
   data = data || { items: [] };
@@ -1489,8 +1489,8 @@ async function _importHolidayExcel(input){
     if(!parsed.items.length){
       const errHint = parsed.errors.slice(0,3).join(' · ');
       toast(errHint
-        ? ('⚠️ कोई valid holiday नहीं · '+errHint)
-        : '⚠️ कोई valid row नहीं मिली — columns: Date | Reason');
+        ? (L('⚠️ कोई मान्य अवकाश नहीं · ','⚠️ No valid holiday · ')+errHint)
+        : L('⚠️ कोई मान्य पंक्ति नहीं मिली — स्तंभ: तिथि | कारण','⚠️ No valid row found — columns: Date | Reason'));
       input.value = '';
       return;
     }
@@ -1510,7 +1510,7 @@ async function _importHolidayExcel(input){
     _renderHolidayListModal();
   }catch(e){
     console.error('[Holiday Excel]', e);
-    toast('❌ Import failed: '+(e.message||e));
+    toast(L('❌ आयात विफल: ','❌ Import failed: ')+(e.message||e));
   }
   input.value = '';
 }
@@ -1604,7 +1604,7 @@ async function _autoFetchIndiaHolidays(){
     return list.map(h=>({ id:'h_builtin_'+h.date, date:h.date, reason:h.reason }));
   }
 
-  toast(isEn ? ('⏳ Fetching All-India holidays for '+year+'…') : ('⏳ '+year+' की All-India holidays ला रहे हैं…'));
+  toast(L('⏳ ','⏳ ')+year+L(' की अखिल-भारतीय छुट्टियाँ ला रहे हैं…',' Fetching All-India holidays…'));
 
   // 1) Network — try Nager.Date (primary)
   try{
@@ -1626,7 +1626,7 @@ async function _autoFetchIndiaHolidays(){
         })).filter(x=>x.date);
         try{ localStorage.setItem(cacheKey, JSON.stringify(items)); }catch(e){}
         mergeItems(items);
-        toast('✅ '+items.length+' All-India holidays · total '+_holidayDraft.items.length);
+        toast(L('✅ ','✅ ')+items.length+L(' अखिल-भारतीय छुट्टियाँ · कुल ',' All-India holidays · total ')+_holidayDraft.items.length);
         _renderHolidayListModal();
         return;
       }
@@ -1642,7 +1642,7 @@ async function _autoFetchIndiaHolidays(){
       const items = JSON.parse(raw);
       if(Array.isArray(items) && items.length){
         mergeItems(items);
-        toast(isEn ? ('📴 Cached: '+items.length+' holidays for '+year) : ('📴 Cached: '+year+' के '+items.length+' holidays'));
+        toast(L('📴 कैश: ','📴 Cached: ')+items.length+L(' छुट्टियाँ · ',' holidays · ')+year);
         _renderHolidayListModal();
         return;
       }
@@ -1661,9 +1661,7 @@ async function _autoFetchIndiaHolidays(){
     return;
   }
 
-  toast(isEn
-    ? ('❌ No holiday data for '+year+' — try 2025–2027 or add manually')
-    : ('❌ '+year+' के holidays नहीं मिले — 2025–2027 चुनें या manual जोड़ें'));
+  toast(L('❌ ','❌ ')+year+L(' की छुट्टियाँ नहीं मिलीं — 2025–2027 चुनें या स्वयं जोड़ें',' — no holiday data — try 2025–2027 or add manually'));
 }
 try{ window._autoFetchIndiaHolidays = _autoFetchIndiaHolidays; }catch(e){}
 
@@ -1673,12 +1671,12 @@ async function _saveHolidayListUI(){
     const dates = (_holidayDraft.items||[]).map(x=>x.date).filter(Boolean);
     let n = 0;
     if(dates.length && typeof applyHolidaysToTeam==='function'){
-      toast('⏳ Checking duty on holidays → C-Off credits…');
+      toast(L('⏳ छुट्टियों पर ड्यूटी जाँच → सी-ऑफ क्रेडिट…','⏳ Checking duty on holidays → C-Off credits…'));
       n = await applyHolidaysToTeam(dates);
     }
-    toast('✅ Holiday List saved · '+(n? (n+' members got C-Off +1') : 'no duty on holiday dates'));
+    toast(L('✅ अवकाश सूची सहेजी · ','✅ Holiday List saved · ')+(n? (n+L(' सदस्यों को सी-ऑफ +1',' members got C-Off +1')) : L('छुट्टी की तिथियों पर ड्यूटी नहीं','no duty on holiday dates')));
     closeModal();
-  }catch(e){ toast('❌ Save failed: '+(e.message||e)); }
+  }catch(e){ toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(e.message||e)); }
 }
 
 

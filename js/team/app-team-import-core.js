@@ -660,7 +660,7 @@ async function confirmBulkImportTeam(){
   try{
     if(typeof _ensureWriteAuth==='function' && !(await _ensureWriteAuth())){
       _bulkImportInProgress=false;
-      toast(typeof L==='function'?L('❌ OTP verify करें फिर Import करें','❌ Verify OTP then Import'):'❌ Verify OTP then Import');
+      toast(typeof L==='function'?L('❌ ओटीपी सत्यापन करें फिर Import करें','❌ Verify OTP then Import'):'❌ Verify OTP then Import');
       return;
     }
   }catch(e){}
@@ -833,10 +833,10 @@ async function confirmBulkImportTeam(){
       ? L('❌ कोई member save नहीं हुआ — OTP/permission जाँचें या Console देखें','❌ No members saved — check OTP/permission or Console')
       : '❌ No members saved — check OTP/permission');
   } else {
-    toast(`✅ Team import: ${created} new, ${updated} updated` +
-      (monthsSaved?`, ${monthsSaved} month(s) schedule`:``) +
-      (registered?`, ${registered} login ready`:``) +
-      (failed?`, ${failed} failed`:``));
+    toast(L('✅ टीम आयात: ','✅ Team import: ')+created+L(' नए, ',' new, ')+updated+L(' अपडेट',' updated') +
+      (monthsSaved?L(', ',' , ')+monthsSaved+L(' माह अनुसूची',' month(s) schedule'):'') +
+      (registered?L(', ',' , ')+registered+L(' लॉगिन तैयार',' login ready'):'') +
+      (failed?L(', ',' , ')+failed+L(' विफल',' failed'):''));
   }
   try{
     if(typeof fbGet==='function'){

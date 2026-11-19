@@ -449,7 +449,7 @@ async function submitHomeTodo(){
     toast(L('✅ काम जोड़ा गया!','✅ Task added!'));
     updateHomeTodoSummary();
     goTab('todo');
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 // ════════════════════════════════════════
@@ -567,7 +567,7 @@ async function downloadMyShiftRecords(){
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Shifts');
       XLSX.writeFile(wb, fileBase + '.xlsx');
-      toast('📤 Excel downloaded');
+      toast(L('📤 एक्सेल डाउनलोड हुआ','📤 Excel downloaded'));
       return;
     }
   }catch(e){ console.warn(e); }
@@ -575,12 +575,12 @@ async function downloadMyShiftRecords(){
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
   a.download = fileBase+'.csv'; a.click();
-  toast('📤 CSV downloaded');
+  toast(L('📤 सीएसवी डाउनलोड हुआ','📤 CSV downloaded'));
 }
 
 function openShiftCalendarDownload(){
   const emp = (typeof myEmp==='function' ? myEmp() : null);
-  if(!emp){ toast('⚠️ Profile not found'); return; }
+  if(!emp){ toast(L('⚠️ प्रोफ़ाइल नहीं मिली','⚠️ Profile not found')); return; }
   const now = new Date();
   const months = [];
   let curKey = '';
@@ -616,7 +616,7 @@ function openShiftCalendarDownload(){
 /** Personal month calendar PNG — same shift colours + branding as Schedule print */
 async function downloadMyShiftCalendar(){
   const emp = (typeof myEmp==='function' ? myEmp() : null);
-  if(!emp){ toast('⚠️ Profile not found'); return; }
+  if(!emp){ toast(L('⚠️ प्रोफ़ाइल नहीं मिली','⚠️ Profile not found')); return; }
   // Support range (From/To). Fall back to legacy single select id if present.
   let mkFrom = (document.getElementById('scDlMonthFrom')||{}).value || '';
   let mkTo   = (document.getElementById('scDlMonthTo')||{}).value || '';
@@ -754,7 +754,7 @@ async function downloadMyShiftCalendar(){
       }
       closeModal();
       finish();
-      toast('🖨️ Print dialog opened');
+      toast(L('🖨️ प्रिंट संवाद खुला','🖨️ Print dialog opened'));
       return;
     }
     const imgs = printDiv.querySelectorAll('img');
@@ -765,10 +765,10 @@ async function downloadMyShiftCalendar(){
     a.download = 'ManPower_ShiftCalendar_'+(emp.name||'member').replace(/\s+/g,'_')+'_'+fileTag+'.png';
     a.click();
     closeModal();
-    toast('📥 Shift calendar downloaded (PNG)');
+    toast(L('📥 शिफ्ट कैलेंडर डाउनलोड (पीएनजी)','📥 Shift calendar downloaded (PNG)'));
   }catch(err){
     console.warn('[shift cal dl]', err);
-    toast('❌ Download failed');
+    toast(L('❌ डाउनलोड विफल','❌ Download failed'));
   }finally{
     finish();
   }
@@ -797,7 +797,7 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
   try{
     if(ev){ ev.preventDefault(); ev.stopPropagation(); }
     if(!canEditSchedule()){
-      toast(L('❌ Schedule edit permission नहीं है','❌ No schedule edit permission'));
+      toast(L('❌ अनुसूची संपादन की अनुमति नहीं है','❌ No schedule edit permission'));
       return;
     }
     // Remember cell as paste origin for clipboard
@@ -862,7 +862,7 @@ function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
     if(typeof editShiftCell === 'function'){
       editShiftCell(empId, empName, date, currentShift);
     } else {
-      toast('Edit picker unavailable');
+      toast(L('संपादन चयन उपलब्ध नहीं','Edit picker unavailable'));
     }
   }catch(e){ console.warn('[handleMyShiftDayClick]', e); }
 }
@@ -1276,7 +1276,7 @@ function _showMyShiftBulkBar(empId, empName){
     pasteBtn.addEventListener('click', function(){
       try{
         if(typeof pasteSchedSelection==='function') pasteSchedSelection();
-        else toast('Paste unavailable');
+        else toast(L('चिपकाना उपलब्ध नहीं','Paste unavailable'));
       }catch(e){ console.warn(e); }
     });
   }
@@ -1720,8 +1720,8 @@ try{ window.mpHoursColorForShift = mpHoursColorForShift; }catch(e){}
 async function mpSaveMemberTargetHours(empId, monthKey, rawVal){
   try{
     const val = Math.max(0, Math.round(Number(rawVal)||0));
-    if(!empId){ toast('Missing employee'); return; }
-    if(!monthKey){ toast('Missing month'); return; }
+    if(!empId){ toast(L('कर्मचारी अनुपस्थित','Missing employee')); return; }
+    if(!monthKey){ toast(L('माह अनुपलब्ध','Missing month')); return; }
     // Normalize key to YYYY_MM and also keep YYYY-MM alias for older data
     var mk = String(monthKey||'').replace(/-/g,'_');
     var mkAlt = mk.replace('_','-');
@@ -1750,7 +1750,7 @@ async function mpSaveMemberTargetHours(empId, monthKey, rawVal){
       // fallback
       await fbSet('employees/'+empId+'/targetHoursByMonth', map);
     } else {
-      toast('❌ Save unavailable');
+      toast(L('❌ सहेजना उपलब्ध नहीं','❌ Save unavailable'));
       return;
     }
     // Update every in-memory copy so UI refreshes correctly
@@ -1773,7 +1773,7 @@ async function mpSaveMemberTargetHours(empId, monthKey, rawVal){
     if(typeof renderMyShift==='function') renderMyShift();
   }catch(err){
     console.warn('[mpSaveMemberTargetHours]', err);
-    toast('❌ '+(err&&err.message?err.message:'Could not save target'));
+    toast(L('❌ ','❌ ')+(err&&err.message?err.message:L('लक्ष्य सहेज नहीं सके','Could not save target')));
   }
 }
 try{ window.mpSaveMemberTargetHours = mpSaveMemberTargetHours; window._mpSaveMemberTargetHours = mpSaveMemberTargetHours; }catch(e){}
@@ -1784,7 +1784,7 @@ async function mpSaveTargetHours(empId, monthKey){
     const inp = document.getElementById('mpTargetHrsInput');
     if(!inp) return;
     const val = Math.max(0, Math.round(Number(inp.value)||0));
-    if(!empId){ toast('Missing employee'); return; }
+    if(!empId){ toast(L('कर्मचारी अनुपस्थित','Missing employee')); return; }
     const patch = {};
     // merge existing map
     let map = {};
@@ -1814,7 +1814,7 @@ async function mpSaveTargetHours(empId, monthKey){
     if(typeof renderMyShift==='function') renderMyShift();
   }catch(err){
     console.warn('[mpSaveTargetHours]', err);
-    toast('❌ Could not save target');
+    toast(L('❌ लक्ष्य सहेज नहीं सके','❌ Could not save target'));
   }
 }
 try{ window.mpSaveTargetHours = mpSaveTargetHours; }catch(e){}

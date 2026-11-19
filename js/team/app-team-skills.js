@@ -110,7 +110,7 @@
 
   async function saveSkillDefs(defs) {
     if (!_canManageSkills()) {
-      try { toast(_L('केवल Manager स्किल बदल सकता है', 'Only Manager can edit skills')); } catch (e) {}
+      try { toast(_L('केवल प्रबंधक स्किल बदल सकता है', 'Only Manager can edit skills')); } catch (e) {}
       return false;
     }
     defs = (defs || []).map(function (s) {
@@ -131,7 +131,7 @@
       return true;
     } catch (e) {
       console.warn('[skills] saveSkillDefs', e);
-      try { toast('❌ ' + (e && e.message || 'Save failed')); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message || L('सहेजना विफल','Save failed'))); } catch (e2) {}
       return false;
     }
   }
@@ -205,11 +205,11 @@
 
   async function setEmpSkillStatus(empKey, skillId, status) {
     if (!_canManageSkills()) {
-      try { toast(_L('केवल Manager स्टेटस बदल सकता है', 'Only Manager can change status')); } catch (e) {}
+      try { toast(_L('केवल प्रबंधक स्टेटस बदल सकता है', 'Only Manager can change status')); } catch (e) {}
       return false;
     }
     if (!STATUS[status] && status !== null && status !== '') {
-      try { toast('Invalid status'); } catch (e) {}
+      try { toast(L('अमान्य स्थिति','Invalid status')); } catch (e) {}
       return false;
     }
 
@@ -251,7 +251,7 @@
       return true;
     } catch (e) {
       console.warn('[skills] setEmpSkillStatus', e);
-      try { toast('❌ ' + (e && e.message || 'Save failed')); } catch (e2) {}
+      try { toast(L('❌ ','❌ ')+(e && e.message || L('सहेजना विफल','Save failed'))); } catch (e2) {}
       return false;
     }
   }
@@ -260,7 +260,7 @@
 
   function openSkillCatalogEditor() {
     if (!_canManageSkills()) {
-      try { toast(_L('केवल Manager स्किल लिस्ट बदल सकता है', 'Only Manager can edit the skill list')); } catch (e) {}
+      try { toast(_L('केवल प्रबंधक स्किल लिस्ट बदल सकता है', 'Only Manager can edit the skill list')); } catch (e) {}
       return;
     }
 
@@ -402,7 +402,7 @@
 
   function openStatusPicker(empKey, skillId, currentStatus, cellEl) {
     if (!_canManageSkills()) {
-      try { toast(_L('केवल Manager स्टेटस बदल सकता है', 'Only Manager can change status')); } catch (e) {}
+      try { toast(_L('केवल प्रबंधक स्टेटस बदल सकता है', 'Only Manager can change status')); } catch (e) {}
       return;
     }
 

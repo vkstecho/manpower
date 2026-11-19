@@ -452,7 +452,8 @@
     .phone-frame .ui-mock {
       border-radius: 14px; overflow: hidden;
     }
-    .video-section.is-empty { display: none !important; }
+    /* keep video section visible for conversion even without published URLs */
+    .video-section.is-empty { opacity: 1; }
     .nav-links a[href="#videos"].is-hidden { display: none !important; }
     .plan-fallback {
       grid-column: 1 / -1; text-align: center; padding: 28px 20px;
@@ -665,18 +666,18 @@
       <div>
         <div class="badge" data-i18n="badge">Time management for plant shifts · by VKS Tech</div>
         <h1 data-i18n-html-key="heroTitleHtml">Stop losing hours to Excel every week.<br><span>Run shifts in minutes — on your phone.</span></h1>
-        <p class="hero-sub" data-i18n="heroSub">Upload your plant Excel once. Auto Schedule fills Day / Night / Off. Coverage flags short machines <em>before</em> the shift starts. Members see My Shift + worked hours — so planning time collapses and floor time is protected.</p>
+        <p class="hero-sub" data-i18n="heroSub">Built for plant managers who still rebuild Day/Night rosters in Excel every week. Upload once → Auto Schedule → coverage flags before the shift → members see My Shift + worked hours on phone. If that is not your weekly pain, this app is not for you.</p>
         <div class="hero-actions">
-          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">Login · Try the time change</a>
-          <a class="btn btn-white btn-lg" href="#time-change" data-i18n="seeHow">See the before → after</a>
+          <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" data-i18n="startTrial">I run plant shifts — Login &amp; start free trial</a>
+          <a class="btn btn-white btn-lg" href="#videos" data-i18n="seeHow">Watch 60-sec demo first</a>
         </div>
         <div class="hero-meta">
-          <span><strong>Hours back</strong> every week</span>
-          <span><strong>Excel → live roster</strong> in minutes</span>
-          <span><strong>Worked hours</strong> on phone</span>
+          <span><strong>Managers only</strong> with real rosters</span>
+          <span><strong>Excel → live</strong> in minutes</span>
+          <span><strong>OTP login</strong> · no casual signup form</span>
         </div>
-        <p class="login-hint">No card required to try · <strong>OTP on your phone</strong> · Hindi &amp; English</p>
-        <p class="cta-guarantee">✓ Free trial · Mobile OTP login · No card required</p>
+        <p class="login-hint">Serious trial: <strong>mobile OTP</strong> · Hindi &amp; English · no card · cancel anytime in trial</p>
+        <p class="cta-guarantee">✓ Free trial for working managers · Not a job board · Not general HRMS</p>
         <p style="margin-top:14px;font-size:13px;opacity:.9;max-width:520px">
           Built by a Production Manager who led <strong>60-member</strong> packaging teams —
           highest-ever <strong>818 MT</strong> line output, defects <strong>9% → 0.2%</strong>.
@@ -706,6 +707,62 @@
           </div>
           <p style="margin-top:12px;font-size:12px;opacity:.85;text-align:center;color:#cbd5e1">Coverage flagged before the shift starts</p>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- VIDEOS — high on page for conversion -->
+  <section class="video-section" id="videos" data-has-video="0" style="padding:48px 0 40px;background:linear-gradient(180deg,#0f172a 0%,#1e293b 100%);border-bottom:1px solid rgba(148,163,184,.15)">
+    <div class="wrap">
+      <div style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:8px">
+        <div>
+          <span class="section-label" style="color:#fdba74" data-i18n="videosWatch">WATCH</span>
+          <h2 style="color:#fff;margin:6px 0 0" data-i18n="videosTitle">See Auto Schedule in action — then full setup</h2>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button type="button" id="vidLangEn" onclick="window.mpLandingSetLang&&mpLandingSetLang('en')" style="padding:8px 14px;border-radius:999px;border:1.5px solid #64748b;background:transparent;color:#e2e8f0;font-weight:800;cursor:pointer">EN videos</button>
+          <button type="button" id="vidLangHi" onclick="window.mpLandingSetLang&&mpLandingSetLang('hi')" style="padding:8px 14px;border-radius:999px;border:1.5px solid #64748b;background:transparent;color:#e2e8f0;font-weight:800;cursor:pointer">हिंदी videos</button>
+        </div>
+      </div>
+      <p class="lead" style="color:#94a3b8;max-width:720px" data-i18n="videosLead">Short clip: one-click magic. Longer video: setup + free trial. Switch EN / हिंदी above — each language has its own links when Admin has published them.</p>
+
+      <div class="video-grid" style="margin-top:20px">
+        <article class="video-card" data-video-slot="short" style="background:#0f172a;border:1px solid rgba(148,163,184,.2)">
+          <div class="video-frame">
+            <div class="video-placeholder video-empty">
+              <div class="play">▶</div>
+              <strong style="color:#fff">See Auto Schedule in ~60 seconds</strong>
+              <span>One click → full shift roster with coverage checks.</span>
+              <span class="hint">Published short clip appears here. Prefer live? Start free trial.</span>
+            </div>
+          </div>
+          <div class="video-body">
+            <div class="tag" data-i18n="videoShortTag">Short video · 45–90 sec</div>
+            <h3 style="color:#fff" data-i18n="videoShortH3">Magical Auto Schedule — one click</h3>
+            <p style="color:#94a3b8" data-i18n="videoShortP">Show Excel team → Auto Schedule → coverage OK in seconds.</p>
+          </div>
+        </article>
+
+        <article class="video-card" data-video-slot="long" style="background:#0f172a;border:1px solid rgba(148,163,184,.2)">
+          <div class="video-frame">
+            <div class="video-placeholder video-empty">
+              <div class="play">▶</div>
+              <strong style="color:#fff">Full setup + free trial walkthrough</strong>
+              <span>Excel → team → Auto Schedule → My Shift on phone.</span>
+              <span class="hint">Long video appears after Admin publishes for this language.</span>
+            </div>
+          </div>
+          <div class="video-body">
+            <div class="tag" data-i18n="videoLongTag">Long video · 4–8 min</div>
+            <h3 style="color:#fff" data-i18n="videoLongH3">How to set up + free 15-day trial</h3>
+            <p style="color:#94a3b8" data-i18n="videoLongP">Hook → setup walkthrough → trial offer. Built for plant managers who run real shifts.</p>
+          </div>
+        </article>
+      </div>
+
+      <div style="margin-top:22px;text-align:center">
+        <a class="btn btn-orange btn-lg" href="app.html" rel="noopener" style="font-size:16px;padding:14px 28px">Login · Start free trial with your plant mobile</a>
+        <p style="margin-top:10px;font-size:13px;color:#94a3b8;max-width:560px;margin-left:auto;margin-right:auto">For managers who already run Day/Night rosters on Excel. Casual browsing? Watch the short clip first — then login only if this is your weekly pain.</p>
       </div>
     </div>
   </section>
@@ -823,54 +880,6 @@
         #time-change [style*="grid-template-columns:repeat(3,1fr)"]{grid-template-columns:1fr !important}
       }
     </style>
-  </section>
-
-  <!-- VIDEOS -->
-    <section class="video-section is-empty" id="videos" data-has-video="0">
-    <div class="wrap">
-      <span class="section-label" data-i18n="videosWatch">WATCH</span>
-      <h2 data-i18n="videosTitle">See Auto Schedule in action — then full setup</h2>
-      <p class="lead" data-i18n="videosLead">Short clip: one-click magic. Longer video: setup + free trial (Hinglish / English). If a clip is not published yet, start the free trial and experience the product live.</p>
-
-      <div class="video-grid">
-        <article class="video-card" data-video-slot="short">
-          <div class="video-frame">
-            <div class="video-placeholder video-empty">
-              <div class="play">▶</div>
-              <strong>See Auto Schedule in ~60 seconds</strong>
-              <span>One click → full shift roster with coverage checks.</span>
-              <span class="hint">Video goes live when Admin publishes the short clip. Until then, start the free trial and try it yourself.</span>
-            </div>
-          </div>
-          <div class="video-body">
-            <div class="tag" data-i18n="videoShortTag">Short video · 45–90 sec</div>
-            <h3 data-i18n="videoShortH3">Magical Auto Schedule — one click</h3>
-            <p data-i18n="videoShortP">Show Excel team → Auto Schedule → coverage OK in seconds. Best for ads, WhatsApp, and hero social proof.</p>
-          </div>
-        </article>
-
-        <article class="video-card" data-video-slot="long">
-          <div class="video-frame">
-            <div class="video-placeholder video-empty">
-              <div class="play">▶</div>
-              <strong>Full setup + free trial walkthrough</strong>
-              <span>Excel → team → Auto Schedule → My Shift on phone.</span>
-              <span class="hint">Long video appears here after Admin publishes. Prefer a live walkthrough? Open the app and start free.</span>
-            </div>
-          </div>
-          <div class="video-body">
-            <div class="tag" data-i18n="videoLongTag">Long video · 4–8 min</div>
-            <h3 data-i18n="videoLongH3">How to set up + free 15-day trial</h3>
-            <p data-i18n="videoLongP">Hook: “I am ready to manage your shift schedule free for 15 days — mera kaam achha lage to continue rakhna.” Then full setup steps and details.</p>
-          </div>
-        </article>
-      </div>
-
-      <div class="lang-note">
-        <strong style="color:var(--navy)" data-i18n="langTipStrong">Language tip:</strong>
-        <span data-i18n="langTip">Best for Indian plant buyers = Hinglish (spoken Hindi + English product words like Excel, Auto Schedule, coverage). Optional: pure Hindi version for supervisors + English captions, or pure English for corporate buyers.</span>
-      </div>
-    </div>
   </section>
 
   <!-- FEATURES -->
@@ -1160,7 +1169,7 @@
       </div>
       <div class="price-note-bar">
         <span id="lpTrialNote">Free trial after login · days set by admin</span>
-        · <a href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">Book 15-min setup call</a>
+        · <a href="https://wa.me/918929394920?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener" style="color:var(--orange);font-weight:700">Book 15-min setup call</a>
         · <a href="#contact" style="color:var(--orange);font-weight:700">Custom / multi-plant → talk to us</a>
       </div>
       <p id="lpPriceNote" style="display:none">Published amounts can be updated by Admin; cards above match default product bands.</p>
@@ -1223,10 +1232,10 @@
       <p class="lead">Login with mobile OTP and try on your real roster — or book a free 15-minute call if you want a walkthrough first.</p>
       <div class="hero-actions" style="justify-content:center;margin-top:8px">
         <a class="btn btn-orange btn-lg" href="app.html">Login · Start free trial</a>
-        <a class="btn btn-ghost btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp setup call</a>
+        <a class="btn btn-ghost btn-lg" href="https://wa.me/918929394920?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp setup call</a>
       </div>
       <p class="cta-guarantee on-light" style="margin-top:12px">✓ Free trial · Mobile OTP · No card required</p>
-      <p style="margin-top:10px;font-size:13px;color:var(--slate)">Vivek Kumar · +91-8168771239 · VKS Tech · Open to plant teams across India</p>
+      <p style="margin-top:10px;font-size:13px;color:var(--slate)">Vivek Kumar · +91-8929394920 · VKS Tech · Open to plant teams across India</p>
     </div>
   </section>
 
@@ -1237,7 +1246,7 @@
       <p data-i18n="ctaSub">Mobile OTP · free trial · Excel in, coverage out. Built for 60-member plant teams — not another full HRMS.</p>
       <div class="hero-actions">
         <a class="btn btn-orange btn-lg" href="app.html" rel="noopener"><span data-i18n="ctaStart">Login · Start free trial</span></a>
-        <a class="btn btn-white btn-lg" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Or talk 15 min first</a>
+        <a class="btn btn-white btn-lg" href="https://wa.me/918929394920?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">Or talk 15 min first</a>
       </div>
       <p class="cta-guarantee" style="margin-top:14px">✓ Free trial · Mobile OTP login · No card required</p>
       <p style="margin-top:10px;font-size:13px;opacity:.75;" data-i18n="ctaMeta">Hindi &amp; English · Built by VKS Tech</p>
@@ -1293,9 +1302,14 @@
   }
   function fillVideo(sel, url, title){
     var card = document.querySelector(sel);
-    if(!card || !url) return false;
+    if(!card) return false;
     var frame = card.querySelector('.video-frame');
     if(!frame) return false;
+    if(!url){
+      card.style.display = '';
+      card.removeAttribute('data-filled');
+      return false;
+    }
     var emb = ytEmbed(url);
     if(emb){
       frame.innerHTML = '<iframe src="'+emb+'" title="'+(title||'Man Power video')+'" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>';
@@ -1303,45 +1317,81 @@
       frame.innerHTML = '<div class="video-placeholder"><div class="play">▶</div><strong>'+(title||'Watch')+'</strong><span><a style="color:#fdba74" href="'+String(url).replace(/"/g,'')+'" target="_blank" rel="noopener">Open video</a></span></div>';
     }
     card.setAttribute('data-filled', '1');
+    card.style.display = '';
     return true;
   }
   function showVideosSectionIfAny(has){
     var sec = document.getElementById('videos');
     var nav = document.querySelector('.nav-links a[href="#videos"]');
-    if (has) {
-      if (sec) { sec.classList.remove('is-empty'); sec.setAttribute('data-has-video','1'); }
-      if (nav) nav.classList.remove('is-hidden');
-    } else {
-      if (sec) { sec.classList.add('is-empty'); sec.setAttribute('data-has-video','0'); }
-      if (nav) nav.classList.add('is-hidden');
+    // Keep section visible for conversion even without videos (placeholder + CTA)
+    if (sec) {
+      sec.classList.remove('is-empty');
+      sec.setAttribute('data-has-video', has ? '1' : '0');
     }
+    if (nav) nav.classList.remove('is-hidden');
   }
-  // Hide Videos nav until we know URLs exist
-  try {
-    var _nv = document.querySelector('.nav-links a[href="#videos"]');
-    if (_nv) _nv.classList.add('is-hidden');
-  } catch (eN) {}
+  function _syncVidLangButtons(){
+    try {
+      var hi = false;
+      try {
+        hi = (typeof window.mpLandingGetLang === 'function'
+          ? window.mpLandingGetLang()
+          : String(localStorage.getItem('mp_lang')||'en').toLowerCase()) === 'hi';
+      } catch (e) {}
+      var enB = document.getElementById('vidLangEn');
+      var hiB = document.getElementById('vidLangHi');
+      if (enB) {
+        enB.style.background = hi ? 'transparent' : 'rgba(253,186,116,.2)';
+        enB.style.borderColor = hi ? '#64748b' : '#fdba74';
+        enB.style.color = hi ? '#e2e8f0' : '#fdba74';
+      }
+      if (hiB) {
+        hiB.style.background = hi ? 'rgba(253,186,116,.2)' : 'transparent';
+        hiB.style.borderColor = hi ? '#fdba74' : '#64748b';
+        hiB.style.color = hi ? '#fdba74' : '#e2e8f0';
+      }
+    } catch (e) {}
+  }
+  window.mpLandingFillVideos = function(){
+    var o = window._lpOfferCache;
+    if (!o) return;
+    var hi = false;
+    try {
+      hi = (typeof window.mpLandingGetLang === 'function'
+        ? window.mpLandingGetLang()
+        : String(localStorage.getItem('mp_lang')||'en').toLowerCase()) === 'hi';
+    } catch (e) {}
+    // Prefer language-specific URL; fall back to the other language so 4 links never "disappear"
+    var su, lu, st, lt;
+    if (hi) {
+      su = (o.videoShortUrlHi || o.videoShortUrl || '').trim();
+      lu = (o.videoLongUrlHi || o.videoLongUrl || '').trim();
+      st = o.videoShortTitleHi || o.videoShortTitle || 'ऑटो शेड्यूल · एक क्लिक';
+      lt = o.videoLongTitleHi || o.videoLongTitle || 'सेटअप + मुफ्त ट्रायल';
+    } else {
+      su = (o.videoShortUrl || o.videoShortUrlHi || '').trim();
+      lu = (o.videoLongUrl || o.videoLongUrlHi || '').trim();
+      st = o.videoShortTitle || o.videoShortTitleHi || 'Auto Schedule · one click';
+      lt = o.videoLongTitle || o.videoLongTitleHi || 'Setup + free trial';
+    }
+    // Reset cards
+    try {
+      document.querySelectorAll('.video-grid .video-card').forEach(function(c){
+        c.style.display = '';
+        c.removeAttribute('data-filled');
+      });
+    } catch (eR) {}
+    var f1 = fillVideo('.video-grid .video-card[data-video-slot="short"]', su, st);
+    if (!f1) f1 = fillVideo('.video-grid .video-card:nth-child(1)', su, st);
+    var f2 = fillVideo('.video-grid .video-card[data-video-slot="long"]', lu, lt);
+    if (!f2) f2 = fillVideo('.video-grid .video-card:nth-child(2)', lu, lt);
+    showVideosSectionIfAny(!!(f1 || f2));
+    _syncVidLangButtons();
+  };
   fetch(URL).then(function(r){ return r.json(); }).then(function(o){
     if(!o) { showVideosSectionIfAny(false); return; }
     window._lpOfferCache = o;
-    if (typeof window.mpLandingFillVideos === 'function') window.mpLandingFillVideos();
-    else {
-      var hi = false;
-      try { hi = (localStorage.getItem('mp_lang') || 'en').toLowerCase() === 'hi'; } catch (e) {}
-      var su = hi ? (o.videoShortUrlHi || o.videoShortUrl) : o.videoShortUrl;
-      var lu = hi ? (o.videoLongUrlHi || o.videoLongUrl) : o.videoLongUrl;
-      var st = hi ? (o.videoShortTitleHi || o.videoShortTitle) : o.videoShortTitle;
-      var lt = hi ? (o.videoLongTitleHi || o.videoLongTitle) : o.videoLongTitle;
-      var f1 = fillVideo('.video-grid .video-card:nth-child(1)', su, st || 'Auto Schedule · one click');
-      var f2 = fillVideo('.video-grid .video-card:nth-child(2)', lu, lt || 'Setup + free trial');
-      showVideosSectionIfAny(!!(f1 || f2));
-      // Hide empty cards if only one video published
-      try {
-        document.querySelectorAll('.video-grid .video-card').forEach(function(c){
-          if (c.getAttribute('data-filled') !== '1') c.style.display = 'none';
-        });
-      } catch (eH) {}
-    }
+    window.mpLandingFillVideos();
     function planAmount(p){
       if (p == null) return NaN;
       if (typeof p === 'number') return p;
@@ -1538,7 +1588,7 @@
   <div class="sticky-cta" id="stickyCta" role="region" aria-label="Quick start">
     <div class="sticky-cta-inner">
       <a class="sc-main" href="app.html" rel="noopener">Login · Free trial</a>
-      <a class="sc-sub" href="https://wa.me/918168771239?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp</a>
+      <a class="sc-sub" href="https://wa.me/918929394920?text=Hi%20Vivek%2C%20I%20want%20a%2015-min%20setup%20call%20for%20Man%20Power" target="_blank" rel="noopener">WhatsApp</a>
     </div>
   </div>
 

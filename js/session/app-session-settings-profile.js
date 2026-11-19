@@ -115,7 +115,7 @@ function openEditProfileModal(){
 function onProfilePhotoPicked(input){
   const file = input.files && input.files[0];
   if(!file) return;
-  if(file.size > 5*1024*1024){ toast('⚠️ Max 5 MB image'); return; }
+  if(file.size > 5*1024*1024){ toast(L('⚠️ अधिकतम 5 एमबी चित्र','⚠️ Max 5 MB image')); return; }
   const reader = new FileReader();
   reader.onload = ()=>{
     const dataUrl = reader.result;
@@ -145,18 +145,18 @@ function clearProfilePhoto(){
   SESSION.photoUrl = '';
   const prev = document.getElementById('profilePhotoPreview');
   if(prev) prev.innerHTML = (SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
-  toast('Photo cleared — Save to apply');
+  toast(L('फ़ोटो साफ़ — लागू करने के लिए सहेजें','Photo cleared — Save to apply'));
 }
 
 async function saveProfileEdits(){
   const name = (document.getElementById('profileNameInput')?.value||'').trim();
-  if(!name){ toast('⚠️ Name required'); return; }
+  if(!name){ toast(L('⚠️ नाम आवश्यक','⚠️ Name required')); return; }
   try{
     if(typeof _ensureWriteAuth==='function'){
       const ok = await _ensureWriteAuth();
-      if(!ok){ toast(L('❌ Phone OTP verify करें — फिर Save दबाएँ','❌ Verify phone OTP — then press Save')); return; }
+      if(!ok){ toast(L('❌ Phone ओटीपी सत्यापन करें — फिर Save दबाएँ','❌ Verify phone OTP — then press Save')); return; }
     }
-  }catch(e){ toast('❌ Auth: '+(e.message||e)); return; }
+  }catch(e){ toast(L('❌ प्रमाणीकरण: ','❌ Auth: ')+(e.message||e)); return; }
 
   const dob = (document.getElementById('profileDobInput')?.value||'').trim();
   const doj = (document.getElementById('profileDojInput')?.value||'').trim();
@@ -181,10 +181,10 @@ async function saveProfileEdits(){
       if(typeof window._fbUploadSelfie === 'function'){
         const url = await window._fbUploadSelfie(_profilePhotoData, path);
         if(url) photoUrl = url;
-        else toast('⚠️ Photo upload failed — other fields will still save');
+        else toast(L('⚠️ फ़ोटो अपलोड विफल — अन्य फ़ील्ड सहेजेंगे','⚠️ Photo upload failed — other fields will still save'));
       } else {
         if(_profilePhotoData.length < 200000) photoUrl = _profilePhotoData;
-        else toast('⚠️ Storage not ready — try again');
+        else toast(L('⚠️ संग्रहण तैयार नहीं — पुनः प्रयास करें','⚠️ Storage not ready — try again'));
       }
     }
 
@@ -208,7 +208,7 @@ async function saveProfileEdits(){
         });
       }catch(e){
         console.error('mobileUsers profile', e);
-        toast('❌ Profile save failed: '+(e.message||e.code||e));
+        toast(L('❌ प्रोफ़ाइल सहेजना विफल: ','❌ Profile save failed: ')+(e.message||e.code||e));
         throw e;
       }
     }
@@ -281,7 +281,7 @@ async function saveProfileEdits(){
     toast(changes.length ? '✅ Profile saved — Manager notified' : '✅ Profile saved');
   }catch(err){
     console.error(err);
-    toast('❌ Save failed: '+(err.message||err));
+    toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(err.message||err));
     if(btn){ btn.disabled = false; btn.textContent = '💾 Save'; }
   }
 }
@@ -293,7 +293,7 @@ function _defaultLeaveQuotas(){
   return { CL:12, SL:6, EL:15, CO:0, other:5 };
 }
 async function openLeaveQuotaSettings(){
-  if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
+  if(!isMgr() && !isAdmin()){ toast(L('❌ केवल प्रबंधक','❌ Manager only')); return; }
   const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
   let q = _defaultLeaveQuotas();
   try{ const r = await fbGet(key); if(r) q = {...q, ...r}; }catch(e){}
@@ -329,14 +329,14 @@ function _addCustomLeaveQuotaRow(){
   const key = name.replace(/[^a-zA-Z0-9_\u0900-\u097F]+/g,'_').slice(0,24);
   const host = document.getElementById('lq_fields');
   if(!host) return;
-  if(document.getElementById('lq_'+key)){ toast('⚠️ Already added'); return; }
+  if(document.getElementById('lq_'+key)){ toast(L('⚠️ पहले से जोड़ा गया','⚠️ Already added')); return; }
   const div = document.createElement('div');
   div.className = 'field';
   div.innerHTML = '<label>'+name.replace(/</g,'')+'</label><input class="inp-field" type="number" id="lq_'+key+'" data-lq-key="'+key+'" value="'+days+'" min="0" max="365">';
   host.appendChild(div);
   const n=document.getElementById('lq_new_name'); if(n) n.value='';
   const d=document.getElementById('lq_new_days'); if(d) d.value='';
-  toast('✅ Added '+name);
+  toast(L('✅ जोड़ा ','✅ Added ')+name);
 }
 async function saveLeaveQuotas(){
   const key = 'leaveQuotas/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
@@ -360,9 +360,9 @@ async function saveLeaveQuotas(){
       const ck = (typeof myShiftConfigKey==='function' && myShiftConfigKey()) || '';
       if(ck) window._leaveQuotaCache[ck] = q;
     }catch(e){}
-    toast('✅ Leave quotas saved');
+    toast(L('✅ अवकाश कोटा सहेजा गया','✅ Leave quotas saved'));
     closeModal();
-  }catch(e){ toast('❌ '+e.message); }
+  }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }
 async function openLeaveBalanceModal(empId){
   let q = _defaultLeaveQuotas();
@@ -526,7 +526,7 @@ function openCheckMemberLeaveBalance(){
 
 
 async function openHolidayListSettings(){
-  if(!isMgr() && !isAdmin()){ toast('❌ Manager only'); return; }
+  if(!isMgr() && !isAdmin()){ toast(L('❌ केवल प्रबंधक','❌ Manager only')); return; }
   const key = 'holidayLists/'+(myShiftConfigKey()||_normMobileKey(SESSION.mobile)||'default');
   let list = [];
   try{ const r = await fbGet(key); if(Array.isArray(r)) list=r; else if(r&&r.dates) list=r.dates; }catch(e){}
@@ -565,8 +565,8 @@ async function _recordLoginEvent(info){
 
 /** Admin: full list of mobile/device logins — Date, Time, Name, Mobile No, Company */
 async function openDeviceLoginList(){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
-  toast('⏳ Loading login list…');
+  if(!isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
+  toast(L('⏳ लॉगिन सूची लोड…','⏳ Loading login list…'));
   let logs = {};
   try{ logs = await fbGet('deviceLoginLogs') || {}; }catch(e){ console.warn(e); }
   const rows = Object.entries(logs).map(([k,v])=>({...(v||{}), _key:k}));
@@ -622,8 +622,8 @@ async function openDeviceLoginList(){
 try{ window.openDeviceLoginList = openDeviceLoginList; window._recordLoginEvent = _recordLoginEvent; }catch(e){}
 
 async function openAdminAnalytics(){
-  if(!isAdmin()){ toast('❌ Admin only'); return; }
-  toast('⏳ Loading analytics…');
+  if(!isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
+  toast(L('⏳ विश्लेषण लोड…','⏳ Loading analytics…'));
   let mobileUsers={}, employees={}, managers={}, deviceApprovals={};
   try{ mobileUsers = await fbGet('mobileUsers') || {}; }catch(e){}
   try{ employees = await fbGet('employees') || {}; }catch(e){}
@@ -707,7 +707,7 @@ async function openAdminAnalytics(){
   window._mpLastDeviceRows = deviceRows;
   window._mpDownloadDeviceExcel = function(){
     var rows = window._mpLastDeviceRows || [];
-    if(!rows.length){ toast('No device rows'); return; }
+    if(!rows.length){ toast(L('कोई डिवाइस पंक्ति नहीं','No device rows')); return; }
     function csvEsc(v){ v=String(v==null?'':v).replace(/"/g,'""'); return '"'+v+'"'; }
     var header = ['Date','Name','Mobile','Company','Role','Device','EmpCode','Valid'];
     var lines = [header.join(',')];
@@ -720,7 +720,7 @@ async function openAdminAnalytics(){
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='manpower_logged_in_devices_'+new Date().toISOString().slice(0,10)+'.csv';
     a.click();
-    toast('✅ Excel/CSV downloaded');
+    toast(L('✅ एक्सेल/सीएसवी डाउनलोड','✅ Excel/CSV downloaded'));
   };
 
   const fmtWhen = (iso)=>{

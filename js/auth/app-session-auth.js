@@ -373,7 +373,7 @@ async function _reauthVerifyOtp(){
       }
     }catch(e){}
     try{ await _syncAuthRoleNodes(); }catch(e){}
-    toast('✅ Phone verified — this device cached 90 days (OTP only if browser data cleared)');
+    toast(L('✅ फ़ोन सत्यापित — यह डिवाइस 90 दिन कैश (ब्राउज़र डेटा साफ़ होने पर ही ओटीपी)','✅ Phone verified — this device cached 90 days (OTP only if browser data cleared)'));
     const ov = document.getElementById('quickReauthOverlay');
     if(ov) ov.remove();
     const r = _reauthResolve;

@@ -57,7 +57,7 @@ async function saveChangeCompanyName(){
       if(!ok){ toast(L('❌ पहले इस device पर Phone verify करें','❌ Phone verify on this device first')); return; }
     }
     const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-    if(!mob){ toast('❌ Mobile not found in session'); return; }
+    if(!mob){ toast(L('❌ सत्र में मोबाइल नहीं मिला','❌ Mobile not found in session')); return; }
     await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
     try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
     SESSION.company = name;
@@ -66,20 +66,20 @@ async function saveChangeCompanyName(){
     // Propagate new name to all team employee records so Admin company list is not stale
     let synced = 0;
     try{ if(typeof _syncCompanyLabelToTeam==='function') synced = await _syncCompanyLabelToTeam(name); }catch(e){}
-    toast(isEn?('✅ Company name updated'+(synced?' · '+synced+' team records':'')):('✅ Company नाम update'+(synced?' · '+synced+' team':'')));
+    toast(L('✅ कंपनी नाम अपडेट'+(synced?' · '+synced+' टीम':'') ,'✅ Company name updated'+(synced?' · '+synced+' team records':'')));
     closeModal();
     try{ if(typeof renderCompanySwitcher==='function') renderCompanySwitcher(); }catch(e){}
     try{ showProfile(); }catch(e){}
   }catch(e){
     console.error('[saveChangeCompanyName]', e);
-    toast('❌ '+(e.message||e)+L(' — Phone OTP verify करके फिर try करें',' — verify phone OTP and try again'));
+    toast('❌ '+(e.message||e)+L(' — Phone ओटीपी सत्यापन करके फिर try करें',' — verify phone OTP and try again'));
   }
 }
 
 try{ window.openChangeCompanyModal = openChangeCompanyModal; window.saveChangeCompanyName = saveChangeCompanyName; }catch(e){}
 
 function openLeaveTeamModal(){
-  if(!isMgr()){ toast('❌ Only Manager'); return; }
+  if(!isMgr()){ toast(L('❌ केवल प्रबंधक','❌ Only Manager')); return; }
   const ranked = _rankManagerSuccessors();
   const eligible = ranked.filter(r=>r.eligible);
   if(!eligible.length){
@@ -131,30 +131,30 @@ function openLeaveTeamModal(){
 }
 
 async function confirmLeaveTeamTransfer(useRecommended){
-  if(!isMgr()){ toast('❌ Only Manager'); return; }
+  if(!isMgr()){ toast(L('❌ केवल प्रबंधक','❌ Only Manager')); return; }
   const conf = (document.getElementById('leaveTeamConfirm')?.value||'').trim().toUpperCase();
   if(conf !== 'LEAVE'){
-    toast('⚠️ Type LEAVE to confirm — prevents accidental handoff');
+    toast(L('⚠️ पुष्टि के लिए LEAVE टाइप करें — गलत हस्तांतरण से बचाव','⚠️ Type LEAVE to confirm — prevents accidental handoff'));
     try{ document.getElementById('leaveTeamConfirm')?.focus(); }catch(e){}
     return;
   }
   const ranked = _rankManagerSuccessors();
   const eligible = ranked.filter(r=>r.eligible);
-  if(!eligible.length){ toast('❌ No eligible successor'); return; }
+  if(!eligible.length){ toast(L('❌ कोई योग्य उत्तराधिकारी नहीं','❌ No eligible successor')); return; }
 
   let succId = document.getElementById('leaveTeamSuccessor')?.value;
   if(useRecommended) succId = eligible[0].emp.id;
-  if(!succId){ toast('⚠️ Select new Manager'); return; }
+  if(!succId){ toast(L('⚠️ नया प्रबंधक चुनें','⚠️ Select new Manager')); return; }
 
   const oldKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-  if(!oldKey){ toast('❌ Manager mobile missing'); return; }
+  if(!oldKey){ toast(L('❌ प्रबंधक मोबाइल अनुपलब्ध','❌ Manager mobile missing')); return; }
 
   const team = getEmps();
   const succ = team.find(e=>e.id===succId) || (_cache.employees||[]).find(e=>e.id===succId);
-  if(!succ){ toast('❌ Member not found'); return; }
+  if(!succ){ toast(L('❌ सदस्य नहीं मिला','❌ Member not found')); return; }
   const newKey = _normMobileKey(succ.phone||succ.mobile||'');
   if(newKey.length !== 10){
-    toast('❌ Selected member needs a valid 10-digit mobile');
+    toast(L('❌ चयनित सदस्य का वैध 10 अंकों का मोबाइल आवश्यक','❌ Selected member needs a valid 10-digit mobile'));
     return;
   }
 
@@ -168,7 +168,7 @@ async function confirmLeaveTeamTransfer(useRecommended){
       setProg('0/6 · Verifying phone login…');
       const authOk = await _ensureWriteAuth();
       if(!authOk){
-        toast('❌ Phone OTP verify required — Manager must complete OTP, then retry handoff');
+        toast(L('❌ फ़ोन ओटीपी सत्यापन आवश्यक — प्रबंधक ओटीपी पूरा करें, फिर हस्तांतरण करें','❌ Phone OTP verify required — Manager must complete OTP, then retry handoff'));
         setProg('Failed: need phone OTP (not device-password only)');
         document.querySelectorAll('.modal-box .big-btn, .modal .big-btn').forEach(b=>{ b.disabled = false; });
         return;
@@ -244,7 +244,7 @@ async function confirmLeaveTeamTransfer(useRecommended){
       });
     }catch(eMu){
       console.warn('[handoff] mobileUsers promote failed — roster still under new manager via employees', eMu);
-      toast('⚠️ Manager login role may need Admin → Promote / Repair managers');
+      toast(L('⚠️ प्रबंधक भूमिका सुधार हेतु व्यवस्थापक → प्रमोट / रिपेयर','⚠️ Manager login role may need Admin → Promote / Repair managers'));
     }
 
     setProg('3/6 · Updating members’ mobile accounts…');
@@ -383,11 +383,11 @@ async function confirmLeaveTeamTransfer(useRecommended){
     }catch(e){}
 
     closeModal();
-    toast('✅ Handoff complete → '+succ.name+' ('+n+' members). Logging out…');
+    toast(L('✅ हस्तांतरण पूर्ण → ','✅ Handoff complete → ')+succ.name+' ('+n+L(' सदस्य)। लॉग आउट…',' members). Logging out…'));
     setTimeout(()=>{ try{ doLogout(); }catch(e){ location.reload(); } }, 1000);
   }catch(err){
     console.error('leave team', err);
-    toast('❌ Handoff failed: '+(err.message||err));
+    toast(L('❌ हस्तांतरण विफल: ','❌ Handoff failed: ')+(err.message||err));
     setProg('Failed: '+(err.message||err));
     document.querySelectorAll('.modal-box .big-btn, .modal .big-btn').forEach(b=>{ b.disabled = false; });
   }

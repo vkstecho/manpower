@@ -51,11 +51,11 @@ function _renderTeamImpl(search=''){
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
     ? `<div style="display:flex;gap:8px;margin-bottom:14px">
         <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ ${L("नया कर्मचारी जोड़ें","Add employee")}</button>
-        <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 Excel से Team Import','📊 Import Team from Excel')}</button>
+        <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 एक्सेल से टीम आयात','📊 Import Team from Excel')}</button>
       </div>
       ${isAdmin()?`<div id="adminMgrBanner" style="margin-bottom:12px"></div>
       <button type="button" onclick="openAppLicenseAdmin()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid rgba(124,58,237,.45);background:rgba(124,58,237,.1);color:#7c3aed;font-weight:900;font-size:13px;cursor:pointer">🔑 ${L('App License / Expiry Date','App License / Expiry Date')}</button>`:''}
-      ${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी Members Delete करें (OTP verify)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
+      ${SESSION.role==='manager'?`<button class="action-primary team-btn-delete" style="width:100%;margin-bottom:14px;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(225,29,72,.3)" onclick="startDeleteAllMembersFlow()">${L('🗑️ सभी सदस्य हटाएँ (ओटीपी सत्यापन)','🗑️ Delete All Members (OTP verify)')}</button>`:''}` : '';
 
   // Active employees (not resigned/left). When searching, do NOT require ms[] so name/mobile/code matches still show.
   const q = String(search||'').trim().toLowerCase();
@@ -406,8 +406,8 @@ function renderSalaryCost(){
 
   if(rows.length === 0){
     tableEl.innerHTML = `<div style="padding:20px;text-align:center;color:var(--muted2);font-size:13px">
-      ${L('⚠️ किसी employee की Monthly Salary upload नहीं है।','⚠️ No employee has Monthly Salary uploaded.')}<br>
-      <span style="font-size:11px">${L('Team tab → Excel Update → Monthly Salary column add करें','Team tab → Excel Update → add Monthly Salary column')}</span>
+      ${L('⚠️ किसी employee की मासिक वेतन upload नहीं है।','⚠️ No employee has Monthly Salary uploaded.')}<br>
+      <span style="font-size:11px">${L('Team tab → Excel Update → मासिक वेतन column add करें','Team tab → Excel Update → add Monthly Salary column')}</span>
     </div>`;
     return;
   }
@@ -523,7 +523,7 @@ async function _loadManpowerCostArchive(monthKey){
  * Columns: Name, Mobile, Salary, Ab Days, Deduction, Cost (Net)
  */
 async function exportSalaryCost(){
-  if(!isAdminOrMgr()){ toast('❌ Only Manager/Admin'); return; }
+  if(!isAdminOrMgr()){ toast(L('❌ केवल प्रबंधक/व्यवस्थापक','❌ Only Manager/Admin')); return; }
   let d = window._manpowerCostData;
   if(!d || !d.perEmployee){
     // try archive for selected month
@@ -531,7 +531,7 @@ async function exportSalaryCost(){
     const mk = monthInput && monthInput.value;
     if(mk) d = await _loadManpowerCostArchive(mk);
   }
-  if(!d || !d.perEmployee){ toast(L('⚠️ पहले month select करें / Cost calculate करें','⚠️ Select month / calculate cost first')); return; }
+  if(!d || !d.perEmployee){ toast(L('⚠️ पहले month select करें / लागत गणना करें','⚠️ Select month / calculate cost first')); return; }
 
   const monthName = new Date(d.year, d.monthNum-1, 1).toLocaleDateString('en-IN',{month:'long',year:'numeric'});
   const genAt = new Date().toLocaleString('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
@@ -580,7 +580,7 @@ async function exportSalaryCost(){
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Manpower Cost');
       XLSX.writeFile(wb, fileBase + '.xlsx');
-      toast('📤 Excel downloaded · Man Power + VKS Tech');
+      toast(L('📤 एक्सेल डाउनलोड · मैन पावर + वीकेएस टेक','📤 Excel downloaded · Man Power + VKS Tech'));
       return;
     }
   }catch(e){ console.warn('[exportSalaryCost xlsx]', e); }
@@ -621,10 +621,10 @@ async function exportSalaryCost(){
     a.download = fileBase + '.xls';
     document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 800);
-    toast('📤 Excel downloaded · Man Power + VKS Tech');
+    toast(L('📤 एक्सेल डाउनलोड · मैन पावर + वीकेएस टेक','📤 Excel downloaded · Man Power + VKS Tech'));
   }catch(e2){
     console.warn(e2);
-    toast('❌ Download failed');
+    toast(L('❌ डाउनलोड विफल','❌ Download failed'));
   }
 }
 
@@ -759,11 +759,11 @@ async function adminExtendExpiry(empId, empName, days){
     toast('✅ '+empName+L(' की expiry ',' expiry extended by ')+days+L(' दिन बढ़ाई → ',' days → ')+newExp.toLocaleDateString('en-IN'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 async function adminRemoveDevice(empId, empName){
-  const ok = await confirmModal(L('Device हटाएं?','Remove device?'), `<b>${empName}</b> ${L('का device हटाया जाएगा।<br>Login के लिए Admin approval लेनी होगी।','device will be removed.<br>Admin approval will be needed to login.')}`, L('🗑️ हाँ, हटाएं','🗑️ Yes, Remove'), L('रद्द करें','Cancel'));
+  const ok = await confirmModal(L('डिवाइस हटाएँ?','Remove device?'), `<b>${empName}</b> ${L('का device हटाया जाएगा।<br>Login के लिए Admin approval लेनी होगी।','device will be removed.<br>Admin approval will be needed to login.')}`, L('🗑️ हाँ, हटाएं','🗑️ Yes, Remove'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
     await fbUpdate('deviceApprovals/'+empId,{
@@ -772,20 +772,20 @@ async function adminRemoveDevice(empId, empName){
     toast('✅ '+empName+L(' का device हटाया गया',' device removed'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 async function adminRevokeAccess(empId, empName){
-  const ok = await confirmModal(L('Access Revoke करें?','Revoke access?'), `<b>${empName}</b> ${L('की App access revoke होगी।<br>वो login नहीं कर पाएंगे।','app access will be revoked.<br>They will not be able to login.')}`, L('🚫 हाँ, Revoke करें','🚫 Yes, Revoke'), L('रद्द करें','Cancel'));
+  const ok = await confirmModal(L('पहुँच रद्द करें?','Revoke access?'), `<b>${empName}</b> ${L('की App पहुँच रद्द होगी।<br>वो login नहीं कर पाएंगे।','app access will be revoked.<br>They will not be able to login.')}`, L('🚫 हाँ, Revoke करें','🚫 Yes, Revoke'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
     await fbUpdate('userApprovals/'+empId,{
       status:'revoked', revokedBy:SESSION.name, revokedAt:new Date().toISOString()
     });
-    toast('🚫 '+empName+L(' की access revoke कर दी',' access revoked'));
+    toast('🚫 '+empName+L(' की पहुँच रद्द कर दी',' access revoked'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 async function adminRestoreAccess(empId, empName){
@@ -796,7 +796,7 @@ async function adminRestoreAccess(empId, empName){
     toast('✅ '+empName+L(' की access restore हो गई',' access restored'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
-  }catch(e){ toast('❌ Error: '+e.message); }
+  }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }
 }
 
 function showEmpNcrs(empId){
@@ -879,7 +879,7 @@ let _empUploadParsed = []; // holds parsed rows before confirm
 function openEmpUploadWizard(){
   _empUploadParsed = [];
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">📤 ${L("कर्मचारी List Upload करें","Upload employee list")}</div>
+    <div class="modal-title">📤 ${L("कर्मचारी सूची अपलोड करें","Upload employee list")}</div>
 
     <!-- FORMAT GUIDE -->
     <div style="background:rgba(249,115,22,.07);border:1px solid rgba(249,115,22,.25);border-radius:12px;padding:14px;margin-bottom:16px">
@@ -916,7 +916,7 @@ function openEmpUploadWizard(){
       style="border:2px dashed rgba(249,115,22,.4);border-radius:14px;padding:24px;text-align:center;cursor:pointer;background:rgba(249,115,22,.04);margin-bottom:12px"
       ondragover="event.preventDefault()" ondrop="_empUploadDrop(event)">
       <div style="font-size:32px;margin-bottom:8px">📁</div>
-      <div style="font-size:14px;font-weight:800;color:#f97316">${L("File चुनें या यहाँ Drop करें","Choose file or drop here")}</div>
+      <div style="font-size:14px;font-weight:800;color:#f97316">${L("फ़ाइल चुनें या यहाँ Drop करें","Choose file or drop here")}</div>
       <div style="font-size:11px;color:var(--muted2);margin-top:4px">.xlsx, .xls, .csv supported</div>
     </div>
     <input type="file" id="empUploadFileInput" accept=".xlsx,.xls,.csv" style="display:none" onchange="_empUploadFileChosen(this)">
@@ -973,7 +973,7 @@ async function _parseEmpUploadFile(file){
 
     if(!rows || rows.length < 2){
       statusEl.style.background = 'rgba(239,68,68,.1)';
-      statusEl.innerHTML = L('❌ File में कोई data नहीं मिला','❌ No data found in file');
+      statusEl.innerHTML = L('❌ फ़ाइल में कोई डेटा नहीं मिला','❌ No data found in file');
       return;
     }
 
@@ -1123,7 +1123,7 @@ async function _parseEmpUploadFile(file){
 
     if(parsed.length === 0){
       statusEl.style.background = 'rgba(239,68,68,.1)';
-      statusEl.innerHTML = L('❌ कोई valid row नहीं मिली।','❌ No valid rows found.')+(errors.length ? ' Errors: ' + errors.join(', ') : '');
+      statusEl.innerHTML = L('❌ कोई मान्य पंक्ति नहीं मिली।','❌ No valid rows found.')+(errors.length ? ' Errors: ' + errors.join(', ') : '');
       return;
     }
 
@@ -1149,7 +1149,7 @@ function _showEmpUploadPreview(parsed, errors){
       ? (p._otherTeam
           ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('दूसरी team','Other team')}</span>`
           : p._fileDup
-            ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('File में Dup','Dup in file')}</span>`
+            ? `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('फ़ाइल में Dup','Dup in file')}</span>`
             : `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;background:rgba(244,63,94,.2);color:#fb7185">🚫 ${L('Phone लिया','Phone taken')}</span>`)
       : `<span style="font-size:10px;font-weight:800;padding:2px 8px;border-radius:6px;${p._isNew?'background:rgba(34,197,94,.15);color:#22c55e':'background:rgba(59,130,246,.15);color:#60a5fa'}">${p._isNew ? '🆕 New' : '✏️ Update'}</span>`;
     const tip = conflict
@@ -1175,7 +1175,7 @@ function _showEmpUploadPreview(parsed, errors){
   }).join('');
 
   openModal(`<div class="modal-handle"></div>
-    <div class="modal-title">👁️ ${L("Preview — Save करने से पहले देखें","Preview — review before Save")}</div>
+    <div class="modal-title">👁️ ${L("पूर्वावलोकन — सहेजें करने से पहले देखें","Preview — review before Save")}</div>
 
     <!-- Summary strip -->
     <div style="display:flex;gap:8px;margin-bottom:14px">
@@ -1185,7 +1185,7 @@ function _showEmpUploadPreview(parsed, errors){
       </div>
       <div style="flex:1;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#60a5fa">${updCount}</div>
-        <div style="font-size:10px;color:var(--muted2)">${L("Update होंगे","Will update")}</div>
+        <div style="font-size:10px;color:var(--muted2)">${L("अपडेट होंगे","Will update")}</div>
       </div>
       <div style="flex:1;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px;text-align:center">
         <div style="font-size:22px;font-weight:900;color:#f97316">${okRows.length}</div>
@@ -1237,7 +1237,7 @@ function _showEmpUploadPreview(parsed, errors){
 }
 
 async function _confirmEmpUpload(){
-  if(!_empUploadParsed.length){ toast(L('⚠️ कोई data नहीं','⚠️ No data')); return; }
+  if(!_empUploadParsed.length){ toast(L('⚠️ कोई डेटा नहीं','⚠️ No data')); return; }
   const btn = document.querySelector('#overlay .submit-btn');
   if(btn){ btn.disabled=true; btn.textContent='⏳ Saving...'; }
 
@@ -1329,7 +1329,7 @@ function renderAdminManagerBanner(){
   if(!el) return;
   const mgrs = _listActiveManagers();
   if(!mgrs.length){
-    el.innerHTML = `<div style="padding:10px 12px;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc;font-size:12px;color:#64748b">${L('कोई active manager नहीं मिला','No active manager found')} — ${L('किसी member का Access Level = Manager सेट करें','set a member Access Level = Manager')}</div>`;
+    el.innerHTML = `<div style="padding:10px 12px;border-radius:12px;border:1px dashed #cbd5e1;background:#f8fafc;font-size:12px;color:#64748b">${L('कोई सक्रिय प्रबंधक नहीं मिला','No active manager found')} — ${L('किसी member का पहुँच स्तर = प्रबंधक सेट करें','set a member Access Level = Manager')}</div>`;
     return;
   }
   el.innerHTML = `<div style="padding:12px;border-radius:12px;border:1px solid rgba(14,165,233,.35);background:rgba(14,165,233,.08)">
@@ -1344,7 +1344,7 @@ function renderAdminManagerBanner(){
   </div>`;
 }
 async function openAppLicenseAdmin(){
-  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
   let validTill = '';
   let extendTo = '';
   let freeTrialDays = 30;
@@ -1368,7 +1368,7 @@ async function openAppLicenseAdmin(){
   }
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">🔑 ${L('App License / Expiry','App License / Expiry')}</div>
-  <p style="font-size:12px;color:var(--muted);margin:0 0 12px">${L('पूरी app की expiry date बदलें (Firebase settings/license)','Change whole-app expiry date (Firebase settings/license)')}</p>
+  <p style="font-size:12px;color:var(--muted);margin:0 0 12px">${L('पूरी app की expiry date बदलें (फायरबेस सेटिंग/license)','Change whole-app expiry date (Firebase settings/license)')}</p>
   <div class="field"><label>validTill (App expiry)</label>
     <input id="lic_validTill" type="date" class="inp-field" value="${validTill||''}"></div>
   <div class="field"><label>extendTo (After unlock key)</label>
@@ -1378,14 +1378,14 @@ async function openAppLicenseAdmin(){
     <div style="font-size:11px;color:var(--muted2);margin-top:4px">Default 30. Set 15 (or any number) so new users get that many free days.</div>
   </div>
   <button class="big-btn" style="margin-top:12px" onclick="saveAppLicenseAdmin()">${L('💾 सेव करें','💾 Save')}</button>
-  <p style="font-size:11px;color:var(--muted);margin-top:10px">${L('सिर्फ hard-admin Firebase rules से write कर सकता है।','Only hard-admin can write via Firebase rules.')}</p>`);
+  <p style="font-size:11px;color:var(--muted);margin-top:10px">${L('सिर्फ हार्ड-एडमिन Firebase rules से write कर सकता है।','Only hard-admin can write via Firebase rules.')}</p>`);
 }
 async function saveAppLicenseAdmin(){
-  if(typeof isAdmin!=='function' || !isAdmin()){ toast('❌ Admin only'); return; }
+  if(typeof isAdmin!=='function' || !isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
   const vt = (document.getElementById('lic_validTill')||{}).value || '';
   const et = (document.getElementById('lic_extendTo')||{}).value || '';
   const trial = Math.max(1, Math.min(365, parseInt((document.getElementById('lic_freeTrialDays')||{}).value||'30',10)||30));
-  if(!vt){ toast('❌ validTill required'); return; }
+  if(!vt){ toast(L('❌ वैधता तिथि आवश्यक','❌ validTill required')); return; }
   try{
     const payload = {
       validTill: new Date(vt+'T23:59:59.000Z').toISOString(),
@@ -1403,10 +1403,10 @@ async function saveAppLicenseAdmin(){
       }
     }catch(e){}
     try{ closeModal(); }catch(e){}
-    toast('✅ App expiry saved: '+vt);
+    toast(L('✅ ऐप समाप्ति सहेजी: ','✅ App expiry saved: ')+vt);
   }catch(err){
     console.error(err);
-    toast('❌ Save failed: '+(err.message||err.code||'permission'));
+    toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(err.message||err.code||L('अनुमति','permission')));
   }
 }
 // Hook banner into team render

@@ -13,7 +13,7 @@ async function openShiftSettings(){
     toast(L('⚠️ पहले header से एक Company चुनें','⚠️ Select a company from the header first'));
     return;
   }
-  toast('⏳ Loading...');
+  toast(L('⏳ लोड हो रहा है…','⏳ Loading...'));
   const cfg=await getShiftConfig();
   _shiftDraft=JSON.parse(JSON.stringify(cfg)); // deep clone for editing
   _renderShiftSettingsModal();
@@ -452,7 +452,7 @@ function _ssAddCustomShift(){
     const host=document.getElementById('ss_shiftTimings');
     if(host) host.innerHTML=_renderShiftTimingRows();
     toast('✅ '+code+' '+L('जोड़ दिया','added'));
-  }catch(e){ console.warn(e); toast('❌ '+((e&&e.message)||e)); }
+  }catch(e){ console.warn(e); toast(L('❌ ','❌ ')+((e&&e.message)||e)); }
 }
 function _ssRemoveCustomShift(code){
   try{
@@ -791,7 +791,7 @@ function _mpOpenColourPicker(shiftIndex, which){
     var row = null;
     if(!isTimeLeg){
       row = (_shiftDraft && _shiftDraft.shifts) ? _shiftDraft.shifts[shiftIndex] : null;
-      if(!row){ try{ if(typeof toast==='function') toast('Shift row missing'); }catch(e){} return; }
+      if(!row){ try{ if(typeof toast==='function') toast(L('शिफ्ट पंक्ति अनुपलब्ध','Shift row missing')); }catch(e){} return; }
     }
     var cur = isTimeLeg
       ? (which==='fg' ? (_shiftDraft.timeLegendFg||'#ffffff') : (_shiftDraft.timeLegendBg||'#f97316'))

@@ -145,7 +145,7 @@
       try{ toast(_L('✅ Announce post · '+ok+' users','✅ Announce posted · '+ok+' users')); }catch(e){}
     }catch(err){
       console.error('[announce] post', err);
-      try{ toast('❌ '+(err.message||'Post failed')); }catch(e){}
+      try{ toast(L('❌ ','❌ ')+(err.message||L('पोस्ट विफल','Post failed'))); }catch(e){}
     }
   };
 

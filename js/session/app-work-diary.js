@@ -438,7 +438,7 @@
       if(status) status.textContent = '✅ Saved '+dateStr+' · '+slots.length+' slot(s)';
     }catch(e){
       console.warn('[workDiary] save', e);
-      toast('❌ '+(e&&e.message?e.message:'Save failed'));
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('सहेजना विफल','Save failed')));
       if(status) status.textContent = '❌ Save failed — deploy workDiary Firebase rules if needed';
     }
   }
@@ -454,7 +454,7 @@
       return;
     }
     var mob = _wdMobile();
-    if(!mob){ toast('Mobile login required'); return; }
+    if(!mob){ toast(L('मोबाइल लॉगिन आवश्यक','Mobile login required')); return; }
     box.style.display = 'block';
     box.innerHTML = '<div style="font-size:12px;color:var(--muted2)">Searching…</div>';
     try{
@@ -539,7 +539,7 @@
 
   async function wdDownloadWord(mode){
     var mob = _wdMobile();
-    if(!mob){ toast('Mobile login required'); return; }
+    if(!mob){ toast(L('मोबाइल लॉगिन आवश्यक','Mobile login required')); return; }
     var from, to;
     var dateInp = document.getElementById('wdDate');
     if(mode==='day'){
@@ -548,12 +548,12 @@
       from = (document.getElementById('wdDocFrom')||{}).value || '';
       to = (document.getElementById('wdDocTo')||{}).value || '';
       if(!from || !to){
-        toast('Select From and To dates');
+        toast(L('से और तक तिथियाँ चुनें','Select From and To dates'));
         return;
       }
       if(from > to){ var t=from; from=to; to=t; }
     }
-    toast('Preparing Word…');
+    toast(L('वर्ड तैयार हो रहा है…','Preparing Word…'));
     try{
       var all = await fbGet('workDiary/'+mob) || {};
       var days = [];
@@ -573,7 +573,7 @@
         }
       }
       if(!days.length){
-        toast('No diary entries in that range');
+        toast(L('उस सीमा में कोई डायरी प्रविष्टि नहीं','No diary entries in that range'));
         return;
       }
       var name = (SESSION && SESSION.name) || mob;
@@ -593,10 +593,10 @@
       document.body.appendChild(a);
       a.click();
       setTimeout(function(){ try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1500);
-      toast('✅ Word download: '+days.length+' day(s)');
+      toast(L('✅ वर्ड डाउनलोड: ','✅ Word download: ')+days.length+L(' दिन',' day(s)'));
     }catch(e){
       console.warn('[wdDownloadWord]', e);
-      toast('❌ '+(e&&e.message?e.message:'Download failed'));
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('डाउनलोड विफल','Download failed')));
     }
   }
 

@@ -794,10 +794,18 @@
         if (!hidden[kLive]) {
           var last2 = hist.length ? hist[hist.length - 1] : null;
           if (!last2 || String(last2.company) !== String(liveCo) || String(last2.empCode) !== String(liveCode)) {
-            hist.push({ company: liveCo, empCode: liveCode, from: '', to: '', _source: 'live', _histIndex: -1 });
+            hist.push({
+              company: liveCo,
+              empCode: liveCode,
+              from: (emp.joiningDate || emp.doj || ''),
+              to: '',
+              _source: 'live',
+              _histIndex: -1
+            });
           } else if (last2 && !last2.to) {
             last2.company = liveCo || last2.company;
             last2.empCode = liveCode || last2.empCode;
+            if (!last2.from) last2.from = (emp.joiningDate || emp.doj || last2.from || '');
             if (!last2._source) last2._source = last2._source || 'history';
           }
         }
@@ -930,11 +938,11 @@
       company = String(company).trim();
       empCode = String(empCode).trim();
       if (!company && !empCode) {
-        if (typeof toast === 'function') toast('Company or Emp Code required');
+        if (typeof toast === 'function') toast(L('कंपनी या कर्मचारी कोड आवश्यक','Company or Emp Code required'));
         return;
       }
       if (from && to && from > to) {
-        if (typeof toast === 'function') toast('From date must be before To');
+        if (typeof toast === 'function') toast(L('प्रारंभ तिथि समाप्ति से पहले होनी चाहिए','From date must be before To'));
         return;
       }
       var emp = null;
@@ -949,7 +957,7 @@
         });
       }
       if (!emp) {
-        if (typeof toast === 'function') toast('Employee not found');
+        if (typeof toast === 'function') toast(L('कर्मचारी नहीं मिला','Employee not found'));
         return;
       }
       var hist = Array.isArray(emp.companyHistory) ? emp.companyHistory.slice() : [];
@@ -977,7 +985,7 @@
           if (ix >= 0) _cache.employees[ix].companyHistory = hist;
         }
       } catch (e) {}
-      if (typeof toast === 'function') toast('✅ Past company saved');
+      if (typeof toast === 'function') toast(L('✅ पिछली कंपनी सहेजी गई','✅ Past company saved'));
       try {
         var hid = Array.isArray(emp.careerHidden) ? emp.careerHidden.slice() : [];
         var kAdd = company + '|' + empCode;
@@ -1004,7 +1012,7 @@
       } catch (e) {}
     } catch (e) {
       console.warn('[mpAddCareerEntry]', e);
-      if (typeof toast === 'function') toast('❌ ' + (e.message || 'Save failed'));
+      if (typeof toast === 'function') toast(L('❌ ','❌ ')+(e.message || L('सहेजना विफल','Save failed')));
     }
   }
 
@@ -1072,7 +1080,7 @@
         if (!emp0) return;
         var hist0 = Array.isArray(emp0.companyHistory) ? emp0.companyHistory.slice() : [];
         if (idxOnly < 0 || idxOnly >= hist0.length) {
-          if (typeof toast === 'function') toast('Nothing to remove');
+          if (typeof toast === 'function') toast(L('हटाने के लिए कुछ नहीं','Nothing to remove'));
           return;
         }
         company = hist0[idxOnly].company || hist0[idxOnly].companyName || '';
@@ -1082,7 +1090,7 @@
       }
       var emp = _mpFindEmpById(empId);
       if (!emp) {
-        if (typeof toast === 'function') toast('Employee not found');
+        if (typeof toast === 'function') toast(L('कर्मचारी नहीं मिला','Employee not found'));
         return;
       }
       company = String(company || '').trim();
@@ -1123,7 +1131,7 @@
       }
 
       if (!changed) {
-        if (typeof toast === 'function') toast('Nothing to remove');
+        if (typeof toast === 'function') toast(L('हटाने के लिए कुछ नहीं','Nothing to remove'));
         return;
       }
 
@@ -1135,7 +1143,7 @@
       emp.careerHidden = hidden;
       _mpPatchEmpCache(empId, patch);
 
-      if (typeof toast === 'function') toast('✅ Removed');
+      if (typeof toast === 'function') toast(L('✅ हटाया गया','✅ Removed'));
       try {
         if (typeof invalidateShiftCache === 'function') invalidateShiftCache();
       } catch (e) {}
@@ -1145,7 +1153,7 @@
       } catch (e) {}
     } catch (e) {
       console.warn('[mpRemoveCareerEntry]', e);
-      if (typeof toast === 'function') toast('❌ ' + (e.message || 'Remove failed'));
+      if (typeof toast === 'function') toast(L('❌ ','❌ ')+(e.message || L('हटाना विफल','Remove failed')));
     }
   }
 
