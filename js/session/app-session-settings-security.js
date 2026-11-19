@@ -894,6 +894,11 @@ async function openJoinTeamModal(){
           + '</div>'
           + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager mobile','Manager mobile')+'</label>'
           + '<input id="joinTeamMgrManual" class="inp-field" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" style="width:100%;margin:6px 0 14px">'))
+    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('आपका नाम *','Your name *')+'</label>'
+    + '<input id="joinTeamName" class="inp-field" type="text" placeholder="'+T('पूरा नाम','Full name')+'" value="'+(String(SESSION.name||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 12px">'
+    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Employee Code / Emp ID','Employee Code / Emp ID')+'</label>'
+    + '<input id="joinTeamEmpCode" class="inp-field" type="text" placeholder="e.g. 30000422" value="'+(String(SESSION.empId||SESSION.empCode||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 14px">'
+    + '<div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px;line-height:1.4">'+T('Name Manager के Approve form में pre-fill होगा। Emp Code optional — Manager भी set कर सकता है।','Name is pre-filled on Manager Approve. Emp Code optional — Manager can set it too.')+'</div>'
     + '<button type="button" class="submit-btn" onclick="confirmJoinTeamRequest()">'+T('📩 Request भेजें','📩 Send request')+'</button>'
     + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+T('रद्द','Cancel')+'</button>';
   if(typeof openModal==='function') openModal(html);
@@ -927,26 +932,50 @@ async function confirmJoinTeamRequest(){
   try{
     if(typeof _ensureWriteAuth==='function'){ try{ await _ensureWriteAuth(); }catch(e){} }
     const now = new Date().toISOString();
-    const name = SESSION.name || myMob;
+    // v6.0.60: prefer form name; never store phone digits as name
+    let name = '';
+    try{ name = (document.getElementById('joinTeamName')?.value||'').trim(); }catch(e){}
+    if(!name) name = String(SESSION.name||'').trim();
+    const nameDigits = name.replace(/\D/g,'');
+    if(!name || (nameDigits.length>=10 && nameDigits.slice(-10)===myMob)){
+      try{ toast(T('⚠️ अपना नाम लिखें','⚠️ Enter your name')); }catch(e){}
+      return;
+    }
+    let empCode = '';
+    try{ empCode = (document.getElementById('joinTeamEmpCode')?.value||'').trim(); }catch(e){}
+    if(!empCode) empCode = String(SESSION.empId||SESSION.empCode||'').trim();
+    // Preserve existing good name on mobileUsers if form somehow empty
+    let existing = null;
+    try{ existing = await fbGet('mobileUsers/'+myMob); }catch(e){}
+    if(existing && existing.name){
+      const en = String(existing.name).trim();
+      const ed = en.replace(/\D/g,'');
+      if(en && !(ed.length>=10 && ed.slice(-10)===myMob) && (!name || name===myMob)) name = en;
+      if(!empCode && (existing.empCode||existing.empId)) empCode = String(existing.empCode||existing.empId||'').trim();
+    }
     // Set pending under chosen manager — keeps individual history (empObjId)
     const payload = {
       role: 'member',
       status: 'pending',
       name: name,
+      displayName: name,
       mobile: '+91'+myMob,
       phone: myMob,
       managerId: mgr,
       managerMobile: mgr,
       individual: false,
       forceFreshLogin: false,
-      empObjId: SESSION.empObjId || null,
-      empId: SESSION.empId || SESSION.empCode || '',
-      empCode: SESSION.empId || SESSION.empCode || '',
+      empObjId: SESSION.empObjId || (existing && existing.empObjId) || null,
+      empId: empCode,
+      empCode: empCode,
       joinRequestAt: now,
-      updatedAt: now
+      updatedAt: now,
+      registeredAt: (existing && existing.registeredAt) || now
     };
-    if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, payload);
-    else await fbSet('mobileUsers/'+myMob, payload);
+    // Use set (full write) so name/empCode cannot stay stale from partial update
+    if(typeof fbSet==='function') await fbSet('mobileUsers/'+myMob, Object.assign({}, existing||{}, payload));
+    else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, payload);
+    try{ SESSION.name = name; if(empCode){ SESSION.empId = empCode; SESSION.empCode = empCode; } }catch(e){}
     // Notify manager
     try{
       await fbPush('userNotifications/'+mgr, {
@@ -954,6 +983,11 @@ async function confirmJoinTeamRequest(){
         title: '👤 Join team request',
         body: name+' (+91-'+myMob+') wants to join your team',
         fromMobile: myMob,
+        memberMobile: myMob,
+        mobile: '+91'+myMob,
+        name: name,
+        empCode: empCode,
+        empId: empCode,
         read: false,
         at: now
       });

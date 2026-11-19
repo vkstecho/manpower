@@ -210,6 +210,13 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
   }else{
     kind='member';
   }
+  // v6.0.60: pending join under this manager → not a hard conflict for roster add
+  try{
+    const st=String((hit.emp&&hit.emp.status)||hit.status||'').toLowerCase();
+    if(st==='pending' && myMgr && (hit.managerId===myMgr || _normMobileKey((hit.emp&&hit.emp.managerId)||'')===myMgr)){
+      kind='pending_same_manager';
+    }
+  }catch(_pk){}
   hit.kind=kind;
   hit.otherTeam=hit.otherTeam||kind==='member_other_team'||kind==='manager_with_team'||kind==='manager_solo';
   return hit;

@@ -69,6 +69,15 @@ async function addEmployee(){
       else if(typeof _findPhoneConflict==='function') clash = _findPhoneConflict(phoneNorm, null, code);
     }catch(ex){ console.warn('[addEmployee] phone check', ex); }
     if(clash){
+      // Pending member already requested this manager → open Approve (pre-filled) instead of blocking
+      if(clash.kind==='pending_same_manager' && typeof openApproveMemberModal==='function'){
+        try{
+          toast(L('⏳ यह नंबर pending approve है — Approve form खोल रहे हैं','⏳ This number is pending approve — opening Approve form'));
+          closeModal();
+          openApproveMemberModal(phoneNorm);
+          return;
+        }catch(ex){ console.warn('[addEmployee] open approve', ex); }
+      }
       try{
         if(typeof openPhoneTransferModal==='function'){
           openPhoneTransferModal({clash, phone:phoneNorm, intended:{name,code,sec,section:sectionRaw||sec,mc,resp,woff,designation,joiningDate,dob,salaryRaw}});

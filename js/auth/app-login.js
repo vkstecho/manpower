@@ -1683,15 +1683,19 @@ async function _submitMemberReg(){
     if(errEl){ errEl.textContent='⚠️ Invalid mobile — login again'; errEl.classList.add('show'); } return;
   }
   // Pending member: enter app immediately with LIMITED access until Manager approves
+  const _memCode=(document.getElementById('memEmpCode')?.value||'').trim();
   const userData={
     role:'member', name,
+    displayName: name,
     mobile: '+91'+mobile,
+    phone: mobile,
     company:comp,
-    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(), empId:(document.getElementById('memEmpCode')?.value||'').trim(),
+    status:'pending', empCode:_memCode, empId:_memCode,
     managerId: managerId,
     managerMobile: managerId,
     managerName: String(managerName).replace(/\s*\(.*\)\s*$/,'').trim(),
-    registeredAt: new Date().toISOString()
+    registeredAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
   };
   try{
     await fbSet('mobileUsers/'+mobile, userData);
@@ -1705,6 +1709,7 @@ async function _submitMemberReg(){
       title:'👤 New team member request',
       body: name+' wants to join your team',
       mobile: '+91'+mobile, name, company:comp, memberMobile: mobile,
+      empCode: _memCode, empId: _memCode,
       managerId: managerId,
       read:false, at: new Date().toISOString()
     };
