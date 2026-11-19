@@ -794,18 +794,10 @@
         if (!hidden[kLive]) {
           var last2 = hist.length ? hist[hist.length - 1] : null;
           if (!last2 || String(last2.company) !== String(liveCo) || String(last2.empCode) !== String(liveCode)) {
-            hist.push({
-              company: liveCo,
-              empCode: liveCode,
-              from: (emp.joiningDate || emp.doj || ''),
-              to: '',
-              _source: 'live',
-              _histIndex: -1
-            });
+            hist.push({ company: liveCo, empCode: liveCode, from: '', to: '', _source: 'live', _histIndex: -1 });
           } else if (last2 && !last2.to) {
             last2.company = liveCo || last2.company;
             last2.empCode = liveCode || last2.empCode;
-            if (!last2.from) last2.from = (emp.joiningDate || emp.doj || last2.from || '');
             if (!last2._source) last2._source = last2._source || 'history';
           }
         }

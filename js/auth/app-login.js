@@ -1687,7 +1687,7 @@ async function _submitMemberReg(){
     role:'member', name,
     mobile: '+91'+mobile,
     company:comp,
-    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(), empId:(document.getElementById('memEmpCode')?.value||'').trim(),
+    status:'pending', empCode:(document.getElementById('memEmpCode')?.value||'').trim(),
     managerId: managerId,
     managerMobile: managerId,
     managerName: String(managerName).replace(/\s*\(.*\)\s*$/,'').trim(),
