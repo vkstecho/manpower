@@ -162,10 +162,13 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
   const myMgr=(typeof SESSION!=='undefined'&&SESSION.role==='manager'&&SESSION.mobile)?_normMobileKey(SESSION.mobile):null;
   // Scan FULL employee cache (not only current team via getEmps) so other managers/teams are detected
   const all=(_cache&&_cache.employees)||[];
+  const _deadStatus=new Set(['resigned','removed','revoked','deleted','cleared_on_delete']);
   let hit=null;
   for(const e of all){
     if(!e) continue;
-    if(e.status==='resigned'||e.status==='removed'||e.status==='revoked') continue;
+    const st=String(e.status||'').toLowerCase();
+    if(_deadStatus.has(st)) continue;
+    if(e.forceFreshLogin===true) continue; // deleted account — treat as free number
     if(excludeEmpId&&e.id===excludeEmpId) continue;
     if(excludeEmpCode&&e.empId&&String(e.empId).trim().toUpperCase()===String(excludeEmpCode).trim().toUpperCase()) continue;
     if(_normMobileKey(e.phone||e.mobile||'')!==key) continue;
@@ -178,8 +181,15 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
   // Also check mobileUsers registry
   try{
     const mu=(_cache&&_cache.mobileUsers)||{};
-    const muRec=mu[key]||mu['+91'+key]||null;
-    if(muRec&&!hit){
+    const muRec=mu[key]||mu['+91'+key]||mu['91'+key]||null;
+    const muDead = muRec && (
+      _deadStatus.has(String(muRec.status||'').toLowerCase()) ||
+      _deadStatus.has(String(muRec.role||'').toLowerCase()) ||
+      muRec.forceFreshLogin === true
+    );
+    if(muRec && muDead){
+      // Tombstone / deleted account — number is free to re-register
+    }else if(muRec&&!hit){
       hit={emp:{id:muRec.empObjId||null,name:muRec.name||muRec.displayName||key,phone:key,role:muRec.role||'member',managerId:muRec.managerId||null,status:muRec.status},otherTeam:true,isManager:String(muRec.role||'').toLowerCase()==='manager',managerId:_normMobileKey(muRec.managerId||'')||null,fromMobileUsers:true};
     }else if(muRec&&hit){
       hit.isManager=hit.isManager||String(muRec.role||'').toLowerCase()==='manager';

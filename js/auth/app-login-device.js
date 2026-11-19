@@ -1117,7 +1117,7 @@ function _fbShowRecaptchaSlotNow(containerId){
         const hint = document.createElement('div');
         hint.className = 'rc-hint';
         hint.style.cssText = 'width:100%;text-align:center;font-size:12px;font-weight:700;color:#fbbf24;margin-bottom:6px';
-        hint.textContent = '🔐 सुरक्षा जाँच (required on laptop) — tick below, then Send OTP';
+        hint.textContent = '🔐 Security check (required on laptop) — tick below, then Send OTP';
         inline.insertBefore(hint, inline.firstChild);
       }
     }
@@ -1291,8 +1291,8 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         'opacity:1','visibility:visible','pointer-events:auto'
       ].join(';');
       var _secTitle = (typeof L==='function')
-        ? L('🔐 सुरक्षा जाँच — टिक के बाद OTP','🔐 सुरक्षा जाँच — tick the box, then wait for OTP')
-        : '🔐 सुरक्षा जाँच — tick the box, then wait for OTP';
+        ? L('🔐 सुरक्षा जाँच — टिक के बाद OTP','🔐 Security check — tick the box, then wait for OTP')
+        : '🔐 Security check — tick the box, then wait for OTP';
       bar.innerHTML = '<div class="rc-bar-title" style="color:#fbbf24;font-size:13px;font-weight:800;text-align:center;line-height:1.35;flex-shrink:0">'+_secTitle+'</div>';
 
       // Loading label OUTSIDE the Firebase host (container MUST be empty)
@@ -1370,7 +1370,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
         try{
           var hFail = document.getElementById(barCid);
           var lbF = document.getElementById('rcDesktopBarLoad');
-          if(lbF) lbF.innerHTML = '<span style="color:#f87171">सुरक्षा जाँच failed to load. Refresh page, allow google.com cookies, confirm domain in Firebase → Authentication → Settings → Authorized domains.</span>';
+          if(lbF) lbF.innerHTML = '<span style="color:#f87171">Security check failed to load. Refresh page, allow google.com cookies, confirm domain in Firebase → Authentication → Settings → Authorized domains.</span>';
           if(hFail) hFail.innerHTML = '';
         }catch(eH){}
         throw Object.assign(new Error('reCAPTCHA did not load — refresh page / check authorized domains'), { code: 'auth/captcha-render-failed' });
@@ -1502,7 +1502,7 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     _fbClearRecaptcha(key);
     // Fallback: one more visible attempt, then invisible last resort
     try{
-      toast(typeof L==='function' ? L('🔐 सुरक्षा जाँच फिर से…','🔐 सुरक्षा जाँच again…') : '🔐 सुरक्षा जाँच again…');
+      toast(typeof L==='function' ? L('🔐 सुरक्षा जाँच फिर से…','🔐 Security check again…') : '🔐 Security check again…');
       _fbShowRecaptchaSlotNow(cid);
       const verifier2 = await _fbMakeRecaptcha(cid, key, 'normal');
       return await withTimeout(
@@ -1544,8 +1544,8 @@ function _fbOtpErrorMessage(err){
   const raw = String((err && err.message) || err || '');
   if(code === 'auth/captcha-check-failed' || /captcha/i.test(raw))
     return (typeof L==='function')
-      ? L('सुरक्षा जाँच failed — page reload करें, checkbox ✓ करें, फिर Send OTP','सुरक्षा जाँच failed — reload page, tick checkbox, then Send OTP')
-      : 'सुरक्षा जाँच failed — reload page, tick checkbox, then Send OTP';
+      ? L('सुरक्षा जाँच failed — page reload करें, checkbox ✓ करें, फिर Send OTP','Security check failed — reload page, tick checkbox, then Send OTP')
+      : 'Security check failed — reload page, tick checkbox, then Send OTP';
   if(code === 'auth/too-many-requests')
     return (typeof L==='function')
       ? L('बहुत कोशिशें — 15–30 मिनट बाद try करें','Too many attempts — try again in 15–30 minutes')

@@ -382,6 +382,22 @@
     }
   }
 
+  function wdShiftDate(deltaDays){
+    try{
+      var inp = document.getElementById('wdDate');
+      if(!inp) return;
+      var base = inp.value || _wdToday();
+      var d = new Date(base + 'T12:00:00');
+      if(isNaN(d.getTime())) d = new Date();
+      d.setDate(d.getDate() + (deltaDays || 0));
+      var y = d.getFullYear();
+      var m = String(d.getMonth()+1).padStart(2,'0');
+      var day = String(d.getDate()).padStart(2,'0');
+      inp.value = y + '-' + m + '-' + day;
+      wdOnDateChange();
+    }catch(e){ console.warn('[workDiary] shiftDate', e); }
+  }
+
   function wdOnDateChange(){
     var inp = document.getElementById('wdDate');
     if(!inp || !inp.value) return;
@@ -613,6 +629,8 @@
     }catch(e){}
   };
   window.renderWorkDiary = renderWorkDiary;
+  window.wdShiftDate = wdShiftDate;
+  window.wdOnDateChange = wdOnDateChange;
   window.wdDownloadWord = wdDownloadWord;
 
   window.wdAddSlot = wdAddSlot;

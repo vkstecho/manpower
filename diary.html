@@ -20,8 +20,14 @@
     <div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--border2)">
       <div>
         <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Date</label>
-        <input type="date" id="wdDate" onchange="wdOnDateChange()"
-          style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+        <div style="display:flex;align-items:center;gap:6px">
+          <button type="button" id="wdPrevDay" onclick="wdShiftDate(-1)" title="Previous day" aria-label="Previous day"
+            style="width:40px;height:40px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:20px;font-weight:800;cursor:pointer;line-height:1;flex-shrink:0">‹</button>
+          <input type="date" id="wdDate" onchange="wdOnDateChange()"
+            style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;min-width:0">
+          <button type="button" id="wdNextDay" onclick="wdShiftDate(1)" title="Next day" aria-label="Next day"
+            style="width:40px;height:40px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:20px;font-weight:800;cursor:pointer;line-height:1;flex-shrink:0">›</button>
+        </div>
       </div>
       <div>
         <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Day</label>

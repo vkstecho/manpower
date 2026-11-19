@@ -390,7 +390,7 @@
       var msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'OTP failed';
       // Friendlier messages
       if(/too-many-requests/i.test(msg)) msg = _L('बहुत कोशिशें — कुछ देर बाद try करें','Too many attempts — try later');
-      else if(/captcha|recaptcha/i.test(msg)) msg = _L('सुरक्षा जाँच fail — page refresh करें','सुरक्षा जाँच failed — refresh page');
+      else if(/captcha|recaptcha/i.test(msg)) msg = _L('सुरक्षा जाँच fail — page refresh करें','Security check failed — refresh page');
       else if(/network|unavailable/i.test(msg)) msg = _L('Network error — internet check करें','Network error — check internet');
       try{ toast(L('❌ ','❌ ')+msg); }catch(x){}
       _delBakSetStatus(msg, true);

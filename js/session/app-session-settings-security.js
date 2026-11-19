@@ -614,6 +614,37 @@ async function confirmDeleteMyAccount(){
         }catch(eV){ console.warn('[deleteAccount] verify tombstone', eV); }
       }
     }catch(eC){}
+
+    // v6.0.59: hard-null any residual mobileUsers keys + clear phone on all employee rows matching this number
+    try{
+      for (var _hk of [mob, '+91'+mob, '91'+mob]) {
+        try{ await fbSet('mobileUsers/'+_hk, null); }catch(_he){}
+        try{ if(window._cache && _cache.mobileUsers) delete _cache.mobileUsers[_hk]; }catch(_hc){}
+      }
+    }catch(_hx){}
+    try{
+      const _allEmp = (window._cache && Array.isArray(_cache.employees)) ? _cache.employees : [];
+      const _nowIso = new Date().toISOString();
+      for (var _ei=0; _ei<_allEmp.length; _ei++){
+        var _ee = _allEmp[_ei];
+        if(!_ee || !_ee.id) continue;
+        var _eph = (typeof _normMobileKey==='function') ? _normMobileKey(_ee.phone||_ee.mobile||'') : String(_ee.phone||'').replace(/\D/g,'').slice(-10);
+        if(_eph === mob){
+          try{
+            await fbUpdate('employees/'+_ee.id, {
+              status: 'removed',
+              leftAt: _nowIso,
+              leftReason: 'self_delete_account_hard',
+              forceFreshLogin: true,
+              phone: null,
+              mobile: null,
+              phoneClearedAt: _nowIso
+            });
+          }catch(_eu){}
+        }
+      }
+    }catch(_ex){ console.warn('[deleteAccount] hard emp phone clear', _ex); }
+
     try{
       if(window._cache && _cache.mobileUsers){
         _muKeys.forEach(function(k){ try{ delete _cache.mobileUsers[k]; }catch(e){} });

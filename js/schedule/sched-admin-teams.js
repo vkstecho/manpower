@@ -15,11 +15,11 @@ if(!u)return void toast(L('❌ सदस्य डेटा नहीं मि�
     + L('Manager <b>'+safeName+'</b> · Team members: <b>'+memberCount+'</b>','Manager <b>'+safeName+'</b> · Team members: <b>'+memberCount+'</b>')
     + '</div>'
     + '<div style="display:flex;flex-direction:column;gap:10px">'
-    + '<button type="button" class="submit-btn" style="background:linear-gradient(135deg,#f97316,#ea580c)" onclick="closeModal();deleteManagerWithTeam(\''+String(mgrKey).replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\',\'manager_only\')">'
-    + L('👤 सिर्फ Manager Delete (Members → Individual)','👤 Manager only (Members → Individual)')+'</button>'
+    + '<button type="button" class="submit-btn" style="background:linear-gradient(135deg,#f97316,#ea580c);color:#ffffff!important;font-weight:800;font-size:14px;padding:14px 16px;text-align:left;line-height:1.35;min-height:48px" onclick="closeModal();deleteManagerWithTeam(\''+String(mgrKey).replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\',\'manager_only\')">'
+    + ('<span style="color:#fff!important;font-weight:800">'+L('👤 सिर्फ Manager Delete (Members → Individual)','👤 Manager only (Members → Individual)')+'</span>')+'</button>'
     + '<div style="font-size:11px;color:var(--muted2);margin:-4px 0 4px 4px">'+L('Members रहेंगे individual users — अपना schedule देख सकेंगे','Members stay as individual users — can see their own schedule')+'</div>'
-    + '<button type="button" class="submit-btn" style="background:linear-gradient(135deg,#f43f5e,#be123c)" onclick="closeModal();deleteManagerWithTeam(\''+String(mgrKey).replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\',\'full_team\')">'
-    + L('🗑️ Manager + पूरी Team Delete','🗑️ Manager + Full Team Delete')+'</button>'
+    + '<button type="button" class="submit-btn" style="background:linear-gradient(135deg,#f43f5e,#be123c);color:#ffffff!important;font-weight:800;font-size:14px;padding:14px 16px;text-align:left;line-height:1.35;min-height:48px" onclick="closeModal();deleteManagerWithTeam(\''+String(mgrKey).replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\',\'full_team\')">'
+    + ('<span style="color:#fff!important;font-weight:800">'+L('🗑️ Manager + पूरी Team Delete','🗑️ Manager + Full Team Delete')+'</span>')+'</button>'
     + '<div style="font-size:11px;color:var(--muted2);margin:-4px 0 4px 4px">'+L('सब कुछ हट जाएगा — next login fresh user','Everything removed — next login is fresh user')+'</div>'
     + '<button type="button" class="cancel-btn" onclick="closeModal()">'+L('रद्द करें','Cancel')+'</button>'
     + '</div>';
@@ -37,10 +37,13 @@ if(mode === "manager_only"){
   try{
     const nowIso = new Date().toISOString();
     const norm = function(p){ return (typeof _normMobileKey==="function") ? _normMobileKey(p||"") : String(p||"").replace(/\D/g,"").slice(-10); };
-    // Remove manager mobileUsers / managers
+    // Remove manager mobileUsers / managers (hard null so number can re-register)
     for(const k of [mk, mgrKey, "+91"+mk, "91"+mk]){
-      try{ await fbRemove("mobileUsers/"+k); }catch(e){ try{ await fbSet("mobileUsers/"+k, null); }catch(e2){} }
-      try{ await fbRemove("managers/"+k); }catch(e){}
+      try{ await fbRemove("mobileUsers/"+k); }catch(e){ try{ await fbSet("mobileUsers/"+k, null); }catch(e2){
+        try{ await fbSet("mobileUsers/"+k, {status:"removed",role:"removed",forceFreshLogin:true,deletedAt:nowIso,deletedBy:"admin"}); }catch(e3){}
+      }}
+      try{ await fbRemove("managers/"+k); }catch(e){ try{ await fbSet("managers/"+k, null); }catch(e2){} }
+      try{ if(window._cache && _cache.mobileUsers){ delete _cache.mobileUsers[k]; } }catch(e){}
     }
     try{ await fbRemove("paymentStatus/"+mk); }catch(e){}
     // Convert team employees to individual
