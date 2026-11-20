@@ -1866,29 +1866,7 @@ async function confirmUpgradeToManager(){
   const parentKey = (typeof _normMobileKey==='function') ? _normMobileKey(parentMgr) : String(parentMgr||'').replace(/\D/g,'').slice(-10);
   const now = new Date().toISOString();
   try{
-    // Employee row: become manager but remain under parent for view scope
-    if(empId && typeof fbUpdate==='function'){
-      const patch = {
-        role: 'manager',
-        accessLevel: 'manager',
-        isTeamManager: true,
-        managesTeam: true,
-        status: 'active',
-        updatedAt: now,
-        upgradedToManagerAt: now
-      };
-      if(parentKey && parentKey !== phone){
-        patch.managerId = parentKey; // stay linked to parent
-        patch.parentManagerId = parentKey;
-      }
-      if(company){
-        patch.company = company;
-        patch.companyLabel = company;
-      }
-      await fbUpdate('employees/'+empId, patch);
-      try{ if(emp) Object.assign(emp, patch); }catch(ex){}
-    }
-    // mobileUsers: manager for login + admin billing
+    // 1) mobileUsers FIRST — role flip unlocks employees writes under manager rules
     const muPatch = {
       role: 'manager',
       status: 'approved',
@@ -1902,14 +1880,55 @@ async function confirmUpgradeToManager(){
       name: SESSION.name || (emp && emp.name) || '',
       upgradedToManagerAt: now,
       updatedAt: now,
-      // teamSize / payUntil set by Admin when they have reports
-      teamSize: 0
+      teamSize: 0,
+      mobile: '+91'+phone,
+      phone: phone
     };
     if(typeof fbSet==='function'){
       const prev = (typeof fbGet==='function') ? (await fbGet('mobileUsers/'+phone).catch(()=>null)) || {} : {};
       await fbSet('mobileUsers/'+phone, Object.assign({}, prev, muPatch));
     } else if(typeof fbUpdate==='function'){
       await fbUpdate('mobileUsers/'+phone, muPatch);
+    }
+    // managers index (best-effort)
+    try{
+      if(typeof fbSet==='function'){
+        await fbSet('managers/'+phone, {
+          mobile: phone,
+          name: muPatch.name,
+          company: muPatch.company,
+          role: 'manager',
+          status: 'approved',
+          updatedAt: now
+        });
+      }
+    }catch(_mgrIdx){ console.warn('[upgrade] managers index', _mgrIdx); }
+    // 2) Employee row after mobileUsers is manager (rules allow manager writes)
+    if(empId && typeof fbUpdate==='function'){
+      const patch = {
+        role: 'manager',
+        accessLevel: 'manager',
+        isTeamManager: true,
+        managesTeam: true,
+        status: 'active',
+        updatedAt: now,
+        upgradedToManagerAt: now
+      };
+      if(parentKey && parentKey !== phone){
+        patch.managerId = parentKey;
+        patch.parentManagerId = parentKey;
+      }
+      if(company){
+        patch.company = company;
+        patch.companyLabel = company;
+      }
+      try{
+        await fbUpdate('employees/'+empId, patch);
+        try{ if(emp) Object.assign(emp, patch); }catch(ex){}
+      }catch(empErr){
+        console.warn('[upgrade] employees patch (non-fatal)', empErr);
+        // mobileUsers already upgraded — still succeed for login role
+      }
     }
     // Session flip to manager
     SESSION.role = 'manager';

@@ -1409,14 +1409,51 @@ function _selectRole(role){
   setTimeout(()=>{ if(role==='manager') showStep('mgrReg'); else { showStep('memReg'); _loadManagerOptions(); } },200);
 }
 
-async function _loadManagerOptions(){
+async function _loadManagerOptions(companyFilter){
   const sel=document.getElementById('memManagerSelect');
   const hint=document.getElementById('memNoManagerHint');
   if(!sel) return;
   sel.innerHTML='<option value="">-- Loading... --</option>';
   try{
     const data=await fbGet('mobileUsers');
-    const managers=data?Object.entries(data).filter(([k,v])=>v && v.role==='manager'&&v.status==='approved'):[];
+    let managers=data?Object.entries(data).filter(([k,v])=>v && v.role==='manager'&&v.status==='approved'):[];
+    // Smart company match: tokens from company name (e.g. "VKS Tech" → VKS, Tech)
+    // Show managers whose company contains any significant token
+    const rawCo = (companyFilter!=null ? String(companyFilter) : (document.getElementById('memCompany')?.value||'')).trim();
+    function _coTokens(s){
+      return String(s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(function(w){
+        return w.length>=2 && !/^(THE|AND|PVT|LTD|LLC|INC|CO|OF|FOR)$/.test(w);
+      });
+    }
+    function _coScore(mgrCo, tokens){
+      const hay = String(mgrCo||'').toUpperCase();
+      if(!tokens.length) return 0;
+      let score = 0;
+      tokens.forEach(function(tok){ if(hay.indexOf(tok)>=0) score += tok.length; });
+      // full phrase boost
+      if(rawCo && hay.indexOf(rawCo.toUpperCase())>=0) score += 100;
+      return score;
+    }
+    const tokens = _coTokens(rawCo);
+    if(tokens.length && managers.length){
+      const scored = managers.map(function(pair){
+        const v = pair[1]||{};
+        const co = v.company || v.companyLabel || v.companyName || '';
+        return { pair: pair, score: _coScore(co, tokens), co: co };
+      });
+      scored.sort(function(a,b){ return b.score - a.score || String(a.pair[1].name||'').localeCompare(String(b.pair[1].name||'')); });
+      const matched = scored.filter(function(s){ return s.score > 0; });
+      // Prefer matched; if none match, show all (so user is not stuck)
+      managers = (matched.length ? matched : scored).map(function(s){ return s.pair; });
+      // Mark matched vs others in label
+      window._mpMgrMatchMeta = scored.reduce(function(acc,s){
+        const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(s.pair[0]||s.pair[1].mobile||'') : String(s.pair[0]||'').replace(/\D/g,'').slice(-10);
+        acc[phoneKey] = s.score;
+        return acc;
+      }, {});
+    } else {
+      window._mpMgrMatchMeta = {};
+    }
     if(!managers.length){
       sel.innerHTML='<option value="">-- No Manager available --</option>';
       if(hint) hint.style.display='block';
@@ -1428,9 +1465,11 @@ async function _loadManagerOptions(){
       managers.map(([k,v])=>{
         const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(k||v.mobile||v.phone||'') : String(k||'').replace(/\D/g,'').slice(-10);
         const nm = String(v.name||phoneKey).replace(/"/g,'&quot;').replace(/</g,'');
-        const co = String(v.company||'—').replace(/</g,'');
+        const co = String(v.company||v.companyLabel||'—').replace(/</g,'');
         const masked = phoneKey && phoneKey.length>=4 ? (phoneKey.slice(0,2)+'●●●●●●'+phoneKey.slice(-2)) : phoneKey;
-        return `<option value="${escAttr(phoneKey)}" data-name="${escAttr(nm)}">${escHtml(nm)} (${escHtml(co)}) · ${escHtml(masked)}</option>`;
+        const score = (window._mpMgrMatchMeta && window._mpMgrMatchMeta[phoneKey]) || 0;
+        const tag = score>0 ? ' ★' : '';
+        return `<option value="${escAttr(phoneKey)}" data-name="${escAttr(nm)}" data-company="${escAttr(co)}" data-score="${score}">${escHtml(nm)} (${escHtml(co)})${tag} · ${escHtml(masked)}</option>`;
       }).join('');
   }catch(e){
     sel.innerHTML='<option value="">-- Error loading --</option>';

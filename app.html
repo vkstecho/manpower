@@ -1099,7 +1099,7 @@ html.mp-login-active, body.mp-login-active {
       <label class="inp-label">&#128100; Full Name *</label>
       <input class="inp-field" type="text" id="memName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
       <label class="inp-label">&#127970; Company Name *</label>
-      <input class="inp-field" type="text" id="memCompany" placeholder="Your company name" autocomplete="off" style="margin-bottom:10px">
+      <input class="inp-field" type="text" id="memCompany" oninput="try{_loadManagerOptions(this.value)}catch(e){}" onchange="try{_loadManagerOptions(this.value)}catch(e){}" placeholder="Your company name" autocomplete="off" style="margin-bottom:10px">
       <label class="inp-label">&#128100; Select your Manager *</label>
       <select class="inp-field" id="memManagerSelect" style="margin-bottom:10px">
         <option value="">-- Select Manager --</option>
