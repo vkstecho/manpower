@@ -313,6 +313,18 @@
           ".validate": "newData.hasChildren(['date','mobile']) && newData.child('mobile').val() === $mobile"
         }
       }
+    },
+    "workNotes": {
+      "$mobile": {
+        ".read": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))",
+        ".write": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))"
+      }
+    },
+    "workCalendar": {
+      "$mobile": {
+        ".read": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))",
+        ".write": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))"
+      }
     }
   }
 }

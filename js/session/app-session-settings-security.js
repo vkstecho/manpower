@@ -878,6 +878,22 @@ async function openJoinTeamModal(){
     });
     managers.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
   }catch(e){ console.warn('[joinTeam] load managers', e); }
+  // Prefill name / empCode from session + live mobileUsers
+  let _joinPrefName = String(SESSION.name||'').trim();
+  let _joinPrefCode = String(SESSION.empId||SESSION.empCode||'').trim();
+  try{
+    const myK = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||SESSION.uid||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
+    if(myK && typeof fbGet==='function'){
+      const self = await fbGet('mobileUsers/'+myK);
+      if(self){
+        const sn = String(self.name||self.displayName||'').trim();
+        const sd = sn.replace(/\D/g,'');
+        if(sn && !(sd.length>=10 && sd.slice(-10)===myK)) _joinPrefName = sn;
+        const sc = String(self.empCode||self.empId||self.code||'').trim();
+        if(sc) _joinPrefCode = sc;
+      }
+    }
+  }catch(_pj){}
   const opts = managers.map(function(m){
     return '<option value="'+m.mobile+'">'+String(m.name).replace(/</g,'')+' · +91-'+m.mobile+(m.company?' · '+String(m.company).replace(/</g,''):'')+'</option>';
   }).join('');
@@ -895,9 +911,9 @@ async function openJoinTeamModal(){
           + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager mobile','Manager mobile')+'</label>'
           + '<input id="joinTeamMgrManual" class="inp-field" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" style="width:100%;margin:6px 0 14px">'))
     + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('आपका नाम *','Your name *')+'</label>'
-    + '<input id="joinTeamName" class="inp-field" type="text" placeholder="'+T('पूरा नाम','Full name')+'" value="'+(String(SESSION.name||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 12px">'
+    + '<input id="joinTeamName" class="inp-field" type="text" placeholder="'+T('पूरा नाम','Full name')+'" value="'+(String(_joinPrefName||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 12px">'
     + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Employee Code / Emp ID','Employee Code / Emp ID')+'</label>'
-    + '<input id="joinTeamEmpCode" class="inp-field" type="text" placeholder="e.g. 30000422" value="'+(String(SESSION.empId||SESSION.empCode||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 14px">'
+    + '<input id="joinTeamEmpCode" class="inp-field" type="text" placeholder="e.g. 30000422" value="'+(String(_joinPrefCode||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 14px">'
     + '<div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px;line-height:1.4">'+T('Name Manager के Approve form में pre-fill होगा। Emp Code optional — Manager भी set कर सकता है।','Name is pre-filled on Manager Approve. Emp Code optional — Manager can set it too.')+'</div>'
     + '<button type="button" class="submit-btn" onclick="confirmJoinTeamRequest()">'+T('📩 Request भेजें','📩 Send request')+'</button>'
     + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+T('रद्द','Cancel')+'</button>';
@@ -944,14 +960,29 @@ async function confirmJoinTeamRequest(){
     let empCode = '';
     try{ empCode = (document.getElementById('joinTeamEmpCode')?.value||'').trim(); }catch(e){}
     if(!empCode) empCode = String(SESSION.empId||SESSION.empCode||'').trim();
-    // Preserve existing good name on mobileUsers if form somehow empty
+    // Preserve existing good name + empCode on mobileUsers (never overwrite with empty)
     let existing = null;
     try{ existing = await fbGet('mobileUsers/'+myMob); }catch(e){}
-    if(existing && existing.name){
-      const en = String(existing.name).trim();
-      const ed = en.replace(/\D/g,'');
-      if(en && !(ed.length>=10 && ed.slice(-10)===myMob) && (!name || name===myMob)) name = en;
-      if(!empCode && (existing.empCode||existing.empId)) empCode = String(existing.empCode||existing.empId||'').trim();
+    if(existing){
+      if(existing.name){
+        const en = String(existing.name).trim();
+        const ed = en.replace(/\D/g,'');
+        if(en && !(ed.length>=10 && ed.slice(-10)===myMob) && (!name || name===myMob)) name = en;
+      }
+      const exCode = String(existing.empCode||existing.empId||existing.code||'').trim();
+      if(!empCode && exCode) empCode = exCode;
+    }
+    // Also try employees roster by phone for code
+    if(!empCode){
+      try{
+        const all = (window._cache && _cache.employees) || (typeof getEmps==='function' ? getEmps() : []) || [];
+        const hit = (all||[]).find(function(e){
+          if(!e) return false;
+          const ph = (typeof _normMobileKey==='function') ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||'').replace(/\D/g,'').slice(-10);
+          return ph === myMob;
+        });
+        if(hit && (hit.empId||hit.empCode||hit.code)) empCode = String(hit.empId||hit.empCode||hit.code||'').trim();
+      }catch(_e){}
     }
     // Set pending under chosen manager — keeps individual history (empObjId)
     const payload = {
@@ -965,15 +996,23 @@ async function confirmJoinTeamRequest(){
       managerMobile: mgr,
       individual: false,
       forceFreshLogin: false,
-      empObjId: SESSION.empObjId || (existing && existing.empObjId) || null,
-      empId: empCode,
-      empCode: empCode,
+      empObjId: SESSION.empObjId || (existing && (existing.empObjId||existing.employeeId)) || null,
       joinRequestAt: now,
       updatedAt: now,
       registeredAt: (existing && existing.registeredAt) || now
     };
-    // Use set (full write) so name/empCode cannot stay stale from partial update
-    if(typeof fbSet==='function') await fbSet('mobileUsers/'+myMob, Object.assign({}, existing||{}, payload));
+    // Only write empCode/empId when we have a real value — never wipe existing with ""
+    if(empCode){
+      payload.empId = empCode;
+      payload.empCode = empCode;
+    } else if(existing && (existing.empCode||existing.empId)){
+      payload.empId = existing.empId || existing.empCode;
+      payload.empCode = existing.empCode || existing.empId;
+      empCode = String(payload.empCode||'');
+    }
+    // Merge carefully: start from existing, apply payload (empty emp fields already omitted)
+    const merged = Object.assign({}, existing||{}, payload);
+    if(typeof fbSet==='function') await fbSet('mobileUsers/'+myMob, merged);
     else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, payload);
     try{ SESSION.name = name; if(empCode){ SESSION.empId = empCode; SESSION.empCode = empCode; } }catch(e){}
     // Notify manager

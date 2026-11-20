@@ -642,4 +642,497 @@
   window.wdClearSearch = wdClearSearch;
   window.wdOpenDate = wdOpenDate;
   window.renderWorkDiary = renderWorkDiary;
+
+
+  // ═══════════════════════════════════════════
+  // MODE SWITCH: Diary | Notes | Calendar
+  // ═══════════════════════════════════════════
+  var _wdMode = 'diary';
+
+  function wdSetMode(mode){
+    _wdMode = mode || 'diary';
+    try{
+      document.querySelectorAll('.wd-mode-btn').forEach(function(b){
+        var on = b.getAttribute('data-wd-mode') === _wdMode;
+        b.classList.toggle('active', on);
+        if(on){
+          b.style.borderColor = 'rgba(249,115,22,.45)';
+          b.style.background = 'rgba(249,115,22,.12)';
+          b.style.color = '#ea580c';
+        } else {
+          b.style.borderColor = '';
+          b.style.background = '';
+          b.style.color = '';
+        }
+      });
+      var d = document.getElementById('wdDiaryPanel');
+      var n = document.getElementById('wdNotesPanel');
+      var c = document.getElementById('wdCalPanel');
+      if(d) d.style.display = (_wdMode==='diary') ? '' : 'none';
+      if(n) n.style.display = (_wdMode==='notes') ? '' : 'none';
+      if(c) c.style.display = (_wdMode==='calendar') ? '' : 'none';
+    }catch(e){}
+    if(_wdMode==='notes') wnLoad();
+    if(_wdMode==='calendar') wcLoad();
+  }
+
+  // ═══════════════════════════════════════════
+  // NOTES — Google Keep style (personal per mobile)
+  // Path: workNotes/{mobile}/{noteId}
+  // ═══════════════════════════════════════════
+  var _wnColors = [
+    {id:'default', bg:'#fff9c4'},
+    {id:'peach', bg:'#f8bbd0'},
+    {id:'mint', bg:'#c8e6c9'},
+    {id:'sky', bg:'#bbdefb'},
+    {id:'lavender', bg:'#e1bee7'},
+    {id:'orange', bg:'#ffe0b2'},
+    {id:'grey', bg:'#f5f5f5'}
+  ];
+  var _wnCache = {};
+
+  function _wnPath(id){
+    var mob = _wdMobile();
+    if(!mob) return null;
+    if(id) return 'workNotes/'+mob+'/'+id;
+    return 'workNotes/'+mob;
+  }
+
+  function wnOpenEditor(note){
+    try{
+      var ed = document.getElementById('wnEditor');
+      if(!ed) return;
+      ed.style.display = 'block';
+      document.getElementById('wnEditId').value = (note && note.id) || '';
+      document.getElementById('wnTitle').value = (note && note.title) || '';
+      document.getElementById('wnBody').value = (note && note.body) || '';
+      document.getElementById('wnPinned').checked = !!(note && note.pinned);
+      var del = document.getElementById('wnDeleteBtn');
+      if(del) del.style.display = (note && note.id) ? '' : 'none';
+      var row = document.getElementById('wnColorRow');
+      if(row){
+        var cur = (note && note.color) || 'default';
+        row.innerHTML = _wnColors.map(function(c){
+          var sel = c.id===cur ? 'outline:2px solid #0f172a;outline-offset:2px' : '';
+          return '<button type="button" data-wn-color="'+c.id+'" onclick="wnPickColor(\''+c.id+'\')" title="'+c.id+'" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(0,0,0,.12);background:'+c.bg+';cursor:pointer;'+sel+'"></button>';
+        }).join('');
+        row.setAttribute('data-selected', cur);
+      }
+      document.getElementById('wnStatus').textContent = '';
+      try{ document.getElementById('wnTitle').focus(); }catch(e){}
+    }catch(e){ console.warn('[wnOpenEditor]', e); }
+  }
+
+  function wnPickColor(id){
+    var row = document.getElementById('wnColorRow');
+    if(!row) return;
+    row.setAttribute('data-selected', id||'default');
+    row.querySelectorAll('button').forEach(function(b){
+      var on = b.getAttribute('data-wn-color') === id;
+      b.style.outline = on ? '2px solid #0f172a' : '';
+      b.style.outlineOffset = on ? '2px' : '';
+    });
+  }
+
+  function wnCloseEditor(){
+    try{
+      var ed = document.getElementById('wnEditor');
+      if(ed) ed.style.display = 'none';
+      document.getElementById('wnEditId').value = '';
+      document.getElementById('wnTitle').value = '';
+      document.getElementById('wnBody').value = '';
+      document.getElementById('wnPinned').checked = false;
+    }catch(e){}
+  }
+
+  async function wnSave(){
+    var mob = _wdMobile();
+    var st = document.getElementById('wnStatus');
+    if(!mob){
+      toast(typeof L==='function'?L('❌ मोबाइल लॉगिन ज़रूरी','❌ Mobile login required'):'❌ Mobile login required');
+      return;
+    }
+    var title = (document.getElementById('wnTitle')?.value||'').trim();
+    var body = (document.getElementById('wnBody')?.value||'').trim();
+    if(!title && !body){
+      toast(typeof L==='function'?L('⚠️ Title या note लिखें','⚠️ Enter a title or note'):'⚠️ Enter a title or note');
+      return;
+    }
+    var id = (document.getElementById('wnEditId')?.value||'').trim();
+    if(!id) id = 'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var color = 'default';
+    try{ color = document.getElementById('wnColorRow')?.getAttribute('data-selected') || 'default'; }catch(e){}
+    var pinned = !!(document.getElementById('wnPinned')?.checked);
+    var payload = {
+      id: id,
+      title: title,
+      body: body,
+      color: color,
+      pinned: pinned,
+      updatedAt: new Date().toISOString(),
+      createdAt: (_wnCache[id] && _wnCache[id].createdAt) || new Date().toISOString(),
+      mobile: mob
+    };
+    try{
+      if(typeof fbSet!=='function') throw new Error('Save unavailable');
+      await fbSet(_wnPath(id), payload);
+      _wnCache[id] = payload;
+      if(st) st.textContent = '✅ Saved';
+      toast(typeof L==='function'?L('✅ नोट सेव','✅ Note saved'):'✅ Note saved');
+      wnRenderList();
+      wnCloseEditor();
+    }catch(e){
+      console.warn('[wnSave]', e);
+      if(st) st.textContent = '❌ '+(e&&e.message?e.message:'Save failed');
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Save failed'));
+    }
+  }
+
+  async function wnDelete(){
+    var id = (document.getElementById('wnEditId')?.value||'').trim();
+    if(!id) return;
+    if(!confirm(typeof L==='function'?L('यह नोट डिलीट करें?','Delete this note?'):'Delete this note?')) return;
+    try{
+      var path = _wnPath(id);
+      if(typeof fbRemove==='function') await fbRemove(path);
+      else await fbSet(path, null);
+      delete _wnCache[id];
+      wnCloseEditor();
+      wnRenderList();
+      toast(typeof L==='function'?L('🗑️ नोट हटाया','🗑️ Note deleted'):'🗑️ Note deleted');
+    }catch(e){
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Delete failed'));
+    }
+  }
+
+  async function wnLoad(){
+    var mob = _wdMobile();
+    _wnCache = {};
+    if(!mob){
+      wnRenderList();
+      return;
+    }
+    try{
+      var data = await fbGet(_wnPath()) || {};
+      Object.keys(data).forEach(function(k){
+        var n = data[k];
+        if(!n || typeof n!=='object') return;
+        if(k==='_index') return;
+        n.id = n.id || k;
+        _wnCache[n.id] = n;
+      });
+    }catch(e){ console.warn('[wnLoad]', e); }
+    wnRenderList();
+  }
+
+  function wnRenderList(){
+    var grid = document.getElementById('wnGrid');
+    var empty = document.getElementById('wnEmpty');
+    if(!grid) return;
+    var q = String((document.getElementById('wnSearch')||{}).value||'').trim().toLowerCase();
+    var list = Object.keys(_wnCache).map(function(k){ return _wnCache[k]; }).filter(Boolean);
+    if(q){
+      list = list.filter(function(n){
+        return (String(n.title||'')+'\n'+String(n.body||'')).toLowerCase().indexOf(q)>=0;
+      });
+    }
+    list.sort(function(a,b){
+      if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
+    });
+    if(!list.length){
+      grid.innerHTML = '';
+      if(empty) empty.style.display = '';
+      return;
+    }
+    if(empty) empty.style.display = 'none';
+    var colorMap = {};
+    _wnColors.forEach(function(c){ colorMap[c.id]=c.bg; });
+    grid.innerHTML = list.map(function(n){
+      var bg = colorMap[n.color] || colorMap.default;
+      var title = _wdEsc(n.title||'(Untitled)');
+      var body = _wdEsc((n.body||'').slice(0,280));
+      var pin = n.pinned ? '<div class="wn-card-pin">📌 Pinned</div>' : '';
+      return '<div class="wn-card" style="background:'+bg+'" onclick="wnEdit(\''+String(n.id).replace(/'/g,"\\'")+'\')">'+
+        pin+'<div class="wn-card-title">'+title+'</div><div class="wn-card-body">'+body+'</div></div>';
+    }).join('');
+  }
+
+  function wnEdit(id){
+    var n = _wnCache[id];
+    if(n) wnOpenEditor(n);
+  }
+
+  // ═══════════════════════════════════════════
+  // CALENDAR — events + timed reminders
+  // Path: workCalendar/{mobile}/{eventId}
+  // ═══════════════════════════════════════════
+  var _wcCache = {};
+  var _wcTimers = {};
+
+  function _wcPath(id){
+    var mob = _wdMobile();
+    if(!mob) return null;
+    if(id) return 'workCalendar/'+mob+'/'+id;
+    return 'workCalendar/'+mob;
+  }
+
+  function wcRequestNotifPermission(){
+    try{
+      if(!('Notification' in window)){
+        toast(typeof L==='function'?L('⚠️ इस ब्राउज़र में notification नहीं','⚠️ Notifications not supported here'):'⚠️ Notifications not supported');
+        return;
+      }
+      Notification.requestPermission().then(function(p){
+        if(p==='granted') toast(typeof L==='function'?L('✅ Notifications on','✅ Notifications on'):'✅ Notifications on');
+        else toast(typeof L==='function'?L('Notifications बंद हैं — browser settings में allow करें','Notifications blocked — allow in browser settings'):'Notifications blocked');
+      });
+    }catch(e){ toast(String(e&&e.message||e)); }
+  }
+
+  function _wcFireNotif(ev){
+    try{
+      var title = ev.title || 'Reminder';
+      var body = (ev.date||'')+' '+(ev.time||'')+(ev.notes?(' · '+ev.notes):'');
+      if('Notification' in window && Notification.permission==='granted'){
+        try{ new Notification('📅 '+title, { body: body, tag: 'wc-'+ev.id }); }catch(e){}
+      }
+      try{
+        if(typeof toast==='function') toast('📅 '+title+(ev.time?(' · '+ev.time):''));
+      }catch(e){}
+      // In-app banner if available
+      try{
+        if(typeof showInAppBanner==='function') showInAppBanner('📅 '+title, body);
+      }catch(e){}
+    }catch(e){ console.warn('[wcFireNotif]', e); }
+  }
+
+  function _wcScheduleLocal(ev){
+    try{
+      if(_wcTimers[ev.id]){ clearTimeout(_wcTimers[ev.id]); delete _wcTimers[ev.id]; }
+      if(!ev || !ev.date || !ev.time) return;
+      var remindMin = parseInt(ev.remindMinutes, 10);
+      if(!isFinite(remindMin) || remindMin<0) remindMin = 15;
+      var when = new Date(ev.date+'T'+ev.time+':00');
+      if(isNaN(when.getTime())) return;
+      var fireAt = when.getTime() - remindMin*60*1000;
+      var delay = fireAt - Date.now();
+      if(delay < -60000) return; // already past by >1 min
+      if(delay < 0) delay = 500; // due now
+      // setTimeout max ~24 days; only schedule if within ~20 days
+      if(delay > 20*24*3600*1000) return;
+      _wcTimers[ev.id] = setTimeout(function(){
+        _wcFireNotif(ev);
+        delete _wcTimers[ev.id];
+      }, delay);
+    }catch(e){ console.warn('[wcScheduleLocal]', e); }
+  }
+
+  function _wcRescheduleAll(){
+    Object.keys(_wcTimers).forEach(function(k){ try{ clearTimeout(_wcTimers[k]); }catch(e){} });
+    _wcTimers = {};
+    Object.keys(_wcCache).forEach(function(k){ _wcScheduleLocal(_wcCache[k]); });
+  }
+
+  function wcOpenEditor(ev){
+    try{
+      var ed = document.getElementById('wcEditor');
+      if(!ed) return;
+      ed.style.display = 'block';
+      document.getElementById('wcEditId').value = (ev && ev.id) || '';
+      document.getElementById('wcTitle').value = (ev && ev.title) || '';
+      document.getElementById('wcDate').value = (ev && ev.date) || _wdToday();
+      document.getElementById('wcTime').value = (ev && ev.time) || '09:00';
+      document.getElementById('wcNotes').value = (ev && ev.notes) || '';
+      var rem = document.getElementById('wcRemind');
+      if(rem) rem.value = String((ev && ev.remindMinutes!=null)?ev.remindMinutes:15);
+      var del = document.getElementById('wcDeleteBtn');
+      if(del) del.style.display = (ev && ev.id) ? '' : 'none';
+      document.getElementById('wcStatus').textContent = '';
+      try{ document.getElementById('wcTitle').focus(); }catch(e){}
+    }catch(e){ console.warn('[wcOpenEditor]', e); }
+  }
+
+  function wcCloseEditor(){
+    try{
+      var ed = document.getElementById('wcEditor');
+      if(ed) ed.style.display = 'none';
+      document.getElementById('wcEditId').value = '';
+    }catch(e){}
+  }
+
+  async function wcSave(){
+    var mob = _wdMobile();
+    var st = document.getElementById('wcStatus');
+    if(!mob){
+      toast(typeof L==='function'?L('❌ मोबाइल लॉगिन ज़रूरी','❌ Mobile login required'):'❌ Mobile login required');
+      return;
+    }
+    var title = (document.getElementById('wcTitle')?.value||'').trim();
+    var date = (document.getElementById('wcDate')?.value||'').trim();
+    var time = (document.getElementById('wcTime')?.value||'').trim();
+    var notes = (document.getElementById('wcNotes')?.value||'').trim();
+    var remindMinutes = parseInt((document.getElementById('wcRemind')||{}).value, 10);
+    if(!isFinite(remindMinutes)) remindMinutes = 15;
+    if(!title){
+      toast(typeof L==='function'?L('⚠️ Title लिखें','⚠️ Enter a title'):'⚠️ Enter a title');
+      return;
+    }
+    if(!date || !time){
+      toast(typeof L==='function'?L('⚠️ Date और Time चुनें','⚠️ Pick date and time'):'⚠️ Pick date and time');
+      return;
+    }
+    var id = (document.getElementById('wcEditId')?.value||'').trim();
+    if(!id) id = 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    var payload = {
+      id: id,
+      title: title,
+      date: date,
+      time: time,
+      notes: notes,
+      remindMinutes: remindMinutes,
+      updatedAt: new Date().toISOString(),
+      createdAt: (_wcCache[id] && _wcCache[id].createdAt) || new Date().toISOString(),
+      mobile: mob
+    };
+    try{
+      if(typeof fbSet!=='function') throw new Error('Save unavailable');
+      await fbSet(_wcPath(id), payload);
+      _wcCache[id] = payload;
+      _wcScheduleLocal(payload);
+      if(st) st.textContent = '✅ Saved';
+      toast(typeof L==='function'?L('✅ इवेंट सेव','✅ Event saved'):'✅ Event saved');
+      // Prompt notification permission once
+      try{
+        if('Notification' in window && Notification.permission==='default'){
+          Notification.requestPermission();
+        }
+      }catch(e){}
+      wcRenderList();
+      wcCloseEditor();
+    }catch(e){
+      console.warn('[wcSave]', e);
+      if(st) st.textContent = '❌ '+(e&&e.message?e.message:'Save failed');
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Save failed'));
+    }
+  }
+
+  async function wcDelete(){
+    var id = (document.getElementById('wcEditId')?.value||'').trim();
+    if(!id) return;
+    if(!confirm(typeof L==='function'?L('यह इवेंट डिलीट करें?','Delete this event?'):'Delete this event?')) return;
+    try{
+      var path = _wcPath(id);
+      if(typeof fbRemove==='function') await fbRemove(path);
+      else await fbSet(path, null);
+      if(_wcTimers[id]){ clearTimeout(_wcTimers[id]); delete _wcTimers[id]; }
+      delete _wcCache[id];
+      wcCloseEditor();
+      wcRenderList();
+      toast(typeof L==='function'?L('🗑️ इवेंट हटाया','🗑️ Event deleted'):'🗑️ Event deleted');
+    }catch(e){
+      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Delete failed'));
+    }
+  }
+
+  async function wcLoad(){
+    var mob = _wdMobile();
+    _wcCache = {};
+    if(!mob){
+      wcRenderList();
+      return;
+    }
+    try{
+      var data = await fbGet(_wcPath()) || {};
+      Object.keys(data).forEach(function(k){
+        var n = data[k];
+        if(!n || typeof n!=='object') return;
+        n.id = n.id || k;
+        _wcCache[n.id] = n;
+      });
+    }catch(e){ console.warn('[wcLoad]', e); }
+    _wcRescheduleAll();
+    wcRenderList();
+  }
+
+  function wcRenderList(){
+    var box = document.getElementById('wcList');
+    var empty = document.getElementById('wcEmpty');
+    if(!box) return;
+    var list = Object.keys(_wcCache).map(function(k){ return _wcCache[k]; }).filter(Boolean);
+    list.sort(function(a,b){
+      var ka = String(a.date||'')+'T'+String(a.time||'');
+      var kb = String(b.date||'')+'T'+String(b.time||'');
+      return ka.localeCompare(kb);
+    });
+    var now = Date.now();
+    // show upcoming first (including today), then past collapsed at bottom
+    var upcoming = [];
+    var past = [];
+    list.forEach(function(ev){
+      var t = new Date((ev.date||'')+'T'+(ev.time||'00:00')+':00').getTime();
+      if(isNaN(t) || t >= now - 3600000) upcoming.push(ev);
+      else past.push(ev);
+    });
+    if(!list.length){
+      box.innerHTML = '';
+      if(empty) empty.style.display = '';
+      return;
+    }
+    if(empty) empty.style.display = 'none';
+    function row(ev){
+      var dayName = '';
+      try{ dayName = _wdDayName(ev.date); }catch(e){}
+      return '<div class="wc-item">'+
+        '<div class="wc-item-time">'+_wdEsc(ev.time||'')+'<div style="font-size:11px;color:var(--muted2);font-weight:700;margin-top:2px">'+_wdEsc(ev.date||'')+'</div></div>'+
+        '<div class="wc-item-body">'+
+          '<div class="wc-item-title">'+_wdEsc(ev.title||'')+'</div>'+
+          '<div class="wc-item-sub">'+_wdEsc(dayName)+(ev.remindMinutes!=null?(' · remind '+ev.remindMinutes+' min before'):'')+(ev.notes?(' · '+_wdEsc(String(ev.notes).slice(0,80))):'')+'</div>'+
+        '</div>'+
+        '<button type="button" onclick="wcEdit(\''+String(ev.id).replace(/'/g,"\\'")+'\')" style="padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);font-weight:700;cursor:pointer">Edit</button>'+
+      '</div>';
+    }
+    var html = '';
+    if(upcoming.length){
+      html += upcoming.map(row).join('');
+    }
+    if(past.length){
+      html += '<div style="font-size:12px;font-weight:800;color:var(--muted2);margin:14px 0 8px">Past</div>';
+      html += past.slice().reverse().slice(0,20).map(row).join('');
+    }
+    box.innerHTML = html;
+  }
+
+  function wcEdit(id){
+    var n = _wcCache[id];
+    if(n) wcOpenEditor(n);
+  }
+
+  // Hook mode into diary render
+  var _wdOldRender2 = renderWorkDiary;
+  renderWorkDiary = async function(){
+    await _wdOldRender2();
+    try{ wdSetMode(_wdMode || 'diary'); }catch(e){}
+    // Warm notes/calendar schedules in background
+    try{ wnLoad(); }catch(e){}
+    try{ wcLoad(); }catch(e){}
+  };
+
+  window.wdSetMode = wdSetMode;
+  window.wnOpenEditor = wnOpenEditor;
+  window.wnCloseEditor = wnCloseEditor;
+  window.wnSave = wnSave;
+  window.wnDelete = wnDelete;
+  window.wnPickColor = wnPickColor;
+  window.wnEdit = wnEdit;
+  window.wnRenderList = wnRenderList;
+  window.wcOpenEditor = wcOpenEditor;
+  window.wcCloseEditor = wcCloseEditor;
+  window.wcSave = wcSave;
+  window.wcDelete = wcDelete;
+  window.wcEdit = wcEdit;
+  window.wcRequestNotifPermission = wcRequestNotifPermission;
+  window.renderWorkDiary = renderWorkDiary;
+
+
 })();

@@ -3,7 +3,106 @@
   <div class="page-title" style="margin-bottom:4px">📔 Work Diary</div>
   <div class="page-sub" style="margin-bottom:12px" data-i18n-diary-sub>Date-wise personal diary · only you can see it</div>
 
-  <!-- Search -->
+  <!-- Mode switcher: Diary | Notes | Calendar -->
+  <div id="wdModeBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <button type="button" class="wd-mode-btn active" data-wd-mode="diary" onclick="wdSetMode('diary')"
+      style="padding:10px 16px;border-radius:12px;border:1.5px solid rgba(249,115,22,.45);background:rgba(249,115,22,.12);color:#ea580c;font-weight:800;cursor:pointer">📔 Diary</button>
+    <button type="button" class="wd-mode-btn" data-wd-mode="notes" onclick="wdSetMode('notes')"
+      style="padding:10px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">📝 Notes</button>
+    <button type="button" class="wd-mode-btn" data-wd-mode="calendar" onclick="wdSetMode('calendar')"
+      style="padding:10px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">📅 Calendar</button>
+  </div>
+
+  <!-- ═══ NOTES (Google Keep style) ═══ -->
+  <div id="wdNotesPanel" style="display:none;max-width:900px;margin:0 auto 20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <input type="search" id="wnSearch" placeholder="Search notes…"
+        style="flex:1;min-width:160px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:600"
+        oninput="wnRenderList()">
+      <button type="button" onclick="wnOpenEditor()"
+        style="padding:10px 16px;border-radius:12px;border:none;background:#f59e0b;color:#fff;font-weight:800;cursor:pointer">＋ New note</button>
+    </div>
+    <div id="wnEditor" style="display:none;margin-bottom:14px;padding:14px;border-radius:16px;border:1.5px solid var(--border2);background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,.08)">
+      <input type="hidden" id="wnEditId">
+      <input type="text" id="wnTitle" placeholder="Title"
+        style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:16px;font-weight:800;outline:none">
+      <textarea id="wnBody" placeholder="Take a note…" rows="5"
+        style="width:100%;box-sizing:border-box;padding:10px 12px;border:none;background:transparent;color:var(--text);font-size:14px;line-height:1.5;resize:vertical;outline:none;min-height:100px"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
+        <span style="font-size:11px;font-weight:700;color:var(--muted2)">Colour</span>
+        <div id="wnColorRow" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        <label style="margin-left:auto;font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;cursor:pointer">
+          <input type="checkbox" id="wnPinned"> Pin
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+        <button type="button" onclick="wnSave()"
+          style="padding:10px 16px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer">💾 Save</button>
+        <button type="button" onclick="wnCloseEditor()"
+          style="padding:10px 14px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;cursor:pointer">Close</button>
+        <button type="button" id="wnDeleteBtn" onclick="wnDelete()" style="display:none;padding:10px 14px;border-radius:10px;border:none;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;margin-left:auto">🗑️ Delete</button>
+      </div>
+      <div id="wnStatus" style="font-size:11px;color:var(--muted2);margin-top:8px"></div>
+    </div>
+    <div id="wnGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
+    <div id="wnEmpty" style="display:none;text-align:center;padding:28px;color:var(--muted2);font-weight:600">No notes yet — tap ＋ New note</div>
+  </div>
+
+  <!-- ═══ CALENDAR (reminders / events with time) ═══ -->
+  <div id="wdCalPanel" style="display:none;max-width:720px;margin:0 auto 20px">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <button type="button" onclick="wcOpenEditor()"
+        style="padding:10px 16px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">＋ Add event / reminder</button>
+      <button type="button" onclick="wcRequestNotifPermission()"
+        style="padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;cursor:pointer">🔔 Allow notifications</button>
+    </div>
+    <div id="wcEditor" style="display:none;margin-bottom:14px;padding:14px;border-radius:16px;border:1.5px solid var(--border2);background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,.08)">
+      <input type="hidden" id="wcEditId">
+      <div class="field" style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Title *</label>
+        <input type="text" id="wcTitle" class="inp-field" placeholder="e.g. Team meeting / Report due" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted2)">Date *</label>
+          <input type="date" id="wcDate" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted2)">Time *</label>
+          <input type="time" id="wcTime" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Notes</label>
+        <textarea id="wcNotes" rows="3" placeholder="Optional details…" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:14px;resize:vertical"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:10px">
+        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Remind me</label>
+        <select id="wcRemind" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+          <option value="0">At event time</option>
+          <option value="5">5 minutes before</option>
+          <option value="15" selected>15 minutes before</option>
+          <option value="30">30 minutes before</option>
+          <option value="60">1 hour before</option>
+          <option value="1440">1 day before</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button type="button" onclick="wcSave()"
+          style="padding:10px 16px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer">💾 Save</button>
+        <button type="button" onclick="wcCloseEditor()"
+          style="padding:10px 14px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;cursor:pointer">Close</button>
+        <button type="button" id="wcDeleteBtn" onclick="wcDelete()" style="display:none;padding:10px 14px;border-radius:10px;border:none;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;margin-left:auto">🗑️ Delete</button>
+      </div>
+      <div id="wcStatus" style="font-size:11px;color:var(--muted2);margin-top:8px"></div>
+    </div>
+    <div id="wcUpcoming" style="margin-bottom:8px;font-size:13px;font-weight:800;color:var(--text)">Upcoming</div>
+    <div id="wcList"></div>
+    <div id="wcEmpty" style="display:none;text-align:center;padding:28px;color:var(--muted2);font-weight:600">No events — tap ＋ Add event / reminder</div>
+  </div>
+
+  <!-- Search (diary mode) -->
+  <div id="wdDiaryPanel">
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <input type="search" id="wdSearchInput" placeholder="Search in your diaries…"
       style="flex:1;min-width:160px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:600"
@@ -75,8 +174,31 @@
       <div style="font-size:11px;color:var(--muted2);margin-top:6px">Word file (.doc) — only your diary. Range inclusive.</div>
     </div>
   </div>
+  </div><!-- /wdDiaryPanel -->
 </div>
 <style>
+.wd-mode-btn.active{
+  border-color:rgba(249,115,22,.55)!important;
+  background:rgba(249,115,22,.14)!important;
+  color:#ea580c!important;
+}
+.wn-card{
+  border-radius:14px;padding:12px 14px;min-height:90px;cursor:pointer;
+  border:1px solid rgba(0,0,0,.06);box-shadow:0 2px 8px rgba(0,0,0,.06);
+  transition:transform .12s ease, box-shadow .12s ease;
+}
+.wn-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.1)}
+.wn-card-title{font-weight:800;font-size:14px;margin-bottom:6px;color:#0f172a}
+.wn-card-body{font-size:13px;line-height:1.45;color:#334155;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:hidden}
+.wn-card-pin{font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px}
+.wc-item{
+  padding:12px 14px;border-radius:14px;border:1px solid var(--border2);background:var(--card);
+  margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;
+}
+.wc-item-time{min-width:72px;text-align:center;font-weight:800;color:#2563eb;font-size:13px;line-height:1.3}
+.wc-item-body{flex:1;min-width:0}
+.wc-item-title{font-weight:800;color:var(--text);font-size:14px}
+.wc-item-sub{font-size:12px;color:var(--muted2);margin-top:4px;line-height:1.4}
 .wd-block{
   margin-bottom:16px;
   padding:14px;
