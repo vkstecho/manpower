@@ -84,13 +84,14 @@ function _renderTeamMsBar(){
   }
   const n = _teamMsSelected.size;
   bar.style.display = 'block';
-  bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-    '<div style="font-weight:900;color:#fff;font-size:14px;flex:1;min-width:110px;text-shadow:0 1px 2px rgba(0,0,0,.45)">☑️ <span style="color:#fdba74">'+n+'</span> '+L('चयनित','selected')+'</div>'+
-    '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('सभी','All')+'</button>'+
-    '<button type="button" onclick="teamMsClearSelection()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
-    '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:8px 12px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:900;font-size:12px;cursor:pointer;opacity:'+(n?1:.45)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
-    '<button type="button" onclick="toggleTeamMultiSelectMode(false)" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:transparent;color:#94a3b8;font-weight:800;font-size:12px;cursor:pointer">'+L('बंद','Close')+'</button>'+
+  bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#fff">'+
+    '<div style="font-weight:900;color:#ffffff !important;font-size:15px;flex:1;min-width:120px;letter-spacing:.2px">☑️ <span style="color:#fdba74;font-size:18px">'+n+'</span> <span style="color:#f8fafc">'+L('चयनित','selected')+'</span></div>'+
+    '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('सभी','All')+'</button>'+
+    '<button type="button" onclick="teamMsClearSelection()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
+    '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:9px 14px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#ffffff;font-weight:900;font-size:13px;cursor:pointer;opacity:'+(n?1:.5)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
+    '<button type="button" onclick="toggleTeamMultiSelectMode(false)" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:#334155;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('बंद','Close')+'</button>'+
   '</div>';
+;
 }
 try{
   window.toggleTeamMultiSelectMode = toggleTeamMultiSelectMode;

@@ -398,8 +398,8 @@ const membersHtml=(function(){
   if(rosterRows.length){
     html+=`<div style="padding:8px 12px;border-top:1px solid var(--border2);font-size:11px;font-weight:800;color:var(--text)">📋 Roster (employees) · ${rosterRows.length}</div>`;
     html+=rosterRows.map(e=>{
-      const id=String(e.id||e.empId||"").replace(/'/g,"");
-      const nm=escHtml(String(e.name||e.empId||"—"));
+      const id=String(e.id||e.empId||e.phone||e.mobile||"").replace(/'/g,""); const _dispName=(e.name&&String(e.name).trim()&&String(e.name).trim()!==String(e.empId||""))?e.name:(e.empId?("Emp "+e.empId):(e.phone||e.mobile||"Employee"));
+      const nm=escHtml(String(_dispName||"—"));
       const ph=escHtml(String(e.phone||e.mobile||"—"));
       const code=escHtml(String(e.empId||""));
       return `<div class="adm-mem-row" style="padding:10px 12px;border-top:1px solid var(--border2);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -407,8 +407,10 @@ const membersHtml=(function(){
               <div style="font-size:13px;font-weight:700;color:var(--text)">👷 ${nm}</div>
               <div style="font-size:11px;color:#64748b">${code?("ID "+code+" · "):""}📱 ${ph}</div>
             </div>
-            <button type="button" onclick="event.stopPropagation();try{if(typeof openEditEmpModal==='function')openEditEmpModal('${id}');else if(typeof editEmp==='function')editEmp('${id}');else toast('Open Team tab to edit');}catch(ex){}" style="font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid rgba(37,99,235,.35);background:rgba(37,99,235,.1);color:#1d4ed8;font-weight:800;cursor:pointer">Edit</button>
-            <button type="button" onclick="event.stopPropagation();try{if(typeof adminRemoveRosterEmp==='function')adminRemoveRosterEmp('${id}','${String(e.name||'').replace(/'/g,"\'")}');else if(typeof deleteEmp==='function')deleteEmp('${id}');}catch(ex){}" style="font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.35);background:rgba(244,63,94,.1);color:#e11d48;font-weight:800;cursor:pointer">Remove</button>`;
+            <div style="display:flex;gap:6px;flex-shrink:0;margin-left:auto">
+              <button type="button" onclick="event.stopPropagation();adminOpenEditRosterEmp('${id}')" style="font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid rgba(37,99,235,.45);background:#eff6ff;color:#1d4ed8;font-weight:800;cursor:pointer;white-space:nowrap">Edit</button>
+              <button type="button" onclick="event.stopPropagation();adminRemoveRosterEmp('${id}','${String(e.name||e.empId||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")}')" style="font-size:11px;padding:6px 10px;border-radius:8px;border:1px solid rgba(244,63,94,.45);background:#fff1f2;color:#e11d48;font-weight:800;cursor:pointer;white-space:nowrap">Remove</button>
+            </div>`;
     }).join("");
   }
   if(!html) html=`<div style="padding:10px 12px;border-top:1px solid var(--border2);font-size:11px;color:#64748b">${noMemLbl}</div>`;
@@ -1603,4 +1605,57 @@ function _mpCalcDefaults(){
     currentTeam: currentTeam
   };
 }
+
+
+
+/** v6.0.72: Admin roster Edit/Remove — resolve by Firebase id, empId, or phone */
+function adminOpenEditRosterEmp(ref){
+  try{
+    if(typeof openEditEmpForm==='function'){ openEditEmpForm(ref); return; }
+  }catch(e){ console.warn(e); }
+  try{ toast(L('Team टैब में Edit खोलें','Open Edit from Team tab')); }catch(e){}
+}
+async function adminRemoveRosterEmp(ref, label){
+  const key = String(ref||'').trim();
+  const list = (typeof getEmps==='function'?getEmps():(_cache&&_cache.employees)||[])||[];
+  let e = list.find(x=>x && String(x.id)===key);
+  if(!e) e = list.find(x=>x && String(x.empId||'')===key);
+  if(!e){
+    const k = key.replace(/\D/g,'').slice(-10);
+    if(k.length===10) e = list.find(x=>x && String(x.phone||x.mobile||'').replace(/\D/g,'').slice(-10)===k);
+  }
+  if(!e || !e.id){
+    try{ toast(L('❌ Roster row नहीं मिला','❌ Roster row not found')); }catch(ex){}
+    return;
+  }
+  const nm = label || e.name || e.empId || e.id;
+  if(!confirm((typeof L==='function'?L('हटाएँ? ','Remove? '):'Remove? ')+nm)) return;
+  try{
+    if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ Auth','❌ Auth')); return; } }
+    // Soft-remove from roster (keep history): left_team + clear manager link
+    const patch = {
+      status: 'left_team',
+      managerId: null,
+      leftTeamAt: new Date().toISOString(),
+      leftTeamBy: (typeof SESSION!=='undefined' && SESSION.name) ? SESSION.name : 'admin'
+    };
+    if(typeof fbUpdate==='function') await fbUpdate('employees/'+e.id, patch);
+    else if(typeof _mpFbUpdate==='function') await _mpFbUpdate('employees/'+e.id, patch);
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(_i){}
+    try{ if(_cache && Array.isArray(_cache.employees)){
+      _cache.employees = _cache.employees.map(x=> x && x.id===e.id ? Object.assign({}, x, patch) : x);
+    }}catch(_c){}
+    toast((typeof L==='function'?L('✅ Roster से हटाया','✅ Removed from roster'):'✅ Removed')+': '+nm);
+    try{ if(typeof renderAdminTeams==='function') renderAdminTeams();
+         else if(typeof renderAdminManagers==='function') renderAdminManagers();
+         else if(typeof renderTeam==='function') renderTeam(); }catch(_r){}
+  }catch(err){
+    console.error('[adminRemoveRosterEmp]', err);
+    toast(L('❌ ','❌ ')+(err&&err.message||err));
+  }
+}
+try{
+  window.adminOpenEditRosterEmp = adminOpenEditRosterEmp;
+  window.adminRemoveRosterEmp = adminRemoveRosterEmp;
+}catch(e){}
 

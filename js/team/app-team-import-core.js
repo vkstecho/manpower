@@ -311,6 +311,21 @@ function handleBulkImportFile(file){
       const prefer=wb.SheetNames.find(n=>/^(team|roster|employees|members)$/i.test(String(n||'').trim()))
         || wb.SheetNames.find(n=>/team|roster|employee|member/i.test(String(n||'')));
       if(prefer) sheetName=prefer;
+      // Prefer a sheet that actually has Name + Emp ID headers (avoids wrong/hidden sheets)
+      const scored = wb.SheetNames.map(function(sn){
+        try{
+          const raw = XLSX.utils.sheet_to_json(wb.Sheets[sn], {header:1, defval:''});
+          let score = 0;
+          for(let i=0;i<Math.min(raw.length,25);i++){
+            const cells = (raw[i]||[]).map(function(c){ return String(c||'').trim().toLowerCase(); });
+            const hasName = cells.some(function(c){ return c==='name' || c==='naam' || c==='नाम'; });
+            const hasCode = cells.some(function(c){ return /emp\s*id|e\s*code|emp\s*code|^code$|employee\s*id/.test(c); });
+            if(hasName && hasCode){ score = 100 - i; break; }
+          }
+          return { sn: sn, score: score };
+        }catch(e){ return { sn: sn, score: 0 }; }
+      }).sort(function(a,b){ return b.score - a.score; });
+      if(scored[0] && scored[0].score > 0) sheetName = scored[0].sn;
     }catch(x){}
     const sheet=wb.Sheets[sheetName];
     // sheet_to_json with header row — if first rows look like instructions (no Name header), try next rows via header:1 path in processor
@@ -352,6 +367,30 @@ function handleBulkImportFile(file){
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+
+/** Reject base64 / token-like garbage that sometimes appears when wrong sheet or corrupted XLSX is parsed */
+function _isGarbageImportName(s){
+  const v = String(s||'').trim();
+  if(!v) return true;
+  if(v.length > 48) return true;
+  // long mixed alphanumeric with no space (typical base64 tokens)
+  if(v.length >= 18 && !/\s/.test(v) && /^[A-Za-z0-9+\/=_-]+$/.test(v)){
+    const hasLower = /[a-z]/.test(v), hasUpper = /[A-Z]/.test(v), hasDigit = /\d/.test(v);
+    if((hasLower && hasUpper) || (hasDigit && (hasLower||hasUpper) && v.length>=20)) return true;
+  }
+  // mostly non-letters
+  const letters = (v.match(/[A-Za-z\u0900-\u097F]/g)||[]).length;
+  if(v.length >= 8 && letters / v.length < 0.35) return true;
+  return false;
+}
+function _isGarbageImportCode(s){
+  const v = String(s||'').trim();
+  if(!v) return true;
+  if(v.length > 32) return true;
+  if(v.length >= 18 && !/\s/.test(v) && /^[A-Za-z0-9+\/=_-]+$/.test(v) && /[A-Za-z]/.test(v) && /\d/.test(v)) return true;
+  return false;
 }
 
 function _findCol(row,names){
@@ -533,6 +572,11 @@ function _processBulkImportRows(rows){
     const woff=_parseImportWoff(_findCol(row,['weekly off','week off','weekly holiday','woff','w-off','w off']));
 
     if(!name || !code){ invalidCount++; return; }
+    if(_isGarbageImportName(name) || _isGarbageImportCode(code)){
+      invalidCount++;
+      try{ console.warn('[import] skipped garbage row', name, code); }catch(_w){}
+      return;
+    }
     if(seenInFile.has(code)){ return; }
     seenInFile.add(code);
 

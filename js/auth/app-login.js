@@ -666,32 +666,53 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
 async function _tryLoginWithoutOtpIfApproved(mobile){
   const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
   if(!mob || mob.length!==10) return false;
+  async function _consumeBypass(reqKey){
+    try{
+      const clear = {
+        allowLoginWithoutOtp: false,
+        otpBypassUntil: null,
+        otpBypassConsumedAt: new Date().toISOString()
+      };
+      if(typeof _mpFbUpdate==='function') await _mpFbUpdate('mobileUsers/'+mob, clear);
+      else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+mob, clear);
+    }catch(e){ console.warn('[otpBypass] clear mobileUsers', e); }
+    if(reqKey){
+      try{
+        const patch = { usedAt: new Date().toISOString(), otpBypassConsumed: true, status: 'approved_used' };
+        if(typeof _mpFbUpdate==='function') await _mpFbUpdate('loginRequests/'+reqKey, patch);
+        else if(typeof fbUpdate==='function') await fbUpdate('loginRequests/'+reqKey, patch);
+      }catch(e2){ console.warn('[otpBypass] consume request', e2); }
+    }
+  }
   try{
-    // 1) mobileUsers stamp
     let ud = null;
     try{ ud = await _mpFbGet('mobileUsers/'+mob); }catch(e){}
+    // 1) mobileUsers stamp — 5 min window, one-time
     if(ud && ud.allowLoginWithoutOtp){
       const until = ud.otpBypassUntil ? Date.parse(ud.otpBypassUntil) : 0;
-      if(!until || until > Date.now()){
+      if(until && until > Date.now()){
         const emp = { phone: mob, mobile: mob, name: ud.name||'', empId: ud.empId||ud.empCode||'', id: ud.empObjId||ud.employeeId||'' };
         await doLoginAfterApproval(emp, ud, (typeof getDeviceId==='function'?getDeviceId():'')||'web');
+        await _consumeBypass(null);
         return true;
       }
     }
-    // 2) recent approved loginRequests for this mobile
+    // 2) recent approved loginRequests (5 min, not yet used)
     try{
       const all = await _mpFbGet('loginRequests') || {};
       const list = Object.entries(all).map(function(e){ return Object.assign({}, e[1], { _key: e[0] }); });
       list.sort(function(a,b){ return String(b.approvedAt||b.requestedAt||'').localeCompare(String(a.approvedAt||a.requestedAt||'')); });
       for(var i=0;i<list.length;i++){
         var r = list[i];
-        if(!r || r.status!=='approved') continue;
+        if(!r || (r.status!=='approved' && r.status!=='approved_used')) continue;
+        if(r.status==='approved_used' || r.usedAt || r.otpBypassConsumed) continue;
         var rm = String(r.mobile||r.phone||'').replace(/\D/g,'').slice(-10);
         if(rm!==mob) continue;
-        var at = Date.parse(r.approvedAt||r.requestedAt||0);
-        if(at && (Date.now()-at) > 7*24*3600*1000) continue; // older than 7 days
+        var at = Date.parse(r.approvedAt||0);
+        if(!at || (Date.now()-at) > 5*60*1000) continue;
         var emp = { phone: mob, mobile: mob, name: r.empName||r.name||'', empId: r.empId||'', id: r.empObjId||'' };
         await doLoginAfterApproval(emp, ud, r.deviceId||r.fromDevice||'web');
+        await _consumeBypass(r._key);
         return true;
       }
     }catch(e2){ console.warn('[otpBypass] loginRequests scan', e2); }
@@ -2479,7 +2500,7 @@ async function approveManagerLoginRequest(reqKey){
     try{
       const mob = String((rec && (rec.mobile||rec.phone))||'').replace(/\D/g,'').slice(-10);
       if(mob && mob.length===10){
-        const bypassUntil = new Date(Date.now()+7*24*3600*1000).toISOString(); // 7 days
+        const bypassUntil = new Date(Date.now()+5*60*1000).toISOString(); // 5 minutes one-time window
         const patch = {
           allowLoginWithoutOtp: true,
           loginApprovedAt: now,
@@ -2492,7 +2513,7 @@ async function approveManagerLoginRequest(reqKey){
         else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+mob, patch);
       }
     }catch(muErr){ console.warn('[approveLogin] mobileUsers bypass stamp', muErr); }
-    toast(L('✅ सदस्य अब लॉगिन कर सकते हैं (ओटीपी नहीं)','✅ Member can login now (no OTP)'));
+    toast(L('✅ 5 मिनट में एक बार बिना OTP लॉगिन करें','✅ One login without OTP within 5 minutes'));
     try{ renderPending(); }catch(e){}
   }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
 }

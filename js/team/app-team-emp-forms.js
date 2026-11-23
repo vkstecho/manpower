@@ -188,7 +188,16 @@ async function addEmployee(){
 }
 
 function openEditEmpForm(empId){
-  const e=getEmps().find(x=>x.id===empId); if(!e) return;
+  const key = String(empId||'').trim();
+  if(!key){ try{ toast(L('❌ कर्मचारी नहीं मिला','❌ Employee not found')); }catch(e){} return; }
+  const list = (typeof getEmps==='function'?getEmps():[])||[];
+  let e = list.find(x=>x && String(x.id)===key);
+  if(!e) e = list.find(x=>x && String(x.empId||'')===key);
+  if(!e){
+    const k = key.replace(/\D/g,'').slice(-10);
+    if(k.length===10) e = list.find(x=>x && String(x.phone||x.mobile||'').replace(/\D/g,'').slice(-10)===k);
+  }
+  if(!e){ try{ toast(L('❌ कर्मचारी नहीं मिला','❌ Employee not found')); }catch(ex){} return; }
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
   const statusSel = ['active','resigned'].map(s=>`<option value="${s}"${(e.status||'active')===s?' selected':''}>${s}</option>`).join('');
   const curSec = (e.section||e.sec||'');
