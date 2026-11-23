@@ -121,7 +121,10 @@ async function renderHome(){
     if(des.includes('engineer')||des.includes('supervisor')||des.includes('get')) return true;
     return false;
   };
-  const onDuty = sh => isWorking(sh) || sh==='D' || sh==='N' || sh==='G' || sh==='GP';
+  const _homeWorkCodes = new Set(['A','B','C','D','N','G']);
+  try{const c=getShiftConfigSync();(c.shifts||[]).forEach(x=>{if(x&&x.active!==false&&String(x.kind||'work').toLowerCase()==='work')_homeWorkCodes.add(String(x.code||'').trim().toUpperCase());});}catch(e){}
+  const _homeNonWorking = new Set(['O','OFF','WO','W','L','LV','LEAVE','CO','C/O','C-OFF','AB','ABS','HLF','H','OD','GP','REST']);
+  const onDuty = sh => {const code=String(sh||'').trim().toUpperCase();return _homeWorkCodes.has(code)&&!_homeNonWorking.has(code);};
   const isDay  = sh => sh==='D';
   const isNight= sh => sh==='N';
 

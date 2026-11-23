@@ -865,6 +865,28 @@ html.mp-login-active, body.mp-login-active {
   .mp-login-learn { padding: 8px !important; font-size: 12px !important; margin-top: 8px !important; }
 }
 </style>
+<style id="mp-login-light-regression-fix">
+/* Light login theme; overrides historical dark rules without changing authentication. */
+#loginScreen.show{background:linear-gradient(125deg,#f1f5fb 0%,#f8fbff 54%,#eaf2fc 100%) !important;color:#0f172a !important;}
+#loginScreen.show #mpDesktopPitch{color:#0f172a !important;}
+#loginScreen.show #mpDesktopPitch h1,#loginScreen.show #mpDesktopPitch h2{color:#0a1f44 !important;-webkit-text-fill-color:#0a1f44 !important;text-shadow:none !important;}
+#loginScreen.show #mpDesktopPitch p,#loginScreen.show #mpDesktopPitch .lead,#loginScreen.show #mpDesktopPitch li{color:#475569 !important;-webkit-text-fill-color:#475569 !important;}
+#loginScreen.show #mpDesktopPitch a{color:#1d4ed8 !important;}
+#loginScreen.show #loginStep1,#loginScreen.show #loginStep2{background:#ffffff !important;border:1px solid #d9e3ef !important;box-shadow:0 20px 48px rgba(15,35,70,.12) !important;color:#0f172a !important;}
+#loginScreen.show #loginStep1 .login-card,#loginScreen.show #loginStep2 .login-card,#loginScreen.show .mp-login-card.login-card{background:#f8fafc !important;border:1px solid #dce5f0 !important;box-shadow:none !important;color:#0f172a !important;}
+#loginScreen.show .mp-login-head .mp-login-brand,#loginScreen.show .mp-login-brand,#loginScreen.show #loginBrandTitle{color:#0a1f44 !important;-webkit-text-fill-color:#0a1f44 !important;}
+#loginScreen.show .mp-login-head .mp-login-headline,#loginScreen.show .mp-login-headline,#loginScreen.show .mp-login-field-label{color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;}
+#loginScreen.show .mp-login-trust,#loginScreen.show .mp-login-field-sub,#loginScreen.show .mp-login-refund{color:#64748b !important;}
+#loginScreen.show .mp-login-cc{background:#f1f5f9 !important;color:#0f172a !important;border-color:#cbd5e1 !important;}
+#loginScreen.show #loginMobile,#loginScreen.show #loginStep1 #loginMobile{background:#ffffff !important;color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;border:1px solid #cbd5e1 !important;letter-spacing:.35px !important;font-size:16px !important;min-width:0 !important;}
+#loginScreen.show #loginMobile::placeholder{color:#64748b !important;opacity:1 !important;letter-spacing:0 !important;font-size:14px !important;}
+#loginScreen.show .mp-login-lang,#loginScreen.show .mp-login-secondary a,#loginScreen.show .mp-login-secondary button{background:#f1f5f9 !important;color:#0f172a !important;border-color:#d4deeb !important;}
+#loginScreen.show .mp-login-faq .mp-faq-item{background:#f8fafc !important;color:#475569 !important;border-color:#dce5f0 !important;}
+#loginScreen.show .mp-login-faq .mp-faq-item summary{color:#0f172a !important;}
+#loginScreen.show #sendOtpBtn{color:#fff !important;}
+@media(min-width:960px){#loginScreen.show{grid-template-columns:minmax(0,440px) minmax(360px,420px) !important;justify-content:center !important;column-gap:clamp(36px,5vw,78px) !important;align-content:center !important;padding:26px 24px !important;}#loginScreen.show > #loginStep1{max-width:420px !important;width:100% !important;}}
+@media(max-width:959px){#loginScreen.show{padding:24px 14px !important;}#loginScreen.show > #loginStep1{max-width:420px !important;}}
+</style>
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->

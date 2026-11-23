@@ -117,7 +117,7 @@ if(d.minAll==null) d.minAll = 4;
   if(d.minSlit==null) d.minSlit = 3;
   if(d.minSup==null) d.minSup = 2;
   if(!d.minBySec || typeof d.minBySec !== 'object') d.minBySec = {};
-  if(!d.minGeneralByMachine || typeof d.minGeneralByMachine !== 'object') d.minGeneralByMachine = {};
+  if(d.minGeneralTotal==null) d.minGeneralTotal = 0;
   if(!d.minByField || typeof d.minByField !== 'object') d.minByField = { section:{}, machine:{}, responsibility:{}, designation:{} };
   ['section','machine','designation','responsibility'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
   if(!d.minFieldActive || typeof d.minFieldActive !== 'object'){
@@ -263,9 +263,10 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div id="ss_minSections" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('section')}</div>
   <div style="font-size:11px;font-weight:800;color:#38bdf8;margin:8px 0 6px">Machines <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minMachines" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('machine')}</div>
-  <div style="font-size:11px;font-weight:800;color:#2563eb;margin:10px 0 5px">General (G) Shift — Special Machine Minimum</div>
-  <div style="font-size:10px;color:#64748b;margin-bottom:8px">Optional: minimum for General shift per machine. 0 = no G shortage warning. Other shifts are unchanged.</div>
-  <div id="ss_generalMachineMin" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderGeneralMachineMinRows()}</div>
+  <div style="font-size:11px;font-weight:800;color:#2563eb;margin:10px 0 5px">General (G) Shift — Total Team Minimum</div>
+  <div style="font-size:10px;color:#64748b;margin-bottom:8px">Shown only in Schedule → All (total manpower). 0 = no G warning. This is NOT machine-wise.</div>
+  <label style="display:block;margin-bottom:12px"><span style="font-size:10px;color:var(--muted2)">Minimum General Shift manpower across entire team</span>
+  <input id="ss_minGeneralTotal" type="number" min="0" max="999" value="${Math.max(0,Number(d.minGeneralTotal)||0)}" style="display:block;width:100%;padding:9px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minGeneralTotal=Math.max(0,Number(this.value)||0)"></label>
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
   <div style="font-size:11px;font-weight:800;color:#4ade80;margin:8px 0 6px">Designation <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
@@ -582,20 +583,6 @@ function _renderDynamicMinRows(kind){
   }).join('');
 }
 
-function _renderGeneralMachineMinRows(){
-  if(!_shiftDraft.minGeneralByMachine || typeof _shiftDraft.minGeneralByMachine !== 'object') _shiftDraft.minGeneralByMachine={};
-  const vals=(typeof _teamFieldValues==='function')?_teamFieldValues('machine'):[];
-  if(!vals.length) return '<div style="grid-column:1/-1;font-size:11px;color:#64748b">No machines assigned yet.</div>';
-  return vals.map(v=>{
-    const val=Math.max(0,Number(_shiftDraft.minGeneralByMachine[v])||0);
-    const label=String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-    const key=String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    return '<label><span style="display:block;font-size:10px;color:var(--muted2);margin-bottom:4px">'+label+' — G Shift</span>'+
-      '<input type="number" min="0" max="50" value="'+val+'" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" '+
-      'oninput="if(!_shiftDraft.minGeneralByMachine)_shiftDraft.minGeneralByMachine={};_shiftDraft.minGeneralByMachine[\''+key+'\']=Math.max(0,Number(this.value)||0)"></label>';
-  }).join('');
-}
-
 function _renderMachineRows(field){
   return _shiftDraft[field].map((m,i)=>`
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap;min-width:0;max-width:100%;box-sizing:border-box">
@@ -657,8 +644,7 @@ async function _saveShiftSettings(){
       _shiftDraft.autoRotationMode = 'custom';
     }
   }catch(e){ /* keep existing sequence */ }
-  if(!_shiftDraft.minGeneralByMachine || typeof _shiftDraft.minGeneralByMachine!=='object') _shiftDraft.minGeneralByMachine={};
-  Object.keys(_shiftDraft.minGeneralByMachine).forEach(k=>{_shiftDraft.minGeneralByMachine[k]=Math.max(0,Number(_shiftDraft.minGeneralByMachine[k])||0);});
+  _shiftDraft.minGeneralTotal=Math.max(0,Number(_shiftDraft.minGeneralTotal)||0);
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;
