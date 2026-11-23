@@ -118,8 +118,12 @@
         reactions: {}
       };
       // Global record for admin history
+      // Announcement history is optional: inbox delivery must not be blocked by
+      // an older Firebase ruleset that lacks the announcements node.
+      let historySaved = false;
       if(typeof fbSet==='function'){
-        await fbSet('announcements/'+annId, payload);
+        try { await fbSet('announcements/'+annId, payload); historySaved = true; }
+        catch(historyErr){ console.warn('[announce] history unavailable; delivering inbox notifications',historyErr); }
       }
       // Per-user inbox (popup source)
       let ok = 0;
@@ -141,8 +145,12 @@
           ok++;
         }catch(e){ console.warn('[announce] push', m, e); }
       }
+      if(!ok){
+        try{ toast(_L('❌ Announcement delivery failed. Check Firebase permissions.','❌ Announcement delivery failed. Check Firebase permissions.')); }catch(e){}
+        return;
+      }
       try{ closeModal(); }catch(e){}
-      try{ toast(_L('✅ Announce post · '+ok+' users','✅ Announce posted · '+ok+' users')); }catch(e){}
+      try{ toast('📢 Delivered to '+ok+' / '+mobiles.length+' users'+(historySaved?'':' (history not saved)')); }catch(e){}
     }catch(err){
       console.error('[announce] post', err);
       try{ toast(L('❌ ','❌ ')+(err.message||L('पोस्ट विफल','Post failed'))); }catch(e){}
