@@ -201,7 +201,7 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
   let kind='member';
   if(hit.isManager){
     // manager with team if any emp has managerId === this phone
-    const teamCount=all.filter(x=>x&&_normMobileKey(x.managerId||'')===key&&x.status!=='resigned').length;
+    const teamCount=all.filter(x=>x&&_normMobileKey(x.managerId||'')===key&&x.status!=='resigned'&&_normMobileKey(x.phone||x.mobile||'')!==key).length;
     kind=teamCount>0?'manager_with_team':'manager_solo';
   }else if(hit.managerId&&myMgr&&hit.managerId!==myMgr){
     kind='member_other_team';

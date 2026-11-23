@@ -1048,13 +1048,16 @@ function bindMyShiftDragSelect(root){
           return;
         }
         // Tap (no drag): open single-day Select Shift picker
-        // Managers editing a member: single tap is enough (double-tap is unreliable on mobile).
-        // Own calendar (member self-edit): keep double-tap to avoid accidental opens while multi-selecting.
+        // v6.0.74: single tap opens picker when Multi-Select is OFF.
+        // Multi-Select ON still only toggles selection (handleMyShiftDayClick / drag path).
+        // Managers and users with canEditSchedule: single tap on own calendar too.
         if(drag.pending && !drag.moved){
           const key = drag.empId + '|' + drag.startDate;
           const now = Date.now();
           const ownId = (typeof myEmp==='function' && myEmp()) ? myEmp().id : (SESSION && SESSION.empObjId);
           const isEditingOther = !!(drag.empId && ownId && String(drag.empId) !== String(ownId));
+          const canEdit = (typeof canEditSchedule==='function') ? !!canEditSchedule() : false;
+          const multiOn = !!window._myShiftMultiMode;
           const openPicker = function(){
             try{
               if(typeof editShiftCell === 'function'){
@@ -1062,7 +1065,9 @@ function bindMyShiftDragSelect(root){
               }
             }catch(e){ console.warn('[myShift cell tap]', e); }
           };
-          if(isEditingOther){
+          if(multiOn){
+            // multi-select handled elsewhere; do not open picker
+          } else if(isEditingOther || canEdit){
             openPicker();
           } else if(lastTapKey === key && (now - lastTapAt) < 350){
             lastTapAt = 0; lastTapKey = '';

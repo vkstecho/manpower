@@ -407,12 +407,19 @@ async function saveEmployee(empId){
   }
 
   // Phone clash — live check across all teams + mobileUsers
+  // v6.0.74: never treat manager self-edit as a transfer clash
   if(update.phone){
     update.phone = (typeof _normMobileKey==='function' ? _normMobileKey(update.phone) : String(update.phone).replace(/\D/g,'').slice(-10));
   }
-  if(update.phone && update.phone.length === 10){
-    const selfPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
-    if(update.phone !== selfPhone){
+  const _isSelfMgrEdit = !!(e && typeof isManagerSelfRecord==='function' && isManagerSelfRecord(e));
+  if(_isSelfMgrEdit){
+    update.phone = (typeof _normMobileKey==='function' ? _normMobileKey(SESSION.mobile||SESSION.uid||e.phone||e.mobile||update.phone||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
+    update.mobile = update.phone;
+  } else if(update.phone && update.phone.length === 10){
+    const selfPhone = e ? _normMobileKey(e.phone||e.mobile||SESSION.mobile||'') : _normMobileKey(SESSION.mobile||'');
+    const sessionPhone = _normMobileKey(SESSION.mobile||SESSION.uid||'');
+    // Same as stored phone OR same as logged-in session → not a clash
+    if(update.phone !== selfPhone && update.phone !== sessionPhone){
       let clash = null;
       try{
         if(typeof _findPhoneConflictAsync==='function') clash = await _findPhoneConflictAsync(update.phone, empId, update.empId);

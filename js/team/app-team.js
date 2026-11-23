@@ -79,13 +79,15 @@ function _renderTeamMsBar(){
   if(!bar){
     bar = document.createElement('div');
     bar.id = 'teamMultiSelectBar';
-    bar.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:1200;display:none;padding:10px 12px;border-radius:14px;background:rgba(15,23,42,.96);border:1px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.45);';
+    bar.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:1200;display:none;padding:10px 12px;border-radius:14px;background:#0f172a !important;border:1px solid rgba(249,115,22,.55);box-shadow:0 8px 28px rgba(0,0,0,.5);color:#ffffff !important;';
     document.body.appendChild(bar);
   }
   const n = _teamMsSelected.size;
   bar.style.display = 'block';
-  bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#fff">'+
-    '<div style="font-weight:900;color:#ffffff !important;font-size:15px;flex:1;min-width:120px;letter-spacing:.2px">☑️ <span style="color:#fdba74;font-size:18px">'+n+'</span> <span style="color:#f8fafc">'+L('चयनित','selected')+'</span></div>'+
+  bar.style.background = '#0f172a';
+  bar.style.color = '#ffffff';
+  bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#ffffff !important">'+
+    '<div style="font-weight:900;color:#ffffff !important;font-size:15px;flex:1;min-width:120px;letter-spacing:.2px;-webkit-text-fill-color:#ffffff">☑️ <span style="color:#fdba74 !important;font-size:18px;-webkit-text-fill-color:#fdba74">'+n+'</span> <span style="color:#f8fafc !important;-webkit-text-fill-color:#f8fafc">'+L('चयनित','selected')+'</span></div>'+
     '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('सभी','All')+'</button>'+
     '<button type="button" onclick="teamMsClearSelection()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
     '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:9px 14px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#ffffff;font-weight:900;font-size:13px;cursor:pointer;opacity:'+(n?1:.5)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
