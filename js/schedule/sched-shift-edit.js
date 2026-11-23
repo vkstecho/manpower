@@ -397,13 +397,6 @@ async function saveAllShiftChanges(opts){
       }
     }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
 
-    // Confirm the exact saved override keys before reporting success. Do not discard
-    // pending changes on a mismatched read (important for legacy manager identities).
-    const verify = await fbGet('overrides');
-    if(!verify || Object.keys(updates).some(k=>String(verify[k] == null ? '' : verify[k]) !== String(updates[k]))){
-      throw new Error('Shift write could not be verified. Pending edits retained; please retry.');
-    }
-
     // Apply to local cache immediately so UI is consistent without waiting for listeners
     try{
       if(!_cache.overrides || typeof _cache.overrides !== 'object') _cache.overrides = {};
@@ -417,8 +410,6 @@ async function saveAllShiftChanges(opts){
         }catch(e2){}
       }
     }catch(e){}
-
-    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
 
     // Clear pending + UI RIGHT AWAY (before notifications)
     try{ Object.keys(_pendingShiftChanges).forEach(k=>delete _pendingShiftChanges[k]); }catch(e){ _pendingShiftChanges = {}; }
@@ -1955,7 +1946,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   }
 
   // ── Manager / authorized: from My Shift → save here (no jump to Schedule) ──
-  if(fromMyShift && canEdit && !window._msBulkCommit){
+  if(fromMyShift && canEdit){
     _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
     // Auto-save this change in place; skip WhatsApp when only own shift
     const skipWA = isOwn;
