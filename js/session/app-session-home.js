@@ -796,7 +796,8 @@ function setMyShiftViewEmp(id){
 function handleMyShiftDayClick(ev, empId, empName, date, currentShift){
   try{
     if(ev){ ev.preventDefault(); ev.stopPropagation(); }
-    if(!canEditSchedule()){
+    const _own = (typeof myEmp==='function' && myEmp() && String(myEmp().id)===String(empId));
+    if(!canEditSchedule() && !_own){
       toast(L('❌ अनुसूची संपादन की अनुमति नहीं है','❌ No schedule edit permission'));
       return;
     }
@@ -1067,7 +1068,9 @@ function bindMyShiftDragSelect(root){
           };
           if(multiOn){
             // multi-select handled elsewhere; do not open picker
-          } else if(isEditingOther || canEdit){
+          } else if(isEditingOther || canEdit || (!isEditingOther && ownId && String(drag.empId) === String(ownId))){
+            // Own calendar must open even when a newly registered manager's claims are still syncing.
+            // The save/request path independently enforces write permissions.
             openPicker();
           } else if(lastTapKey === key && (now - lastTapAt) < 350){
             lastTapAt = 0; lastTapKey = '';
@@ -1332,6 +1335,9 @@ function clearMyShiftMulti(){
 }
 
 async function applyMyShiftBulk(empId, empName, shiftVal){
+  const own = (typeof myEmp==='function') ? myEmp() : null;
+  if(own && own.id && String(own.id)!=='undefined') { empId=own.id; empName=own.name||empName; }
+  if(!empId || String(empId)==='undefined') { toast(L('❌ कर्मचारी रिकॉर्ड नहीं मिला','❌ Employee record not found')); return; }
   if(!canEditSchedule()){ toast(L('❌ Permission नहीं','❌ No permission')); return; }
   const dates = Array.from(window._myShiftMultiSel || []).sort();
   if(!dates.length){ toast(L('कोई दिन चुना नहीं','No days selected')); return; }
@@ -1344,25 +1350,28 @@ async function applyMyShiftBulk(empId, empName, shiftVal){
       return;
     }catch(e){ console.warn(e); }
   }
+  // Batch staging must not launch one overlapping Firebase save per date.
+  // Earlier behavior could clear other pending dates mid-loop and report false success.
   let n=0;
-  for(const ds of dates){
-    try{
-      const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>x.id===empId);
-      const cur = emp ? (getShift(emp, ds)||'') : '';
-      if(typeof stageSingleShiftChange === 'function'){
-        stageSingleShiftChange(empId, empName, ds, cur, shiftVal);
-        n++;
-      } else if(typeof handleShiftBtnClick === 'function'){
-        handleShiftBtnClick(empId, empName, ds, cur, shiftVal);
-        n++;
-      }
-    }catch(e){ console.warn('bulk day', ds, e); }
-  }
+  window._msBulkCommit = true;
+  try{
+    for(const ds of dates){
+      try{
+        const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>String(x.id)===String(empId));
+        const cur = emp ? (getShift(emp, ds)||'') : '';
+        if(typeof stageSingleShiftChange === 'function'){
+          stageSingleShiftChange(empId, empName, ds, cur, shiftVal);
+          n++;
+        }
+      }catch(e){ console.warn('bulk day', ds, e); }
+    }
+  }finally{ window._msBulkCommit = false; }
   window._myShiftMultiSel = new Set();
   _hideMyShiftBulkBar();
-  toast('✅ '+n+' '+L('दिन staged — नीचे Save दबाएँ','days staged — tap Save below'));
-  try{ renderMyShift(); }catch(e){}
+  if(!n){ toast(L('❌ कोई बदलाव तैयार नहीं हुआ','❌ No changes staged')); return; }
   try{ if(typeof _updateSaveBar==='function') _updateSaveBar(); }catch(e){}
+  try{ renderMyShift(); }catch(e){}
+  toast('📝 '+n+' '+L('दिन तैयार — नीचे Save दबाएँ','days staged — tap Save below'));
 }
 
 
@@ -1391,7 +1400,7 @@ function renderMyShift(){/*v6033 colour lock*/try{if(typeof _forceShiftBadgeColo
   const el = document.getElementById('myShiftContent');
   if(!el) return;
   const e = myEmp();
-  if(!e){ el.innerHTML='<div class="empty"><div class="empty-icon">👤</div><div class="empty-text">Profile not found</div></div>'; return; }
+  if(!e || !e.id || String(e.id)==='undefined' || String(e.id)==='null'){ el.innerHTML='<div class="empty"><div class="empty-icon">👤</div><div class="empty-text">Employee identity unavailable. Refresh or contact admin; no shift will be saved to an invalid record.</div></div>'; return; }
   if(!_myShiftMonth) _myShiftMonth = new Date(TODAY_STR+'T12:00:00');
   const y = _myShiftMonth.getFullYear();
   const m = _myShiftMonth.getMonth();

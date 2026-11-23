@@ -96,6 +96,11 @@ function _updateSaveBar(){
 }
 
 function removePendingChange(empId, date){
+  if(!empId || String(empId)==='undefined' || String(empId)==='null'){
+    toast(L('❌ कर्मचारी पहचान उपलब्ध नहीं — पेज रीफ्रेश करें','❌ Employee identity missing — refresh the page'));
+    console.error('[shift] Refusing to stage shift with invalid employee key', {empId,date});
+    return;
+  }
   const key = empId+'__'+date;
   delete _pendingShiftChanges[key];
   // Restore the cell in the table to its original shift color
@@ -346,6 +351,7 @@ async function saveAllShiftChanges(opts){
     const updates = {};
     const metaUpdates = {};
     for(const e of entries){
+      if(!e.empId || String(e.empId)==='undefined' || String(e.empId)==='null') throw new Error('Invalid employee identity. Refresh and retry; no shifts were saved.');
       updates[e.empId+'_'+e.date] = e.newShift;
       if(e.coMeta && typeof e.coMeta==='object'){
         metaUpdates[e.empId+'_'+e.date] = Object.assign({
@@ -397,6 +403,13 @@ async function saveAllShiftChanges(opts){
       }
     }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
 
+    // Confirm the exact saved override keys before reporting success. Do not discard
+    // pending changes on a mismatched read (important for legacy manager identities).
+    const verify = await fbGet('overrides');
+    if(!verify || Object.keys(updates).some(k=>String(verify[k] == null ? '' : verify[k]) !== String(updates[k]))){
+      throw new Error('Shift write could not be verified. Pending edits retained; please retry.');
+    }
+
     // Apply to local cache immediately so UI is consistent without waiting for listeners
     try{
       if(!_cache.overrides || typeof _cache.overrides !== 'object') _cache.overrides = {};
@@ -410,6 +423,8 @@ async function saveAllShiftChanges(opts){
         }catch(e2){}
       }
     }catch(e){}
+
+    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
 
     // Clear pending + UI RIGHT AWAY (before notifications)
     try{ Object.keys(_pendingShiftChanges).forEach(k=>delete _pendingShiftChanges[k]); }catch(e){ _pendingShiftChanges = {}; }
@@ -1904,6 +1919,7 @@ function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, 
 }
 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){
+  if(!empId || String(empId)==='undefined' || String(empId)==='null'){ toast('Employee identity unavailable; shift not saved.'); return; }
   // v6.0.8: time entry is via explicit "Time" button in Select shift — not auto after every work shift
   try{ if(!window._msBulkCommit) closeModal(); }catch(e){}
   const key = empId+'__'+date;
@@ -1946,7 +1962,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   }
 
   // ── Manager / authorized: from My Shift → save here (no jump to Schedule) ──
-  if(fromMyShift && canEdit){
+  if(fromMyShift && canEdit && !window._msBulkCommit){
     _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
     // Auto-save this change in place; skip WhatsApp when only own shift
     const skipWA = isOwn;

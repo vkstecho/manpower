@@ -1301,16 +1301,19 @@ async function _checkUserAfterOTP(){
           // Resolve employee by mobile
           let empMatch = null;
           try{
-            const all = Object.values(await _mpFbGet('employees')||{}) || (_cache.employees||[]);
+            const employeeSnap = await _mpFbGet('employees');
+            const all = employeeSnap && typeof employeeSnap==='object' ? Object.entries(employeeSnap).filter(([k,v])=>k!=='undefined'&&v&&typeof v==='object').map(([k,v])=>({...v,id:k,_key:k,memberUid:k})) : (_cache.employees||[]);
             const mobKey = _normMobileKey(mobile);
             empMatch = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
-            if(!empMatch && userData.empObjId) empMatch = all.find(e=>e.id===userData.empObjId);
+            if(!empMatch && userData.empObjId) empMatch = all.find(e=>String(e.id)===String(userData.empObjId));
             if(!empMatch && (userData.empId||userData.empCode)){
               const code = String(userData.empId||userData.empCode).trim().toUpperCase();
               empMatch = all.find(e=>String(e.empId||'').trim().toUpperCase()===code);
             }
           }catch(e){}
           const empObjId = (empMatch&&empMatch.id) || userData.empObjId || userData.employeeId || '';
+          // Never authorize a manager's own shift using an unresolved/legacy identity.
+          if(empObjId==='undefined' || empObjId==='null') { toast('Account identity needs verification. Contact admin.'); return; }
           if(empObjId && (userData.role==='member' || userData.role==='worker' || userData.role==='manager')){
             let dRec = null;
             try{ dRec = await _mpFbGet('deviceApprovals/'+empObjId); }catch(e){}
@@ -1827,13 +1830,14 @@ async function _submitManagerReg(){
         isManagerSelf: true
       };
       if(existingId){
-        await _mpFbUpdate('employees/'+existingId, selfEmp);
+        await _mpFbUpdate('employees/'+existingId, Object.assign({id:existingId}, selfEmp));
         try{ userData.empObjId = existingId; }catch(x){}
         try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
       }else if(typeof fbPush==='function'){
         const newRef = await _mpFbPush('employees', selfEmp);
         const newId = (newRef && (newRef.key || newRef.name)) || null;
         if(newId){
+          try{ await _mpFbUpdate('employees/'+newId, {id:newId}); }catch(idErr){ console.warn('[mgrReg] record key saved but id hydration pending',idErr); }
           try{ userData.empObjId = newId; }catch(x){}
           try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
           try{
@@ -2048,7 +2052,7 @@ async function _resolveEmpByMobile(mobile){
     try{
       const snap = await _mpFbGet('employees');
       if(snap && typeof snap==='object'){
-        all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
+        all = Object.entries(snap).filter(([k,v])=>k!=='undefined'&&v&&typeof v==='object').map(([k,v])=>({...v, id:k, _key:k, memberUid:k}));
         _cache.employees = all;
       }
     }catch(e){}
@@ -2058,7 +2062,7 @@ async function _resolveEmpByMobile(mobile){
     try{
       const snap = await _mpFbGet('employees');
       if(snap && typeof snap==='object'){
-        all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
+        all = Object.entries(snap).filter(([k,v])=>k!=='undefined'&&v&&typeof v==='object').map(([k,v])=>({...v, id:k, _key:k, memberUid:k}));
         _cache.employees = all;
       }
     }catch(e){}

@@ -304,8 +304,8 @@
     "trainingCompletions": {
       ".read": "auth != null",
       ".write": "auth != null"
-    }
-,"workDiary": {
+    },
+    "workDiary": {
       "$mobile": {
         ".read": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))",
         ".write": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))",
@@ -325,6 +325,10 @@
         ".read": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))",
         ".write": "auth != null && auth.token.phone_number != null && (auth.token.phone_number.replace('+91','').replace('+','').endsWith($mobile) || auth.token.phone_number.replace('+','').endsWith($mobile))"
       }
+    },
+    "announcements": {
+      ".read": "auth != null",
+      ".write": "auth != null && (auth.token.admin === true || root.child('admins').child(auth.uid).val() === true || (auth.token.phone_number != null && (root.child('mobileUsers').child(auth.token.phone_number.replace('+91','')).child('role').val() === 'admin' || root.child('mobileUsers').child(auth.token.phone_number).child('role').val() === 'admin')))"
     }
   }
 }

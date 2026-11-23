@@ -997,15 +997,16 @@ function _normalizeOverrideShift(val){
  */
 function getShift(emp, dateStr){
   if(!emp || !dateStr) return '';
-  const cacheKey = String(emp.id||'') + '|' + String(emp.empId||'') + '|' + dateStr;
+  const cacheKey = String(emp._key||emp.id||'') + '|' + String(emp.empId||'') + '|' + dateStr;
   if(_shiftResCache.has(cacheKey)) return _shiftResCache.get(cacheKey);
 
   let result = '';
   const ov = getOverrides() || {};
   const keys = [];
-  if(emp.id) keys.push(emp.id+'_'+dateStr);
+  if(emp._key && emp._key!=='undefined') keys.push(emp._key+'_'+dateStr);
+  if(emp.id && emp.id!=='undefined' && !keys.includes(emp.id+'_'+dateStr)) keys.push(emp.id+'_'+dateStr);
+  // Legacy read-only compatibility: historical overrides may have used employee code.
   if(emp.empId) keys.push(String(emp.empId)+'_'+dateStr);
-  if(emp._key) keys.push(emp._key+'_'+dateStr);
 
   for(const k of keys){
     if(ov[k] != null && ov[k] !== ''){
