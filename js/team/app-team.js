@@ -43,7 +43,17 @@ function toggleTeamMsEmp(empId, ev){
     const cb = document.getElementById('teamMs_'+id);
     if(cb) cb.checked = _teamMsSelected.has(id);
     const card = document.getElementById('teamcard_'+id);
-    if(card) card.style.outline = _teamMsSelected.has(id) ? '2px solid rgba(249,115,22,.7)' : '';
+    if(card){
+      if(_teamMsSelected.has(id)){
+        card.style.outline = '3px solid #f97316';
+        card.style.background = 'rgba(249,115,22,.16)';
+        card.style.boxShadow = '0 0 0 1px rgba(249,115,22,.35)';
+      } else {
+        card.style.outline = '';
+        card.style.background = '';
+        card.style.boxShadow = '';
+      }
+    }
   }catch(e){}
   _renderTeamMsBar();
 }
@@ -75,7 +85,7 @@ function _renderTeamMsBar(){
   const n = _teamMsSelected.size;
   bar.style.display = 'block';
   bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-    '<div style="font-weight:900;color:#fff;font-size:13px;flex:1;min-width:90px">☑️ '+n+' '+L('चयनित','selected')+'</div>'+
+    '<div style="font-weight:900;color:#fff;font-size:14px;flex:1;min-width:110px;text-shadow:0 1px 2px rgba(0,0,0,.45)">☑️ <span style="color:#fdba74">'+n+'</span> '+L('चयनित','selected')+'</div>'+
     '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('सभी','All')+'</button>'+
     '<button type="button" onclick="teamMsClearSelection()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
     '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:8px 12px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:900;font-size:12px;cursor:pointer;opacity:'+(n?1:.45)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
@@ -255,7 +265,7 @@ function _renderTeamImpl(search=''){
         : `<div style="width:44px;height:44px;border-radius:10px;background:${s.bg||'rgba(148,163,184,.1)'};display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:19px;color:${s.color||'#fff'};flex-shrink:0">${ini}</div>`;
       const msOn = !!_teamMsMode;
       const msChecked = msOn && _teamMsSelected.has(String(e.id));
-      return `<div class="card" id="teamcard_${e.id}" style="${isMe?'border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04);':''}${msChecked?'outline:2px solid rgba(249,115,22,.7);':''}${msOn?'cursor:pointer;':''}" ${msOn?`onclick="toggleTeamMsEmp('${e.id}',event)"`:''}>
+      return `<div class="card" id="teamcard_${e.id}" style="${isMe?'border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04);':''}${msChecked?'outline:3px solid #f97316;background:rgba(249,115,22,.16);box-shadow:0 0 0 1px rgba(249,115,22,.35);':''}${msOn?'cursor:pointer;':''}" ${msOn?`onclick="toggleTeamMsEmp('${e.id}',event)"`:''}>
         <div class="card-row">
           ${msOn?`<div style="flex-shrink:0;padding:4px 2px 0 0" onclick="event.stopPropagation()"><input type="checkbox" id="teamMs_${e.id}" ${msChecked?'checked':''} onclick="toggleTeamMsEmp('${e.id}',event)" style="width:20px;height:20px;accent-color:#f97316;cursor:pointer"></div>`:''}
           ${avatarHtml}

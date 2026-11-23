@@ -248,6 +248,20 @@ async function _sendOTP(isResend){
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
 
+  // v6.0.70: Admin-approved login → skip SMS OTP when bypass stamp / approved request exists
+  if(!isResend){
+    try{
+      if(typeof _tryLoginWithoutOtpIfApproved==='function'){
+        const skipped = await _tryLoginWithoutOtpIfApproved(mobile);
+        if(skipped){
+          window._mpOtpSendInFlight = false;
+          try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
+          return;
+        }
+      }
+    }catch(bypassErr){ console.warn('[otp] bypass check', bypassErr); }
+  }
+
   window._mpOtpSendInFlight = true;
   try{ window._mpOtpSendStartedAt = Date.now(); }catch(e){}
   // Instant UI feedback — was delayed until after several Firebase reads
@@ -647,6 +661,44 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
  *  - Existing fully registered approved user → login
  *  - New / deleted / incomplete → Manager / Member choice + registration (same as OTP path)
  */
+
+/** v6.0.70: if Admin approved loginRequests OR mobileUsers.allowLoginWithoutOtp still valid → skip SMS */
+async function _tryLoginWithoutOtpIfApproved(mobile){
+  const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
+  if(!mob || mob.length!==10) return false;
+  try{
+    // 1) mobileUsers stamp
+    let ud = null;
+    try{ ud = await _mpFbGet('mobileUsers/'+mob); }catch(e){}
+    if(ud && ud.allowLoginWithoutOtp){
+      const until = ud.otpBypassUntil ? Date.parse(ud.otpBypassUntil) : 0;
+      if(!until || until > Date.now()){
+        const emp = { phone: mob, mobile: mob, name: ud.name||'', empId: ud.empId||ud.empCode||'', id: ud.empObjId||ud.employeeId||'' };
+        await doLoginAfterApproval(emp, ud, (typeof getDeviceId==='function'?getDeviceId():'')||'web');
+        return true;
+      }
+    }
+    // 2) recent approved loginRequests for this mobile
+    try{
+      const all = await _mpFbGet('loginRequests') || {};
+      const list = Object.entries(all).map(function(e){ return Object.assign({}, e[1], { _key: e[0] }); });
+      list.sort(function(a,b){ return String(b.approvedAt||b.requestedAt||'').localeCompare(String(a.approvedAt||a.requestedAt||'')); });
+      for(var i=0;i<list.length;i++){
+        var r = list[i];
+        if(!r || r.status!=='approved') continue;
+        var rm = String(r.mobile||r.phone||'').replace(/\D/g,'').slice(-10);
+        if(rm!==mob) continue;
+        var at = Date.parse(r.approvedAt||r.requestedAt||0);
+        if(at && (Date.now()-at) > 7*24*3600*1000) continue; // older than 7 days
+        var emp = { phone: mob, mobile: mob, name: r.empName||r.name||'', empId: r.empId||'', id: r.empObjId||'' };
+        await doLoginAfterApproval(emp, ud, r.deviceId||r.fromDevice||'web');
+        return true;
+      }
+    }catch(e2){ console.warn('[otpBypass] loginRequests scan', e2); }
+  }catch(e){ console.warn('[_tryLoginWithoutOtpIfApproved]', e); }
+  return false;
+}
+
 async function doLoginAfterApproval(emp, userData, deviceId){
   const mobile = String((emp && (emp.phone||emp.mobile)) || (userData && (userData.phone||userData.mobile)) || '')
     .replace(/\D/g,'').slice(-10);
@@ -2414,12 +2466,32 @@ function recoverStuckPendingStates(){
 async function approveManagerLoginRequest(reqKey){
   try{
     if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ प्रमाणीकरण आवश्यक','❌ Auth required')); return; } }
+    const now = new Date().toISOString();
+    let rec = null;
+    try{ rec = await _mpFbGet('loginRequests/'+reqKey); }catch(e){}
     await _mpFbUpdate('loginRequests/'+reqKey, {
       status:'approved',
-      approvedAt: new Date().toISOString(),
-      approvedBy: SESSION.name||'manager',
+      approvedAt: now,
+      approvedBy: SESSION.name||'admin',
       approvedById: SESSION.empObjId||SESSION.uid||''
     });
+    // v6.0.70: also stamp mobileUsers so NEXT login can skip OTP even if client was closed
+    try{
+      const mob = String((rec && (rec.mobile||rec.phone))||'').replace(/\D/g,'').slice(-10);
+      if(mob && mob.length===10){
+        const bypassUntil = new Date(Date.now()+7*24*3600*1000).toISOString(); // 7 days
+        const patch = {
+          allowLoginWithoutOtp: true,
+          loginApprovedAt: now,
+          loginApprovedBy: SESSION.name||'admin',
+          otpBypassUntil: bypassUntil,
+          updatedAt: now
+        };
+        // Keep existing role/status; only add bypass flags
+        if(typeof _mpFbUpdate==='function') await _mpFbUpdate('mobileUsers/'+mob, patch);
+        else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+mob, patch);
+      }
+    }catch(muErr){ console.warn('[approveLogin] mobileUsers bypass stamp', muErr); }
     toast(L('✅ सदस्य अब लॉगिन कर सकते हैं (ओटीपी नहीं)','✅ Member can login now (no OTP)'));
     try{ renderPending(); }catch(e){}
   }catch(e){ toast(L('❌ ','❌ ')+(e&&e.message||e)); }
