@@ -121,7 +121,7 @@ async function renderHome(){
     if(des.includes('engineer')||des.includes('supervisor')||des.includes('get')) return true;
     return false;
   };
-  const onDuty = sh => isWorking(sh) || sh==='D' || sh==='N' || sh==='G' || sh==='GP';
+  const onDuty = sh => { const raw=String(sh||'').trim().toUpperCase(); return ['A','B','C','D','N','G','GP','OD'].includes(raw) || (typeof parseShiftWorkCodes==='function' && parseShiftWorkCodes(raw).length>0); };
   const isDay  = sh => sh==='D';
   const isNight= sh => sh==='N';
 

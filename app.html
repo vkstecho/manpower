@@ -99,7 +99,7 @@ window.addEventListener('appinstalled', function () {
   <meta name="google" content="notranslate">
   <meta name="translate" content="no">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
-<meta name="theme-color" content="#0a0f1a">
+<meta name="theme-color" content="#f5f7fb">
 <title>Man Power — Automatic Shift Schedule for Indian Teams</title>
 <meta name="description" content="Man Power is a team and shift management PWA for Indian factories and supervisors — build rosters, manage leave, and train your team in one place.">
 <meta property="og:type" content="website">
@@ -124,7 +124,7 @@ window.addEventListener('appinstalled', function () {
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Man Power">
 <meta name="application-name" content="Man Power">
-<meta name="msapplication-TileColor" content="#0a0f1a">
+<meta name="msapplication-TileColor" content="#f5f7fb">
 <meta name="msapplication-TileImage" content="assets/icon-192.png">
 
 <link rel="icon" type="image/svg+xml" href="assets/mp-logo-transparent.png">
@@ -851,6 +851,48 @@ html.mp-login-active, body.mp-login-active {
   .mp-login-learn { padding: 8px !important; font-size: 12px !important; margin-top: 8px !important; }
 }
 </style>
+
+<style id="mp-login-light-20261123">
+/* Login-only redesign. Does not alter signed-in app themes or authentication handlers. */
+html.mp-login-active, body.mp-login-active {background:#f5f7fb !important;}
+#loginScreen.show {background:radial-gradient(circle at 10% 5%,#eaf2ff 0%,transparent 38%),linear-gradient(135deg,#f8fafc,#edf2f8) !important;color:#0f172a !important;}
+#loginScreen.show #mpDesktopPitch {color:#0f172a !important;}
+#loginScreen #mpDesktopPitch h1 {color:#0f172a !important;font-size:clamp(38px,4vw,58px);line-height:1.08;letter-spacing:-1px;margin:14px 0 !important;}
+#loginScreen #mpDesktopPitch h1::first-letter {color:#ea580c;}
+#loginScreen #mpDesktopPitch .lead {color:#475569 !important;line-height:1.7 !important;font-size:16px !important;max-width:480px;}
+#loginScreen #mpDesktopPitch .tag {background:#fff7ed !important;color:#9a3412 !important;border:1px solid #fed7aa !important;}
+#loginScreen #mpDesktopPitch .mp-tour-link a {color:#1d4ed8 !important;text-decoration:none !important;font-weight:700;}
+#loginScreen .mp-login-benefits {display:flex;flex-wrap:wrap;gap:10px;margin-top:24px;}
+#loginScreen .mp-login-benefits span {padding:10px 13px;background:#fff;border:1px solid #dbe3ef;border-radius:12px;color:#334155;font-size:12px;font-weight:800;box-shadow:0 2px 8px #0f172a08;}
+#loginScreen.show > #loginStep1 {background:#fff !important;border:1px solid #dce4ef !important;border-radius:24px !important;box-shadow:0 22px 60px rgba(15,23,42,.11) !important;padding:24px !important;max-width:420px !important;}
+#loginScreen .mp-login-head {margin-bottom:16px !important;gap:12px !important;}
+#loginScreen .mp-login-head .mp-login-logo-wrap {background:#fff7ed !important;border:1px solid #fed7aa !important;box-shadow:none !important;width:56px !important;height:56px !important;}
+#loginScreen .mp-login-head .mp-login-logo-img {width:45px !important;height:45px !important;}
+#loginScreen .mp-login-brand {background:none !important;color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;letter-spacing:1px !important;font-size:25px !important;}
+#loginScreen #loginOutcomeHeadline,#loginScreen .mp-login-headline {color:#475569 !important;text-shadow:none !important;font-size:12px !important;}
+#loginScreen .mp-login-lang {background:#f1f5f9 !important;color:#334155 !important;border:1px solid #dbe3ef !important;min-height:34px;}
+#loginScreen #loginStep1 .login-card.mp-login-card {background:#f8fafc !important;border:1px solid #e2e8f0 !important;box-shadow:none !important;padding:18px !important;border-radius:16px !important;}
+#loginScreen #loginMobileTitle,#loginScreen .mp-login-field-label {color:#0f172a !important;}
+#loginScreen #loginMobileTitleHi,#loginScreen .mp-login-field-sub,#loginScreen .mp-login-trust {color:#64748b !important;}
+#loginScreen .mp-login-cc {background:#fff !important;color:#0f172a !important;border:1px solid #cbd5e1 !important;display:flex;align-items:center;}
+#loginScreen #loginMobile,#loginScreen #otpInput,#loginScreen .inp-field {min-width:0 !important;box-sizing:border-box !important;background:#fff !important;background-color:#fff !important;color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;border:1.5px solid #cbd5e1 !important;caret-color:#ea580c !important;letter-spacing:.3px !important;font-size:15px !important;}
+#loginScreen #loginMobile::placeholder,#loginScreen #otpInput::placeholder {color:#64748b !important;-webkit-text-fill-color:#64748b !important;opacity:1 !important;letter-spacing:0 !important;font-size:14px !important;}
+#loginScreen #loginMobile:focus,#loginScreen #otpInput:focus {background:#fff !important;border-color:#f97316 !important;box-shadow:0 0 0 3px #ffedd5 !important;outline:none !important;color:#0f172a !important;-webkit-text-fill-color:#0f172a !important;}
+#loginScreen #loginMobile:-webkit-autofill,#loginScreen #otpInput:-webkit-autofill {-webkit-text-fill-color:#0f172a !important;-webkit-box-shadow:0 0 0 1000px #fff inset !important;box-shadow:0 0 0 1000px #fff inset !important;}
+#loginScreen #sendOtpBtn {color:#fff !important;-webkit-text-fill-color:#fff !important;border-radius:12px !important;box-shadow:0 8px 18px rgba(234,88,12,.18) !important;}
+#loginScreen .mp-login-secondary a,#loginScreen .mp-login-secondary button {background:#f8fafc !important;color:#334155 !important;border:1px solid #dbe3ef !important;min-height:54px !important;}
+#loginScreen .mp-login-secondary a:hover,#loginScreen .mp-login-secondary button:hover {background:#fff7ed !important;border-color:#fdba74 !important;}
+#loginScreen .mp-login-secondary .mp-sec-lb {white-space:normal !important;text-align:center !important;}
+#loginScreen #loginStep2 {background:#fff !important;border:1px solid #dce4ef !important;border-radius:22px !important;padding:24px !important;box-shadow:0 20px 50px #0f172a16 !important;}
+#loginScreen #loginStep2 .login-card {background:#f8fafc !important;border:1px solid #e2e8f0 !important;color:#0f172a !important;box-shadow:none !important;}
+#loginScreen #loginOtpTitle,#loginScreen #otpSentTo {color:#0f172a !important;}
+#loginScreen #loginOtpTitleHi,#loginScreen #otpResendTimer {color:#64748b !important;}
+#loginScreen #loginStickyBar {background:#fff !important;border-top:1px solid #dbe3ef !important;}
+#loginScreen #loginStickyFocus {background:#f1f5f9 !important;color:#0f172a !important;}
+@media(min-width:960px) {#loginScreen.show {align-content:center !important;align-items:center !important;grid-template-columns:minmax(0,520px) minmax(340px,420px) !important;column-gap:clamp(28px,5vw,90px) !important;padding:36px 32px !important;}#loginScreen.show > #mpDesktopPitch {padding-top:0 !important;}#loginScreen.show > #loginStep1 {max-width:420px !important;}}
+@media(max-width:959px) {#loginScreen.show {padding:22px 14px 36px !important;align-content:start !important;}#loginScreen.show > #loginStep1 {max-width:420px !important;width:100% !important;margin:0 auto !important;padding:20px 16px !important;}}
+@media(max-width:380px) {#loginScreen.show > #loginStep1 {padding:14px 12px !important;}#loginScreen #loginStep1 .login-card.mp-login-card {padding:12px !important;}#loginScreen .mp-login-phone-row {gap:6px !important;}#loginScreen .mp-login-cc {padding:10px 7px !important;}}
+</style>
 </head>
 <body>
 <!-- Firebase Phone Auth — required invisible reCAPTCHA host -->
@@ -915,7 +957,8 @@ html.mp-login-active, body.mp-login-active {
     <div class="tag">🇮🇳 Made for Indian teams</div>
     <p class="mp-tour-link" style="margin:10px 0 0;font-size:13px;opacity:.9"><a href="./" style="color:#93c5fd;text-decoration:underline">← Product home &amp; pricing</a></p>
     <h1>Man Power</h1>
-    <p class="lead">Login to manage shifts, team &amp; leave. Full product details and plans are on the home page.</p>
+    <p class="lead">Manage shifts, manpower, attendance and leave in one place. Secure OTP login for your team.</p>
+    <div class="mp-login-benefits" aria-label="Product features"><span>✓ Shift planning</span><span>✓ Team availability</span><span>✓ Leave tracking</span></div>
   </div>
 
 
@@ -945,13 +988,13 @@ html.mp-login-active, body.mp-login-active {
       <div id="loginMobileHint" style="display:none"></div>
       <div class="mp-login-phone-row">
         <div class="mp-login-cc">+91</div>
-        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
+        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="Enter mobile number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
           maxlength="10" autocomplete="tel-national"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);else if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
+          oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);else if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();"
           onkeyup="if(typeof _onMobileInput==='function')_onMobileInput(this.value.replace(/[^0-9]/g,''))"
-          onchange="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'"
+          onchange="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);"
           onblur="if(typeof mpSyncLoginCta==='function')mpSyncLoginCta()"
-          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#f8fafc';this.style.webkitTextFillColor='#f8fafc';this.style.backgroundColor='#1e3251'},10)"
+          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);},10)"
           onkeydown="if(event.key==='Enter'){if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();_sendOTP()}">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
