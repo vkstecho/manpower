@@ -14,6 +14,84 @@
 let _teamSec='ALL';
 function setTeamSec(s,el){ _teamSec=s; document.querySelectorAll('#teamFilter .chip').forEach(c=>c.classList.remove('on')); el.classList.add('on'); renderTeam(); document.getElementById('tab-team')?.scrollIntoView({behavior:'smooth',block:'start'}); }
 
+/** Admin/Manager team multi-select (bulk remove mobiles from roster) */
+var _teamMsSelected = new Set();
+var _teamMsMode = false;
+function _teamMsKey(emp){
+  if(!emp) return '';
+  return String(emp.id || '');
+}
+function toggleTeamMultiSelectMode(force){
+  if(typeof isAdmin==='function' && isAdmin()){ /* ok */ }
+  else if(typeof isMgr==='function' && isMgr()){ /* manager own team */ }
+  else { toast(L('❌ केवल व्यवस्थापक/प्रबंधक','❌ Admin/Manager only')); return; }
+  if(typeof force === 'boolean') _teamMsMode = force;
+  else _teamMsMode = !_teamMsMode;
+  if(!_teamMsMode){ try{ _teamMsSelected.clear(); }catch(e){} }
+  try{ renderTeam(); }catch(e){}
+  _renderTeamMsBar();
+}
+function toggleTeamMsEmp(empId, ev){
+  try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+  if(!_teamMsMode) return;
+  const id = String(empId||'');
+  if(!id) return;
+  if(_teamMsSelected.has(id)) _teamMsSelected.delete(id);
+  else _teamMsSelected.add(id);
+  // update checkbox UI without full re-render if possible
+  try{
+    const cb = document.getElementById('teamMs_'+id);
+    if(cb) cb.checked = _teamMsSelected.has(id);
+    const card = document.getElementById('teamcard_'+id);
+    if(card) card.style.outline = _teamMsSelected.has(id) ? '2px solid rgba(249,115,22,.7)' : '';
+  }catch(e){}
+  _renderTeamMsBar();
+}
+function teamMsSelectAllVisible(){
+  try{
+    const list = (typeof getEmps==='function'?getEmps():[])||[];
+    list.forEach(e=>{ if(e && e.id) _teamMsSelected.add(String(e.id)); });
+  }catch(e){}
+  try{ renderTeam(); }catch(e){}
+  _renderTeamMsBar();
+}
+function teamMsClearSelection(){
+  try{ _teamMsSelected.clear(); }catch(e){}
+  try{ renderTeam(); }catch(e){}
+  _renderTeamMsBar();
+}
+function _renderTeamMsBar(){
+  let bar = document.getElementById('teamMultiSelectBar');
+  if(!_teamMsMode){
+    if(bar) bar.style.display = 'none';
+    return;
+  }
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'teamMultiSelectBar';
+    bar.style.cssText = 'position:fixed;left:10px;right:10px;bottom:calc(72px + env(safe-area-inset-bottom,0px));z-index:1200;display:none;padding:10px 12px;border-radius:14px;background:rgba(15,23,42,.96);border:1px solid rgba(249,115,22,.45);box-shadow:0 8px 28px rgba(0,0,0,.45);';
+    document.body.appendChild(bar);
+  }
+  const n = _teamMsSelected.size;
+  bar.style.display = 'block';
+  bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+    '<div style="font-weight:900;color:#fff;font-size:13px;flex:1;min-width:90px">☑️ '+n+' '+L('चयनित','selected')+'</div>'+
+    '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('सभी','All')+'</button>'+
+    '<button type="button" onclick="teamMsClearSelection()" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:rgba(148,163,184,.12);color:#e2e8f0;font-weight:800;font-size:12px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
+    '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:8px 12px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#fff;font-weight:900;font-size:12px;cursor:pointer;opacity:'+(n?1:.45)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
+    '<button type="button" onclick="toggleTeamMultiSelectMode(false)" style="padding:8px 10px;border-radius:9px;border:1px solid rgba(148,163,184,.35);background:transparent;color:#94a3b8;font-weight:800;font-size:12px;cursor:pointer">'+L('बंद','Close')+'</button>'+
+  '</div>';
+}
+try{
+  window.toggleTeamMultiSelectMode = toggleTeamMultiSelectMode;
+  window.toggleTeamMsEmp = toggleTeamMsEmp;
+  window.teamMsSelectAllVisible = teamMsSelectAllVisible;
+  window.teamMsClearSelection = teamMsClearSelection;
+  window._renderTeamMsBar = _renderTeamMsBar;
+}catch(e){}
+
+
+
 function classifyResponsibility(resp){
   const r=(resp||'').toString().toLowerCase();
   if(/manag/.test(r)) return L('Managers','Managers');
@@ -49,9 +127,11 @@ function _renderTeamImpl(search=''){
   try{ renderAdminManagerBanner(); }catch(e){}
   _renderDynamicChips('teamFilter', _buildTeamSectionChips(), _teamSec, 'setTeamSec');
   document.getElementById('teamAddBtn').innerHTML = isAdminOrMgr()
-    ? `<div style="display:flex;gap:8px;margin-bottom:14px">
-        <button class="action-primary team-btn-add" style="flex:1;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ ${L("नया कर्मचारी जोड़ें","Add employee")}</button>
-        <button class="action-primary team-btn-import" style="flex:1;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 एक्सेल से टीम आयात','📊 Import Team from Excel')}</button>
+    ? `<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="action-primary team-btn-add" style="flex:1;min-width:140px;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(234,88,12,.35)" onclick="openAddEmpForm()">+ ${L("नया कर्मचारी जोड़ें","Add employee")}</button>
+        ${isAdmin()?`<button class="action-primary team-btn-add-mgr" style="flex:1;min-width:140px;background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(124,58,237,.35)" onclick="openAddManagerForm()">🏅 ${L("मैनेजर जोड़ें","Add Manager")}</button>`:''}
+        ${(isAdmin()||isMgr())?`<button type="button" class="action-primary" style="flex:1;min-width:140px;background:linear-gradient(135deg,#0f172a,#1e293b);color:#f8fafc;border:1px solid rgba(249,115,22,.5);font-weight:900;font-size:13px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(15,23,42,.35)" onclick="toggleTeamMultiSelectMode()">${_teamMsMode?('☑️ '+L('चयन बंद','Exit select')):('☑️ '+L('मल्टी-सिलेक्ट','Multi-select'))}</button>`:''}
+        <button class="action-primary team-btn-import" style="flex:1;min-width:140px;background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;border:none;font-weight:900;font-size:14px;padding:14px 12px;border-radius:12px;box-shadow:0 2px 8px rgba(22,163,74,.35)" onclick="openBulkImportTeam()">${L('📊 एक्सेल से टीम आयात','📊 Import Team from Excel')}</button>
       </div>
       ${isAdmin()?`<div id="adminMgrBanner" style="margin-bottom:12px"></div>
       <button type="button" onclick="openAppLicenseAdmin()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:1px solid rgba(124,58,237,.45);background:rgba(124,58,237,.1);color:#7c3aed;font-weight:900;font-size:13px;cursor:pointer">🔑 ${L('App License / Expiry Date','App License / Expiry Date')}</button>`:''}
@@ -173,8 +253,11 @@ function _renderTeamImpl(search=''){
       const avatarHtml = e.photo
         ? `<img src="${e.photo}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:2px solid ${s.color||'rgba(255,255,255,.2)'};flex-shrink:0;cursor:pointer" onclick="window.open('${e.photo}','_blank')">`
         : `<div style="width:44px;height:44px;border-radius:10px;background:${s.bg||'rgba(148,163,184,.1)'};display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:19px;color:${s.color||'#fff'};flex-shrink:0">${ini}</div>`;
-      return `<div class="card" id="teamcard_${e.id}" style="${isMe?'border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04);':''}">
+      const msOn = !!_teamMsMode;
+      const msChecked = msOn && _teamMsSelected.has(String(e.id));
+      return `<div class="card" id="teamcard_${e.id}" style="${isMe?'border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04);':''}${msChecked?'outline:2px solid rgba(249,115,22,.7);':''}${msOn?'cursor:pointer;':''}" ${msOn?`onclick="toggleTeamMsEmp('${e.id}',event)"`:''}>
         <div class="card-row">
+          ${msOn?`<div style="flex-shrink:0;padding:4px 2px 0 0" onclick="event.stopPropagation()"><input type="checkbox" id="teamMs_${e.id}" ${msChecked?'checked':''} onclick="toggleTeamMsEmp('${e.id}',event)" style="width:20px;height:20px;accent-color:#f97316;cursor:pointer"></div>`:''}
           ${avatarHtml}
           <div class="card-body">
             <div class="card-name">${escHtml(e.name)}${isMe?(' <span style="font-size:10px;color:var(--m1)">'+L("(आप)","(You)")+'</span>'):''}</div>
@@ -208,6 +291,8 @@ function _renderTeamImpl(search=''){
 
   const el = document.getElementById('teamList');
   el.innerHTML = html || '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">${L("कोई कर्मचारी नहीं मिला","No employees found")}</div></div>';
+  try{ _renderTeamMsBar(); }catch(_ms){}
+
 
   // ── Left / Resigned Members Section ──
   // Merge: firebase leftEmployees path + status='resigned' employees from main table

@@ -3,8 +3,17 @@
  * Split from app-team-import.js for maintainability.
  * Global function names unchanged — load order matters (see index.html).
  */
-function openAddEmpForm(){
+async function openAddEmpForm(){
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
+  // Ensure managers list for Admin dropdown
+  try{
+    if(typeof isAdmin==='function' && isAdmin() && typeof fbGet==='function'){
+      if(!_cache.mobileUsers || !Object.keys(_cache.mobileUsers||{}).length){
+        const mu = await fbGet('mobileUsers');
+        if(mu) _cache.mobileUsers = mu;
+      }
+    }
+  }catch(_e){}
   openModal(`<div class="modal-handle"></div>
   <div class="modal-title">👤 ${typeof t==='function'?t('नया कर्मचारी'):'New Employee'}</div>
   <div class="grid2">
@@ -29,6 +38,13 @@ function openAddEmpForm(){
     <div class="field"><label>📅 Joining Date</label><input class="inp-field" id="ne_joining" type="date"></div>
     <div class="field"><label>🎂 Date of Birth</label><input class="inp-field" id="ne_dob" type="date"></div>
   </div>
+  ${typeof isAdmin==='function'&&isAdmin()?`<div class="field"><label>🏅 ${L('किस Manager की team में','Under which Manager')}</label>
+    <select id="ne_managerId" class="inp-field" style="width:100%">
+      <option value="">— ${L('Manager चुनें (ज़रूरी)','Select Manager (required)')} —</option>
+      ${_adminManagerOptionsHtml()}
+    </select>
+    <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('यह सदस्य चुने हुए Manager की team + schedule में दिखेगा','Member appears on that Manager’s team & schedule')}</div>
+  </div>`:''}
   <div class="field"><label>💰 Monthly Salary (₹)</label><input class="inp-field" id="ne_salary" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="e.g. 15000"></div>
   <div style="font-size:11px;color:var(--muted2);margin:4px 0 12px">${L('Section = schedule फ़िल्टर के लिए समूह (Machine से अलग)।','Section = team group for schedule filters (not the same as Machine).')}</div>
   <button class="submit-btn" onclick="addEmployee()">✅ ${typeof t==='function'?t('जोड़ें'):'Add'}</button>
@@ -99,12 +115,74 @@ async function addEmployee(){
     role:'member',
     ms:Array(31).fill('D')};
   if(SESSION.role==='manager' && SESSION.mobile){ emp.managerId=_normMobileKey(SESSION.mobile); }
+  try{
+    if(typeof isAdmin==='function' && isAdmin()){
+      const sel = (document.getElementById('ne_managerId')||{}).value || '';
+      const mgrKey = (typeof _normMobileKey==='function'?_normMobileKey(sel):String(sel||'').replace(/\D/g,'').slice(-10));
+      if(!mgrKey || mgrKey.length!==10){
+        toast(L('⚠️ Manager चुनें — Admin को member किस team में जोड़ना है बताना ज़रूरी है','⚠️ Select a Manager — required when Admin adds a member'));
+        return;
+      }
+      emp.managerId = mgrKey;
+      try{
+        const muAll = (_cache && _cache.mobileUsers) || {};
+        const mu = muAll[mgrKey] || Object.values(muAll).find(u=>u && _normMobileKey(u.mobile||u.phone||'')===mgrKey) || null;
+        if(mu && (mu.company||mu.companyName)){
+          emp.company = mu.company || mu.companyName;
+          emp.companyLabel = emp.company;
+          if(mu.companyId) emp.companyId = mu.companyId;
+        }
+        const all = (_cache.employees||[]);
+        const mgrEmp = all.find(e=>e && _normMobileKey(e.phone||e.mobile||'')===mgrKey);
+        if(mgrEmp){
+          if(mgrEmp.company||mgrEmp.companyLabel){ emp.company = mgrEmp.company||mgrEmp.companyLabel; emp.companyLabel = emp.company; }
+          if(mgrEmp.companyId) emp.companyId = mgrEmp.companyId;
+        }
+      }catch(_c){}
+    }
+  }catch(_a){}
   if(phoneNorm && phoneNorm.length===10) emp.phone=phoneNorm;
   else if(phone) emp.phone=phone;
   if(joiningDate) emp.joiningDate=joiningDate;
   if(dob) emp.dob=dob;
   if(salaryRaw) emp.monthlySalary=parseFloat(salaryRaw);
   await fbUpdate(`employees/${id}`,emp);
+
+  try{
+    if(phoneNorm && phoneNorm.length===10){
+      const muPath = 'mobileUsers/'+phoneNorm;
+      let existing = null;
+      try{ existing = await fbGet(muPath); }catch(_e){}
+      if(!(existing && String(existing.role||'').toLowerCase()==='manager' && String(existing.status||'')==='approved')){
+        const muPayload = {
+          role: 'member',
+          status: 'approved',
+          pendingApproval: false,
+          name: name || '',
+          displayName: name || '',
+          mobile: phoneNorm,
+          phone: phoneNorm,
+          empCode: code || '',
+          empId: code || '',
+          empObjId: id,
+          employeeId: id,
+          managerId: emp.managerId || null,
+          company: emp.company || emp.companyLabel || '',
+          companyId: emp.companyId || null,
+          approvedAt: new Date().toISOString(),
+          approvedBy: (SESSION && (SESSION.mobile || SESSION.name)) || 'admin',
+          registeredAt: new Date().toISOString(),
+          forceFreshLogin: null,
+          updatedAt: new Date().toISOString()
+        };
+        if(existing && existing.validTill) muPayload.validTill = existing.validTill;
+        await fbUpdate(muPath, muPayload).catch(()=>fbSet(muPath, muPayload));
+      }
+    }
+  }catch(muErr){ console.warn('[addEmployee] mobileUsers pre-provision', muErr); }
+
+  try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(_ic){}
+  try{ if(typeof loadEmployees==='function') await loadEmployees(); }catch(_le){}
   closeModal();
   toast('✅ ' + name + ' ' + L('जोड़ा गया','added'));
 }
@@ -716,11 +794,15 @@ async function archiveEmployee(id, name){
       console.warn('[archive] hard remove failed → soft', remErr);
       try{
         await fbUpdate('employees/' + id, {
-          status: 'resigned',
+          status: 'left_team',
           leftAt: new Date().toISOString(),
           leftReason: reason,
           removedBy: SESSION.name || SESSION.mobile || 'manager',
-          active: false
+          active: false,
+          phone: null,
+          mobile: null,
+          previousPhone: (empData.phone||empData.mobile||null),
+          forceFreshLogin: true
         });
       }catch(softErr){
         toast(L('❌ हटाना विफल: ','❌ Delete failed: ')+(softErr.message||softErr));
@@ -2016,3 +2098,388 @@ window.loadMyPendingTeamTransfers = loadMyPendingTeamTransfers;
 window.renderPendingTeamTransferBanner = renderPendingTeamTransferBanner;
 window._isManagerWithTeamNow = _isManagerWithTeamNow;
 
+
+
+/** Admin: options for manager dropdown (mobileUsers + employee managers) */
+function _adminManagerOptionsHtml(){
+  try{
+    const seen = new Set();
+    const opts = [];
+    const push = (phone, label)=>{
+      const k = (typeof _normMobileKey==='function'?_normMobileKey(phone):String(phone||'').replace(/\D/g,'').slice(-10));
+      if(!k || k.length!==10 || seen.has(k)) return;
+      seen.add(k);
+      const nm = String(label||k).replace(/</g,'');
+      opts.push('<option value="'+k+'">'+nm+' · '+k+'</option>');
+    };
+    const mu = (_cache && _cache.mobileUsers) || {};
+    Object.entries(mu).forEach(([k,u])=>{
+      if(!u) return;
+      if(String(u.role||'').toLowerCase()!=='manager') return;
+      if(String(u.status||'').toLowerCase()==='removed' || String(u.status||'').toLowerCase()==='revoked') return;
+      const ph = (typeof _normMobileKey==='function'?_normMobileKey(u.mobile||u.phone||k):String(u.mobile||u.phone||k).replace(/\D/g,'').slice(-10));
+      const label = (u.name||u.displayName||'') + (u.company?(' · '+u.company):'');
+      push(ph, label || ph);
+    });
+    const emps = (_cache && _cache.employees) || [];
+    emps.forEach(e=>{
+      if(!e) return;
+      const al = String(e.accessLevel||e.role||'').toLowerCase();
+      if(al!=='manager' && !e.isTeamManager) return;
+      if(String(e.status||'')==='resigned' || String(e.status||'')==='left' || String(e.status||'')==='left_team') return;
+      push(e.phone||e.mobile||e.managerId, (e.name||'')+(e.company||e.companyLabel?(' · '+(e.company||e.companyLabel)):''));
+    });
+    if(!opts.length) return '<option value="" disabled>'+L('कोई Manager नहीं — पहले Add Manager करें','No managers — use Add Manager first')+'</option>';
+    return opts.join('');
+  }catch(e){
+    return '<option value="">—</option>';
+  }
+}
+
+/** Admin: form to pre-create a Manager (OTP login → Manager, no registration) */
+function openAddManagerForm(){
+  if(typeof isAdmin!=='function' || !isAdmin()){
+    toast(L('❌ केवल व्यवस्थापक','❌ Admin only'));
+    return;
+  }
+  openModal(`<div class="modal-handle"></div>
+  <div class="modal-title">🏅 ${L('नया Manager जोड़ें','Add Manager')}</div>
+  <div style="font-size:12px;color:var(--muted2);line-height:1.45;margin:0 0 12px;padding:10px;border-radius:10px;background:rgba(124,58,237,.08);border:1px solid rgba(124,58,237,.25)">
+    ${L('मोबाइल OTP से लॉगिन पर सीधा Manager बनेंगे — Registration नहीं दिखेगा। उसके बाद आप उसी Manager की team में members + shift schedule Admin लॉगिन से जोड़ सकते हैं।','On OTP login they enter as Manager — no Registration screen. You can then add members & shift schedule under that Manager while logged in as Admin.')}
+  </div>
+  <div class="grid2">
+    <div class="field"><label>${L('नाम','Name')} *</label><input class="inp-field" id="am_name" placeholder="FULL NAME" oninput="this.value=this.value.toUpperCase()"></div>
+    <div class="field"><label>📱 ${L('मोबाइल','Mobile')} *</label><input class="inp-field" id="am_phone" placeholder="10-digit" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>${L('कंपनी','Company')}</label><input class="inp-field" id="am_company" placeholder="e.g. VKS Tech"></div>
+    <div class="field"><label>${L('पद / Designation','Designation')}</label><input class="inp-field" id="am_desig" placeholder="Manager" value="Manager"></div>
+  </div>
+  <div class="grid2">
+    <div class="field"><label>Employee Code (optional)</label><input class="inp-field" id="am_code" placeholder="MGR001"></div>
+    <div class="field"><label>${L('विभाग','Department')}</label><input class="inp-field" id="am_dept" placeholder="General"></div>
+  </div>
+  <div class="modal-scroll-spacer" style="height:max(100px,calc(80px + env(safe-area-inset-bottom,0px)));flex-shrink:0" aria-hidden="true"></div>
+  <div class="modal-sticky-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+    <button type="button" class="submit-btn" id="am_saveBtn" onclick="addManagerByAdmin()">✅ ${L('Manager सेव करें','Save Manager')}</button>
+    <button type="button" class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
+  </div>`);
+}
+
+async function addManagerByAdmin(){
+  if(typeof isAdmin!=='function' || !isAdmin()){
+    toast(L('❌ केवल व्यवस्थापक','❌ Admin only'));
+    return;
+  }
+  const btn = document.getElementById('am_saveBtn');
+  const setBusy = (b, label)=>{
+    if(!btn) return;
+    btn.disabled = !!b;
+    if(label) btn.textContent = label;
+  };
+  const name = String((document.getElementById('am_name')||{}).value||'').trim().toUpperCase();
+  const phoneRaw = String((document.getElementById('am_phone')||{}).value||'').trim();
+  const phone = (typeof _normMobileKey==='function'?_normMobileKey(phoneRaw):phoneRaw.replace(/\D/g,'').slice(-10));
+  const company = String((document.getElementById('am_company')||{}).value||'').trim() || 'Man Power';
+  const desig = String((document.getElementById('am_desig')||{}).value||'').trim() || 'Manager';
+  const code = String((document.getElementById('am_code')||{}).value||'').trim();
+  const dept = String((document.getElementById('am_dept')||{}).value||'').trim() || 'General';
+
+  if(!name){ toast(L('⚠️ नाम भरें','⚠️ Enter name')); return; }
+  if(!phone || phone.length!==10){ toast(L('⚠️ 10-digit मोबाइल भरें','⚠️ Enter 10-digit mobile')); return; }
+
+  try{
+    let clash = null;
+    if(typeof _findPhoneConflictAsync==='function') clash = await _findPhoneConflictAsync(phone, null, code);
+    else if(typeof _findPhoneConflict==='function') clash = _findPhoneConflict(phone, null, code);
+    if(clash){
+      const existingMu = await fbGet('mobileUsers/'+phone).catch(()=>null);
+      if(existingMu && String(existingMu.role||'').toLowerCase()==='manager' && String(existingMu.status||'')==='approved'){
+        toast(L('📱 यह नंबर पहले से Manager है','📱 This number is already a Manager'));
+        return;
+      }
+      if(clash.emp && clash.emp.id){
+        toast(L('ℹ️ नंबर roster में है — Edit → Access Level = Manager से promote करें','ℹ️ Number already on roster — Edit → Access Level = Manager to promote'));
+        return;
+      }
+      toast(L('📱 मोबाइल पहले से registered है','📱 Mobile already registered'));
+      return;
+    }
+  }catch(ex){ console.warn('[addManagerByAdmin] clash', ex); }
+
+  setBusy(true, L('⏳ सेव हो रहा…','⏳ Saving…'));
+  try{
+    let accessDefaults = {
+      validTill: null,
+      paymentPaidUntil: null,
+      paidUntil: null,
+      teamSize: 200,
+      maxMembers: 200,
+      planMaxMembers: 200,
+      planPeriod: 'monthly',
+      planLabel: 'Monthly · Up to 200 members',
+      paymentTrialGranted: true,
+      paymentTrialDays: 7,
+      paymentUpdatedBy: 'admin_add_manager'
+    };
+    try{
+      if(typeof _newManagerAccessDefaults==='function'){
+        accessDefaults = Object.assign(accessDefaults, await _newManagerAccessDefaults());
+      } else if(typeof _getAdminFreeTrialDays==='function'){
+        const td = await _getAdminFreeTrialDays();
+        const end = new Date(); end.setHours(23,59,59,999); end.setDate(end.getDate()+td);
+        const iso = end.toISOString();
+        accessDefaults.validTill = iso;
+        accessDefaults.paymentPaidUntil = iso;
+        accessDefaults.paidUntil = iso;
+        accessDefaults.trialDays = td;
+        accessDefaults.paymentTrialDays = td;
+      }
+    }catch(eAcc){ console.warn('[addManagerByAdmin] trial', eAcc); }
+
+    const id = 'e'+Date.now().toString(36);
+    const today = new Date().toISOString().slice(0,10);
+    const emp = {
+      id,
+      name,
+      empId: code || '',
+      phone,
+      mobile: phone,
+      company,
+      companyLabel: company,
+      companyId: company,
+      companyName: company,
+      sec: dept,
+      section: dept,
+      designation: desig,
+      accessLevel: 'manager',
+      role: 'manager',
+      managerId: phone,
+      isTeamManager: true,
+      isManagerSelf: true,
+      status: 'active',
+      woff: 'SUN',
+      ms: Array(31).fill('D'),
+      joiningDate: today,
+      createdAt: new Date().toISOString(),
+      createdBy: 'admin_add_manager'
+    };
+    await fbUpdate('employees/'+id, emp);
+
+    const muPayload = {
+      role: 'manager',
+      name,
+      displayName: name,
+      mobile: phone,
+      phone,
+      company,
+      companyId: company,
+      designation: desig,
+      department: dept,
+      status: 'approved',
+      autoApproved: true,
+      registeredAt: new Date().toISOString(),
+      empObjId: id,
+      employeeId: id,
+      empId: code || '',
+      empCode: code || '',
+      validTill: accessDefaults.validTill,
+      paymentPaidUntil: accessDefaults.paymentPaidUntil,
+      paidUntil: accessDefaults.paidUntil,
+      teamSize: accessDefaults.teamSize || 200,
+      maxMembers: accessDefaults.maxMembers || 200,
+      planMaxMembers: accessDefaults.planMaxMembers || 200,
+      planPeriod: accessDefaults.planPeriod || 'monthly',
+      planLabel: accessDefaults.planLabel || 'Monthly · Up to 200 members',
+      paymentTrialGranted: !!accessDefaults.paymentTrialGranted,
+      paymentTrialDays: accessDefaults.paymentTrialDays || 7,
+      paymentUpdatedBy: accessDefaults.paymentUpdatedBy || 'admin_add_manager',
+      promotedBy: (SESSION && SESSION.name) || 'admin',
+      forceFreshLogin: null,
+      removedAt: null,
+      removedBy: null,
+      updatedAt: new Date().toISOString()
+    };
+    await fbSet('mobileUsers/'+phone, muPayload);
+
+    try{
+      if(typeof fbSet==='function' && accessDefaults.paymentPaidUntil){
+        await fbSet('paymentStatus/'+phone, {
+          mobile: phone,
+          phone,
+          name,
+          paymentPaidUntil: accessDefaults.paymentPaidUntil,
+          paidUntil: accessDefaults.paidUntil,
+          validTill: accessDefaults.validTill,
+          teamSize: accessDefaults.teamSize || 200,
+          updatedAt: new Date().toISOString(),
+          updatedBy: 'admin_add_manager'
+        });
+      }
+    }catch(ePay){ console.warn('[addManagerByAdmin] paymentStatus', ePay); }
+
+    try{
+      if(typeof _cache!=='undefined' && _cache){
+        _cache.employees = _cache.employees || [];
+        _cache.employees.push(Object.assign({}, emp));
+        _cache.mobileUsers = _cache.mobileUsers || {};
+        _cache.mobileUsers[phone] = muPayload;
+      }
+    }catch(_c){}
+    try{ if(typeof loadEmployees==='function') await loadEmployees(); }catch(_le){}
+    try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(_h){}
+    try{ if(typeof renderTeam==='function') renderTeam(); }catch(_rt){}
+
+    closeModal();
+    toast('✅ '+name+L(' Manager के रूप में सेव — OTP लॉगिन पर सीधा Manager',' saved as Manager — OTP login enters as Manager'));
+  }catch(err){
+    console.error('[addManagerByAdmin]', err);
+    setBusy(false, L('Manager सेव करें','Save Manager'));
+    toast(L('❌ सेव विफल: ','❌ Save failed: ')+(err.message||err.code||''));
+  }
+}
+
+try{
+  window.openAddManagerForm = openAddManagerForm;
+  window.addManagerByAdmin = addManagerByAdmin;
+  window._adminManagerOptionsHtml = _adminManagerOptionsHtml;
+}catch(e){}
+
+
+/** Bulk remove selected roster members (Admin multi-select or Manager own team) */
+function confirmBulkDeleteTeamMs(){
+  if(typeof isAdmin!=='function' && typeof isMgr!=='function'){ return; }
+  if(!(isAdmin() || isMgr())){ toast(L('❌ केवल व्यवस्थापक/प्रबंधक','❌ Admin/Manager only')); return; }
+  const ids = Array.from((typeof _teamMsSelected!=='undefined' && _teamMsSelected) ? _teamMsSelected : []);
+  if(!ids.length){ toast(L('⚠️ पहले सदस्य चुनें','⚠️ Select members first')); return; }
+  const all = (typeof getEmps==='function'?getEmps():[]) || (_cache.employees||[]);
+  const picked = ids.map(id => all.find(e=>e && String(e.id)===String(id))).filter(Boolean);
+  const names = picked.slice(0,5).map(e=>e.name||e.empId||e.id).join(', ');
+  const more = picked.length>5 ? (' +'+(picked.length-5)+' more') : '';
+  const en = (typeof _lang!=='undefined' && _lang!=='hi');
+  openModal(`<div class="modal-handle"></div>
+  <div style="text-align:center;padding:6px 0 10px">
+    <div style="font-size:36px;margin-bottom:10px">🗑️</div>
+    <div class="modal-title">${en?('Remove '+picked.length+' member(s)?'):(picked.length+' सदस्य हटाएँ?')}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.4">${escHtml(names)}${more}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:14px">${en?'They move to Left Members. Mobile can be added again later.':'Left Members में जाएंगे। बाद में मोबाइल दोबारा जोड़ा जा सकता है।'}</div>
+    <div class="field" style="text-align:left">
+      <label>${en?'Reason':'कारण'}</label>
+      <select class="inp-field" id="bulkExitReasonSel">
+        <option value="terminated">❌ ${en?'Removed by Admin/Manager':'Admin/Manager ने हटाया'}</option>
+        <option value="resigned">🚶 Resigned</option>
+        <option value="contract_end">📋 Contract ended</option>
+        <option value="other">✏️ Other</option>
+      </select>
+    </div>
+    <button class="big-btn red" id="bulkDelBtn" onclick="bulkArchiveTeamMs()">✅ ${en?'Yes, remove selected':'हाँ, चयनित हटाएँ'}</button>
+    <button class="cancel-btn" onclick="closeModal()">${en?'Cancel':'रद्द करें'}</button>
+  </div>`);
+}
+
+async function bulkArchiveTeamMs(){
+  if(!(isAdmin() || isMgr())){ toast(L('❌ केवल व्यवस्थापक/प्रबंधक','❌ Admin/Manager only')); return; }
+  const ids = Array.from((typeof _teamMsSelected!=='undefined' && _teamMsSelected) ? _teamMsSelected : []);
+  if(!ids.length){ toast(L('⚠️ कोई चयन नहीं','⚠️ Nothing selected')); return; }
+  const btn = document.getElementById('bulkDelBtn');
+  if(btn){ btn.disabled = true; btn.textContent = L('⏳ हटा रहे…','⏳ Removing…'); }
+  const reasonSel = document.getElementById('bulkExitReasonSel');
+  const reason = reasonSel ? reasonSel.value : 'terminated';
+  const all = (typeof getEmps==='function'?getEmps():[]) || (_cache.employees||[]);
+  let ok = 0, fail = 0;
+  for(const id of ids){
+    try{
+      const emp = all.find(e=>e && String(e.id)===String(id));
+      if(!emp){ fail++; continue; }
+      // Managers may only remove their own team members
+      if(!isAdmin() && isMgr()){
+        const myKey = (typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||''):String(SESSION.mobile||'').replace(/\D/g,'').slice(-10));
+        const mid = (typeof _normMobileKey==='function'?_normMobileKey(emp.managerId||''):String(emp.managerId||'').replace(/\D/g,'').slice(-10));
+        if(mid && myKey && mid !== myKey){ fail++; continue; }
+        // Don't let manager delete themselves / other managers via bulk
+        const al = String(emp.accessLevel||emp.role||'').toLowerCase();
+        if(al==='manager' || emp.isTeamManager){ fail++; continue; }
+      }
+      await _archiveOneEmployeeSilent(emp, reason);
+      ok++;
+    }catch(err){
+      console.warn('[bulkArchive]', id, err);
+      fail++;
+    }
+  }
+  try{ if(typeof _teamMsSelected!=='undefined') _teamMsSelected.clear(); }catch(e){}
+  try{ if(typeof _teamMsMode!=='undefined') _teamMsMode = false; }catch(e){}
+  try{ if(typeof loadEmployees==='function') await loadEmployees(); }catch(e){}
+  try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
+  try{ closeModal(); }catch(e){}
+  try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
+  try{ if(typeof _renderTeamMsBar==='function') _renderTeamMsBar(); }catch(e){}
+  if(fail) toast(L('⚠️ ','⚠️ ')+ok+L(' हटाए, ',' removed, ')+fail+L(' विफल',' failed'));
+  else toast('✅ '+ok+L(' सदस्य हटाए गए',' member(s) removed'));
+}
+
+/** Core archive used by single + bulk (no modal) */
+async function _archiveOneEmployeeSilent(emp, reason){
+  if(!emp || !emp.id) throw new Error('missing emp');
+  const id = emp.id;
+  const name = emp.name || '';
+  const phone = (typeof _normMobileKey==='function'?_normMobileKey(emp.phone||emp.mobile||''):String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10));
+  const leftAt = new Date().toISOString();
+  const leftRec = Object.assign({}, emp, {
+    status: 'left_team',
+    leftAt,
+    leftReason: reason || 'terminated',
+    removedBy: (SESSION && (SESSION.name || SESSION.mobile)) || 'admin',
+    archivedFrom: 'bulk_or_silent'
+  });
+  // leftEmployees archive
+  try{
+    const leftKey = id;
+    await fbUpdate('leftEmployees/'+leftKey, leftRec).catch(()=>fbSet('leftEmployees/'+leftKey, leftRec));
+  }catch(e){ console.warn('[archive silent] leftEmployees', e); }
+  // Mark / remove employee row — clear phone so OTP cannot match this roster row
+  try{
+    await fbUpdate('employees/'+id, {
+      status: 'left_team',
+      leftAt,
+      leftReason: reason || 'terminated',
+      removedBy: (SESSION && (SESSION.name || SESSION.mobile)) || 'admin',
+      updatedAt: leftAt,
+      phone: null,
+      mobile: null,
+      previousPhone: phone || null,
+      forceFreshLogin: true
+    });
+  }catch(e){
+    try{ if(typeof fbRemove==='function') await fbRemove('employees/'+id); }catch(e2){ throw e; }
+  }
+  // mobileUsers: free the number (strong tombstone) so next OTP requires registration
+  try{
+    if(typeof _unlinkMobileUserOnLeave==='function'){
+      await _unlinkMobileUserOnLeave({ phone: phone, mobile: phone, id: id, status: reason||'removed' });
+    } else if(phone && phone.length===10){
+      const tomb = {
+        status: 'removed', role: 'removed', forceFreshLogin: true,
+        pendingApproval: false, managerId: null, removedAt: leftAt,
+        removedBy: (SESSION && (SESSION.name || SESSION.mobile)) || 'admin',
+        updatedAt: leftAt, name: null, empObjId: null
+      };
+      await fbSet('mobileUsers/'+phone, tomb).catch(()=>fbUpdate('mobileUsers/'+phone, tomb));
+    }
+  }catch(e){ console.warn('[archive silent] mobileUsers', e); }
+  // local cache
+  try{
+    if(_cache && Array.isArray(_cache.employees)){
+      _cache.employees = _cache.employees.map(e=>{
+        if(e && e.id===id) return Object.assign({}, e, { status:'left_team', leftAt });
+        return e;
+      });
+    }
+  }catch(e){}
+}
+
+try{
+  window.confirmBulkDeleteTeamMs = confirmBulkDeleteTeamMs;
+  window.bulkArchiveTeamMs = bulkArchiveTeamMs;
+  window._archiveOneEmployeeSilent = _archiveOneEmployeeSilent;
+}catch(e){}

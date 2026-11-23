@@ -303,8 +303,9 @@ async function _sendOTP(isResend){
         fbGet('mobileUsers/'+mobile),
         new Promise(r=>setTimeout(()=>r(null), 2000))
       ]);
-      if(userData && userData.status==='approved' &&
-         (userData.role==='member' || userData.role==='manager' || userData.role==='worker')){
+      if(userData && userData.status==='approved' && !userData.forceFreshLogin &&
+         (userData.role==='member' || userData.role==='manager' || userData.role==='worker') &&
+         String(userData.role||'').toLowerCase()!=='removed'){
         if(!(userData.validTill && new Date(userData.validTill)<new Date())){
           const empObjId = userData.empObjId || userData.employeeId || '';
           const savedPw = (typeof _getDevicePasswordHash==='function') ? _getDevicePasswordHash(empObjId, mobile) : null;
@@ -876,47 +877,32 @@ async function _notifyManagerMemberLogin(userData, mobile){
 
 /** If this mobile left/was removed earlier but employee record still has shifts, relink & restore access */
 async function _tryRejoinPreserveShifts(mobile){
+  // v6.0.66: NEVER auto-rejoin after account delete / manager remove.
+  // Removed users must go through Manager/Member registration again.
+  // (Old behaviour reactivated left_team rows and skipped registration.)
   try{
     const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
     if(mob.length!==10) return false;
     let mu = null;
     try{ mu = await fbGet('mobileUsers/'+mob); }catch(e){}
-    const st = (mu && mu.status) ? String(mu.status) : '';
-    // Only auto-rejoin for previously linked left/removed users (not first-time)
-    const wasAway = ['left_team','removed','revoked','left','inactive'].indexOf(st)>=0
-      || (mu && mu.leftAt);
-    // Find employee by phone still on roster (not permanently deleted)
+    if(mu){
+      const st = String(mu.status||'').toLowerCase();
+      const role = String(mu.role||'').toLowerCase();
+      if(mu.forceFreshLogin === true || st==='removed' || st==='revoked' || st==='left' || st==='left_team'
+          || role==='removed' || st==='rejected'){
+        return false;
+      }
+    }
+    try{
+      if(localStorage.getItem('mp_force_fresh_'+mob)==='1') return false;
+    }catch(e){}
     const roster = await _resolveEmpByMobile(mob);
     if(!roster) return false;
-    if(['resigned'].indexOf(String(roster.status||''))>=0) return false;
-    // Preserve ms / shiftMap — employee record is the source of truth
-    const hasShifts = (Array.isArray(roster.ms) && roster.ms.length) || (roster.shiftMap && Object.keys(roster.shiftMap).length);
-    if(wasAway || hasShifts){
-      await fbSet('mobileUsers/'+mob, {
-        ...(mu||{}),
-        status: 'approved',
-        role: (mu && mu.role==='manager') ? 'member' : (mu && mu.role) || 'member',
-        name: roster.name || mu?.name || '',
-        empId: roster.empId || mu?.empId || '',
-        empObjId: roster.id,
-        mobile: mob,
-        managerId: roster.managerId || mu?.managerId || '',
-        rejoinedAt: new Date().toISOString(),
-        rejoinPreserveShifts: true,
-        leftAt: null,
-        leftReason: null
-      });
-      // Reactivate employee if marked left/removed
-      if(roster.status==='left' || roster.status==='removed' || roster.status==='left_team'){
-        try{
-          await fbUpdate('employees/'+roster.id, {
-            status: 'active',
-            rejoinedAt: new Date().toISOString()
-          });
-        }catch(e){}
-      }
-      return true;
-    }
+    const rst = String(roster.status||'').toLowerCase();
+    if(['resigned','left','left_team','removed','revoked','inactive'].indexOf(rst)>=0) return false;
+    // Only allow soft rejoin when BOTH mobileUsers is still approved AND employee is still active
+    if(!(mu && String(mu.status||'').toLowerCase()==='approved')) return false;
+    return false; // disabled: auto-rejoin caused ghost logins; user must register or be re-added by manager
   }catch(e){ console.warn('rejoin preserve', e); }
   return false;
 }
@@ -924,6 +910,22 @@ async function _tryRejoinPreserveShifts(mobile){
 async function _loginRosterMemberAfterOtp(mobile, empMatch){
   const mob = (typeof _normMobileKey==='function') ? _normMobileKey(mobile) : String(mobile||'').replace(/\D/g,'').slice(-10);
   if(!mob || mob.length!==10 || !empMatch) return false;
+  // v6.0.66: never silent-login removed / left employees
+  try{
+    const rst = String(empMatch.status||'').toLowerCase();
+    if(['resigned','left','left_team','removed','revoked','inactive'].indexOf(rst)>=0) return false;
+  }catch(e){}
+  try{
+    if(localStorage.getItem('mp_force_fresh_'+mob)==='1') return false;
+  }catch(e){}
+  try{
+    const muBlock = await fbGet('mobileUsers/'+mob);
+    if(muBlock && (muBlock.forceFreshLogin===true
+        || ['removed','revoked','left','left_team'].indexOf(String(muBlock.status||'').toLowerCase())>=0
+        || String(muBlock.role||'').toLowerCase()==='removed')){
+      return false;
+    }
+  }catch(e){}
   const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
   const managerId = (typeof _normMobileKey==='function')
     ? _normMobileKey(empMatch.managerId||empMatch.managerMobile||'')
@@ -1192,10 +1194,31 @@ async function _checkUserAfterOTP(){
           return;
         }
       }catch(e){}
+      if(userData.status==='approved' && userData.forceFreshLogin){
+        try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e){}
+        toast(L('👋 Account clear — दोबारा register करें','👋 Account cleared — register again'));
+        showStep(3);
+        return;
+      }
       if(userData.status==='approved'){
         if(userData.validTill && new Date(userData.validTill)<new Date()){
           toast(L('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920','⏰ Your access has expired. Ask Admin to extend: +91-8929394920')); return;
         }
+        // v6.0.66: approved mobileUsers but roster row gone/left → force registration (stale after delete)
+        try{
+          const rosterChk = await _resolveEmpByMobile(mobile);
+          const rst = rosterChk ? String(rosterChk.status||'').toLowerCase() : '';
+          const roleMu = String(userData.role||'').toLowerCase();
+          // Members must have a live active employee row; managers may exist with only mobileUsers
+          if(roleMu==='member' || roleMu==='worker'){
+            if(!rosterChk || ['resigned','left','left_team','removed','revoked'].indexOf(rst)>=0){
+              try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_no_roster' }); }catch(e){}
+              toast(L('👋 Team से remove हो चुके हैं — दोबारा register करें','👋 Removed from team — register again'));
+              showStep(3);
+              return;
+            }
+          }
+        }catch(eStale){ console.warn('[otp] stale member check', eStale); }
         // Notify Admin when approved Manager logs in (OTP already verified here — info + optional Approve for future)
         if(userData.role==='manager'){
           try{ await _notifyAdminManagerLoginAttempt(mobile, userData.name); }catch(e){}
