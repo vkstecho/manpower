@@ -1344,25 +1344,28 @@ async function applyMyShiftBulk(empId, empName, shiftVal){
       return;
     }catch(e){ console.warn(e); }
   }
+  // Batch staging must not launch one overlapping Firebase save per date.
+  // Earlier behavior could clear other pending dates mid-loop and report false success.
   let n=0;
-  for(const ds of dates){
-    try{
-      const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>x.id===empId);
-      const cur = emp ? (getShift(emp, ds)||'') : '';
-      if(typeof stageSingleShiftChange === 'function'){
-        stageSingleShiftChange(empId, empName, ds, cur, shiftVal);
-        n++;
-      } else if(typeof handleShiftBtnClick === 'function'){
-        handleShiftBtnClick(empId, empName, ds, cur, shiftVal);
-        n++;
-      }
-    }catch(e){ console.warn('bulk day', ds, e); }
-  }
+  window._msBulkCommit = true;
+  try{
+    for(const ds of dates){
+      try{
+        const emp = (typeof getEmps==='function'?getEmps():[]).find(x=>String(x.id)===String(empId));
+        const cur = emp ? (getShift(emp, ds)||'') : '';
+        if(typeof stageSingleShiftChange === 'function'){
+          stageSingleShiftChange(empId, empName, ds, cur, shiftVal);
+          n++;
+        }
+      }catch(e){ console.warn('bulk day', ds, e); }
+    }
+  }finally{ window._msBulkCommit = false; }
   window._myShiftMultiSel = new Set();
   _hideMyShiftBulkBar();
-  toast('✅ '+n+' '+L('दिन staged — नीचे Save दबाएँ','days staged — tap Save below'));
-  try{ renderMyShift(); }catch(e){}
+  if(!n){ toast(L('❌ कोई बदलाव तैयार नहीं हुआ','❌ No changes staged')); return; }
   try{ if(typeof _updateSaveBar==='function') _updateSaveBar(); }catch(e){}
+  try{ renderMyShift(); }catch(e){}
+  toast('📝 '+n+' '+L('दिन तैयार — नीचे Save दबाएँ','days staged — tap Save below'));
 }
 
 
