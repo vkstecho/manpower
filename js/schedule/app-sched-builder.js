@@ -897,7 +897,6 @@ async function saveScheduleBuilder(monthKey){
   const merged = {...existing};
   const emps = getEmps().filter(e => e.status !== 'resigned');
 
-  const changedRows = new Set();
   const odRemovals = []; // {empId, date} when cell was OD and is no longer
   emps.forEach(emp => {
     const cells = Array.from(sbTbody.querySelectorAll(`[data-empid="${emp.id}"]`));
@@ -918,7 +917,6 @@ async function saveScheduleBuilder(monthKey){
           const ds = yr + '-' + String(mo).padStart(2,'0') + '-' + String(dayIdx+1).padStart(2,'0');
           odRemovals.push({ empId: emp.id, date: ds });
         }
-        if (String(prevArr[dayIdx] || "").trim() !== newVal) changedRows.add(String(emp.id));
         arr[dayIdx] = newVal;
       }
     });
@@ -926,53 +924,24 @@ async function saveScheduleBuilder(monthKey){
   });
   
   try{
-    const mk = monthKey.replace('-', '_');
-    // Write only edited employee rows. Replacing the entire month could erase
-    // concurrent changes made by another manager or an offline device.
-    // Preserve existing legacy aliases and other managers' schedule history.
-    const expanded = Object.assign({}, existing);
-    const codeCounts = new Map();
-    emps.forEach(function(emp){
-      if(emp && emp.empId) {
-        const code = String(emp.empId).trim();
-        codeCounts.set(code, (codeCounts.get(code) || 0) + 1);
-      }
-    });
-    if (!changedRows.size) {
-      toast(L('ℹ️ कोई बदलाव नहीं','ℹ️ No changes to save'));
-      return;
+    // Remove OD report records for cells no longer OD
+    for(const item of odRemovals){
+      try{ await _removeODRecordsForEmpDate(item.empId, item.date); }catch(e){}
     }
-    const failures = [];
-    const savedIds = new Set();
-    for (const emp of emps) {
-      if (!emp || !changedRows.has(String(emp.id))) continue;
-      const arr = merged[emp.id];
-      if (!Array.isArray(arr)) continue;
-      try {
-        await fbSet('schedules/' + mk + '/' + emp.id, arr);
-        expanded[emp.id] = arr;
-        savedIds.add(String(emp.id));
-        const code = String(emp.empId || '').trim();
-        // Legacy empCode aliases are written only when unambiguous. Never
-        // overwrite an alias shared by multiple employee records.
-        if (code && code !== String(emp.id) && codeCounts.get(code) === 1) {
-          await fbSet('schedules/' + mk + '/' + code, arr);
-          expanded[code] = arr;
+    const mk = monthKey.replace('-','_');
+    // Dual-key write: internal id + empId so Schedule/My Shift resolve immediately
+    const expanded = Object.assign({}, merged);
+    try{
+      emps.forEach(function(emp){
+        if(!emp) return;
+        const arr = merged[emp.id];
+        if(!arr) return;
+        if(emp.empId){
+          expanded[String(emp.empId).trim()] = arr;
         }
-      } catch (err) {
-        failures.push((emp.name || emp.id) + ': ' + (err.message || err));
-      }
-    }
-    if (failures.length) {
-      toast('⚠️ ' + failures.length + ' row(s) not fully saved. ' + failures[0]);
-      // Keep successful changes visible without pretending every row saved.
-      if (!savedIds.size) return;
-    }
-    // Remove related OD reports only after the corresponding shift row saved.
-    for (const item of odRemovals) {
-      if (!savedIds.has(String(item.empId))) continue;
-      try { await _removeODRecordsForEmpDate(item.empId, item.date); } catch(e) {}
-    }
+      });
+    }catch(e){}
+    await fbSet('schedules/' + mk, expanded);
     // Local cache update BEFORE render — otherwise UI shows old shifts until app reopen
     try{
       if(typeof _cache==='undefined' || !_cache) window._cache = {};

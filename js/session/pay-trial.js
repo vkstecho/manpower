@@ -4,28 +4,6 @@
  * Individual = own paidUntil only; member under live manager may inherit.
  * Load after pay-gate.js.
  */
-/** Parse payment calendar dates as end-of-day in India, without changing stored data.
- * ISO timestamps retain their exact instant. Invalid dates are ignored. */
-function _mpAccessDateMs(value){
-  if(value == null || value === '') return NaN;
-  if(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)){
-    const d = new Date(value + 'T23:59:59.999+05:30');
-    return d.getTime();
-  }
-  const d = new Date(value);
-  return d.getTime();
-}
-function _mpLatestAccessDate(records){
-  let best = -Infinity;
-  (records || []).forEach(function(record){
-    if(!record || typeof record !== 'object') return;
-    ['paymentPaidUntil','paidUntil','paymentPaidUntilDate','validTill'].forEach(function(field){
-      const ms = _mpAccessDateMs(record[field]);
-      if(Number.isFinite(ms) && ms > best) best = ms;
-    });
-  });
-  return Number.isFinite(best) ? new Date(best).toISOString() : null;
-}
 async function _getAdminFreeTrialDays(){
   let trialDays = 7;
   try{
@@ -93,11 +71,8 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
       }
     }catch(e){ console.warn('[payTrial] freeTrialDays read', e && e.message); }
 
-    // Explicit Admin changes always outrank historical trial flags.
-    const previousPaymentUpdater = String(src.paymentUpdatedBy || '');
-    const adminOverride = [mu, ps].some(function(r){ return r && /^(ADMIN|admin)(?:$|[_: -])/i.test(String(r.paymentUpdatedBy || '')); });
-    const byAuto = !adminOverride && (previousPaymentUpdater.indexOf('auto_trial') === 0
-      || (!previousPaymentUpdater && (src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1)));
+    const byAuto = String(src.paymentUpdatedBy||'').indexOf('auto_trial') === 0
+      || src.paymentTrialGranted === true || src.paymentTrialGranted === 'true' || src.paymentTrialGranted === 1;
 
     // Already on an auto trial: clamp paidUntil down to Admin freeTrialDays from firstLoginAt
     // (fixes managers who got 30d before Admin set 7d — never lengthen paid Admin grants)
@@ -170,7 +145,7 @@ async function _ensureNewUserPaymentTrial(phone, mu, ps){
         const mgrOk = mgr && String(mgr.role||'').toLowerCase()==='manager'
           && mgr.status !== 'removed' && mgr.status !== 'revoked';
         if(mgrOk){
-          const muRaw = _mpLatestAccessDate([mgr]);
+          const muRaw = mgr.paymentPaidUntil || mgr.paidUntil || mgr.validTill || mgr.paymentPaidUntilDate;
           if(muRaw){
             const md = new Date(muRaw);
             if(!isNaN(md.getTime()) && md.getTime() >= Date.now()){
@@ -260,9 +235,18 @@ async function _hydrateUserPaymentStatus(){
     // Merge sources; prefer LATEST access date across paymentPaidUntil / paidUntil / validTill
     const src = Object.assign({}, mu || {}, ps || {});
     if(mu || ps){
-      // Preserve the most recent admin-authorized access date across both nodes.
-      // Do not write normalized values back to Firebase or change login identifiers.
-      const bestIso = _mpLatestAccessDate([mu, ps]);
+      const dateCands = [
+        src.paymentPaidUntil, src.paidUntil, src.paymentPaidUntilDate, src.validTill,
+        mu && mu.paymentPaidUntil, mu && mu.paidUntil, mu && mu.validTill,
+        ps && ps.paymentPaidUntil, ps && ps.paidUntil, ps && ps.validTill
+      ];
+      let bestIso = null, bestTs = 0;
+      dateCands.forEach(function(c){
+        if(!c) return;
+        const d = new Date(c);
+        if(isNaN(d.getTime())) return;
+        if(d.getTime() >= bestTs){ bestTs = d.getTime(); bestIso = (typeof c === 'string' ? c : d.toISOString()); }
+      });
       if(bestIso){
         SESSION.paymentPaidUntil = bestIso;
         SESSION.paidUntil = bestIso;
@@ -310,7 +294,7 @@ async function _hydrateUserPaymentStatus(){
           try{ mgr = await fbGet('mobileUsers/'+mid); }catch(e){}
           if(!mgr){ try{ mgr = await fbGet('paymentStatus/'+mid); }catch(e){} }
           if(mgr && String(mgr.role||'').toLowerCase()==='manager' && mgr.status !== 'removed'){
-            const mr = _mpLatestAccessDate([mgr]);
+            const mr = mgr.paymentPaidUntil || mgr.paidUntil || mgr.validTill;
             if(mr){
               const md = new Date(mr);
               if(!isNaN(md.getTime()) && md.getTime() >= Date.now()){
