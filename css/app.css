@@ -1798,3 +1798,10 @@ body:not(.light) textarea {
 #teamMultiSelectBar.mp-team-select-toolbar button:disabled {background:#475569!important;color:#fff!important;-webkit-text-fill-color:#fff!important;opacity:.78!important;cursor:not-allowed!important;}
 #teamMultiSelectBar.mp-team-select-toolbar button:not(:disabled):focus-visible {outline:3px solid #fbbf24!important;outline-offset:2px;}
 #tab-team input[type=checkbox][id^="teamMs_"] {appearance:checkbox!important;-webkit-appearance:checkbox!important;accent-color:#ea580c!important;width:22px!important;height:22px!important;opacity:1!important;visibility:visible!important;cursor:pointer!important;}
+
+/* UI audit: scoped light modal contrast, excluding shift badges */
+body.light .overlay.open .modal .modal-title,body.light .overlay.open .modal-box .modal-title{color:#0f172a}
+body.light .overlay.open .modal input:not([type="checkbox"]):not([type="radio"]),body.light .overlay.open .modal textarea,body.light .overlay.open .modal select{color:#0f172a}
+body.light .overlay.open .modal input::placeholder,body.light .overlay.open .modal textarea::placeholder{color:#64748b;opacity:1}
+body.light .overlay.open .modal .cancel-btn:not([disabled]){color:#0f172a}
+body.light .overlay.open .modal .modal-handle{background:#cbd5e1}

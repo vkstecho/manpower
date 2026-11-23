@@ -373,7 +373,7 @@ async function loadScheduleBuilder(){
     <div id="sbStickyHeader" class="sb-sticky-header" style="position:sticky;top:0;z-index:10;background:var(--bg);padding:0 0 4px;flex-shrink:0">
       <!-- Compact: month + Change -->
       <div class="sb-row-title" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px">
-        <div class="modal-title" style="margin:0;font-size:15px;font-weight:900;color:#f8fafc;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">📅 ${rangeLabel}</div>
+        <div class="modal-title" style="margin:0;font-size:15px;font-weight:900;color:var(--text);letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0">📅 ${rangeLabel}</div>
         <button type="button" onclick="openScheduleBuilder()" class="sb-change-btn"
           style="background:var(--card);border:1px solid var(--border2);border-radius:8px;color:var(--muted2);padding:6px 10px;cursor:pointer;font-size:12px;font-weight:700;flex-shrink:0">← ${(typeof L==='function')?L('बदलें','Change'):'Change'}</button>
       </div>

@@ -1448,7 +1448,7 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
     // Only show if it was a W-off or holiday AND employee actually came to duty (D or N)
     if(isWoff || isHoli){
       const actualShift = getShift(emp, ds);
-      if(['D','N','G'].includes(actualShift)){
+      if(['A','B','C','D','N','G'].includes(String(actualShift||'').toUpperCase())){
         dateOpts.push({
           ds, 
           label: d.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})+' ('+dayName+')',
@@ -1466,6 +1466,25 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
   const modalDiv = document.createElement('div');
   modalDiv.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9998;display:flex;align-items:flex-end;justify-content:center;padding:0';
   modalDiv.id='compOffModal';
+  modalDiv.className='mp-comp-off-dialog';
+  const coLight = document.body.classList.contains('light') || document.documentElement.classList.contains('light') || document.body.dataset.theme==='light' || document.documentElement.dataset.theme==='light';
+  modalDiv.dataset.coTheme=coLight?'light':'dark';
+  if(!document.getElementById('mpCoThemeStyle')){
+    const st=document.createElement('style');st.id='mpCoThemeStyle';st.textContent=`
+    #compOffModal[data-co-theme="light"] > div{background:#fff!important;border-color:#dbe4f0!important;box-shadow:0 24px 65px rgba(15,23,42,.18)!important}
+    #compOffModal[data-co-theme="light"] > div > div[style*="width:36px"]{background:#cbd5e1!important}
+    #compOffModal[data-co-theme="light"] div[style*="color:#fff"],#compOffModal[data-co-theme="light"] div[style*="color:#e2e8f0"]{color:#0f172a!important}
+    #compOffModal[data-co-theme="light"] div[style*="color:#94a3b8"]{color:#475569!important}
+    #compOffModal[data-co-theme="light"] .co-date-card,#compOffModal[data-co-theme="light"] #coReasonBtns button{background:#f8fafc!important;color:#0f172a!important;border-color:#cbd5e1!important}
+    #compOffModal[data-co-theme="light"] .co-date-card span[style*="color:#fde68a"],#compOffModal[data-co-theme="light"] .co-date-card span[style*="color:#cbd5e1"]{color:#0f172a!important}
+    #compOffModal[data-co-theme="light"] input:not([type="hidden"]){background:#fff!important;color:#0f172a!important;border-color:#cbd5e1!important}
+    #compOffModal[data-co-theme="light"] button[onclick*="remove()"]{background:#f1f5f9!important;color:#0f172a!important;border-color:#cbd5e1!important}
+    #compOffModal[data-co-theme="light"] #coSummary{background:#fff7ed!important;color:#7c2d12!important;border-color:#fdba74!important}
+    #compOffModal .co-date-card.co-selected,#compOffModal #coReasonBtns button.co-selected{border-color:#f97316!important;background:#fff7ed!important;color:#9a3412!important}
+    #compOffModal[data-co-theme="dark"] .co-date-card.co-selected,#compOffModal[data-co-theme="dark"] #coReasonBtns button.co-selected{background:#713f12!important;color:#fde68a!important}
+    @media(min-width:700px){#compOffModal{align-items:center!important;padding:16px!important}#compOffModal>div{border-radius:18px!important}}
+    `;document.head.appendChild(st);
+  }
   modalDiv.innerHTML=`
     <div style="background:#1e293b;border:1px solid #334155;border-radius:20px 20px 0 0;padding:20px 18px 30px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto">
       <div style="width:36px;height:4px;background:#334155;border-radius:2px;margin:0 auto 18px"></div>
@@ -1506,8 +1525,8 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
       <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">${typeof L==='function'?L('कारण *','Reason *'):'Reason *'}</div>
       <div id="coReasonArea" style="margin-bottom:14px">
         <div id="coReasonBtns" style="display:flex;flex-wrap:wrap;gap:7px;margin-bottom:8px">
-          <button onclick="selectCoReason(this,(typeof L==='function'?L((typeof L==='function'?L('W-Off पर बुलाया गया','Called on weekly off'):'Called on weekly off'),'Called on weekly off'):'Called on weekly off'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🔔 W-Off पर बुलाया</button>
-          <button onclick="selectCoReason(this,(typeof L==='function'?L('Holiday पर काम किया','Worked on holiday'):'Worked on holiday'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🎉 Holiday काम किया</button>
+          <button onclick="selectCoReason(this,(typeof L==='function'?L((typeof L==='function'?L('W-Off पर बुलाया गया','Called on weekly off'):'Called on weekly off'),'Called on weekly off'):'Called on weekly off'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🔔 ${typeof L==='function'?L('W-Off पर बुलाया','Called on Weekly Off'):'Called on Weekly Off'}</button>
+          <button onclick="selectCoReason(this,(typeof L==='function'?L('Holiday पर काम किया','Worked on holiday'):'Worked on holiday'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🎉 ${typeof L==='function'?L('Holiday काम किया','Worked on Holiday'):'Worked on Holiday'}</button>
           <button onclick="selectCoReason(this,(typeof L==='function'?L('Extra shift ली','Took extra shift'):'Took extra shift'))" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">⏰ Extra Shift</button>
           <button onclick="selectCoReason(this,'Emergency duty')" style="padding:10px 14px;border-radius:10px;border:1.5px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer">🚨 Emergency</button>
         </div>
@@ -1517,7 +1536,7 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
       <div id="coSummary" style="display:none;background:rgba(113,63,18,.15);border:1px solid rgba(253,230,138,.2);border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#fde68a;line-height:1.7"></div>
 
       <div style="display:flex;gap:10px">
-        <button onclick="document.getElementById('compOffModal')?.remove()" style="flex:1;padding:13px;border-radius:10px;border:1px solid #334155;background:none;color:#64748b;font-size:14px;cursor:pointer">रद्द करें</button>
+        <button onclick="document.getElementById('compOffModal')?.remove()" style="flex:1;padding:13px;border-radius:10px;border:1px solid #334155;background:none;color:#64748b;font-size:14px;cursor:pointer">${typeof L==='function'?L('रद्द करें','Cancel'):'Cancel'}</button>
         <button onclick="confirmCompOff('${empId}','${empName}','${coDate}','${currentShift}')" style="flex:2;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#713f12,#92400e);color:#fde68a;font-size:14px;font-weight:900;cursor:pointer">${typeof L==='function'?L('✅ C-Off Mark करें','✅ Mark C-Off'):'✅ Mark C-Off'}</button>
       </div>
     </div>`;
@@ -1527,10 +1546,10 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
 function selectCoDate(card, val, isHoli, holiName, isWoff){
   // Deselect all
   document.querySelectorAll('.co-date-card').forEach(c=>{
-    c.style.borderColor='#334155'; c.style.background='#0f172a';
+    c.classList.remove('co-selected'); c.style.borderColor=''; c.style.background='';
   });
   // Select this one
-  card.style.borderColor='rgba(253,230,138,.6)'; card.style.background='rgba(113,63,18,.25)';
+  card.classList.add('co-selected');
   document.getElementById('coWorkedDate').value = val;
   // Store metadata in hidden fields so confirmCompOff/updateCoSummary can read them
   const ihEl = document.getElementById('coWorkedIsHoli');
@@ -1570,9 +1589,9 @@ function onCoWorkedDateChange(){
 
 function selectCoReason(btn, reason){
   document.querySelectorAll('#coReasonBtns button').forEach(b=>{
-    b.style.background='#0f172a'; b.style.color='#e2e8f0'; b.style.borderColor='#475569';
+    b.classList.remove('co-selected'); b.style.background=''; b.style.color=''; b.style.borderColor='';
   });
-  btn.style.background='rgba(113,63,18,.5)'; btn.style.color='#fde68a'; btn.style.borderColor='rgba(253,230,138,.5)';
+  btn.classList.add('co-selected');
   document.getElementById('coReasonText').value = reason;
   updateCoSummary();
 }
