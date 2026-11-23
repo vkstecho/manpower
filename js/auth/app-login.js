@@ -310,7 +310,7 @@ async function _sendOTP(isResend){
           const empObjId = userData.empObjId || userData.employeeId || '';
           const savedPw = (typeof _getDevicePasswordHash==='function') ? _getDevicePasswordHash(empObjId, mobile) : null;
           if(empObjId){
-            try{ dRec = await fbGet('deviceApprovals/'+empObjId); }catch(e){}
+            try{ dRec = await _mpFbGet('deviceApprovals/'+empObjId); }catch(e){}
           }
           let deviceOk = !!(dRec && dRec.approvedDeviceId === deviceId && dRec.validTill && new Date(dRec.validTill)>new Date());
           let recentPhone = false;
@@ -469,7 +469,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   try{ await window._fbSignInAnon(); }catch(e){ console.warn('[otp-fallback] anon', e); }
 
   let userData = null;
-  try{ userData = await fbGet('mobileUsers/'+mobile); }catch(e){ console.warn('[otp-fallback] mobileUsers', e); }
+  try{ userData = await _mpFbGet('mobileUsers/'+mobile); }catch(e){ console.warn('[otp-fallback] mobileUsers', e); }
 
   const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : ('web_'+Date.now());
   const empObjId = (userData && (userData.empObjId || userData.employeeId)) || '';
@@ -482,7 +482,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   let otherDeviceActive = false;
   if(empObjId){
     try{
-      dRec = await fbGet('deviceApprovals/'+empObjId);
+      dRec = await _mpFbGet('deviceApprovals/'+empObjId);
       if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
           && dRec.validTill && new Date(dRec.validTill) > new Date()){
         otherDeviceActive = true;
@@ -511,7 +511,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
   let reqKey = null;
   const reqType = otherDeviceActive ? 'device_transfer' : 'otp_unavailable';
   try{
-    reqKey = await fbPush('loginRequests', {
+    reqKey = await _mpFbPush('loginRequests', {
       type: reqType,
       otpBlocked: true,
       reason: code || (isNetwork ? 'network' : 'sms_blocked'),
@@ -549,11 +549,11 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     // Normalize mobile key variants
     targets.add(String(mobile).replace(/\D/g,'').slice(-10));
     for(const t of targets){
-      try{ await fbPush('userNotifications/'+t, notif); }catch(e){ console.warn('[otp-fallback] notif', t, e); }
+      try{ await _mpFbPush('userNotifications/'+t, notif); }catch(e){ console.warn('[otp-fallback] notif', t, e); }
     }
     // Extra adminNotifications entry with reqKey for Pending deep-link style
     try{
-      await fbPush('adminNotifications', {
+      await _mpFbPush('adminNotifications', {
         title: '📱 SMS blocked — approve login',
         body: empName+' · +91-'+mobile+' · open Pending → Login requests',
         type: 'otp_unavailable',
@@ -623,7 +623,7 @@ async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
     if(window._odlPoller) clearInterval(window._odlPoller);
     _odlCtx.poller = setInterval(async ()=>{
       try{
-        const rec = await fbGet('loginRequests/'+reqKey);
+        const rec = await _mpFbGet('loginRequests/'+reqKey);
         if(rec && rec.status==='approved'){
           clearInterval(_odlCtx.poller);
           try{ await doLoginAfterApproval(emp, userData, deviceId); }catch(e){
@@ -657,7 +657,7 @@ async function doLoginAfterApproval(emp, userData, deviceId){
 
   // Always re-read live registration — do not invent a fake member
   let ud = null;
-  try{ ud = await fbGet('mobileUsers/'+mobile); }catch(e){}
+  try{ ud = await _mpFbGet('mobileUsers/'+mobile); }catch(e){}
   if(!ud && userData && userData.status) ud = userData;
 
   _loginMobile = '+91'+mobile;
@@ -678,7 +678,7 @@ async function doLoginAfterApproval(emp, userData, deviceId){
   if(isRemoved || !isCompleteApproved){
     if(isRemoved && ud){
       try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-        try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){}
+        try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){}
       }
     }
     try{
@@ -722,7 +722,7 @@ async function doLoginAfterApproval(emp, userData, deviceId){
   const devId = deviceId || (typeof getDeviceId==='function' ? getDeviceId() : '');
   if(empObjId && devId){
     try{
-      await fbUpdate('deviceApprovals/'+empObjId, {
+      await _mpFbUpdate('deviceApprovals/'+empObjId, {
         approvedDeviceId: devId,
         approvedAt: new Date().toISOString(),
         validTill: new Date(Date.now()+365*86400000).toISOString(),
@@ -822,10 +822,10 @@ async function _notifyAdminManagerLoginAttempt(mobile, name){
       needsApproval: true,
       at: new Date().toISOString()
     };
-    await fbPush('adminNotifications', notif);
+    await _mpFbPush('adminNotifications', notif);
     // Optional pending loginRequests for Admin Approve without OTP
     try{
-      await fbPush('loginRequests', {
+      await _mpFbPush('loginRequests', {
         type: 'manager_login_approval',
         status: 'pending',
         role: 'manager',
@@ -858,11 +858,11 @@ async function _notifyManagerMemberLogin(userData, mobile){
       at: new Date().toISOString()
     };
     if(mid){
-      try{ await fbPush('userNotifications/'+mid, notif); }catch(e){}
+      try{ await _mpFbPush('userNotifications/'+mid, notif); }catch(e){}
       try{
-        const mgrRec = await fbGet('mobileUsers/'+mid);
+        const mgrRec = await _mpFbGet('mobileUsers/'+mid);
         if(mgrRec && (mgrRec.empObjId||mgrRec.employeeId)){
-          await fbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
+          await _mpFbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
         }
       }catch(e){}
     }
@@ -884,7 +884,7 @@ async function _tryRejoinPreserveShifts(mobile){
     const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
     if(mob.length!==10) return false;
     let mu = null;
-    try{ mu = await fbGet('mobileUsers/'+mob); }catch(e){}
+    try{ mu = await _mpFbGet('mobileUsers/'+mob); }catch(e){}
     if(mu){
       const st = String(mu.status||'').toLowerCase();
       const role = String(mu.role||'').toLowerCase();
@@ -919,7 +919,7 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
     if(localStorage.getItem('mp_force_fresh_'+mob)==='1') return false;
   }catch(e){}
   try{
-    const muBlock = await fbGet('mobileUsers/'+mob);
+    const muBlock = await _mpFbGet('mobileUsers/'+mob);
     if(muBlock && (muBlock.forceFreshLogin===true
         || ['removed','revoked','left','left_team'].indexOf(String(muBlock.status||'').toLowerCase())>=0
         || String(muBlock.role||'').toLowerCase()==='removed')){
@@ -932,7 +932,7 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
     : String(empMatch.managerId||'').replace(/\D/g,'').slice(-10);
 
   let existing = null;
-  try{ existing = await fbGet('mobileUsers/'+mob); }catch(e){}
+  try{ existing = await _mpFbGet('mobileUsers/'+mob); }catch(e){}
 
   // v6.0.7: if employee row is under another manager as worker/member, FORCE member role
   // (stale mobileUsers.role=manager was causing "only my shift" after joining another team)
@@ -971,13 +971,13 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
   // Write without forcing illegal status transitions that rules reject
   try{
     if(!existing){
-      await fbSet('mobileUsers/'+mob, userData);
+      await _mpFbSet('mobileUsers/'+mob, userData);
     } else {
       const patch = Object.assign({}, userData);
       // Never keep manager role when joining another manager's roster as member
       if(forceMember) patch.role = 'member';
       patch.status = 'approved';
-      await fbUpdate('mobileUsers/'+mob, patch);
+      await _mpFbUpdate('mobileUsers/'+mob, patch);
     }
   }catch(e){
     console.warn('[roster login] mobileUsers write', e);
@@ -988,7 +988,7 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
   const empObjId = userData.empObjId || '';
   if(empObjId && deviceId){
     try{
-      await fbUpdate('deviceApprovals/'+empObjId, {
+      await _mpFbUpdate('deviceApprovals/'+empObjId, {
         approvedDeviceId: deviceId,
         approvedAt: new Date().toISOString(),
         validTill: new Date(Date.now()+365*86400000).toISOString(),
@@ -1039,7 +1039,7 @@ async function _checkUserAfterOTP(){
     try{
       let forceFreshLocal = false;
       try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
-      const muPre = await fbGet('mobileUsers/'+mobile);
+      const muPre = await _mpFbGet('mobileUsers/'+mobile);
       if(forceFreshLocal){
         try{ localStorage.removeItem('mp_force_fresh_'+mobile); localStorage.removeItem('mp_force_fresh_at_'+mobile); }catch(e){}
         // skip rejoin
@@ -1065,7 +1065,7 @@ async function _checkUserAfterOTP(){
       const earlyRoster = await _resolveEmpByMobile(mobile);
       if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
           && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
-        const mu = await fbGet('mobileUsers/'+mobile);
+        const mu = await _mpFbGet('mobileUsers/'+mobile);
         // Local flag set by Delete Account on this device
         let forceFreshLocal = false;
         try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
@@ -1125,7 +1125,7 @@ async function _checkUserAfterOTP(){
       }
     }catch(e){ console.warn('[otp] early roster', e); }
 
-    let userData=await fbGet('mobileUsers/'+mobile);
+    let userData=await _mpFbGet('mobileUsers/'+mobile);
     if(userData){
       if(userData.status==='pending'){
         // Team Member pending → if on roster, already handled above; else limited app
@@ -1158,7 +1158,7 @@ async function _checkUserAfterOTP(){
       if(userData.status==='rejected'){
         // Allow fresh re-registration after rejection (clear old record)
         try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-          try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){}
+          try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){}
         }
         toast(L('👋 पिछला registration clear — दोबारा Manager/Member चुनें','👋 Previous registration cleared — choose Manager/Member again'));
         showStep(3);
@@ -1167,9 +1167,9 @@ async function _checkUserAfterOTP(){
       // Revoked / removed / left — treat as deleted: wipe node so next reg is fresh
       if(userData.status==='revoked' || userData.status==='left_team' || userData.status==='left' || userData.status==='removed' || userData.forceFreshLogin){
         try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-          try{ await fbSet('mobileUsers/'+mobile, null); }catch(e2){
+          try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){
             // Last resort: overwrite with tombstone that registration can replace
-            try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e3){}
+            try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e3){}
           }
         }
         // Also clear device approval so no sticky device lock
@@ -1187,7 +1187,7 @@ async function _checkUserAfterOTP(){
         const empHit = allEmp.find(e => _normMobileKey(e.phone||e.mobile||'')===mobile);
         if(empHit && (empHit.status==='resigned'||empHit.status==='left'||empHit.status==='left_team'||empHit.status==='removed')){
           try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-            try{ await fbUpdate('mobileUsers/'+mobile, { status:'removed', role:'removed', managerId:null, forceFreshLogin:true, leftAt:new Date().toISOString() }); }catch(e2){}
+            try{ await _mpFbUpdate('mobileUsers/'+mobile, { status:'removed', role:'removed', managerId:null, forceFreshLogin:true, leftAt:new Date().toISOString() }); }catch(e2){}
           }
           toast(L('👋 आप team से remove हो चुके हैं — दोबारा register करें','👋 You were removed from the team — register again'));
           showStep(3);
@@ -1195,7 +1195,7 @@ async function _checkUserAfterOTP(){
         }
       }catch(e){}
       if(userData.status==='approved' && userData.forceFreshLogin){
-        try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e){}
+        try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e){}
         toast(L('👋 Account clear — दोबारा register करें','👋 Account cleared — register again'));
         showStep(3);
         return;
@@ -1212,7 +1212,7 @@ async function _checkUserAfterOTP(){
           const roleMu = String(userData.role||'').toLowerCase();
           if((roleMu==='member' || roleMu==='worker') && rosterChk
               && ['resigned','left','left_team','removed','revoked'].indexOf(rst)>=0){
-            try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_left_roster' }); }catch(e){}
+            try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_left_roster' }); }catch(e){}
             toast(L('👋 Team से remove हो चुके हैं — दोबारा register करें','👋 Removed from team — register again'));
             showStep(3);
             return;
@@ -1228,7 +1228,7 @@ async function _checkUserAfterOTP(){
           // Resolve employee by mobile
           let empMatch = null;
           try{
-            const all = Object.values(await fbGet('employees')||{}) || (_cache.employees||[]);
+            const all = Object.values(await _mpFbGet('employees')||{}) || (_cache.employees||[]);
             const mobKey = _normMobileKey(mobile);
             empMatch = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
             if(!empMatch && userData.empObjId) empMatch = all.find(e=>e.id===userData.empObjId);
@@ -1240,13 +1240,13 @@ async function _checkUserAfterOTP(){
           const empObjId = (empMatch&&empMatch.id) || userData.empObjId || userData.employeeId || '';
           if(empObjId && (userData.role==='member' || userData.role==='worker' || userData.role==='manager')){
             let dRec = null;
-            try{ dRec = await fbGet('deviceApprovals/'+empObjId); }catch(e){}
+            try{ dRec = await _mpFbGet('deviceApprovals/'+empObjId); }catch(e){}
             if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
                 && dRec.validTill && new Date(dRec.validTill) > new Date()){
               // OTP already verified on this device → auto-claim (no manager/other-device approval)
               // Manager only gets an info notification later via _notifyManagerMemberLogin
               try{
-                await fbUpdate('deviceApprovals/'+empObjId, {
+                await _mpFbUpdate('deviceApprovals/'+empObjId, {
                   approvedDeviceId: deviceId,
                   approvedAt: new Date().toISOString(),
                   validTill: new Date(Date.now()+365*86400000).toISOString(),
@@ -1264,7 +1264,7 @@ async function _checkUserAfterOTP(){
             try{
               const liveName = (empMatch && empMatch.name) || userData.name || '';
               const liveCode = (empMatch && empMatch.empId) || userData.empId || userData.empCode || '';
-              await fbUpdate('deviceApprovals/'+empObjId, {
+              await _mpFbUpdate('deviceApprovals/'+empObjId, {
                 approvedDeviceId: deviceId,
                 approvedAt: new Date().toISOString(),
                 validTill: new Date(Date.now()+365*86400000).toISOString(),
@@ -1353,7 +1353,7 @@ async function _checkUserAfterOTP(){
     // Last chance: roster only if active employee AND mobileUsers approved still exists
     try{
       const mobile2=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
-      const mu2 = await fbGet('mobileUsers/'+mobile2);
+      const mu2 = await _mpFbGet('mobileUsers/'+mobile2);
       const rosterEmp = await _resolveEmpByMobile(mobile2);
       if(mu2 && mu2.status==='approved' && rosterEmp
           && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'
@@ -1410,7 +1410,7 @@ function _watchApprovalStatus(mobile){
   _approvalPollTimer=setInterval(async()=>{
     if(!_approvalWatchActive){ clearInterval(_approvalPollTimer); return; }
     try{
-      const userData=await fbGet('mobileUsers/'+mobile);
+      const userData=await _mpFbGet('mobileUsers/'+mobile);
       handleUpdate(userData);
     }catch(e){}
   },8000);
@@ -1437,7 +1437,7 @@ async function _loadManagerOptions(companyFilter){
   if(!sel) return;
   sel.innerHTML='<option value="">-- Loading... --</option>';
   try{
-    const data=await fbGet('mobileUsers');
+    const data=await _mpFbGet('mobileUsers');
     let managers=data?Object.entries(data).filter(([k,v])=>v && v.role==='manager'&&v.status==='approved'):[];
     // Smart company match: tokens from company name (e.g. "VKS Tech" → VKS, Tech)
     // Show managers whose company contains any significant token
@@ -1506,7 +1506,97 @@ function _toggleOtherField(selectId,otherId){
   if(sel.value==='Others') other.focus();
 }
 
+
+/** Ensure Firebase write helpers exist (guards against app-core load/cache issues) */
+async function _mpEnsureFb(){
+  try{ if(typeof window.__mpBindFbHelpers==='function') window.__mpBindFbHelpers(); }catch(e){}
+  if(typeof fbSet==='function' && typeof fbGet==='function') return true;
+  if(typeof window.fbSet==='function' && typeof window.fbGet==='function'){
+    try{ if(typeof fbSet!=='function') fbSet = window.fbSet; }catch(e){ try{ window.fbSet = window.fbSet; }catch(e2){} }
+    return true;
+  }
+  // Fallback: build from window._fbAccess (firebase-init module)
+  if(typeof window._fbAccess==='function'){
+    if(typeof window.fbGet!=='function'){
+      window.fbGet = async function(path){
+        const snap = await window._fbAccess('get', path);
+        return snap && snap.exists && snap.exists() ? snap.val() : (snap && snap.val ? snap.val() : snap);
+      };
+    }
+    if(typeof window.fbSet!=='function'){
+      window.fbSet = async function(path, val){ return window._fbAccess('set', path, val); };
+    }
+    if(typeof window.fbUpdate!=='function'){
+      window.fbUpdate = async function(path, val){ return window._fbAccess('update', path, val); };
+    }
+    if(typeof window.fbPush!=='function'){
+      window.fbPush = async function(path, val){ return window._fbAccess('push', path, val); };
+    }
+    if(typeof window.fbRemove!=='function'){
+      window.fbRemove = async function(path){ return window._fbAccess('remove', path); };
+    }
+    // Also expose as globals when possible
+    try{ if(typeof fbSet!=='function'){ var g=window; g.fbSet=window.fbSet; g.fbGet=window.fbGet; g.fbUpdate=window.fbUpdate; g.fbPush=window.fbPush; g.fbRemove=window.fbRemove; } }catch(e){}
+    return true;
+  }
+  // Wait briefly for module init
+  for(let i=0;i<20;i++){
+    await new Promise(r=>setTimeout(r,100));
+    try{ if(typeof window.__mpBindFbHelpers==='function') window.__mpBindFbHelpers(); }catch(e){}
+    if(typeof fbSet==='function' || typeof window.fbSet==='function' || typeof window._fbAccess==='function'){
+      return _mpEnsureFb();
+    }
+  }
+  return false;
+}
+async function _mpFbSet(path, val){
+  const ok = await _mpEnsureFb();
+  if(typeof fbSet==='function') return fbSet(path, val);
+  if(typeof window.fbSet==='function') return window.fbSet(path, val);
+  if(typeof window._fbAccess==='function') return window._fbAccess('set', path, val);
+  throw new Error(ok ? 'fbSet unavailable' : 'Firebase not ready — refresh page');
+}
+async function _mpFbGet(path){
+  await _mpEnsureFb();
+  if(typeof fbGet==='function') return fbGet(path);
+  if(typeof window.fbGet==='function') return window.fbGet(path);
+  if(typeof window._fbAccess==='function'){
+    const snap = await window._fbAccess('get', path);
+    return snap && snap.exists && snap.exists() ? snap.val() : null;
+  }
+  throw new Error('fbGet unavailable');
+}
+async function _mpFbPush(path, val){
+  await _mpEnsureFb();
+  if(typeof fbPush==='function') return fbPush(path, val);
+  if(typeof window.fbPush==='function') return window.fbPush(path, val);
+  if(typeof window._fbAccess==='function') return window._fbAccess('push', path, val);
+  throw new Error('fbPush unavailable');
+}
+async function _mpFbUpdate(path, val){
+  await _mpEnsureFb();
+  if(typeof fbUpdate==='function') return fbUpdate(path, val);
+  if(typeof window.fbUpdate==='function') return window.fbUpdate(path, val);
+  if(typeof window._fbAccess==='function') return window._fbAccess('update', path, val);
+  throw new Error('fbUpdate unavailable');
+}
+try{
+  window._mpEnsureFb = _mpEnsureFb;
+  window._mpFbSet = _mpFbSet;
+  window._mpFbGet = _mpFbGet;
+  window._mpFbPush = _mpFbPush;
+  window._mpFbUpdate = _mpFbUpdate;
+}catch(e){}
+
 async function _submitManagerReg(){
+  try{
+    const ready = await _mpEnsureFb();
+    if(!ready && typeof fbSet!=='function' && typeof window.fbSet!=='function' && typeof window._fbAccess!=='function'){
+      const errEl0=document.getElementById('mgrRegErr');
+      if(errEl0){ errEl0.textContent=L('❌ Firebase लोड नहीं हुआ — page refresh करें','❌ Firebase not loaded — refresh the page'); errEl0.classList.add('show'); }
+      return;
+    }
+  }catch(e){}
   const name=(document.getElementById('mgrName')?.value||'').trim();
   const comp=(document.getElementById('mgrCompany')?.value||'').trim();
   let desig=(document.getElementById('mgrDesignation')?.value||'').trim();
@@ -1591,11 +1681,11 @@ async function _submitManagerReg(){
   };
   try{
     // Overwrite any leftover deleted/removed tombstone so re-login works
-    await fbSet('mobileUsers/'+mobile, userData);
+    await _mpFbSet('mobileUsers/'+mobile, userData);
     // Mirror paymentStatus so Admin list / Pay gate match trial
     try{
-      if(typeof fbSet === 'function'){
-        await fbSet('paymentStatus/'+mobile, {
+      if((typeof fbSet==='function'||typeof window.fbSet==='function'||typeof _mpFbSet==='function')){
+        await _mpFbSet('paymentStatus/'+mobile, {
           mobile: mobile,
           phone: mobile,
           name: name,
@@ -1618,7 +1708,7 @@ async function _submitManagerReg(){
 
     const notifBody = name+' joined as Manager\nCompany: '+comp+'\nDept: '+dept+'\nMobile: '+(_loginMobile||mobile);
     try{
-      await fbPush('adminNotifications', {
+      await _mpFbPush('adminNotifications', {
         type:'manager_joined',
         title:'🆕 New Manager joined',
         body: notifBody,
@@ -1664,15 +1754,15 @@ async function _submitManagerReg(){
         isManagerSelf: true
       };
       if(existingId){
-        await fbUpdate('employees/'+existingId, selfEmp);
+        await _mpFbUpdate('employees/'+existingId, selfEmp);
         try{ userData.empObjId = existingId; }catch(x){}
-        try{ await fbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
+        try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
       }else if(typeof fbPush==='function'){
-        const newRef = await fbPush('employees', selfEmp);
+        const newRef = await _mpFbPush('employees', selfEmp);
         const newId = (newRef && (newRef.key || newRef.name)) || null;
         if(newId){
           try{ userData.empObjId = newId; }catch(x){}
-          try{ await fbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
+          try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
           try{
             if(typeof _cache!=='undefined' && _cache){
               _cache.employees = _cache.employees || [];
@@ -1759,9 +1849,9 @@ async function _submitMemberReg(){
     updatedAt: new Date().toISOString()
   };
   try{
-    await fbSet('mobileUsers/'+mobile, userData);
+    await _mpFbSet('mobileUsers/'+mobile, userData);
     try{
-      await fbPush('adminNotifications',{type:'member_registration',...userData,
+      await _mpFbPush('adminNotifications',{type:'member_registration',...userData,
         message: name+' registered as Member. Manager: '+(userData.managerName||managerId)});
     }catch(e){}
     // Notify manager on phone key AND any empObjId path if resolvable
@@ -1774,12 +1864,12 @@ async function _submitMemberReg(){
       managerId: managerId,
       read:false, at: new Date().toISOString()
     };
-    try{ await fbPush('userNotifications/'+managerId, notif); }catch(e){}
+    try{ await _mpFbPush('userNotifications/'+managerId, notif); }catch(e){}
     try{
       // Also push under manager mobileUsers record empObjId if present
-      const mgrRec = await fbGet('mobileUsers/'+managerId);
+      const mgrRec = await _mpFbGet('mobileUsers/'+managerId);
       if(mgrRec && (mgrRec.empObjId||mgrRec.employeeId)){
-        await fbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
+        await _mpFbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
       }
     }catch(e){}
     toast((typeof L==='function')?L('✅ Register हो गया — Manager approve तक limited access','✅ Registered — limited access until Manager approves'):'✅ Registered — limited access until Manager approves');
@@ -1883,7 +1973,7 @@ async function _resolveEmpByMobile(mobile){
   let all = (_cache.employees||[]);
   if(!all.length){
     try{
-      const snap = await fbGet('employees');
+      const snap = await _mpFbGet('employees');
       if(snap && typeof snap==='object'){
         all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
         _cache.employees = all;
@@ -1893,7 +1983,7 @@ async function _resolveEmpByMobile(mobile){
   // Always refresh from network once if cache may be manager-scoped empty for this phone
   if(!all.some(e => _normMobileKey(e.phone||e.mobile||'') === mob)){
     try{
-      const snap = await fbGet('employees');
+      const snap = await _mpFbGet('employees');
       if(snap && typeof snap==='object'){
         all = Object.entries(snap).map(([k,v])=>({...(v||{}), id:(v&&v.id)||k}));
         _cache.employees = all;
@@ -1941,11 +2031,11 @@ async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
       if(base.role) patch.role = base.role;
       if(base.status) patch.status = base.status;
       if(base.managerId) patch.managerId = base.managerId;
-      try{ await fbUpdate('mobileUsers/'+mob, patch); }catch(e){ console.warn('[syncMU]', e); }
+      try{ await _mpFbUpdate('mobileUsers/'+mob, patch); }catch(e){ console.warn('[syncMU]', e); }
       // Fix deviceApprovals under CURRENT emp id
       if(match.id && deviceId){
         try{
-          await fbUpdate('deviceApprovals/'+match.id, {
+          await _mpFbUpdate('deviceApprovals/'+match.id, {
             approvedDeviceId: deviceId,
             approvedAt: new Date().toISOString(),
             validTill: new Date(Date.now()+365*86400000).toISOString(),
@@ -1961,7 +2051,7 @@ async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
       const oldId = base.empObjId || base.employeeId || '';
       if(oldId && oldId !== match.id){
         try{
-          await fbUpdate('deviceApprovals/'+oldId, {
+          await _mpFbUpdate('deviceApprovals/'+oldId, {
             empName: '(reassigned)',
             note: 'Mobile '+mob+' moved to '+ (match.name||match.id),
             reassignedAt: new Date().toISOString()
@@ -1973,7 +2063,7 @@ async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
     // No active employee with this phone — if mobileUsers had an old member name, strip identity
     if(base && (base.name || base.empObjId)){
       try{
-        await fbUpdate('mobileUsers/'+mob, {
+        await _mpFbUpdate('mobileUsers/'+mob, {
           name: base.role==='manager' ? (base.name||'') : '',
           empId: null,
           empCode: null,
@@ -2227,7 +2317,7 @@ async function tryAdminLogin(){
 
     // ── STEP 1: Direct Firebase check (fast, reliable, was always working) ──
     try{
-      const fbAuthData = await fbGet('adminAuth');
+      const fbAuthData = await _mpFbGet('adminAuth');
             if(fbAuthData && fbAuthData[u]){
         if(fbAuthData[u].h === passHash){
           adminInfo = {name:fbAuthData[u].name||u.toUpperCase(), role:'Admin'};
@@ -2324,7 +2414,7 @@ function recoverStuckPendingStates(){
 async function approveManagerLoginRequest(reqKey){
   try{
     if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ प्रमाणीकरण आवश्यक','❌ Auth required')); return; } }
-    await fbUpdate('loginRequests/'+reqKey, {
+    await _mpFbUpdate('loginRequests/'+reqKey, {
       status:'approved',
       approvedAt: new Date().toISOString(),
       approvedBy: SESSION.name||'manager',
@@ -2337,7 +2427,7 @@ async function approveManagerLoginRequest(reqKey){
 async function rejectManagerLoginRequest(reqKey){
   try{
     if(typeof _ensureWriteAuth==='function'){ const ok=await _ensureWriteAuth(); if(!ok){ toast(L('❌ प्रमाणीकरण आवश्यक','❌ Auth required')); return; } }
-    await fbUpdate('loginRequests/'+reqKey, {
+    await _mpFbUpdate('loginRequests/'+reqKey, {
       status:'rejected',
       rejectedAt: new Date().toISOString(),
       rejectedBy: SESSION.name||'manager'

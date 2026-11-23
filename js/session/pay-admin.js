@@ -791,5 +791,3 @@ window.saveAppLicenseAdmin = saveAppLicenseAdmin;
 
 
 /* Leave reason on any L cell open (Schedule + My Shift) */
-(function(){
-  

@@ -121,7 +121,8 @@
             (typeof cellClass === 'function' ? cellClass(e.newShift) : '') +
             '" style="outline:2px solid var(--m1);border-radius:4px">' +
             (typeof cellDisp === 'function' ? cellDisp(e.newShift) : e.newShift) +
-            '</span>'))<div style="font-size:7px;color:var(--m1);text-align:center;font-weight:900">NEW</div>';
+            '</span>')) +
+            '<div style="font-size:7px;color:var(--m1);text-align:center;font-weight:900">NEW</div>';
         });
       } catch (e) {}
     }, 40);

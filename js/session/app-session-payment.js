@@ -27,11 +27,10 @@ function installLeaveReasonHook(){
       return orig.apply(this, arguments);
     };
   }
-  installLeaveReasonHook();
-  document.addEventListener('firebase-ready', installLeaveReasonHook);
-  setTimeout(installLeaveReasonHook, 2000);
-  setTimeout(installLeaveReasonHook, 5000);
-})();
+installLeaveReasonHook();
+document.addEventListener('firebase-ready', installLeaveReasonHook);
+setTimeout(installLeaveReasonHook, 2000);
+setTimeout(installLeaveReasonHook, 5000);
 
 /* Force G legend text on schedule */
 (function mpFixGLegend(){
