@@ -391,6 +391,16 @@ try{
     if(emMob&&seenMob.has(emMob))return;
     rosterRows.push(e);
   });
+  // A manager-self employee may appear through multiple cache aliases. Show one
+  // row per real identity; do not delete or merge Firebase records here.
+  const uniqueRows=new Map();
+  rosterRows.forEach(e=>{
+    const mob=mgrKeyNorm(e.phone||e.mobile||'');
+    const key=mob ? 'phone:'+mob : (e.id ? 'id:'+e.id : 'code:'+String(e.empId||''));
+    const old=uniqueRows.get(key);
+    if(!old || (!old.id && e.id)) uniqueRows.set(key,e);
+  });
+  rosterRows=Array.from(uniqueRows.values());
 }catch(_r){}
 const membersHtml=(function(){
   let html="";
@@ -1626,8 +1636,13 @@ async function adminRemoveRosterEmp(ref, label){
     const k = key.replace(/\D/g,'').slice(-10);
     if(k.length===10) e = list.find(x=>x && String(x.phone||x.mobile||'').replace(/\D/g,'').slice(-10)===k);
   }
+  // Never detach a manager's own roster identity; it is used by login and shifts.
+  if(e && (e.isManagerSelf===true || String(e.role||'').toLowerCase()==='manager')){
+    toast(L('⚠️ Manager की अपनी roster entry यहाँ से नहीं हटाई जा सकती','⚠️ Manager self-entry is protected; use manager account management'));
+    return;
+  }
   if(!e || !e.id){
-    try{ toast(L('❌ Roster row नहीं मिला','❌ Roster row not found')); }catch(ex){}
+    try{ toast(L('❌ Roster row नहीं मिला — Firebase key जाँचें','❌ Roster row not found — check Firebase key')); }catch(ex){}
     return;
   }
   const nm = label || e.name || e.empId || e.id;

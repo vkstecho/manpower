@@ -1827,13 +1827,14 @@ async function _submitManagerReg(){
         isManagerSelf: true
       };
       if(existingId){
-        await _mpFbUpdate('employees/'+existingId, selfEmp);
+        await _mpFbUpdate('employees/'+existingId, Object.assign({id:existingId}, selfEmp));
         try{ userData.empObjId = existingId; }catch(x){}
         try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
       }else if(typeof fbPush==='function'){
         const newRef = await _mpFbPush('employees', selfEmp);
         const newId = (newRef && (newRef.key || newRef.name)) || null;
         if(newId){
+          try{ await _mpFbUpdate('employees/'+newId, {id:newId}); }catch(idErr){ console.warn('[mgrReg] record key saved but id hydration pending',idErr); }
           try{ userData.empObjId = newId; }catch(x){}
           try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
           try{
