@@ -32,7 +32,7 @@ function toggleTeamMultiSelectMode(force){
   _renderTeamMsBar();
 }
 function toggleTeamMsEmp(empId, ev){
-  try{ if(ev){ ev.preventDefault(); ev.stopPropagation(); } }catch(e){}
+  try{ if(ev){ ev.stopPropagation(); } }catch(e){}
   if(!_teamMsMode) return;
   const id = String(empId||'');
   if(!id) return;
@@ -41,7 +41,7 @@ function toggleTeamMsEmp(empId, ev){
   // update checkbox UI without full re-render if possible
   try{
     const cb = document.getElementById('teamMs_'+id);
-    if(cb) cb.checked = _teamMsSelected.has(id);
+    if(cb){ cb.checked = _teamMsSelected.has(id); cb.setAttribute('aria-checked', String(cb.checked)); }
     const card = document.getElementById('teamcard_'+id);
     if(card){
       if(_teamMsSelected.has(id)){
@@ -86,12 +86,13 @@ function _renderTeamMsBar(){
   bar.style.display = 'block';
   bar.style.background = '#0f172a';
   bar.style.color = '#ffffff';
+  bar.setAttribute('data-team-ms-bar','true');
   bar.innerHTML = '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:#ffffff !important">'+
     '<div style="font-weight:900;color:#ffffff !important;font-size:15px;flex:1;min-width:120px;letter-spacing:.2px;-webkit-text-fill-color:#ffffff">☑️ <span style="color:#fdba74 !important;font-size:18px;-webkit-text-fill-color:#fdba74">'+n+'</span> <span style="color:#f8fafc !important;-webkit-text-fill-color:#f8fafc">'+L('चयनित','selected')+'</span></div>'+
-    '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('सभी','All')+'</button>'+
-    '<button type="button" onclick="teamMsClearSelection()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#1e293b;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
-    '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:9px 14px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c);color:#ffffff;font-weight:900;font-size:13px;cursor:pointer;opacity:'+(n?1:.5)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
-    '<button type="button" onclick="toggleTeamMultiSelectMode(false)" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:#334155;color:#ffffff;font-weight:800;font-size:13px;cursor:pointer">'+L('बंद','Close')+'</button>'+
+    '<button type="button" onclick="teamMsSelectAllVisible()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#334155!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:800;font-size:13px;cursor:pointer">'+L('सभी','All')+'</button>'+
+    '<button type="button" onclick="teamMsClearSelection()" style="padding:9px 12px;border-radius:9px;border:1px solid #94a3b8;background:#334155!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:800;font-size:13px;cursor:pointer">'+L('साफ़','Clear')+'</button>'+
+    '<button type="button" onclick="confirmBulkDeleteTeamMs()" '+(n?'' : 'disabled ')+'style="padding:9px 14px;border-radius:9px;border:none;background:linear-gradient(135deg,#e11d48,#be123c)!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:900;font-size:13px;cursor:pointer;opacity:'+(n?1:.5)+'">🗑️ '+L('हटाएँ','Delete')+'</button>'+
+    '<button type="button" onclick="toggleTeamMultiSelectMode(false)" style="padding:9px 12px;border-radius:9px;border:1px solid #cbd5e1;background:#334155!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:800;font-size:13px;cursor:pointer">'+L('बंद','Close')+'</button>'+
   '</div>';
 ;
 }
@@ -270,7 +271,7 @@ function _renderTeamImpl(search=''){
       const msChecked = msOn && _teamMsSelected.has(String(e.id));
       return `<div class="card" id="teamcard_${e.id}" style="${isMe?'border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.04);':''}${msChecked?'outline:3px solid #f97316;background:rgba(249,115,22,.16);box-shadow:0 0 0 1px rgba(249,115,22,.35);':''}${msOn?'cursor:pointer;':''}" ${msOn?`onclick="toggleTeamMsEmp('${e.id}',event)"`:''}>
         <div class="card-row">
-          ${msOn?`<div style="flex-shrink:0;padding:4px 2px 0 0" onclick="event.stopPropagation()"><input type="checkbox" id="teamMs_${e.id}" ${msChecked?'checked':''} onclick="toggleTeamMsEmp('${e.id}',event)" style="width:20px;height:20px;accent-color:#f97316;cursor:pointer"></div>`:''}
+          ${msOn?`<div style="flex-shrink:0;padding:4px 2px 0 0" onclick="event.stopPropagation()"><input type="checkbox" id="teamMs_${e.id}" ${msChecked?'checked':''} onchange="toggleTeamMsEmp('${e.id}',event)" style="appearance:auto!important;-webkit-appearance:checkbox!important;width:22px;height:22px;accent-color:#f97316;cursor:pointer;opacity:1!important;visibility:visible!important;flex-shrink:0"></div>`:''}
           ${avatarHtml}
           <div class="card-body">
             <div class="card-name">${escHtml(e.name)}${isMe?(' <span style="font-size:10px;color:var(--m1)">'+L("(आप)","(You)")+'</span>'):''}</div>

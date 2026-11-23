@@ -153,27 +153,39 @@ async function renderHome(){
     ? ("Today's Shift — " + (secNames.join(' · ') || 'All departments'))
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
-  // Build one summary card per Excel Section
+  // Machine-level live availability. A/B/C counts are calculated from the same
+  // getShift() source as the schedule, never from legacy D/N duty totals.
+  const _hmCfg = typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {};
+  const _hmMachineMins = (_hmCfg.minByField && _hmCfg.minByField.machine) || {};
+  const _hmMachineMin = mc => {
+    const key = Object.keys(_hmMachineMins).find(k => k.toLowerCase() === String(mc).toLowerCase());
+    const n = Number(key === undefined ? 0 : _hmMachineMins[key]);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  const _hmWorkCodes = ['A','B','C'];
   (document.getElementById('homeSections')||{innerHTML:''}).innerHTML = secNames.map((secName, idx)=>{
     const list = emps.filter(e=>getEmpSection(e)===secName);
-    const dayN = list.filter(e=>isDay(getShift(e,TODAY_STR))).length;
-    const nightN = list.filter(e=>isNight(getShift(e,TODAY_STR))).length;
-    const duty = dayN + nightN;
+    const machines = [...new Set(list.map(e=>getEmpMachine(e)).filter(Boolean))];
+    const totalWorking = list.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
     const colors = ['#f97316','#0284c7','#7c3aed','#16a34a','#db2777'];
     const col = colors[idx % colors.length];
-    const mcs = [...new Set(list.map(e=>getEmpMachine(e)).filter(Boolean))].slice(0,4).join(' · ') || '—';
-    return `<div class="sec-card">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="sec-icon" style="background:${col}22">🏭</div>
-        <div>
-          <div class="sec-name" style="color:${col}">${secName}</div>
-          <div class="sec-machine">${mcs}</div>
-        </div>
+    const machineHtml = machines.map(mc=>{
+      const workers = list.filter(e=>getEmpMachine(e)===mc);
+      const minimum = _hmMachineMin(mc);
+      const shifts = _hmWorkCodes.map(code=>{
+        const count = workers.filter(e=>getShift(e,TODAY_STR)===code).length;
+        const shortage = minimum>0 && count<minimum;
+        const label = shortage ? '⚠ '+count+'/'+minimum : (minimum ? count+'/'+minimum : String(count));
+        return `<span title="${escHtml(mc)} · ${code} shift · ${count} available${minimum?' · minimum '+minimum:''}" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:8px;font-weight:800;font-size:12px;border:1px solid ${shortage?'#ef4444':'#cbd5e1'};background:${shortage?'rgba(239,68,68,.13)':'rgba(148,163,184,.09)'};color:${shortage?'#dc2626':'var(--text)'}">${code}: ${label}</span>`;
+      }).join('');
+      return `<div style="margin-top:9px;padding:9px;border:1px solid var(--border2,#cbd5e1);border-radius:10px"><div style="font-weight:900;font-size:13px;margin-bottom:6px;color:var(--text)">⚙ ${escHtml(mc)} <span style="font-weight:600;color:var(--muted2);font-size:11px">(${workers.length})</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">${shifts}</div></div>`;
+    }).join('');
+    return `<div class="sec-card" style="display:block;min-width:240px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+        <div style="display:flex;align-items:center;gap:9px"><div class="sec-icon" style="background:${col}22">🏭</div><div><div class="sec-name" style="color:${col}">${escHtml(secName)}</div><div class="sec-machine">${list.length} ${en?'members':'सदस्य'}</div></div></div>
+        <div style="text-align:right"><div class="sec-count" style="color:${col}">${totalWorking}/${list.length}</div><div class="sec-count-lbl">${en?'Working':'ड्यूटी पर'}</div></div>
       </div>
-      <div>
-        <div class="sec-count" style="color:${col}">${duty}/${list.length}</div>
-        <div class="sec-count-lbl" style="font-size:10px">${en?'Duty':'ड्यूटी'} <span style="color:#f59e0b">${dayN}D</span> <span style="color:#4f46e5">${nightN}N</span></div>
-      </div>
+      ${machineHtml || `<div style="margin-top:8px;color:var(--muted2);font-size:12px">${en?'No machine assigned':'मशीन निर्धारित नहीं'}</div>`}
     </div>`;
   }).join('') || '<div style="color:var(--muted2);padding:12px">Upload team Excel to see sections</div>';
 
