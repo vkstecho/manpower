@@ -300,7 +300,7 @@ if(SESSION.managerId)return activeOnly(all.filter(e=>e.managerId===SESSION.manag
 
   // Specific secondary chip: SEC:Wireless / MC:CCTV / RESP:Operation / DESIG:…
   if(s.startsWith("SEC:")){const m=pickFieldMin("section",s.slice(4));return null!=m?m:0}
-  if(s.startsWith("MC:")){const m=pickFieldMin("machine",s.slice(3));return null!=m?m:0}
+  if(s.startsWith("MC:")){const machine=s.slice(3),map=byField.machine||{};const k=Object.keys(map).find(x=>String(x).trim().toLowerCase()===machine.trim().toLowerCase());const m=k===undefined?0:Number(map[k]);return Number.isFinite(m)&&m>0?m:0}
   if(s.startsWith("RESP:")){const m=pickFieldMin("responsibility",s.slice(5));return null!=m?m:0}
   if(s.startsWith("DESIG:")){const m=pickFieldMin("designation",s.slice(6));return null!=m?m:0}
 

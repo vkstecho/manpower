@@ -135,8 +135,8 @@ async function renderHome(){
   const slitNight= slitEmps.filter(e=>isNight(getShift(e,TODAY_STR)));
   const engToday = engEmps.filter(e=>onDuty(getShift(e,TODAY_STR)));
 
-  const metDuty  = metDay.length + metNight.length;
-  const slitDuty = slitDay.length + slitNight.length;
+  const metDuty  = metEmps.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
+  const slitDuty = slitEmps.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
   const metMin   = (CFG.minShift && CFG.minShift.metalliser) || 0;
   const slitMin  = (CFG.minShift && CFG.minShift.slitter) || 0;
   const metWarn  = metMin>0 && metDuty<metMin;
