@@ -1204,19 +1204,18 @@ async function _checkUserAfterOTP(){
         if(userData.validTill && new Date(userData.validTill)<new Date()){
           toast(L('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920','⏰ Your access has expired. Ask Admin to extend: +91-8929394920')); return;
         }
-        // v6.0.66: approved mobileUsers but roster row gone/left → force registration (stale after delete)
+        // v6.0.67: only force re-reg when employee is CONFIRMED left/removed.
+        // Do NOT treat "roster not found" as deleted (lookup can fail for members / slow network).
         try{
           const rosterChk = await _resolveEmpByMobile(mobile);
           const rst = rosterChk ? String(rosterChk.status||'').toLowerCase() : '';
           const roleMu = String(userData.role||'').toLowerCase();
-          // Members must have a live active employee row; managers may exist with only mobileUsers
-          if(roleMu==='member' || roleMu==='worker'){
-            if(!rosterChk || ['resigned','left','left_team','removed','revoked'].indexOf(rst)>=0){
-              try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_no_roster' }); }catch(e){}
-              toast(L('👋 Team से remove हो चुके हैं — दोबारा register करें','👋 Removed from team — register again'));
-              showStep(3);
-              return;
-            }
+          if((roleMu==='member' || roleMu==='worker') && rosterChk
+              && ['resigned','left','left_team','removed','revoked'].indexOf(rst)>=0){
+            try{ await fbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_left_roster' }); }catch(e){}
+            toast(L('👋 Team से remove हो चुके हैं — दोबारा register करें','👋 Removed from team — register again'));
+            showStep(3);
+            return;
           }
         }catch(eStale){ console.warn('[otp] stale member check', eStale); }
         // Notify Admin when approved Manager logs in (OTP already verified here — info + optional Approve for future)

@@ -760,7 +760,48 @@ function _canEditEmpSchedule(emp){
   }catch(e){ return !!canEditSchedule(); }
 }
 try{ window._canEditEmpSchedule = _canEditEmpSchedule; }catch(e){}
-function canApproveLeave(){return isAdmin()||isMgr()||myTeamPerms().leave}function canManageReports(){return isAdmin()||isMgr()||myTeamPerms().reports}function isTeamOperator(){return isAdmin()||isMgr()||myTeamPerms().schedule||myTeamPerms().leave||myTeamPerms().reports}function canEditInst(){return isAdmin()||SESSION.name===CFG.supervisorInstructor||isMgr()}function isManagerSelfRecord(emp){if(!emp||!isMgr())return!1;const mine=_normMobileKey(SESSION.mobile||SESSION.uid||""),theirs=_normMobileKey(emp.phone||emp.mobile||"");return!(!mine||!theirs||mine!==theirs)||!(!SESSION.empObjId||emp.id!==SESSION.empObjId)}function myEmp(){return("function"==typeof _findOwnEmployeeRecord?_findOwnEmployeeRecord():null)||SESSION.empObjId&&(_cache.employees||[]).find(e=>e.id===SESSION.empObjId)||null}async function _unlinkMobileUserOnLeave(emp){try{if(!emp)return;const mob=_normMobileKey(emp.phone||emp.mobile||"");if(!mob||mob.length<10)return;const now=(new Date).toISOString();const tomb={status:"removed",role:"removed",forceFreshLogin:!0,managerId:null,managerMobile:null,leftAt:now,removedAt:now,leftReason:emp.status||"removed",name:null,displayName:null,empId:null,empCode:null,empObjId:null,employeeId:null,pendingApproval:!1,updatedAt:now};const keys=[mob,"+91"+mob,"91"+mob];for(const k of keys){try{await fbSet("mobileUsers/"+k,tomb)}catch(e1){try{await fbUpdate("mobileUsers/"+k,tomb)}catch(e2){try{await fbRemove("mobileUsers/"+k)}catch(e3){console.warn("[unlinkMobile]",k,e3)}}}}try{if(emp.id){await fbRemove("deviceApprovals/"+emp.id)}catch(e){}try{await fbRemove("deviceApprovals/"+mob)}catch(e){}}catch(e){console.warn("[unlinkMobile]",e)}}function getDeviceId(){try{let did=localStorage.getItem("mp_device_id");if(!did){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent,nav.language,screen.width,screen.height,screen.colorDepth,(new Date).getTimezoneOffset(),nav.hardwareConcurrency||"",nav.platform||""].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;did="dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36);try{localStorage.setItem("mp_device_id",did)}catch(e){}}return did}catch(e){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent||"",nav.language||"",screen.width||0,screen.height||0,Date.now()].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;return"dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36)}}setTimeout(applyLang,200);const INTEGRITY_CACHE_NAME="mp-integrity",INTEGRITY_TOKEN_URL="/integrity-token";async function writeIntegrityToken(){if("caches"in window)try{const cache=await caches.open("mp-integrity");await cache.put("/integrity-token",new Response("1",{headers:{"Content-Type":"text/plain"}}))}catch(e){console.warn("[integrity] write failed:",e)}}async function checkIntegrityToken(){if(!("caches"in window))return!0;try{const cache=await caches.open("mp-integrity");return!!await cache.match("/integrity-token")}catch(e){return!0}}async function enforceIntegrityOnBoot(){try{if(!(localStorage.getItem("mp_session")||sessionStorage.getItem("mp_session_bak")||document.cookie.match(/mp_sess=([^;]+)/))){try{localStorage.removeItem("mp_int_ok")}catch(e){}return}if(!await checkIntegrityToken())return console.warn("[integrity] Token missing — re-binding session (no logout)"),await writeIntegrityToken(),void localStorage.setItem("mp_int_ok","1");localStorage.setItem("mp_int_ok","1")}catch(e){if("INTEGRITY_FAIL"===e.message)throw e;console.warn("[integrity] check error (allowing boot):",e)}}function _clearAllSessionData(){try{localStorage.removeItem("mp_session")}catch(e){}try{localStorage.removeItem("mp_int_ok")}catch(e){}try{localStorage.removeItem("fp_registered")}catch(e){}try{sessionStorage.removeItem("mp_session_bak")}catch(e){}try{sessionStorage.removeItem("expiry_warned")}catch(e){}document.cookie="mp_sess=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/",SESSION={role:"",name:"",empId:"",empObjId:"",dept:"",deviceId:""};try{indexedDB.open("mp_db",1).onsuccess=ev=>{try{const db=ev.target.result;Array.from(db.objectStoreNames).includes("sess")&&db.transaction("sess","readwrite").objectStore("sess").delete("mp_session"),db.close()}catch(x){}}}catch(e){}}function _showLoginScreenSafely(){
+function canApproveLeave(){return isAdmin()||isMgr()||myTeamPerms().leave}function canManageReports(){return isAdmin()||isMgr()||myTeamPerms().reports}function isTeamOperator(){return isAdmin()||isMgr()||myTeamPerms().schedule||myTeamPerms().leave||myTeamPerms().reports}function canEditInst(){return isAdmin()||SESSION.name===CFG.supervisorInstructor||isMgr()}function isManagerSelfRecord(emp){if(!emp||!isMgr())return!1;const mine=_normMobileKey(SESSION.mobile||SESSION.uid||""),theirs=_normMobileKey(emp.phone||emp.mobile||"");return!(!mine||!theirs||mine!==theirs)||!(!SESSION.empObjId||emp.id!==SESSION.empObjId)}function myEmp(){return("function"==typeof _findOwnEmployeeRecord?_findOwnEmployeeRecord():null)||SESSION.empObjId&&(_cache.employees||[]).find(e=>e.id===SESSION.empObjId)||null}async function _unlinkMobileUserOnLeave(emp){
+try{
+  if(!emp) return;
+  const mob = _normMobileKey(emp.phone || emp.mobile || "");
+  if(!mob || mob.length < 10) return;
+  const now = (new Date).toISOString();
+  const tomb = {
+    status: "removed",
+    role: "removed",
+    forceFreshLogin: true,
+    managerId: null,
+    managerMobile: null,
+    leftAt: now,
+    removedAt: now,
+    leftReason: emp.status || "removed",
+    name: null,
+    displayName: null,
+    empId: null,
+    empCode: null,
+    empObjId: null,
+    employeeId: null,
+    pendingApproval: false,
+    updatedAt: now
+  };
+  const keys = [mob, "+91" + mob, "91" + mob];
+  for (const k of keys) {
+    try { await fbSet("mobileUsers/" + k, tomb); }
+    catch (e1) {
+      try { await fbUpdate("mobileUsers/" + k, tomb); }
+      catch (e2) {
+        try { await fbRemove("mobileUsers/" + k); }
+        catch (e3) { console.warn("[unlinkMobile]", k, e3); }
+      }
+    }
+  }
+  try { if (emp.id) await fbRemove("deviceApprovals/" + emp.id); } catch (e) {}
+  try { await fbRemove("deviceApprovals/" + mob); } catch (e) {}
+} catch (e) {
+  console.warn("[unlinkMobile]", e);
+}
+}
+function getDeviceId(){try{let did=localStorage.getItem("mp_device_id");if(!did){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent,nav.language,screen.width,screen.height,screen.colorDepth,(new Date).getTimezoneOffset(),nav.hardwareConcurrency||"",nav.platform||""].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;did="dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36);try{localStorage.setItem("mp_device_id",did)}catch(e){}}return did}catch(e){const nav=window.navigator,screen=window.screen,fp=[nav.userAgent||"",nav.language||"",screen.width||0,screen.height||0,Date.now()].join("|");let hash=0;for(let i=0;i<fp.length;i++)hash=(hash<<5)-hash+fp.charCodeAt(i),hash|=0;return"dev_"+Math.abs(hash).toString(36)+"_"+Date.now().toString(36)}}setTimeout(applyLang,200);const INTEGRITY_CACHE_NAME="mp-integrity",INTEGRITY_TOKEN_URL="/integrity-token";async function writeIntegrityToken(){if("caches"in window)try{const cache=await caches.open("mp-integrity");await cache.put("/integrity-token",new Response("1",{headers:{"Content-Type":"text/plain"}}))}catch(e){console.warn("[integrity] write failed:",e)}}async function checkIntegrityToken(){if(!("caches"in window))return!0;try{const cache=await caches.open("mp-integrity");return!!await cache.match("/integrity-token")}catch(e){return!0}}async function enforceIntegrityOnBoot(){try{if(!(localStorage.getItem("mp_session")||sessionStorage.getItem("mp_session_bak")||document.cookie.match(/mp_sess=([^;]+)/))){try{localStorage.removeItem("mp_int_ok")}catch(e){}return}if(!await checkIntegrityToken())return console.warn("[integrity] Token missing — re-binding session (no logout)"),await writeIntegrityToken(),void localStorage.setItem("mp_int_ok","1");localStorage.setItem("mp_int_ok","1")}catch(e){if("INTEGRITY_FAIL"===e.message)throw e;console.warn("[integrity] check error (allowing boot):",e)}}function _clearAllSessionData(){try{localStorage.removeItem("mp_session")}catch(e){}try{localStorage.removeItem("mp_int_ok")}catch(e){}try{localStorage.removeItem("fp_registered")}catch(e){}try{sessionStorage.removeItem("mp_session_bak")}catch(e){}try{sessionStorage.removeItem("expiry_warned")}catch(e){}document.cookie="mp_sess=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/",SESSION={role:"",name:"",empId:"",empObjId:"",dept:"",deviceId:""};try{indexedDB.open("mp_db",1).onsuccess=ev=>{try{const db=ev.target.result;Array.from(db.objectStoreNames).includes("sess")&&db.transaction("sess","readwrite").objectStore("sess").delete("mp_session"),db.close()}catch(x){}}}catch(e){}}function _showLoginScreenSafely(){
 /* v3.2.0: never force landing if session is valid */
 try{
   var raw=null;try{raw=localStorage.getItem("mp_session");}catch(e){}
