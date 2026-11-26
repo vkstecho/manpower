@@ -25,12 +25,13 @@ async function _loadPaymentSettings(force){
   }
 }
 
+function _currentCommercialEntitlement(){
+  const current = window._verifiedCommercialEntitlement;
+  return current?.uid && current.uid === window._fbAuth?.currentUser?.uid && Date.now() - current.checkedAt < 60000 ? current : null;
+}
+
 function _isPaymentExemptUser(){
-  try{
-    if(typeof isAdmin==='function' && isAdmin()) return true;
-    if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(SESSION && SESSION.mobile)) return true;
-  }catch(e){}
-  return false;
+  return _currentCommercialEntitlement()?.admin === true;
 }
 
 function _getUserPaidUntilDate(){
@@ -58,39 +59,7 @@ function _getUserPaidUntilDate(){
 
 /** Live refresh of paidUntil from paymentStatus / mobileUsers (used when SESSION is stale after Admin sets validity). */
 async function _refreshUserPaidUntilFromServer(){
-  try{
-    if(!SESSION || !SESSION.mobile) return null;
-    const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile) : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
-    if(!mobileKey || mobileKey.length < 10) return null;
-    const cands = [];
-    try{
-      const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
-      if(ps){
-        [ps.paymentPaidUntil, ps.paidUntil, ps.paymentPaidUntilDate, ps.validTill].forEach(function(x){ if(x) cands.push(x); });
-      }
-    }catch(e){}
-    try{
-      const rec = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
-      if(rec){
-        [rec.paymentPaidUntil, rec.paidUntil, rec.validTill].forEach(function(x){ if(x) cands.push(x); });
-      }
-    }catch(e){}
-    let bestIso = null, bestTs = 0;
-    cands.forEach(function(c){
-      const d = new Date(c);
-      if(isNaN(d.getTime())) return;
-      if(d.getTime() >= bestTs){ bestTs = d.getTime(); bestIso = (typeof c === 'string' ? c : d.toISOString()); }
-    });
-    if(bestIso){
-      SESSION.paymentPaidUntil = bestIso;
-      SESSION.paidUntil = bestIso;
-      SESSION.validTill = bestIso;
-      window._userPaymentPaidUntil = bestIso;
-      window._userValidTill = bestIso;
-      return new Date(bestIso);
-    }
-  }catch(e){}
-  return null;
+  return _hydrateUserPaymentStatus();
 }
 window._refreshUserPaidUntilFromServer = _refreshUserPaidUntilFromServer;
 
@@ -99,15 +68,9 @@ function _paymentGateAllows(tab){
   // Always free tabs (+ Learn & Grow overlay is never paywalled)
   if(!t || t==='home' || t==='myshift' || t==='my-shift' || t==='learn' || t==='learngrow' || t==='train' || t==='diary') return true;
   if(_isPaymentExemptUser()) return true;
-  const cfg = window._paymentSettingsCache;
-  // Only OFF when explicitly disabled
-  if(cfg && cfg.enabled === false) return true;
-  // paidUntil still valid (end of that calendar day local)
-  const until = _getUserPaidUntilDate();
-  if(until){
-    const end = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59, 999);
-    if(end.getTime() >= Date.now()) return true;
-  }
+  const entitlement = _currentCommercialEntitlement();
+  if (entitlement?.enabled === false) return true;
+  if (entitlement?.paidUntil && Date.parse(entitlement.paidUntil) >= Date.now()) return true;
   // SESSION may be stale after Admin sets validity — kick a background live refresh
   // so next navigation / retry unlocks without forcing logout.
   try{
@@ -127,18 +90,6 @@ function _paymentGateAllows(tab){
       }
     }
   }catch(e){}
-  // Settings not loaded: use last known local flag (default ON after admin saved once)
-  if(!cfg){
-    try{
-      const local = localStorage.getItem('mp_payment_enabled');
-      if(local === '0') return true;
-      // treat as ON → block until paidUntil set
-      try{ _loadPaymentSettings(false).catch(()=>{}); }catch(e){}
-      return false;
-    }catch(e){ return false; }
-  }
-  if(cfg.enabled === false) return true;
-  // enabled (or missing enabled → ON) and no valid paidUntil → block
   return false;
 }
 
@@ -325,7 +276,7 @@ function _defaultCustomerCare(){
   return {
     name: 'Man power App Admin',
     email: 'CareMP@vkstech.com',
-    whatsapp: '+91-8929394920',
+    whatsapp: String(window.MP_CONTACTS?.supportPhone || ''),
     refundDays: 7,
     refundPolicy: 'If you are not satisfied with the Man Power subscription, you may request cancellation and a refund within 7 days of payment. Contact Customer Care with your payment reference (UTR / Razorpay payment id) and registered mobile number.',
     updatedAt: null
@@ -358,10 +309,11 @@ function _customerCareHtml(cc, opts){
   opts = opts || {};
   const name = String(cc.name||'Man power App Admin');
   const email = String(cc.email||'CareMP@vkstech.com');
-  const wa = String(cc.whatsapp||'+91-8929394920');
+  const wa = String(cc.whatsapp||'');
   const days = parseInt(cc.refundDays,10) || 7;
   const policy = String(cc.refundPolicy||'');
-  const waNum = _waDigits(wa);
+  const digits = _waDigits(wa);
+  const waNum = digits.length === 10 ? '91' + digits : digits;
   const waLink = waNum ? ('https://wa.me/'+waNum+'?text='+encodeURIComponent('Hi, I need help with Man Power App subscription / refund.')) : '#';
   const mailLink = 'mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent('Man Power — Subscription / Refund');
   let body = `
@@ -380,13 +332,13 @@ function _customerCareHtml(cc, opts){
         <div style="font-size:13px;font-weight:800;color:#38bdf8">${escHtml(email)}</div>
       </div>
     </a>
-    <a href="${waLink}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
+${waNum ? `    <a href="${waLink}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border2);text-decoration:none;color:var(--text)">
       <span style="display:inline-flex;width:32px;height:32px;border-radius:8px;background:#25D366;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-1.99.491.511-1.93-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></span>
       <div>
         <div style="font-size:11px;color:var(--muted2)">WhatsApp</div>
         <div style="font-size:13px;font-weight:800;color:#22c55e">${escHtml(wa)}</div>
       </div>
-    </a>
+    </a>` : ''}
   </div>
   <div style="padding:14px;border-radius:14px;border:1px solid rgba(234,88,12,.35);background:rgba(234,88,12,.08);margin-bottom:12px;text-align:left">
     <div style="font-size:13px;font-weight:900;color:#ea580c;margin-bottom:6px">↩️ ${typeof L==='function'?L(days+' दिन में रद्द / रिफंड', days+'-day cancel & refund'):(days+'-day cancel & refund')}</div>
@@ -429,7 +381,8 @@ function _customerCareHtml(cc, opts){
   } catch (ePl) {}
 
     if(opts.showRequestBtn){
-    body += `<a href="${waLink}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:900;padding:14px;border-radius:12px">💬 ${typeof L==='function'?L('WhatsApp पर Cancel / Refund माँगें','Request Cancel / Refund on WhatsApp'):'Request Cancel / Refund on WhatsApp'}</a>
+    if (waNum) body += `<a href="${waLink}" target="_blank" rel="noopener" class="big-btn" style="display:block;text-align:center;text-decoration:none;margin-top:4px;background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;font-weight:900;padding:14px;border-radius:12px">💬 ${typeof L==='function'?L('WhatsApp पर Cancel / Refund माँगें','Request Cancel / Refund on WhatsApp'):'Request Cancel / Refund on WhatsApp'}</a>`;
+    body += `
     <a href="${mailLink}" class="cancel-btn" style="display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px">✉️ ${typeof L==='function'?L('Email भेजें','Send Email'):'Send Email'}</a>`;
   }
   return body;
@@ -440,7 +393,7 @@ async function openCustomerCarePage(){
   const cc = await _loadCustomerCare(true);
   var plans = [];
   try {
-    var po = await fetch('https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json').then(function(r){ return r.json(); });
+    var po = window.MP_FIREBASE_CONFIG?.databaseURL && await fetch((window.MP_FIREBASE_CONFIG?.databaseURL || '').replace(/\/$/, '') + '/publicOffer.json').then(function(r){ return r.json(); });
     if (po) {
       if (Array.isArray(po.plans) && po.plans.length) {
         plans = po.plans.map(function(p){
@@ -490,7 +443,7 @@ async function openCustomerCareAdmin(){
     <input id="cc_email" type="email" class="inp-field" value="${String(cc.email||'').replace(/"/g,'&quot;')}">
   </div>
   <div class="field"><label>WhatsApp number</label>
-    <input id="cc_whatsapp" class="inp-field" placeholder="+91-8929394920" value="${String(cc.whatsapp||'').replace(/"/g,'&quot;')}">
+    <input id="cc_whatsapp" class="inp-field" placeholder="9000000000" value="${String(cc.whatsapp||'').replace(/"/g,'&quot;')}">
   </div>
   <div class="field"><label>How to use video URL (YouTube)</label>
     <input id="cc_howto_video" class="inp-field" placeholder="https://youtube.com/watch?v=..." value="${String((cc.howToVideoUrl||cc.videoUrl||window._howToVideoUrl||'')).replace(/"/g,'&quot;')}">
@@ -511,7 +464,7 @@ async function saveCustomerCareAdmin(){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
   const name = String((document.getElementById('cc_name')||{}).value||'').trim() || 'Man power App Admin';
   const email = String((document.getElementById('cc_email')||{}).value||'').trim() || 'CareMP@vkstech.com';
-  const whatsapp = String((document.getElementById('cc_whatsapp')||{}).value||'').trim() || '+91-8929394920';
+  const whatsapp = String((document.getElementById('cc_whatsapp')||{}).value||'').trim();
   const howToVideoUrl = String((document.getElementById('cc_howto_video')||{}).value||'').trim();
   const refundDays = Math.max(1, Math.min(90, parseInt((document.getElementById('cc_days')||{}).value||'7',10)||7));
   const refundPolicy = String((document.getElementById('cc_policy')||{}).value||'').trim() || _defaultCustomerCare().refundPolicy;

@@ -570,8 +570,8 @@ function renderSalaryCost(){
 /** Firebase path for monthly cost snapshot (preserves employees as of that month) */
 function _manpowerCostArchivePath(monthKey){
   const cid = (typeof _normCompanyId==='function')
-    ? _normCompanyId(SESSION.companyId || SESSION.company || 'default')
-    : String(SESSION.companyId || SESSION.company || 'default');
+    ? _normCompanyId(SESSION.companyId || 'default')
+    : String(SESSION.companyId || 'default');
   const mgr = (typeof _normMobileKey==='function')
     ? _normMobileKey(SESSION.mobile || SESSION.uid || 'mgr')
     : String(SESSION.mobile||'mgr').replace(/\D/g,'').slice(-10);

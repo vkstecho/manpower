@@ -21,7 +21,7 @@ async function showOtherDeviceLoginRequest(emp, dRec, deviceId){
   let ov = document.getElementById('otherDeviceLoginOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
   const phoneHint = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto';
   if(!document.getElementById('odlForceDarkCss')){
     var st=document.createElement('style'); st.id='odlForceDarkCss';
     st.textContent=
@@ -409,7 +409,7 @@ function showSetPasswordScreen(emp, deviceId, afterApproval=false, userData=null
   const lab2 = (typeof L==='function') ? L('PASSWORD दोबारा डालें *','Re-enter PASSWORD *') : 'Re-enter PASSWORD *';
   const saveLab = (typeof L==='function') ? L('✅ पासवर्ड सहेजें','✅ Save Password') : '✅ Save Password';
 
-  ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto;';
   ov.innerHTML = `
     <style id="spwForceDark">
       /* Defeat body.light global input/button rules on this overlay only */
@@ -533,7 +533,7 @@ async function _submitSetPassword(){
   const h = await hashPass(p1+'mp_salt_v24');
   _setDevicePasswordHash(empId, mobile, h);
   const ov=document.getElementById('setPasswordOverlay'); if(ov) ov.remove();
-  toast(L('✅ पासवर्ड सहेजा गया — अगली बार OTP नहीं लगेगा','✅ Password saved — OTP not needed next time'));
+  toast(L('✅ डिवाइस पासवर्ड सहेजा गया','✅ Device password saved'));
   if(ctx.afterApproval){
     // Already logged in — open app
     if(typeof launchApp==='function') launchApp();
@@ -567,23 +567,27 @@ function showPasswordLoginScreen(emp, deviceId){
   let ov = document.getElementById('pwLoginOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='pwLoginOverlay'; document.body.appendChild(ov); }
   const empId = emp.id || '';
-  const empName = (emp.name||'').replace(/'/g,"\\'");
   const mobile = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:var(--pw-bg);display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto';
   const sub = (typeof L==='function')
     ? L('OTP नहीं — इस डिवाइस का पासवर्ड डालें','No OTP — enter this device password')
     : 'No OTP — enter this device password';
   ov.innerHTML=`
-    <style id="pwlForceDark">
+    <style id="pwlTheme">
+      #pwLoginOverlay { --pw-bg:#f1f5f9; --pw-card:#ffffff; --pw-input:#f8fafc; --pw-border:#cbd5e1; --pw-focus:#2563eb; --pw-text:#0f172a; --pw-muted:#475569; --pw-secondary:#e2e8f0; --pw-error:#be123c; --pw-scheme:light; color-scheme:var(--pw-scheme); }
+      body.dark #pwLoginOverlay { --pw-bg:#0a0f1a; --pw-card:#162032; --pw-input:#0f1b2d; --pw-border:#3b5a8a; --pw-focus:#60a5fa; --pw-text:#f8fafc; --pw-muted:#94a3b8; --pw-secondary:#1e293b; --pw-error:#fb7185; --pw-scheme:dark; }
+      #pwLoginOverlay .pw-heading { background:none !important; color:var(--pw-text) !important; -webkit-text-fill-color:var(--pw-text) !important; }
+      #pwLoginOverlay input { box-sizing:border-box; }
+
       #pwLoginOverlay input#pwlInput{
-        width:100% !important;background:#0f1b2d !important;background-color:#0f1b2d !important;
-        border:1.5px solid #60a5fa !important;border-radius:10px !important;padding:14px !important;
-        color:#f8fafc !important;-webkit-text-fill-color:#f8fafc !important;caret-color:#f97316 !important;
+        width:100% !important;background:var(--pw-input) !important;background-color:var(--pw-input) !important;
+        border:1.5px solid var(--pw-focus) !important;border-radius:10px !important;padding:14px !important;
+        color:var(--pw-text) !important;-webkit-text-fill-color:var(--pw-text) !important;caret-color:#f97316 !important;
         font-size:22px !important;font-weight:700 !important;text-align:center !important;
         letter-spacing:6px !important;outline:none !important;box-shadow:none !important;
       }
       #pwLoginOverlay input#pwlInput:-webkit-autofill{
-        -webkit-box-shadow:0 0 0 40px #0f1b2d inset !important;-webkit-text-fill-color:#f8fafc !important;
+        -webkit-box-shadow:0 0 0 40px var(--pw-input) inset !important;-webkit-text-fill-color:var(--pw-text) !important;
       }
       #pwLoginOverlay #pwlBtn{
         width:100% !important;padding:16px !important;background:linear-gradient(135deg,#f97316,#ea580c) !important;
@@ -591,38 +595,42 @@ function showPasswordLoginScreen(emp, deviceId){
         font-size:17px !important;font-weight:900 !important;margin-bottom:10px !important;
       }
       #pwLoginOverlay .pwl-sec{
-        width:100% !important;padding:12px !important;background:#1e293b !important;background-color:#1e293b !important;
-        border:1.5px solid #64748b !important;
-        border-radius:12px !important;color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;
+        width:100% !important;padding:12px !important;background:var(--pw-secondary) !important;background-color:var(--pw-secondary) !important;
+        border:1.5px solid var(--pw-muted) !important;
+        border-radius:12px !important;color:var(--pw-text) !important;-webkit-text-fill-color:var(--pw-text) !important;
         font-size:13px !important;font-weight:700 !important;margin-top:8px !important;min-height:48px !important;
       }
-      #pwLoginOverlay .pwl-sub{color:#cbd5e1 !important;-webkit-text-fill-color:#cbd5e1 !important;}
-      #pwLoginOverlay .pwl-lab{color:#e2e8f0 !important;-webkit-text-fill-color:#e2e8f0 !important;font-weight:800 !important;}
+      #pwLoginOverlay .pwl-sub{color:var(--pw-text) !important;-webkit-text-fill-color:var(--pw-text) !important;}
+      #pwLoginOverlay .pwl-lab{color:var(--pw-text) !important;-webkit-text-fill-color:var(--pw-text) !important;font-weight:800 !important;}
 
     </style>
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🔓</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
+      <div class="pw-heading" style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
         background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
-        Password Login
+        ${L("पासवर्ड लॉगिन", "Password Login")}
       </div>
-      <div style="font-size:14px;color:#e2e8f0;-webkit-text-fill-color:#e2e8f0;margin-bottom:20px">
+      <div style="font-size:14px;color:var(--pw-text);-webkit-text-fill-color:var(--pw-text);margin-bottom:20px">
         <b style="color:#f97316">${escHtml(emp.name||'')}</b><br>
-        <span style="font-size:12px;color:#94a3b8">${sub}</span>
+        <span style="font-size:12px;color:var(--pw-muted)">${sub}</span>
       </div>
-      <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-        <div style="font-size:12px;font-weight:800;color:#f1f5f9 !important;-webkit-text-fill-color:#f1f5f9 !important;letter-spacing:.5px;margin-bottom:10px">DEVICE PASSWORD *</div>
+      <div style="background:var(--pw-card);border:1.5px solid var(--pw-border);border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
+        <label for="pwlInput" style="display:block;font-size:12px;font-weight:800;color:var(--pw-text) !important;-webkit-text-fill-color:var(--pw-text) !important;letter-spacing:.5px;margin-bottom:10px">${L("डिवाइस पासवर्ड", "Device password")} *</label>
         <input id="pwlInput" type="password" inputmode="numeric" placeholder="•••••" maxlength="20"
-          autocomplete="current-password" onkeydown="if(event.key==='Enter')_submitPwLogin('${empId}','${empName}','${deviceId}')">
-        <div id="pwlErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+          autocomplete="current-password">
+        <div id="pwlErr" aria-live="polite" style="color:var(--pw-error);font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
       </div>
-      <button type="button" id="pwlBtn" onclick="_submitPwLogin('${empId}','${empName}','${deviceId}')" style="cursor:pointer;font-family:inherit">
-        ${(typeof L==='function')?L('🔓 Login','🔓 Login'):'🔓 Login'}
+      <button type="button" id="pwlBtn" style="cursor:pointer;font-family:inherit">
+        ${(typeof L==='function')?L('🔓 लॉगिन करें','🔓 Login'):'🔓 Login'}
       </button>
-      <button type="button" class="pwl-sec" onclick="_forgotPw('${empId}','${empName}','${mobile}')" style="cursor:pointer;font-family:inherit">
+      <button type="button" class="pwl-sec" style="cursor:pointer;font-family:inherit">
         ${(typeof L==='function')?L('पासवर्ड भूल गए? ओटीपी से लॉगिन','Forgot password? Login with OTP'):'Forgot password? Login with OTP'}
       </button>
     </div>`;
+  const submit = () => _submitPwLogin(empId, emp.name || '', deviceId);
+  ov.querySelector('#pwlBtn').onclick = submit;
+  ov.querySelector('#pwlInput').onkeydown = event => { if (event.key === 'Enter') submit(); };
+  ov.querySelector('.pwl-sec').onclick = () => _forgotPw(empId, emp.name || '', mobile);
   ov.style.display='flex';
   setTimeout(function(){ try{ document.getElementById('pwlInput')?.focus(); }catch(e){} }, 80);
 }
@@ -636,29 +644,10 @@ async function _submitPwLogin(empId, empName, deviceId){
   const errEl=document.getElementById('pwlErr');
   const enteredHash = await hashPass(entered+'mp_salt_v24');
   if(!saved || enteredHash!==saved){
-    if(errEl) errEl.textContent='❌ गलत पासवर्ड — दोबारा try करें';
-    const inp=document.getElementById('pwlInput');
-    if(inp){ inp.style.borderColor='#f43f5e'; setTimeout(()=>{ if(inp) inp.style.borderColor='#475569'; },1500); }
+    if(errEl) errEl.textContent=L('❌ गलत पासवर्ड','❌ Wrong password');
     return;
   }
-  const ov=document.getElementById('pwLoginOverlay'); if(ov) ov.remove();
-
-  try{
-    const result=await Promise.race([window._fbCall('workerLogin',{empId:emp.empId||empId,deviceId}),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))]);
-    if(result.data?.token) await window._fbSignInWithToken(result.data.token);
-  }catch(e){ try{ await window._fbSignInAnon(); }catch(e2){} }
-
-  const accessLevel=emp.accessLevel||'worker';
-  const isMgrRole=accessLevel==='manager'||emp.sec==='MGR';
-  SESSION={role:isMgrRole?'manager':'worker',name:emp.name||empName,empId:emp.empId||empId,
-           empObjId:emp.id||empId,dept:emp.sec||'',company:'Man Power',deviceId,
-           accessLevel,loginAt:new Date().toISOString()};
-  if(mobile.length===10) SESSION.mobile = mobile;
-  _markWriteAuthFromLogin(mobile);
-  writeIntegrityToken();
-  saveSession();
-  toast(L('✅ लॉगिन हो गया! स्वागत ','✅ Login successful! Welcome ')+(emp.name||empName));
-  launchApp();
+  await _finishMobilePasswordLogin({empObjId:empId}, mobile || _normMobileKey(window._fbAuth?.currentUser?.phoneNumber), deviceId);
 }
 
 function _forgotPw(empId, empName, mobile){
@@ -680,17 +669,22 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
   let ov = document.getElementById('pwMobileOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='pwMobileOverlay'; document.body.appendChild(ov); }
   window._pwMobileCtx = { userData, mobile10, deviceId };
-  const name = (userData.name||'User').replace(/</g,'');
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;color-scheme:dark';
+  const name = escHtml(userData.name || L('उपयोगकर्ता','User'));
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:var(--pw-bg);display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto;color-scheme:var(--pw-scheme)';
   const forgotLab = (typeof L==='function')
-    ? L('🔑 पासवर्ड भूल गए? ओटीपी से सत्यापित करें करें','🔑 Forgot password? Verify with OTP')
+    ? L('🔑 पासवर्ड भूल गए? ओटीपी से सत्यापित करें','🔑 Forgot password? Verify with OTP')
     : '🔑 Forgot password? Verify with OTP';
   const loginLab = (typeof L==='function') ? L('✅ लॉगिन करें','✅ Login') : '✅ Login';
   const noOtp = (typeof L==='function') ? L('OTP नहीं चाहिए','No OTP needed') : 'No OTP needed';
   ov.innerHTML=`
-    <style id="pwmForceDark">
-      #pwMobileOverlay, #pwMobileOverlay * { box-sizing: border-box; color-scheme: dark; }
-      #pwMobileOverlay { background: #0a0f1a !important; }
+    <style id="pwmTheme">
+      #pwMobileOverlay { --pw-bg:#f1f5f9; --pw-card:#ffffff; --pw-input:#f8fafc; --pw-border:#cbd5e1; --pw-focus:#2563eb; --pw-text:#0f172a; --pw-muted:#475569; --pw-secondary:#e2e8f0; --pw-error:#be123c; --pw-scheme:light; color-scheme:var(--pw-scheme); }
+      body.dark #pwMobileOverlay { --pw-bg:#0a0f1a; --pw-card:#162032; --pw-input:#0f1b2d; --pw-border:#3b5a8a; --pw-focus:#60a5fa; --pw-text:#f8fafc; --pw-muted:#94a3b8; --pw-secondary:#1e293b; --pw-error:#fb7185; --pw-scheme:dark; }
+      #pwMobileOverlay .pw-heading { background:none !important; color:var(--pw-text) !important; -webkit-text-fill-color:var(--pw-text) !important; }
+      #pwMobileOverlay input { box-sizing:border-box; }
+
+      #pwMobileOverlay, #pwMobileOverlay * { box-sizing: border-box; color-scheme: var(--pw-scheme); }
+      #pwMobileOverlay { background: var(--pw-bg) !important; }
       #pwMobileOverlay .pwm-title {
         font-family: 'Barlow Condensed', sans-serif !important;
         font-size: 26px !important; font-weight: 900 !important;
@@ -698,37 +692,37 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
         -webkit-background-clip: text !important; background-clip: text !important;
         -webkit-text-fill-color: transparent !important; color: transparent !important;
       }
-      #pwMobileOverlay .pwm-sub { color: #cbd5e1 !important; -webkit-text-fill-color: #cbd5e1 !important; font-size: 14px !important; }
+      #pwMobileOverlay .pwm-sub { color: var(--pw-text) !important; -webkit-text-fill-color: var(--pw-text) !important; font-size: 14px !important; }
       #pwMobileOverlay .pwm-sub b { color: #f97316 !important; -webkit-text-fill-color: #f97316 !important; }
-      #pwMobileOverlay .pwm-sub span { color: #94a3b8 !important; -webkit-text-fill-color: #94a3b8 !important; font-size: 12px !important; }
+      #pwMobileOverlay .pwm-sub span { color: var(--pw-muted) !important; -webkit-text-fill-color: var(--pw-muted) !important; font-size: 12px !important; }
       #pwMobileOverlay .pwm-card {
-        background: #162032 !important; border: 1.5px solid #3b5a8a !important;
+        background: var(--pw-card) !important; border: 1.5px solid var(--pw-border) !important;
         border-radius: 14px !important; padding: 20px !important; margin-bottom: 14px !important; text-align: left !important;
       }
       #pwMobileOverlay .pwm-lab {
         font-size: 12px !important; font-weight: 800 !important; letter-spacing: .5px !important;
-        color: #e2e8f0 !important; -webkit-text-fill-color: #e2e8f0 !important; margin-bottom: 10px !important;
+        color: var(--pw-text) !important; -webkit-text-fill-color: var(--pw-text) !important; margin-bottom: 10px !important;
       }
       #pwMobileOverlay input#pwmInput {
         width: 100% !important;
-        background: #0f1b2d !important; background-color: #0f1b2d !important;
-        border: 1.5px solid #60a5fa !important; border-radius: 10px !important;
+        background: var(--pw-input) !important; background-color: var(--pw-input) !important;
+        border: 1.5px solid var(--pw-focus) !important; border-radius: 10px !important;
         padding: 16px !important;
-        color: #f8fafc !important; -webkit-text-fill-color: #f8fafc !important;
+        color: var(--pw-text) !important; -webkit-text-fill-color: var(--pw-text) !important;
         caret-color: #f97316 !important;
         font-size: 22px !important; font-weight: 700 !important; text-align: center !important;
         letter-spacing: 6px !important; outline: none !important; box-shadow: none !important;
         font-family: inherit !important;
       }
       #pwMobileOverlay input#pwmInput::placeholder {
-        color: #64748b !important; -webkit-text-fill-color: #64748b !important; opacity: 1 !important;
+        color: var(--pw-muted) !important; -webkit-text-fill-color: var(--pw-muted) !important; opacity: 1 !important;
       }
       #pwMobileOverlay input#pwmInput:-webkit-autofill {
-        -webkit-box-shadow: 0 0 0 40px #0f1b2d inset !important;
-        -webkit-text-fill-color: #f8fafc !important;
+        -webkit-box-shadow: 0 0 0 40px var(--pw-input) inset !important;
+        -webkit-text-fill-color: var(--pw-text) !important;
       }
       #pwMobileOverlay #pwmErr {
-        color: #fb7185 !important; -webkit-text-fill-color: #fb7185 !important;
+        color: var(--pw-error) !important; -webkit-text-fill-color: var(--pw-error) !important;
         font-size: 13px !important; font-weight: 700 !important; margin-top: 8px !important;
         min-height: 16px !important; text-align: center !important;
       }
@@ -742,9 +736,9 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
       }
       #pwMobileOverlay #pwmForgotBtn {
         width: 100% !important; padding: 13px !important;
-        background: #1e293b !important; background-color: #1e293b !important;
-        border: 1.5px solid #64748b !important; border-radius: 12px !important;
-        color: #f1f5f9 !important; -webkit-text-fill-color: #f1f5f9 !important;
+        background: var(--pw-secondary) !important; background-color: var(--pw-secondary) !important;
+        border: 1.5px solid var(--pw-muted) !important; border-radius: 12px !important;
+        color: var(--pw-text) !important; -webkit-text-fill-color: var(--pw-text) !important;
         font-size: 13px !important; font-weight: 700 !important;
         cursor: pointer !important; font-family: inherit !important;
         min-height: 48px !important;
@@ -752,16 +746,16 @@ function showPasswordLoginForMobile(userData, mobile10, deviceId){
     </style>
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">🔓</div>
-      <div class="pwm-title">Password Login</div>
+      <div class="pwm-title pw-heading">${L("पासवर्ड लॉगिन", "Password Login")}</div>
       <div class="pwm-sub" style="margin:8px 0 20px">
         <b>${name}</b><br>
         <span>+91-${mobile10} · ${noOtp}</span>
       </div>
       <div class="pwm-card">
-        <div class="pwm-lab">DEVICE PASSWORD *</div>
+        <label for="pwmInput" class="pwm-lab" style="display:block">${L("डिवाइस पासवर्ड", "Device password")} *</label>
         <input id="pwmInput" type="password" inputmode="text" autocomplete="current-password" placeholder="••••••" maxlength="20"
           onkeydown="if(event.key==='Enter')_submitMobilePwLogin()">
-        <div id="pwmErr"></div>
+        <div id="pwmErr" aria-live="polite"></div>
       </div>
       <button type="button" id="pwmLoginBtn" onclick="_submitMobilePwLogin()">${loginLab}</button>
       <button type="button" id="pwmForgotBtn" onclick="_forgotMobilePw()">${forgotLab}</button>
@@ -783,30 +777,29 @@ async function _submitMobilePwLogin(){
     if(errEl) errEl.textContent=(typeof L==='function'?L('❌ गलत पासवर्ड','❌ Wrong password'):'❌ Wrong password');
     return;
   }
-  const ov=document.getElementById('pwMobileOverlay'); if(ov) ov.remove();
   await _finishMobilePasswordLogin(userData, mobile, ctx.deviceId);
 }
 
 async function _finishMobilePasswordLogin(userData, mobile, deviceId){
-  try{ await window._fbSignInAnon(); }catch(e){}
-  // Bind device for future password logins
-  const empObjId = userData.empObjId || userData.employeeId || '';
-  if(empObjId){
-    try{
-      await fbUpdate('deviceApprovals/'+empObjId, {
-        approvedDeviceId: deviceId || (typeof getDeviceId==='function'?getDeviceId():''),
-        approvedAt: new Date().toISOString(),
-        validTill: new Date(Date.now()+365*86400000).toISOString(),
-        empName: userData.name||'',
-        empId: userData.empId||userData.empCode||'',
-        via: 'device_password'
-      });
-    }catch(e){}
-  }
-  _markWriteAuthFromLogin(mobile);
-  _loginMobile = '+91'+mobile;
-  toast(L('✅ स्वागत ','✅ Welcome ')+(userData.name||''));
-  _launchAsNewUser(userData);
+  const employeeId = userData.empObjId || userData.employeeId || null;
+  try {
+    if (await launchVerifiedRosterSession(mobile, employeeId)) {
+      document.getElementById('pwLoginOverlay')?.remove();
+      document.getElementById('pwMobileOverlay')?.remove();
+      if (employeeId && deviceId) {
+        await fbUpdate('deviceApprovals/'+employeeId, {approvedDeviceId:deviceId,
+          approvedAt:new Date().toISOString(),via:'device_password'}).catch(()=>{});
+      }
+      return true;
+    }
+  } catch (error) { console.warn('[password login]',error.code || error.message); }
+  const input = document.getElementById('loginMobile');
+  if (input && /^\d{10}$/.test(mobile)) input.value=mobile;
+  document.getElementById('pwLoginOverlay')?.remove();
+  document.getElementById('pwMobileOverlay')?.remove();
+  showStep(1);
+  toast(L('इस डिवाइस पर फिर से लॉगिन करने के लिए ओटीपी सत्यापित करें।','Verify with OTP to sign in again on this device.'));
+  return false;
 }
 
 function _forgotMobilePw(){
@@ -1190,6 +1183,17 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
 
   const cid = containerId || 'recaptcha-container';
   const key = storeKey || '_fbRecaptchaNew';
+  if (window.MP_FIREBASE_EMULATORS === true && window._fbAuth?.config?.emulator &&
+      ['127.0.0.1','localhost'].includes(location.hostname)) {
+    window._fbAuth.settings.appVerificationDisabledForTesting = true;
+    const host = document.getElementById(cid);
+    if (!host) throw new Error('Missing Firebase verification container');
+    if (window[key]) window[key].clear();
+    host.replaceChildren();
+    const verifier = new window._fbRecaptchaVerifierClass(window._fbAuth, host, {size:'invisible'});
+    window[key] = verifier;
+    return window._fbSignInWithPhoneNumber(window._fbAuth, phone, verifier);
+  }
   const isDesktop = _isDesktopLoginUA();
 
   const withTimeout = (p, ms, label) => Promise.race([
@@ -1585,7 +1589,7 @@ async function showOTPLoginScreen(emp, deviceId){
 
   let ov = document.getElementById('otpLoginOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='otpLoginOverlay'; document.body.appendChild(ov); }
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto';
   ov.innerHTML=`
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">📲</div>
@@ -1888,7 +1892,7 @@ function _nrValidate(){
 
 function _newRegNameChanged(){ _nrValidate(); }
 
-function showForgotPassword(){ toast(L('पासवर्ड रीसेट के लिए व्यवस्थापक से संपर्क करें: +91-8929394920','Contact Admin for password reset: +91-8929394920')); }
+function showForgotPassword(){ toast(L('पासवर्ड रीसेट के लिए व्यवस्थापक से संपर्क करें: CareMP@vkstech.com','Contact Admin for password reset: CareMP@vkstech.com')); }
 function startWebOtpListener(){}
 function resendOtp(){ return _resendOTP(); }
 function checkOtpAutoSubmit(){}
@@ -1917,7 +1921,9 @@ async function submitNewEmpReg(code){
     let selfieUrl=null;
     try{
       if(typeof window._fbUploadSelfie==='function'){
-        const path='selfies/registrations/'+code+'_'+Date.now()+'.jpg';
+        const owner = window._fbAuth?.currentUser?.uid;
+        if (!owner) throw new Error('Sign in to upload a selfie');
+        const path='selfies/'+owner+'/'+Date.now()+'.jpg';
         selfieUrl=await window._fbUploadSelfie(window._nrSelfieData, path);
       }
     }catch(e){ console.warn('[selfie upload]',e.message); }
@@ -1940,11 +1946,11 @@ async function submitNewEmpReg(code){
       `👤 Employee Code: *${code}*\n`+
       `📱 Mobile: *${phone}*\n`+
       `🏭 Department: *${dept}*\n`+
-      (selfieUrl?`📸 Selfie: ${selfieUrl}\n`:``)+
+      
       `\n✅ App mein approve karein:\n${appUrl}\n`+
       `_(Pending tab > New Registrations)_`
     );
-    setTimeout(()=>{ openWA('8929394920', decodeURIComponent(waMsg)); }, 600);
+    setTimeout(()=>{ CFG.contactAdmin && openWA(CFG.contactAdmin, decodeURIComponent(waMsg)); }, 600);
 
     const ov=document.getElementById('newRegOverlay');
     if(ov) ov.style.display='none';

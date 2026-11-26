@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Man Power",
   "short_name": "Man Power",
-  "description": "Man Power — A Team Management and Training Application",
+  "description": "Man Power \u2014 A Team Management and Training Application",
   "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
@@ -35,5 +35,6 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "version": "6.12"
 }

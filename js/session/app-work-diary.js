@@ -3,12 +3,7 @@
   'use strict';
 
   function _wdMobile(){
-    try{
-      var m = (SESSION && (SESSION.mobile || SESSION.phone)) || '';
-      m = String(m).replace(/\D/g,'').slice(-10);
-      if(m.length===10) return m;
-    }catch(e){}
-    return '';
+    return window._fbAuth?.currentUser?.uid || '';
   }
 
   function _wdPath(dateStr){

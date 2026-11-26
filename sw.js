@@ -1,4 +1,4 @@
-/* Man Power — Service Worker v6.0.69
+/* Man Power — Service Worker v6.12
    Strategies:
    - Precache app shell + JS/CSS/icons/partials on install
    - HTML / navigation: network-first → cache fallback (fresh when online)
@@ -6,15 +6,14 @@
    - Firebase / Google / external APIs: never intercept (live data)
    - Keeps mp-integrity cache (session token) across version bumps
 */
-const SW_VERSION = '6.0.69';
-const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '');
+const SW_VERSION = '6.12';
+const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '') + '-r12';
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 
 const PRECACHE = [
   './',
   './index.html',
   './app.html',
-  './MR_Skill/mr_skill.html',
   './css/app.css',
   './js/core/train-data.js',
   './js/core/app.js',
@@ -52,6 +51,7 @@ const PRECACHE = [
   './js/commercial/mp-commercial.js',
   './js/core/polyfill.js',
   './js/config/config.js',
+  './js/config/private-media.js',
   './js/core/utils.js',
   './js/commercial/public-offer.js',
   './js/core/a11y.js',
@@ -62,10 +62,10 @@ const PRECACHE = [
   './js/i18n/i18n_ml.js',
   './manifest.json',
   './assets/vkslogo512.png',
-  './icon-180.png',
+  './assets/icon-180.png',
   './assets/icon-192.png',
   './assets/icon-512.png',
-  './mp-logo-transparent.png',
+  './assets/mp-logo-transparent.png',
   './myshift.html',
   './schedule.html',
   './leave.html',
@@ -74,6 +74,7 @@ const PRECACHE = [
   './team.html',
   './instructions.html',
   './todo.html',
+  './diary.html',
   './privacy.html'
 ];
 
@@ -162,7 +163,7 @@ self.addEventListener('activate', (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((k) => !KEEP_CACHES.has(k))
+            .filter((k) => k.startsWith('manpower-v') && !KEEP_CACHES.has(k))
             .map((k) => caches.delete(k))
         )
       )
@@ -203,8 +204,7 @@ async function networkFirstHtml(request) {
   } catch (e) {
     const cached =
       (await caches.match(request)) ||
-      (await caches.match('./index.html',
-  './app.html')) ||
+      (await caches.match('./index.html')) ||
       (await caches.match('/index.html')) ||
       (await caches.match('./'));
     if (cached) return cached;
@@ -220,7 +220,11 @@ async function networkFirstHtml(request) {
  * update in background for next visit.
  */
 async function staleWhileRevalidate(request) {
-  const cached = await caches.match(request);
+  const activeCache = await caches.open(CACHE);
+  const url = new URL(request.url);
+  const versionOnly = url.searchParams.size === 1 && url.searchParams.has('v');
+  const cached = await activeCache.match(request) ||
+    (versionOnly ? await activeCache.match(request, {ignoreSearch: true}) : null);
   const networkPromise = fetch(request)
     .then((res) => {
       if (res && res.ok) putInCache(request, res);
@@ -246,7 +250,8 @@ async function staleWhileRevalidate(request) {
  * Falls through to SWR behavior when not in cache.
  */
 async function cacheFirst(request) {
-  const cached = await caches.match(request);
+  const activeCache = await caches.open(CACHE);
+  const cached = await activeCache.match(request);
   if (cached) {
     // Background refresh
     fetch(request)
@@ -280,7 +285,7 @@ self.addEventListener('fetch', (event) => {
   if (isBypassHost(url.hostname)) return;
 
   // Only handle same-origin app traffic
-  if (url.origin !== self.location.origin) return;
+  if (url.origin !== self.location.origin || url.pathname.endsWith('/js/config/firebase.local.js')) return;
 
   // HTML / navigation → network-first
   if (isNavigationRequest(req) || isHtmlPath(url)) {

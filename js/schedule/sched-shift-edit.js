@@ -138,168 +138,38 @@ async function _retrySaveAfterReauth(){
 }
 
 
-async function _requestCompOff(emp, dateStr, reason){
-  try{
-    if(!emp || !emp.id || !dateStr) return;
-    // Deduplicate: skip if already have CO leave for same emp+date
-    try{
-      const existing = (getLeaves()||[]).find(l=>
-        (l.empId===emp.id || l.empId===emp.empId) &&
-        l.from===dateStr && (l.type==='CO' || /C-?Off|Comp/i.test(l.leaveType||''))
-      );
-      if(existing) return;
-    }catch(e){}
-    // Auto rules: grant APPROVED C-Off (balance +1) — do NOT create pending approval noise
-    await _grantApprovedCompOff(emp, dateStr, reason||'Compensatory Off');
-  }catch(e){ console.warn('[requestCompOff]', e); }
-}
-async function _processAutoCompOffRules(savedEntries){
-  try{
-    const emps = getEmps()||[];
-    const byId = {};
-    emps.forEach(e=>{ byId[e.id]=e; if(e.empId) byId[e.empId]=e; });
-    for(const e of (savedEntries||[])){
-      const emp = byId[e.empId];
-      if(!emp) continue;
-      const sh = String(e.newShift||'');
-      // Double shift → C-Off credit (+1 balance)
-      if(typeof parseShiftWorkCodes==='function' && parseShiftWorkCodes(sh).length>=2)
-        await _requestCompOff(emp, e.date, 'Double shift ('+sh+') — C-Off +1');
-      // Manual H on one cell does NOT auto-grant (Holiday List controls C-Off for holidays)
-    }
-    const affectedIds = [...new Set((savedEntries||[]).map(x=>x.empId))];
-    for(const eid of affectedIds){
-      const emp = byId[eid];
-      if(emp) await _checkWeeklyOffGapAndRequestCO(emp);
-    }
-  }catch(err){ console.warn('[autoCompOff]', err); }
-}
-async function _checkWeeklyOffGapAndRequestCO(emp){
-  try{
-    const today = new Date();
-    const offs = [];
-    for(let i=0;i<60;i++){
-      const d = new Date(today); d.setDate(d.getDate()-i);
-      const ds = d.toISOString().slice(0,10);
-      const sh = getShift(emp, ds);
-      if(sh==='O'||sh==='C/O'||sh==='CO') offs.push(ds);
-    }
-    offs.sort();
-    for(let i=1;i<offs.length;i++){
-      const gap = Math.round((new Date(offs[i])-new Date(offs[i-1]))/86400000);
-      if(gap > 9){
-        const mid = new Date(new Date(offs[i-1]).getTime() + Math.floor(gap/2)*86400000);
-        await _requestCompOff(emp, mid.toISOString().slice(0,10), 'Weekly off gap '+gap+' days (>9) — C-Off');
-        break;
-      }
-    }
-  }catch(e){ console.warn('[weeklyOffGap]', e); }
-}
-async function applyHolidaysToTeam(dates){
-  /** Does NOT mark H on the schedule.
-   *  For each holiday date: if member's base roster was a working shift (D/N/A/B/C/G/GP/…),
-   *  grant +1 approved C-Off credit to their balance.
-   *  Also clears any previous auto-H overrides on those dates so schedule shows real duty.
-   */
-  const team = (getEmps()||[]).filter(e=>e.status!=='resigned'&&e.status!=='left');
-  let n=0;
-  const WORK = new Set(['A','B','C','D','N','GP','G','1','2','OD']);
-  const clearH = {}; // remove mistaken auto-H so schedule is not overwritten
-  for(const dateStr of dates){
-    for(const emp of team){
-      const key = emp.id+'_'+dateStr;
-      const ov = (getOverrides()||{})[key];
-      // Clear auto-H only (leave other overrides like L, C/O alone)
-      if(String(ov)===('H') || String(ov)==='Holiday'){
-        clearH[key] = null; // Firebase null deletes
-      }
-      // Duty check uses base schedule (Excel/Firebase), not override
-      const prior = String((typeof getBaseShift==='function' ? getBaseShift(emp, dateStr) : getShift(emp, dateStr))||'').toUpperCase();
-      const codes = (typeof parseShiftWorkCodes==='function') ? parseShiftWorkCodes(prior) : [prior];
-      const wasWorking = codes.some(c=>WORK.has(String(c).toUpperCase())) || WORK.has(prior);
-      if(wasWorking){
-        await _grantApprovedCompOff(emp, dateStr, 'Holiday list — worked on '+prior+' · C-Off +1', { credit: true });
-        n++;
-      }
-    }
+function findWeeklyOffGap(history) {
+  const offDates = Object.entries(history).filter(([,shift])=>['O','C/O','CO'].includes(shift)).map(([date])=>date).sort();
+  for (let i=1;i<offDates.length;i++) {
+    const days = (Date.parse(offDates[i]) - Date.parse(offDates[i-1])) / 86400000;
+    if (days > 9) return {from:offDates[i-1],to:offDates[i],days};
   }
-  if(Object.keys(clearH).length){
-    try{
-      // RTDB: set null to remove keys
-      await fbUpdate('overrides', clearH);
-      const oc = {...(getOverrides()||{})};
-      Object.keys(clearH).forEach(k=>{ delete oc[k]; });
-      _cache.overrides = oc;
-    }catch(e){ console.warn('[clearH]', e); }
-  }
-  return n;
+  return null;
 }
 
-/** Grant approved C-Off (increases balance) — no pending approval / no manager notification. */
-async function _grantApprovedCompOff(emp, dateStr, reason, opts){
-  try{
-    if(!emp || !emp.id || !dateStr) return;
-    try{
-      const existing = (getLeaves()||[]).find(l=>
-        (l.empId===emp.id || l.empId===emp.empId) &&
-        String(l.from)===String(dateStr) &&
-        (l.type==='CO' || /C-?Off|Comp/i.test(String(l.leaveType||'')))
-      );
-      if(existing && !(opts && opts.sendWA)) return;
-      if(existing && opts && opts.sendWA){
-        // already recorded — only WhatsApp
-        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-        if(phone && phone.length===10 && typeof openWA==='function'){
-          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-          let tpl = getWATemplate('waCOffTemplate', cfg.waCOffTemplate);
-          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
-          const msg = (tpl||'🔄 *C-Off*\n*{name}*\n📅 {coffDate}\n{reason}\n_— {manager}_')
-            .replace(/\{name\}/g, emp.name||'')
-            .replace(/\{date\}/g, fmtD)
-            .replace(/\{coffDate\}/g, fmtD)
-            .replace(/\{reason\}/g, reason||'C-Off')
-            .replace(/\{manager\}/g, SESSION.name||'Manager');
-          if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) return;
-          if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
-          openWA(phone, msg);
-        }
-        return;
-      }
-    }catch(e){}
-    const payload = {
-      empId: emp.id, empName: emp.name||'', empCode: emp.empId||'',
-      type:'CO', leaveType:'C/O', from:dateStr, to:dateStr, days:1,
-      reason: reason||'Compensatory Off', status:'approved', autoGenerated:true,
-      credit: true, // earns +1 C-Off balance (not a used day)
-      approvedAt: new Date().toISOString(), approvedBy: SESSION.name||'system',
-      requestedAt: new Date().toISOString(),
-      coffDate: dateStr
-    };
-    await fbPush('leaves', payload);
-    // WhatsApp only when explicitly requested (manual C-Off mark), not bulk auto
-    if(opts && opts.sendWA){
-      try{
-        const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-        if(phone && phone.length===10 && typeof openWA==='function'){
-          const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-          const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-          let tpl = getWATemplate('waCOffTemplate', cfg.waCOffTemplate);
-          const fmtD = (()=>{ try{ return new Date(dateStr+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return dateStr; }})();
-          const msg = tpl
-            .replace(/\{name\}/g, emp.name||'')
-            .replace(/\{date\}/g, fmtD)
-            .replace(/\{coffDate\}/g, fmtD)
-            .replace(/\{reason\}/g, reason||'C-Off')
-            .replace(/\{manager\}/g, SESSION.name||'Manager');
-          if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) return;
-          if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
-          openWA(phone, msg);
-        }
-      }catch(e){ console.warn('[coff WA]', e); }
+function showWeeklyOffGapWarnings(savedEntries) {
+  const ids = new Set(savedEntries.map(entry=>entry.empId));
+  for (const employee of getEmps()) {
+    if (!ids.has(employee.id)) continue;
+    const history = {};
+    for (let i=0;i<60;i++) {
+      const day=addDays(TODAY_STR,-i);
+      history[day]=getShift(employee,day);
     }
-  }catch(e){ console.warn('[grantApprovedCompOff]', e); }
+    const gap=findWeeklyOffGap(history);
+    if (gap) toast(employee.name + ' · ' + L('साप्ताहिक अवकाश में अंतर: ','Weekly Off gap: ') + gap.days +
+      L(' दिन। अनुसूची की समीक्षा करें।',' days. Review the schedule.'));
+  }
 }
+
+async function applyHolidaysToTeam(dates){
+  if (!await _ensureWriteAuth()) throw new Error(L('फ़ोन सत्यापित करें','Verify phone first'));
+  const result = await window._fbCall('grantHolidayCredits', {dates, companyId:SESSION.viewCompanyId || SESSION.companyId});
+  _cache.overrides = await fbGet('overrides') || {};
+  if (typeof invalidateShiftCache === 'function') invalidateShiftCache();
+  return result.granted;
+}
+
 
 
 function getManagerLeaveTypeLabels(){
@@ -330,6 +200,14 @@ async function prefetchLeaveQuotaForChips(){
       }catch(e){}
     }
   }catch(e){}
+}
+
+function localizedShiftSaveError(message) {
+  if (String(message).startsWith('Unresolved C-Off history')) {
+    return L('इस तारीख का ऐतिहासिक सी-ऑफ रिकॉर्ड सत्यापित करने के लिए व्यवस्थापक से कहें।',
+      'Ask an administrator to verify the historical C-Off record for this date.');
+  }
+  return L('❌ सहेजना विफल: ','❌ Save failed: ') + String(message).slice(0,120);
 }
 
 async function saveAllShiftChanges(opts){
@@ -392,23 +270,16 @@ async function saveAllShiftChanges(opts){
     }
 
     // One RTDB update for all pending cells (fast)
-    await fbUpdate('overrides', updates);
+    await window._fbCall('saveShiftBatch', {updates, meta:metaUpdates});
     // Half-day / detail meta (history for single-click info)
     try{
       if(Object.keys(metaUpdates).length){
-        await fbUpdate('shiftCellMeta', metaUpdates);
+        // Metadata committed with overrides by saveShiftBatch.
         if(!_cache) window._cache = _cache = {};
         if(!_cache.shiftCellMeta) _cache.shiftCellMeta = {};
         Object.keys(metaUpdates).forEach(function(k){ _cache.shiftCellMeta[k] = metaUpdates[k]; });
       }
     }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
-
-    // Confirm the exact saved override keys before reporting success. Do not discard
-    // pending changes on a mismatched read (important for legacy manager identities).
-    const verify = await fbGet('overrides');
-    if(!verify || Object.keys(updates).some(k=>String(verify[k] == null ? '' : verify[k]) !== String(updates[k]))){
-      throw new Error('Shift write could not be verified. Pending edits retained; please retry.');
-    }
 
     // Apply to local cache immediately so UI is consistent without waiting for listeners
     try{
@@ -427,7 +298,7 @@ async function saveAllShiftChanges(opts){
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
 
     // Clear pending + UI RIGHT AWAY (before notifications)
-    try{ Object.keys(_pendingShiftChanges).forEach(k=>delete _pendingShiftChanges[k]); }catch(e){ _pendingShiftChanges = {}; }
+    try{ savedEntries.forEach(entry=>{const key=entry.empId+"__"+entry.date;if(_pendingShiftChanges[key]===entry) delete _pendingShiftChanges[key];}); }catch(e){ _pendingShiftChanges = {}; }
     try{ if(typeof clearSchedUndoHistory==='function') clearSchedUndoHistory(); }catch(e){}
     restoreBtn();
     try{ _updateSaveBar(); }catch(e){}
@@ -472,7 +343,7 @@ async function saveAllShiftChanges(opts){
     const isPerm = /permission|PERMISSION_DENIED/i.test(String(msg));
     const friendly = isPerm
       ? L('❌ अनुमति नहीं — फ़ोन OTP सत्यापित करें (लॉगआउट नहीं)','❌ Permission Denied — verify Phone OTP (no logout)')
-      : (L('❌ सहेजना विफल: ','❌ Save failed: ')+(String(msg).slice(0,120)));
+      : localizedShiftSaveError(msg);
     toast(friendly);
     try{
       const list = document.getElementById('saveBarList');
@@ -484,12 +355,13 @@ async function saveAllShiftChanges(opts){
           errEl.id = errId;
           list.parentNode.insertBefore(errEl, list);
         }
-        errEl.style.cssText = 'background:rgba(244,63,94,.18);border:1.5px solid #f43f5e;border-radius:10px;padding:10px 12px;margin-bottom:10px;color:#fecdd3;font-size:12px;font-weight:800;line-height:1.45';
+        errEl.style.cssText = '';
+        errEl.className = 'shift-save-error';
         if(isPerm){
           errEl.innerHTML = '⛔ <b>'+friendlyFbError({message:'PERMISSION_DENIED'})+'</b><br>'+ (typeof L==='function'?L('Firebase में anonymous session है। Logout की ज़रूरत नहीं — Phone verify करें, फिर Save।','Firebase has an anonymous session. No logout needed — verify phone, then Save.'):'Firebase has an anonymous session. No logout needed — verify phone, then Save.') +''
             + '<br><button type="button" onclick="_retrySaveAfterReauth()" style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#f97316;color:#fff;font-weight:900;cursor:pointer">🔐 Phone verify &amp; retry Save</button>';
         } else {
-          errEl.innerHTML = '⛔ Save error: '+String(msg).replace(/</g,'&lt;');
+          errEl.textContent = friendly;
         }
       }
     }catch(e2){}
@@ -674,7 +546,7 @@ async function _saveShiftChangesBackground(savedEntries){
     if(odJobs.length) await Promise.all(odJobs.map(p=>p.catch(err=>{ console.warn('[od]', err); })));
   }catch(odErr){ console.warn('[save] OD cleanup', odErr); }
 
-  try{ if(typeof _processAutoCompOffRules==='function') await _processAutoCompOffRules(savedEntries); }catch(e){ console.warn(e); }
+  try{ showWeeklyOffGapWarnings(savedEntries); }catch(e){ console.warn('[weekly off review]', e); }
   try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
 
   // In-app notifications — parallel pushes
@@ -816,6 +688,9 @@ function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   } else if(shiftVal === '__DUAL__'){
     closeModal();
     openDualShiftPicker(empId, empName, date, currentShift);
+  } else if(shiftVal === '__TRIPLE__'){
+    closeModal();
+    openTripleShiftPicker(empId, empName, date, currentShift);
   } else if(shiftVal === '__TIME__'){
     closeModal();
     setTimeout(function(){
@@ -898,6 +773,37 @@ function openDualShiftPicker(empId, empName, date, currentShift){
 }
 try{ window.openDualShiftPicker=openDualShiftPicker; }catch(e){}
 
+
+/** Triple duty: three distinct manager-active working shifts; saves a single A+B+C roster value. */
+function openTripleShiftPicker(empId, empName, date, currentShift){
+  let codes=[];
+  try{if(typeof getActiveWorkShifts==='function') codes=getActiveWorkShifts().map(s=>String(s.code).toUpperCase());}catch(e){}
+  if(!codes.length){
+    try{const cfg=getShiftConfigSync()||{};codes=(cfg.shifts||[]).filter(s=>s&&s.active!==false&&s.kind!=='status').map(s=>String(s.code).toUpperCase());}catch(e){}
+  }
+  const statuses=new Set(['O','L','C/O','CO','HLF','AB','H','OD','GP','G']);
+  codes=[...new Set(codes.filter(c=>c&&!statuses.has(c)&&/^[A-Z][A-Z0-9]{0,3}$/.test(c)))];
+  if(codes.length<3){
+    toast(L('⚠️ Triple Duty के लिए कम से कम 3 active working shifts चाहिए','⚠️ Triple Duty needs at least 3 active working shifts'));
+    editShiftCell(empId,empName,date,currentShift);return;
+  }
+  window._mpTripleDutyContext={empId,empName,date,currentShift};
+  const choices=[];
+  for(let i=0;i<codes.length;i++)for(let j=i+1;j<codes.length;j++)for(let k=j+1;k<codes.length;k++)choices.push([codes[i],codes[j],codes[k]]);
+  const buttons=choices.map(parts=>{
+    const v=parts.join('+');
+    const chips=parts.map(c=>{const st=typeof mpShiftStyle==='function'?mpShiftStyle(c):{bg:'#475569',fg:'#fff'};
+      return '<span style="padding:5px 8px;border-radius:6px;background:'+st.bg+';color:'+(st.fg||'#fff')+';font-weight:900">'+c+'</span>';}).join('<span style="color:var(--text)">+</span>');
+    return '<button type="button" onclick="mpApplyTripleDuty(&quot;'+v+'&quot;)" style="display:flex;align-items:center;gap:5px;padding:10px;border:1px solid var(--border2);border-radius:10px;background:var(--card);color:var(--text);cursor:pointer;font-weight:700">'+chips+'</button>';
+  }).join('');
+  openModal('<div class="modal-handle"></div><div class="modal-title">3× '+L('तीन शिफ्ट चुनें','Choose Triple Duty')+'</div>'+
+    '<div style="color:var(--muted2);font-size:12px;margin:8px 0">'+escHtml(empName)+' · '+date+' · '+L('2 C-Off credits','2 C-Off credits')+'</div>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:8px;max-height:55vh;overflow:auto">'+buttons+'</div>'+
+    '<button class="cancel-btn" onclick="mpTripleDutyBack()">'+L('वापस','Back')+'</button>');
+}
+function mpApplyTripleDuty(value){const c=window._mpTripleDutyContext;if(!c)return;stageSingleShiftChange(c.empId,c.empName,c.date,c.currentShift,value);}
+function mpTripleDutyBack(){const c=window._mpTripleDutyContext;if(c)editShiftCell(c.empId,c.empName,c.date,c.currentShift);}
+try{window.openTripleShiftPicker=openTripleShiftPicker;window.mpApplyTripleDuty=mpApplyTripleDuty;window.mpTripleDutyBack=mpTripleDutyBack;}catch(e){}
 
 /** Half Day → pick which work shift the half belongs to (manager-ticked codes). */
 function openHlfHalfPicker(empId, empName, date, currentShift){
@@ -1136,55 +1042,21 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   // Manager marks leave → APPROVED immediately (no pending approval notification)
   const _bulkDates = (window._myShiftPendingLeaveDates && window._myShiftPendingLeaveDates.length)
     ? window._myShiftPendingLeaveDates.slice().sort() : [date];
-  const leaveData={
-    empId, empName,
-    section: (getEmps().find(e=>e.id===empId)||{}).sec||'',
-    from:_bulkDates[0], to:_bulkDates[_bulkDates.length-1], days:_bulkDates.length,
-    leaveType: reason,
-    type: typeCode,
-    status:'approved',
-    appliedAt:new Date().toISOString(),
-    approvedAt:new Date().toISOString(),
-    markedBy: SESSION.name||'Admin',
-    approvedBy: SESSION.name||'Admin',
-    reallocations:[]
-  };
-  if(_leaveImgBase64) leaveData.attachment=_leaveImgBase64;
-  try{ await fbPush('leaves',leaveData); }catch(e){ console.warn('leave push',e); }
-  _leaveImgBase64=null;
-
-  // Write L to ALL selected dates (bulk multi-select support)
-  const shiftVal = 'L';
-  const allDates = (window._myShiftPendingLeaveDates && window._myShiftPendingLeaveDates.length)
-    ? window._myShiftPendingLeaveDates.slice()
-    : [date];
-  window._myShiftPendingLeaveDates = null;
-  const ovPayload = {};
-  try{
-    const empObj = (getEmps()||[]).find(e=>e.id===empId);
-    allDates.forEach(d=>{
-      ovPayload[empId+'_'+d] = shiftVal;
-      if(empObj && empObj.empId && String(empObj.empId)!==String(empId))
-        ovPayload[empObj.empId+'_'+d] = shiftVal;
-    });
-  }catch(e){
-    allDates.forEach(d=>{ ovPayload[empId+'_'+d] = shiftVal; });
+  const updates = {}, meta = {};
+  for (const selectedDate of _bulkDates) {
+    const key = empId + '_' + selectedDate;
+    updates[key] = 'L';
+    meta[key] = {leaveType:typeCode, reason, ...(selectedDate === _bulkDates[0] && _leaveImgBase64 ? {attachment:_leaveImgBase64} : {})};
   }
-  try{
-    await fbUpdate('overrides', ovPayload);
-    _cache.overrides = {...(getOverrides()||{}), ...ovPayload};
-  }catch(e){
-    for(const d of allDates){
-      try{ stageSingleShiftChange(empId, empName, d, currentShift, shiftVal, { leaveType: typeCode, reason }); }catch(e2){}
-    }
+  try {
+    if (!await _ensureWriteAuth()) return;
+    await window._fbCall('saveShiftBatch', {updates, meta});
+    _cache.overrides = {...(getOverrides()||{}), ...updates};
+  } catch (error) {
+    toast(L('अवकाश सहेजा नहीं गया: ','Leave could not be saved: ') + error.message);
+    return;
   }
-  // Extra leave records for other days (first day already pushed above)
-  for(const d of allDates){
-    if(d === date) continue;
-    try{
-      await fbPush('leaves', Object.assign({}, leaveData, { from:d, to:d }));
-    }catch(e){}
-  }
+  _leaveImgBase64 = null;
   closeModal();
   try{ window._myShiftPendingLeaveDates = null; }catch(e){}
   try{ if(window._myShiftMultiSel) window._myShiftMultiSel.clear(); }catch(e){}
@@ -1309,6 +1181,7 @@ function editShiftCell(empId, empName, date, currentShift){
     }),
     // Dual Shift entry opens full combination list (not every pair on main screen)
     {v:'__DUAL__', label:(typeof L==='function'?L('Dual Shift (दो शिफ्ट जोड़ें)','Dual Shift (combine two)'):'Dual Shift (combine two)'), bg:'#6d28d9', color:'#ffffff'},
+    {v:'__TRIPLE__', label:(typeof L==='function'?L('Triple Shift (तीन शिफ्ट जोड़ें)','Triple Shift (combine three)'):'Triple Shift (combine three)'), bg:'#7c3aed', color:'#ffffff'},
     // v6.0.8: explicit Time button (not auto after work-shift pick)
     ...((typeof mpIsTimeLegendEnabled==='function' && mpIsTimeLegendEnabled())
       ? [{v:'__TIME__', label:(typeof L==='function'?L('Time (कार्य समय)','Time (worked hours)'):'Time (worked hours)'), bg:'#f97316', color:'#ffffff'}]
@@ -1344,7 +1217,7 @@ function editShiftCell(empId, empName, date, currentShift){
   openModal(`<div class="modal-handle"></div>
     <div class="modal-title">✏️ ${typeof L==='function'?L('Shift चुनें','Select shift'):'Select shift'}</div>
     <div style="text-align:center;padding:6px 0 14px">
-      <div style="font-size:17px;font-weight:900;color:#fff">${empName}</div>
+      <div style="font-size:17px;font-weight:900;color:var(--text)">${empName}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">${fmtD}</div>
       <div style="margin-top:6px;font-size:12px;color:var(--muted2)">
         ${typeof L==='function'?L('वर्तमान','Current'):'Current'}: ${(typeof mpShiftBadgeHtml==='function')?mpShiftBadgeHtml(currentShift,{w:28,h:24,fs:12,extraStyle:'display:inline-flex;vertical-align:middle'}):('<span class="shc '+cellClass(currentShift)+'" style="display:inline-flex;vertical-align:middle">'+cellDisp(currentShift)+'</span>')}
@@ -1360,8 +1233,8 @@ function editShiftCell(empId, empName, date, currentShift){
           color:var(--text);cursor:pointer;font-weight:700;font-size:13px;
           display:flex;align-items:center;gap:8px;position:relative">
           <span style="display:inline-flex;min-width:28px;height:26px;padding:0 6px;background:${s.bg};color:${s.color||'#fff'};
-            border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:${(s.v==='__DUAL__'||s.v==='__TIME__'||String(s.v).length>2)?'11px':'12px'};line-height:1;box-sizing:border-box">
-            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':(s.v==='__DUAL__'?'2×':s.v==='__TIME__'?'⏱':s.v)}
+            border-radius:6px;align-items:center;justify-content:center;font-weight:900;font-size:${(s.v==='__DUAL__'||s.v==='__TRIPLE__'||s.v==='__TIME__'||String(s.v).length>2)?'11px':'12px'};line-height:1;box-sizing:border-box">
+            ${s.v==='C/O'?'CO':s.v==='HLF'?'½':(s.v==='__DUAL__'?'2×':s.v==='__TRIPLE__'?'3×':s.v==='__TIME__'?'⏱':s.v)}
           </span>
           <span style="font-size:12px;text-align:left;line-height:1.3">${escHtml(s.label)}</span>
           ${''}
@@ -1430,15 +1303,31 @@ const MET_HOLIDAYS = {
 };
 
 // ── Comp Off Details Modal ──
-function openCompOffDetails(empId, empName, coDate, currentShift){
+function _mpCompOffLookbackDays(){
+  const cfg=(typeof getShiftConfigSync==='function'?getShiftConfigSync():{})||{};
+  const raw=Number(cfg.compOffLookbackDays);
+  return Number.isFinite(raw)&&raw>=1?Math.min(365,Math.max(1,Math.floor(raw))):31;
+}
+function _mpCoDateUtcDay(iso){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||''))) return NaN;
+  const d=new Date(String(iso)+'T00:00:00Z');
+  return Number.isFinite(d.getTime())&&d.toISOString().slice(0,10)===iso?Math.floor(d.getTime()/86400000):NaN;
+}
+function _mpCoDutyDateAllowed(workedDate,coDate,lookback){
+  const w=_mpCoDateUtcDay(workedDate),c=_mpCoDateUtcDay(coDate);
+  return Number.isFinite(w)&&Number.isFinite(c)&&c>w&&(c-w)<=lookback;
+}
+async function openCompOffDetails(empId, empName, coDate, currentShift){
   closeModal();
+  try{if(typeof getShiftConfig==='function') await getShiftConfig();}catch(e){console.warn('[C-Off policy] config unavailable',e);}
+  const lookbackDays=_mpCompOffLookbackDays();
   const emp = getEmps().find(e=>e.id===empId);
   const woff = emp?.woff||'SUN';
   
-  // Build last 31 days: show only W-OFF/Holiday dates where emp actually worked (D or N shift)
-  const today = new Date();
+  // Configurable eligible duty window, relative to the requested C-Off date.
+  const today = new Date(String(coDate)+'T12:00:00');
   const dateOpts = [];
-  for(let i=1;i<=31;i++){
+  for(let i=1;i<=lookbackDays;i++){
     const d = new Date(today);
     d.setDate(d.getDate()-i);
     const ds = d.toISOString().slice(0,10);
@@ -1496,9 +1385,9 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
         </div>
       </div>
 
-      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">${typeof L==='function'?L('किस दिन काम किया था?','Which day did they work?'):'Which day did they work?'} * <span style="font-weight:600;color:#f97316">${typeof L==='function'?L('(31 दिन की सीमा)','(within 31 days)'):'(within 31 days)'}</span></div>
+      <div style="font-size:14px;font-weight:800;color:#e2e8f0;letter-spacing:.5px;margin-bottom:8px">${typeof L==='function'?L('किस दिन काम किया था?','Which day did they work?'):'Which day did they work?'} * <span style="font-weight:600;color:#f97316">${typeof L==='function'?L('('+lookbackDays+' दिन की सीमा)','(within '+lookbackDays+' days)'):'(within '+lookbackDays+' days)'}</span></div>
       <div id="coWorkedDateSel" style="margin-bottom:14px">
-        ${dateOpts.length===0?('<div style="color:#fca5a5;font-size:14px;padding:10px;background:rgba(244,63,94,.12);border-radius:8px;border:1px solid rgba(244,63,94,.3)">'+ (typeof L==='function'?L('⚠️ पिछले 31 दिनों में कोई W-Off/Holiday पर Duty नहीं मिली जो C-Off के योग्य हो','⚠️ No eligible W-Off/Holiday duty in the last 31 days for C-Off'):'⚠️ No eligible W-Off/Holiday duty in the last 31 days for C-Off') +'</div>'):''}
+        ${dateOpts.length===0?('<div style="color:#fca5a5;font-size:14px;padding:10px;background:rgba(244,63,94,.12);border-radius:8px;border:1px solid rgba(244,63,94,.3)">'+ (typeof L==='function'?L('⚠️ पिछले '+lookbackDays+' दिनों में कोई योग्य W-Off/Holiday duty नहीं मिली','⚠️ No eligible W-Off/Holiday duty in the last '+lookbackDays+' days'):'⚠️ No eligible W-Off/Holiday duty in the last '+lookbackDays+' days') +'</div>'):''}
         <input type="hidden" id="coWorkedDate" value="">
         <input type="hidden" id="coWorkedIsHoli" value="">
         <input type="hidden" id="coWorkedHoliName" value="">
@@ -1518,7 +1407,7 @@ function openCompOffDetails(empId, empName, coDate, currentShift){
           </div>
         </div>
         <div id="coManualDate" style="display:none;margin-top:8px">
-          <input type="date" id="coManualDateInput" style="width:100%;padding:12px;border-radius:10px;background:#0f172a !important;border:1.5px solid #475569;color:#fff !important;font-size:15px" max="${new Date().toISOString().slice(0,10)}">
+          <input type="date" id="coManualDateInput" style="width:100%;padding:12px;border-radius:10px;background:#0f172a !important;border:1.5px solid #475569;color:#fff !important;font-size:15px" min="${(()=>{const x=new Date(String(coDate)+'T12:00:00');x.setDate(x.getDate()-lookbackDays);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')})()}" max="${(()=>{const x=new Date(String(coDate)+'T12:00:00');x.setDate(x.getDate()-1);return [x.getFullYear(),String(x.getMonth()+1).padStart(2,'0'),String(x.getDate()).padStart(2,'0')].join('-')})()}">
         </div>
       </div>
 
@@ -1619,6 +1508,12 @@ function confirmCompOff(empId, empName, coDate, currentShift){
   const sel = document.getElementById('coWorkedDate');
   let workedDate = sel?.value==='OTHER' ? (document.getElementById('coManualDateInput')?.value||'') : sel?.value||'';
   const reason = document.getElementById('coReasonText')?.value?.trim()||'';
+  const allowedDays=_mpCompOffLookbackDays();
+  if(!_mpCoDutyDateAllowed(workedDate,coDate,allowedDays)){
+    alert(typeof L==='function'?L('C-Off के लिए काम की तारीख पिछले '+allowedDays+' दिनों में और C-Off की तारीख से पहले होनी चाहिए।','Duty date must be within '+allowedDays+' days before the C-Off date.'):'Duty date is outside the permitted C-Off window.');
+    return;
+  }
+
   
   if(!workedDate||workedDate==='OTHER'){
     alert(typeof L==='function'?L('कृपया वो दिन चुनें जब काम किया था','Please select the day they worked'):'Please select the day they worked'); return;
@@ -2144,15 +2039,8 @@ async function approveShiftChangeRequest(reqKey){
     const okAuth = await _ensureWriteAuth();
     if(!okAuth){ toast(L('❌ Phone verify करें','❌ Verify phone')); return; }
     const ovKey = rec.empObjId+'_'+rec.date;
-    await fbUpdate('overrides', { [ovKey]: rec.newShift });
-    try{
-      _cache.overrides = {...(getOverrides()||{}), [ovKey]: rec.newShift};
-    }catch(e){}
-    await fbUpdate('shiftChangeRequests/'+reqKey, {
-      status: 'approved',
-      approvedAt: new Date().toISOString(),
-      approvedBy: SESSION.name||''
-    });
+    await window._fbCall('reviewShiftRequest', {key:reqKey, status:'approved'});
+    _cache.overrides = {...(getOverrides()||{}), [ovKey]: rec.newShift};
     // Notify member
     try{
       if(rec.empObjId){
@@ -2173,11 +2061,7 @@ async function approveShiftChangeRequest(reqKey){
 
 async function rejectShiftChangeRequest(reqKey){
   try{
-    await fbUpdate('shiftChangeRequests/'+reqKey, {
-      status: 'rejected',
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: SESSION.name||''
-    });
+    await window._fbCall('reviewShiftRequest', {key:reqKey, status:'rejected'});
     toast(L('अनुरोध अस्वीकृत','Request rejected'));
     try{ if(typeof renderPending==='function') renderPending(); }catch(e){}
   }catch(e){ toast(L('❌ ','❌ ')+(e.message||e)); }
@@ -2197,9 +2081,7 @@ async function resetShiftOverride(empId, date){
         await _removeODRecordsForEmpDate(empId, date);
       }
     }catch(e){}
-    const existing = {...getOverrides()};
-    delete existing[empId+'_'+date];
-    await fbSet('overrides', existing);
+    await window._fbCall('saveShiftBatch', {updates:{[empId+'_'+date]:null}});
     toast(L('🔄 Original shift restore हो गई','🔄 Original shift restored'));
     renderSchedule();
   }catch(e){ toast(L('❌ त्रुटि: ','❌ Error: ')+(e.message||e)); }

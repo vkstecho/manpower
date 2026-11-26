@@ -30,6 +30,7 @@
       <button type="button" class="sched-admin-btn" id="schedMoreBtn" onclick="toggleSchedMoreMenu()">⋯ More</button>
       <div id="schedMoreMenu" class="sched-more-menu" style="display:none">
         <button type="button" id="msToggleBtn" onclick="closeSchedMoreMenu();toggleSelectMode()">☑️ Multi-Select</button>
+        <button type="button" id="historicalReviewBtn" hidden onclick="closeSchedMoreMenu();openHistoricalOverrideReview()">Historical shift records</button>
         <button type="button" id="empReorderBtn" onclick="closeSchedMoreMenu();openEmpReorderPanel()">↕️ Reorder</button>
       </div>
     </div>
@@ -39,7 +40,7 @@
     <div class="chips" id="schedFilter">
       <div class="chip on" onclick="setSchedSec('ALL',this)" data-i18n-all>All</div>
       <div class="chip" onclick="setSchedSec('CAT:section',this)">Department</div>
-      <div class="chip" onclick="setSchedSec('CAT:machine',this)">Machines</div>
+      <div class="chip" onclick="setSchedSec('CAT:machine',this)">Machine</div>
       <div class="chip" onclick="setSchedSec('CAT:designation',this)">Designation</div>
       <div class="chip" onclick="setSchedSec('CAT:responsibility',this)">Responsibility</div>
       <div class="chip" onclick="setSchedSec('CAT:name',this)">Name</div>

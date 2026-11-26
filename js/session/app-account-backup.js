@@ -121,7 +121,9 @@
     var mob = _norm(payload.mobile);
     if(!mob || mob.length!==10) return null;
     var id = 'b'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    var path = 'accountBackups/'+mob+'/'+id;
+    var owner = typeof isAdmin === 'function' && isAdmin() ? mob : window._fbAuth?.currentUser?.uid;
+    if (!owner) return null;
+    var path = 'accountBackups/'+owner+'/'+id;
     var rec = Object.assign({}, payload, {
       backupId: id,
       expiresAt: new Date(Date.now()+RETENTION_MS).toISOString(),
@@ -138,7 +140,7 @@
     // index for admin search
     try{
       if(typeof fbUpdate==='function'){
-        await fbUpdate('accountBackupIndex/'+mob, {
+        await fbUpdate('accountBackupIndex/'+owner, {
           lastBackupId: id,
           lastDeletedAt: rec.deletedAt,
           managerName: rec.managerName||'',
@@ -275,7 +277,6 @@
 
   // ── Admin UI: search deleted backups by mobile ──
   // Admin JWT / admins/{uid} can read accountBackups without OTP (see database.rules).
-  // OTP-to-owner remains optional (does not sign out admin unless user chooses it).
   function openDeletedAccountsBackupModal(){
     if(typeof isAdmin==='function' && !isAdmin()){
       try{ toast(_L('❌ सिर्फ Admin','❌ Admin only')); }catch(e){}
@@ -284,21 +285,12 @@
     var html = ''
       + '<div class="modal-title">'+_L('🗑️ Deleted Account Backups','🗑️ Deleted Account Backups')+'</div>'
       + '<div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.45">'
-      + _L('एडमिन: मोबाइल डालकर सीधे Load करें (OTP ज़रूरी नहीं)। Backup 6 महीने तक उपलब्ध।','Admin: enter mobile and Load directly (OTP not required). Backups kept for 6 months.')
+      + _L('एडमिन: मोबाइल डालकर सीधे Load करें (OTP ज़रूरी नहीं)। Backup 6 महीने तक उपलब्ध।','Admin: enter the account UID or the original backup key.')
       + '</div>'
-      + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">Mobile</label>'
-      + '<input class="inp-field" id="delBakMobile" placeholder="10-digit mobile" maxlength="10" inputmode="numeric" style="width:100%;margin:6px 0 12px;box-sizing:border-box">'
+      + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">Account UID or original key</label>'
+      + '<input class="inp-field" id="delBakMobile" placeholder="Account UID or legacy mobile key" maxlength="128" style="width:100%;margin:6px 0 12px;box-sizing:border-box">'
       + '<button type="button" class="submit-btn" id="delBakLoadBtn" style="margin-bottom:10px" onclick="window._delBakLoadAsAdmin && window._delBakLoadAsAdmin()">'
       + _L('📂 Backup Load करें','📂 Load Backups')+'</button>'
-      + '<div style="font-size:11px;color:var(--muted2);margin:4px 0 8px;text-align:center">'+_L('— या owner phone पर OTP —','— or OTP to owner phone —')+'</div>'
-      + '<div id="recaptcha-container-deleted-backup" style="min-height:78px;margin-bottom:8px;display:flex;justify-content:center"></div>'
-      + '<button type="button" class="submit-btn" id="delBakSendOtpBtn" style="margin-bottom:10px" onclick="window._delBakSendOtp && window._delBakSendOtp()">'
-      + _L('📲 OTP भेजें','📲 Send OTP')+'</button>'
-      + '<div id="delBakOtpWrap" hidden>'
-      + '<input class="inp-field" id="delBakOtp" placeholder="OTP" maxlength="8" inputmode="numeric" autocomplete="one-time-code" style="width:100%;margin:6px 0 12px;box-sizing:border-box">'
-      + '<button type="button" class="submit-btn" id="delBakVerifyBtn" style="margin-bottom:10px" onclick="window._delBakVerifyOtp && window._delBakVerifyOtp()">'
-      + _L('✅ Verify & Load','✅ Verify & Load')+'</button>'
-      + '</div>'
       + '<div id="delBakStatus" style="font-size:12px;color:var(--muted2);min-height:18px;margin-bottom:6px"></div>'
       + '<div id="delBakList" style="margin-top:8px"></div>'
       + '<button type="button" class="cancel-btn" style="margin-top:10px" onclick="closeModal()">'+_L('बंद करें','Close')+'</button>';
@@ -306,9 +298,7 @@
     else alert('openModal missing');
   }
 
-  var _delBakConfirm = null;
-  var _delBakVerifiedMobile = '';
-  var _delBakSending = false;
+  function backupKey(value){ return /^[A-Za-z0-9_+-]{1,128}$/.test(value || '') ? value : ''; }
 
   function _delBakSetStatus(msg, isErr){
     try{
@@ -321,16 +311,15 @@
 
   /** Admin-only: load backups without OTP (rules allow admin read). */
   async function _delBakLoadAsAdmin(){
-    var mob = _norm(document.getElementById('delBakMobile') && document.getElementById('delBakMobile').value);
-    if(!mob || mob.length!==10){
-      try{ toast(_L('❌ सही मोबाइल डालें','❌ Enter valid 10-digit mobile')); }catch(e){}
+    var mob = backupKey(document.getElementById('delBakMobile') && document.getElementById('delBakMobile').value);
+    if(!mob){
+      try{ toast(_L('❌ सही मोबाइल डालें','❌ Enter a valid UID or original backup key')); }catch(e){}
       return;
     }
     if(typeof isAdmin==='function' && !isAdmin()){
       try{ toast(_L('❌ सिर्फ Admin','❌ Admin only')); }catch(e){}
       return;
     }
-    _delBakVerifiedMobile = mob;
     _delBakSetStatus(_L('⏳ Backup लोड हो रहे हैं…','⏳ Loading backups…'), false);
     try{
       await _delBakLoadList(mob);
@@ -340,131 +329,12 @@
     }
   }
 
-  async function _delBakSendOtp(){
-    if(_delBakSending) return;
-    var mob = _norm(document.getElementById('delBakMobile') && document.getElementById('delBakMobile').value);
-    if(!mob || mob.length!==10){
-      try{ toast(_L('❌ सही मोबाइल डालें','❌ Enter valid 10-digit mobile')); }catch(e){}
-      return;
-    }
-    if(typeof _fbSendPhoneOtp !== 'function'){
-      try{ toast(_L('❌ OTP सिस्टम तैयार नहीं — page refresh करें','❌ OTP not ready — refresh page')); }catch(e){}
-      return;
-    }
-    var sendBtn = document.getElementById('delBakSendOtpBtn');
-    var prevHtml = sendBtn ? sendBtn.innerHTML : '';
-    _delBakSending = true;
-    if(sendBtn){
-      sendBtn.disabled = true;
-      sendBtn.classList.add('is-busy');
-      sendBtn.innerHTML = _L('⏳ OTP भेज रहे हैं…','⏳ Sending OTP…');
-    }
-    _delBakSetStatus(_L('🔐 सुरक्षा जाँच पूरा करें (checkbox)','🔐 Complete security check if shown'), false);
-    try{
-      if(typeof _fbClearRecaptcha==='function') _fbClearRecaptcha('_fbRecaptchaDelBak');
-    }catch(e){}
-    // Ensure captcha host is empty and visible outside modal overflow when possible
-    try{
-      var host = document.getElementById('recaptcha-container-deleted-backup');
-      if(host){
-        host.innerHTML = '';
-        host.style.minHeight = '78px';
-        host.style.display = 'flex';
-        host.style.justifyContent = 'center';
-      }
-    }catch(eH){}
-    try{
-      // Prefer dedicated path that avoids signing out admin when possible
-      try{ window._mpSkipOtpSignOut = true; }catch(eF){}
-      try{
-        _delBakConfirm = await _delBakSendOtpKeepSession('+91'+mob);
-      }finally{
-        try{ window._mpSkipOtpSignOut = false; }catch(eF2){}
-      }
-      var wrap = document.getElementById('delBakOtpWrap');
-      if(wrap) wrap.hidden = false;
-      try{ toast(_L('📲 OTP भेजा गया — नीचे code डालें','📲 OTP sent — enter code below')); }catch(e){}
-      _delBakSetStatus(_L('OTP भेजा गया','OTP sent'), false);
-    }catch(e){
-      console.warn('[delBak OTP]', e);
-      var msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'OTP failed';
-      // Friendlier messages
-      if(/too-many-requests/i.test(msg)) msg = _L('बहुत कोशिशें — कुछ देर बाद try करें','Too many attempts — try later');
-      else if(/captcha|recaptcha/i.test(msg)) msg = _L('सुरक्षा जाँच fail — page refresh करें','Security check failed — refresh page');
-      else if(/network|unavailable/i.test(msg)) msg = _L('Network error — internet check करें','Network error — check internet');
-      try{ toast(L('❌ ','❌ ')+msg); }catch(x){}
-      _delBakSetStatus(msg, true);
-    }finally{
-      _delBakSending = false;
-      if(sendBtn){
-        sendBtn.disabled = false;
-        sendBtn.classList.remove('is-busy');
-        sendBtn.innerHTML = prevHtml || _L('📲 OTP भेजें','📲 Send OTP');
-      }
-    }
-  }
-
-  /**
-   * Send OTP without destroying admin session when Firebase allows.
-   * Falls back to standard _fbSendPhoneOtp (may sign out non-matching phone session).
-   */
-  async function _delBakSendOtpKeepSession(e164){
-    // If current user is already the target phone, use normal send
-    try{
-      var cu = window._fbAuth && window._fbAuth.currentUser;
-      var target = String(e164||'').replace(/\D/g,'').slice(-10);
-      var curPh = cu && cu.phoneNumber ? String(cu.phoneNumber).replace(/\D/g,'').slice(-10) : '';
-      if(cu && !cu.isAnonymous && curPh && curPh === target){
-        return await _fbSendPhoneOtp(e164, 'recaptcha-container-deleted-backup', '_fbRecaptchaDelBak');
-      }
-    }catch(e){}
-
-    // Admin is logged in with a different phone: avoid full session kill if we can use
-    // the shared sender after a soft note. Prefer visible captcha in-modal host.
-    // Snapshot SESSION so UI can stay after optional re-auth side-effects.
-    var sessionSnap = null;
-    try{ sessionSnap = (typeof SESSION!=='undefined' && SESSION) ? Object.assign({}, SESSION) : null; }catch(e){}
-
-    try{
-      var conf = await _fbSendPhoneOtp(e164, 'recaptcha-container-deleted-backup', '_fbRecaptchaDelBak');
-      // Restore SESSION object if auth listener wiped role fields but app still open
-      try{
-        if(sessionSnap && typeof SESSION!=='undefined' && SESSION && !SESSION.role && sessionSnap.role){
-          Object.keys(sessionSnap).forEach(function(k){ if(SESSION[k]==null || SESSION[k]==='') SESSION[k]=sessionSnap[k]; });
-        }
-      }catch(e2){}
-      return conf;
-    }catch(err){
-      try{
-        if(sessionSnap && typeof SESSION!=='undefined' && SESSION && !SESSION.role && sessionSnap.role){
-          Object.keys(sessionSnap).forEach(function(k){ if(SESSION[k]==null || SESSION[k]==='') SESSION[k]=sessionSnap[k]; });
-        }
-      }catch(e3){}
-      throw err;
-    }
-  }
-
-  async function _delBakVerifyOtp(){
-    var mob = _norm(document.getElementById('delBakMobile') && document.getElementById('delBakMobile').value);
-    var code = (document.getElementById('delBakOtp') && document.getElementById('delBakOtp').value || '').trim();
-    if(!_delBakConfirm){ try{ toast(_L('❌ पहले OTP भेजें','❌ Send OTP first')); }catch(e){} return; }
-    if(!code){ try{ toast(L('ओटीपी?','OTP?')); }catch(e){} return; }
-    try{
-      await _delBakConfirm.confirm(code);
-      _delBakVerifiedMobile = mob;
-      try{ toast(_L('✅ Verified','✅ Verified')); }catch(e){}
-      await _delBakLoadList(mob);
-    }catch(e){
-      try{ toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('ओटीपी अमान्य','OTP invalid'))); }catch(x){}
-    }
-  }
-
   async function _delBakLoadList(mob){
-    mob = _norm(mob);
+    mob = backupKey(mob);
+    if (!mob || typeof isAdmin !== 'function' || !isAdmin()) return;
     var box = document.getElementById('delBakList');
     if(!box) return;
     box.innerHTML = '<div style="padding:10px;color:var(--muted2)">Loading…</div>';
-    try{ await purgeExpiredBackupsForMobile(mob); }catch(e){}
     try{
       var all = await fbGet('accountBackups/'+mob);
       if(!all || typeof all!=='object'){
@@ -492,15 +362,8 @@
   }
 
   async function _delBakDownload(mob, backupId){
-    mob = _norm(mob);
-    var adminOk = (typeof isAdmin==='function' && isAdmin());
-    if(_delBakVerifiedMobile !== mob && !adminOk){
-      try{ toast(_L('❌ ओटीपी सत्यापन करें या Admin से Load करें','❌ Verify OTP or Load as Admin')); }catch(e){}
-      return;
-    }
-    if(adminOk && _delBakVerifiedMobile !== mob){
-      _delBakVerifiedMobile = mob;
-    }
+    mob = backupKey(mob);
+    if (!mob || typeof isAdmin !== 'function' || !isAdmin()) return;
     try{
       var rec = await fbGet('accountBackups/'+mob+'/'+backupId);
       if(!rec){ toast(L('नहीं मिला','Not found')); return; }
@@ -518,7 +381,5 @@
   global.downloadBackupExcel = downloadBackupExcel;
   global.openDeletedAccountsBackupModal = openDeletedAccountsBackupModal;
   global._delBakLoadAsAdmin = _delBakLoadAsAdmin;
-  global._delBakSendOtp = _delBakSendOtp;
-  global._delBakVerifyOtp = _delBakVerifyOtp;
   global._delBakDownload = _delBakDownload;
 })(typeof window!=='undefined'?window:globalThis);

@@ -15,7 +15,7 @@ function updateHeaderProfile(){
       userAvEl.style.background = 'linear-gradient(135deg,var(--m1,#f97316),var(--s1,#a855f7))';
       const url = SESSION.photoUrl || '';
       if(url){
-        userAvEl.innerHTML = '<img src="'+String(url).replace(/"/g,'&quot;')+'" alt="">';
+        userAvEl.innerHTML = '<img '+mpMediaAttr(url)+' alt="">';
         userAvEl.setAttribute('data-has-photo','1');
       } else {
         userAvEl.innerHTML = '';
@@ -74,7 +74,7 @@ function openEditProfileModal(){
     <div class="modal-scroll-body">
     <div style="text-align:center;margin-bottom:16px">
       <div id="profilePhotoPreview" style="width:96px;height:96px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;overflow:hidden;border:3px solid rgba(249,115,22,.4)">
-        ${photo?`<img src="${photo}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}
+        ${photo?`<img ${mpMediaAttr(photo)} style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}
       </div>
       <input type="file" id="profilePhotoInput" accept="image/*" capture="user" style="display:none" onchange="onProfilePhotoPicked(this)">
       <button type="button" class="cancel-btn" style="display:inline-flex;align-items:center;gap:6px;margin:0 4px" onclick="document.getElementById('profilePhotoInput').click()">📷 ${L('फोटो लगाएं','Set photo')}</button>
@@ -176,7 +176,8 @@ async function saveProfileEdits(){
     if(_profilePhotoData === ''){
       photoUrl = '';
     } else if(_profilePhotoData){
-      const key = _normMobileKey(SESSION.mobile||SESSION.uid||SESSION.empObjId||'user') || ('u_'+Date.now());
+      const key = window._fbAuth?.currentUser?.uid;
+      if (!key) throw new Error('Verified account required to upload an avatar');
       const path = 'profilePhotos/'+key+'/avatar.jpg';
       if(typeof window._fbUploadSelfie === 'function'){
         const url = await window._fbUploadSelfie(_profilePhotoData, path);
@@ -265,7 +266,7 @@ async function saveProfileEdits(){
       if(userAvEl){
         userAvEl.style.background = 'linear-gradient(135deg,var(--m1,#f97316),var(--s1,#a855f7))';
         if(photoUrl){
-          userAvEl.innerHTML = `<img src="${photoUrl}" alt="">`;
+          userAvEl.innerHTML = `<img ${mpMediaAttr(photoUrl)} alt="">`;
           userAvEl.setAttribute('data-has-photo','1');
         } else {
           userAvEl.innerHTML = '';

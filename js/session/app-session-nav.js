@@ -87,7 +87,7 @@ async function launchApp(){
     const ini=(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
     const userAvEl=document.getElementById('userAv');
     if(userAvEl){
-      if(SESSION.photoUrl) userAvEl.innerHTML=`<img src="${SESSION.photoUrl}" alt="">`;
+      if(SESSION.photoUrl) userAvEl.innerHTML=`<img ${mpMediaAttr(SESSION.photoUrl)} alt="">`;
       else { userAvEl.innerHTML=''; userAvEl.textContent=ini; }
     }
   }

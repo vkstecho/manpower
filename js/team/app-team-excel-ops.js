@@ -252,8 +252,8 @@ async function confirmTeamExcelUpload(){
         woff: emp.woff || '',
         joiningDate: emp.joiningDate || '',
         dob: emp.dob || '',
-        companyId: SESSION.companyId || _normCompanyId(SESSION.company) || 'default',
-        companyLabel: SESSION.company || 'Man Power',
+        companyId: emp.companyId || SESSION.companyId || 'default',
+        companyLabel: emp.companyLabel || SESSION.company || '',
         managerId: mgrKey || emp.managerId || '',
         updatedAt: new Date().toISOString(),
         updatedBy: SESSION.name || 'manager',
@@ -513,9 +513,9 @@ function renderInstructions(){
   <div class="inst-body" id="inst-contact">
       <div class="emergency-card">
         <div class="emergency-name">📞 संपर्क सूत्र</div>
-        <div class="emergency-num">+91-8929394920</div>
+        <div class="emergency-num">CareMP@vkstech.com</div>
         <div style="font-size:11px;color:var(--muted2);margin-top:4px">Production Department</div>
-        <a href="tel:+918929394920" style="display:block;margin-top:10px">
+        <a href="mailto:CareMP@vkstech.com" style="display:block;margin-top:10px">
           <button class="big-btn" style="padding:12px">📞 Call Now</button>
         </a>
       </div>
@@ -1094,7 +1094,7 @@ async function loadHolidayList(){
 async function saveHolidayList(data){
   // No-arg: legacy textarea holiday list UI
   if(data == null && document.getElementById('holidayListTa')){
-    const key = 'holidayLists/'+(typeof myShiftConfigKey==='function' && myShiftConfigKey() || (typeof _normMobileKey==='function' && _normMobileKey(SESSION.mobile)) || 'default');
+    const key = 'holidayLists/'+_holidayListKey();
     const raw = (document.getElementById('holidayListTa')?.value||'');
     const dates = raw.split(/[\n,]+/).map(x=>x.trim()).filter(x=>/^\d{4}-\d{2}-\d{2}$/.test(x));
     try{
@@ -1122,8 +1122,8 @@ async function saveHolidayList(data){
   try{
     await fbSet('holidayLists/'+key, payload);
   }catch(e){
-    // Offline: still saved to localStorage above
-    console.warn('[HolidayList] Firebase save failed (offline?)', e);
+    console.warn('[HolidayList] Firebase save failed', e);
+    throw e;
   }
   return payload;
 }

@@ -1,21 +1,13 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-  import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
-  import { getStorage, ref as storageRef, uploadString, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-storage.js";
+  import { getDatabase, connectDatabaseEmulator, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getAuth, connectAuthEmulator, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
-  const firebaseConfig = {
-    apiKey: "AIzaSyAG3xE_Bfj7VuA3hg5ClUAKUy7S6TNExGs",
-    authDomain: "metpowervks.firebaseapp.com",
-    databaseURL: "https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "metpowervks",
-    storageBucket: "metpowervks.firebasestorage.app",
-    messagingSenderId: "953633730980",
-    appId: "1:953633730980:web:3b5dfc28f0d8778cb3d131"
-  };
+  const firebaseConfig = window.MP_FIREBASE_CONFIG;
 
   try{
+    if (!firebaseConfig) throw new Error("Firebase configuration required");
     const app = initializeApp(firebaseConfig);
     // Optional App Check (enable in Firebase Console + set window.MP_APPCHECK_SITE_KEY before this script)
     try {
@@ -34,6 +26,15 @@
     }
     const db  = getDatabase(app);
     const auth = getAuth(app);
+    const functions = getFunctions(app);
+    if (window.MP_FIREBASE_EMULATORS === true) {
+      if (!['localhost', '127.0.0.1'].includes(location.hostname) || firebaseConfig.projectId !== 'demo-manpower-612') {
+        throw new Error('Use demo-manpower-612 from localhost for Firebase emulators');
+      }
+      connectDatabaseEmulator(db, '127.0.0.1', 9000);
+      connectAuthEmulator(auth, 'http://127.0.0.1:9099');
+      connectFunctionsEmulator(functions, '127.0.0.1', 5001);
+    }
     // Keep Phone OTP session across reloads (until explicit logout)
     try{ setPersistence(auth, browserLocalPersistence).catch(e=>console.warn('[fb] setPersistence', e)); }catch(e){}
     // Resolve when first auth state is known (phone restore from IndexedDB)
@@ -51,7 +52,6 @@
       }catch(e){}
     });
     window._fbAuthStateReady = () => _authReadyPromise;
-    const functions = getFunctions(app);
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
     const _fbStore = { db, ref, set, get, onValue, push, update, remove };
     window._fbAccess = async function(op, path, val){
@@ -78,6 +78,52 @@
       if(!_sessionCheck() && op !== 'get' && op !== 'onValue'){
         console.warn('[SECURITY] Unauthorized write blocked:', path);
         return Promise.reject(new Error('Not authenticated'));
+      }
+      const parts = path.split('/').filter(Boolean);
+      const requestCollections = ['loginRequests', 'regRequests', 'deviceChangeRequests', 'learnRequests', 'resignations', 'teamTransferRequests'];
+      const scoped = ['employees', 'overrides', 'schedules', 'leaves', 'shiftCellMeta', 'shiftHistory', 'shiftChangeRequests', 'reports', 'leftEmployees', 'deviceApprovals', 'mobileUsers', 'todos', 'settings', ...requestCollections, 'checklistCompletions', 'trainingCompletions', 'shiftHandovers'];
+      if (scoped.includes(parts[0]) && (op === 'get' || op === 'onValue')) {
+        await _authReadyPromise;
+        const read = async () => {
+          const value = auth.currentUser && (!auth.currentUser.isAnonymous || parts[0] === 'settings' || requestCollections.includes(parts[0]))
+            ? (await window._fbCall('readRosterData', {path: parts})).value : null;
+          return {exists: () => value != null && (typeof value !== 'object' || Object.keys(value).length > 0), val: () => value};
+        };
+        if (op === 'get') return read();
+        let stopped = false, timer, previous;
+        const poll = async () => {
+          try {
+            const snap = await read();
+            const serialized = JSON.stringify(snap.val());
+            if (!stopped && serialized !== previous) { previous = serialized; val(snap); }
+          } catch (error) {
+            if (!stopped && previous !== 'null') { previous = 'null'; val({exists: () => false, val: () => null}); }
+            console.warn('[roster polling]', error.code || error.message);
+          } finally {
+            if (!stopped) timer = setTimeout(poll, 15000);
+          }
+        };
+        void poll();
+        return () => { stopped = true; clearTimeout(timer); };
+      }
+      if (parts[0] === 'employees') {
+        if (op === 'set' || op === 'update') {
+          await window._fbCall('writeEmployee', {path: parts.slice(1), value: val, patch: op === 'update'});
+          return;
+        }
+        throw new Error('Employee history must be retained. Update the employee status instead.');
+      }
+      if(path === 'overrides' && op === 'update'){
+        await window._fbCall('saveShiftBatch',{updates:val}); return;
+      }
+      if (requestCollections.includes(parts[0]) && op === 'push') {
+        val = {...val, createdByUid:auth.currentUser?.uid || null};
+      }
+      if (parts[0] === 'todos' && (op === 'push' || (op === 'set' && parts.length === 2))) {
+        val = {...val, createdByUid:val?.createdByUid || auth.currentUser?.uid || null};
+      }
+      if (parts[0] === 'reports' && (op === 'push' || (op === 'set' && parts.length === 2))) {
+        val = {...val, submittedByUid: auth.currentUser?.uid || null};
       }
       const r = ref(db, path);
       switch(op){
@@ -140,17 +186,9 @@
       return result && result.data;
     };
     window._fbReady = true;
-    // ── Firebase Storage for selfie uploads ──
-    const _storage = getStorage(app);
-    window._fbUploadSelfie = async function(base64Data, path){
-      try{
-        const sr = storageRef(_storage, path);
-        await uploadString(sr, base64Data, 'data_url');
-        return await getDownloadURL(sr);
-      }catch(e){
-        console.warn('[Storage upload failed]', e.message);
-        return null; // Never block login flow
-      }
+    window._fbUploadSelfie = async (image,path) => {
+      try { return (await window._fbCall('putPrivateMedia',{image,path})).reference; }
+      catch (error) { console.warn('[Private media]',error.code); return null; }
     };
   }catch(e){ console.error('Firebase init error:',e); }
 

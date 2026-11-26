@@ -5,7 +5,7 @@
  *
  * Features:
  * - How-to video (Admin: settings/howToVideoUrl)
- * - Support links (WhatsApp 8929394920, CareMP@vkstech.com; Admin override)
+ * - Support links (WhatsApp configured support phone, CareMP@vkstech.com; Admin override)
  * - Hide Install when Play Store TWA / standalone
  * - Share App modal (Play Store + PWA)
  * - Paid-till plans: Managers full tiers, Members ₹99 only
@@ -18,7 +18,8 @@
   var PLAY_STORE =
     'https://play.google.com/store/apps/details?id=com.vkstech.manpower';
   var WEB_APP = 'https://manpower.vkstech.com';
-  var DEFAULT_WA = '918929394920';
+  var DEFAULT_WA = String(window.MP_CONTACTS?.supportPhone || '').replace(/\D/g, '');
+  if (DEFAULT_WA.length === 10) DEFAULT_WA = '91' + DEFAULT_WA;
   var DEFAULT_EMAIL = 'CareMP@vkstech.com';
 
   // ─── Install / TWA detection ───────────────────────────────────────────
@@ -163,7 +164,7 @@
       var email = (c && (c.email || c.mail)) || DEFAULT_EMAIL;
       var aWa = document.getElementById('loginWaSupport');
       var aEm = document.getElementById('loginEmailSupport');
-      if (aWa) aWa.href = 'https://wa.me/' + wa;
+      if (aWa) { aWa.hidden = !wa; if (wa) aWa.href = 'https://wa.me/' + wa; }
       if (aEm) aEm.href = 'mailto:' + email;
     } catch (e) {}
   }
@@ -359,7 +360,7 @@
 
   function openCustomPlanSupport() {
     var text = encodeURIComponent('Hi, I need a custom Man Power plan for my plant.');
-    window.open('https://wa.me/' + DEFAULT_WA + '?text=' + text, '_blank', 'noopener');
+    window.open(DEFAULT_WA ? 'https://wa.me/' + DEFAULT_WA + '?text=' + text : 'mailto:' + DEFAULT_EMAIL + '?body=' + text, '_blank', 'noopener');
   }
   window._openCustomPlanSupport = openCustomPlanSupport;
 
@@ -446,7 +447,7 @@
     if (!monthlyOk && !annualOk) {
       html +=
         '<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px;margin-bottom:10px">Payment link not set or invalid — contact Admin / WhatsApp ' +
-        DEFAULT_WA +
+        (DEFAULT_WA || DEFAULT_EMAIL) +
         '</div>';
     }
     html +=

@@ -131,13 +131,15 @@ window.addEventListener('appinstalled', function () {
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
-<script type="module" src="js/config/firebase-init.js?v=6068"></script>
+<script src="js/config/firebase.local.js"></script>
+<script src="js/config/private-media.js?v=6.12-r12"></script>
+<script type="module" src="js/config/firebase-init.js?v=6.12-r12"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=6075-loginlight">
+<link rel="stylesheet" href="css/app.css?v=6.12-r12">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -914,7 +916,7 @@ html.mp-login-active, body.mp-login-active {
 <div id="expiryScreen">
   <div style="font-size:60px;margin-bottom:16px">🔒</div>
   <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--lv)">LICENSE EXPIRED</div>
-  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">Contact<br>+91-8929394920</div>
+  <div style="font-size:13px;color:var(--muted2);margin:10px 0 20px">Contact<br>CareMP@vkstech.com</div>
   <input type="password" id="unlockKey" placeholder="Enter UNLOCK KEY" class="inp-field" style="max-width:280px;text-align:center;letter-spacing:2px;margin-bottom:10px" onkeydown="if(event.key==='Enter')tryUnlock()">
   <button class="big-btn" style="max-width:280px" onclick="tryUnlock()">🔓 Unlock</button>
 </div>
@@ -956,18 +958,10 @@ html.mp-login-active, body.mp-login-active {
     <div class="login-card mp-login-card" style="width:100%">
       <div class="err-msg" id="loginErr"></div>
       <div id="loginMobileTitle" class="mp-login-field-label">📱 Mobile Number</div>
-      <div id="loginMobileTitleHi" class="mp-login-field-sub">10-digit Indian mobile</div>
+      <div id="loginMobileTitleHi" class="mp-login-field-sub">10-digit Indian number or include your country code</div>
       <div id="loginMobileHint" style="display:none"></div>
       <div class="mp-login-phone-row">
-        <div class="mp-login-cc">+91</div>
-        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Mobile Number" aria-label="10-digit mobile number" inputmode="numeric" autocomplete="tel" aria-describedby="loginMobileHint"
-          maxlength="10" autocomplete="tel-national"
-          oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);else if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();this.style.color='#0f172a';this.style.webkitTextFillColor='#0f172a';this.style.backgroundColor='#ffffff'"
-          onkeyup="if(typeof _onMobileInput==='function')_onMobileInput(this.value.replace(/[^0-9]/g,''))"
-          onchange="this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#0f172a';this.style.webkitTextFillColor='#0f172a';this.style.backgroundColor='#ffffff'"
-          onblur="if(typeof mpSyncLoginCta==='function')mpSyncLoginCta()"
-          onpaste="setTimeout(()=>{this.value=this.value.replace(/[^0-9]/g,'').slice(0,10);if(typeof _onMobileInput==='function')_onMobileInput(this.value);this.style.color='#0f172a';this.style.webkitTextFillColor='#0f172a';this.style.backgroundColor='#ffffff'},10)"
-          onkeydown="if(event.key==='Enter'){if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();_sendOTP()}">
+        <input class="inp-field" type="tel" id="loginMobile" name="loginMobile" placeholder="10-digit Indian number or +country code" aria-label="Mobile number" inputmode="tel" autocomplete="tel" maxlength="24" aria-describedby="loginMobileHint" oninput="_onMobileInput()" onblur="mpSyncLoginCta()" onkeydown="if(event.key==='Enter')_sendOTP()">
       </div>
       <div id="recaptcha-inline" style="margin-bottom:10px;display:flex;justify-content:center"></div>
       <button class="big-btn" id="sendOtpBtn" type="button" onclick="try{if(typeof mpSyncLoginCta==='function')mpSyncLoginCta();_sendOTP()}catch(e){console.error(e);try{toast(String(e&&e.message||e))}catch(x){}}" style="opacity:.55;transition:opacity .2s;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent">Continue &#128172;</button>
@@ -981,7 +975,7 @@ html.mp-login-active, body.mp-login-active {
         <span class="mp-sec-lb">Play Store</span>
       </a>
       <button type="button" id="loginPwaBtn" class="mp-sec-install" title="Install for iOS / Windows (PWA)" onclick="try{if(typeof _showInstallPlatformModal==='function')_showInstallPlatformModal();else triggerPWAInstall()}catch(e){try{triggerPWAInstall()}catch(e2){}}">
-        <span class="mp-sec-ic mp-sec-ic-svg mp-sec-ic-pair"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="#f8fafc" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#60a5fa" d="M3 5.1L10.5 4v7.2H3V5.1zm0 13.8v-6.3h7.5V20L3 18.9zM11.4 4L21 2.7v8.5h-9.6V4zM21 21.3L11.4 20v-7.2H21v8.5z"/></svg></span>
+        <span class="mp-sec-ic mp-sec-ic-svg mp-sec-ic-pair"><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="#f8fafc" aria-hidden="true"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 15 2.94 10.53 4.7 7.5c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path fill="#60a5fa" d="M3 5.1L10.5 4v7.2H3V5.1zm0 13.8v-6.4h7.5V20L3 18.9zM11.4 4L21 2.7v8.5h-9.6V4zM21 21.3L11.4 20v-7.2H21v8.5z"/></svg></span>
         <span class="mp-sec-lb">Install · iOS / Windows</span>
       </button>
     </div>
@@ -1108,20 +1102,14 @@ html.mp-login-active, body.mp-login-active {
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:4px">&#128100;</div>
         <div style="font-size:16px;font-weight:900;color:#fff">Member Registration</div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">Your Manager will approve</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">Joining a team requires Manager approval / टीम में शामिल होने के लिए प्रबंधक की स्वीकृति चाहिए</div>
       </div>
       <div class="err-msg" id="memRegErr"></div>
       <label class="inp-label">&#128100; Full Name *</label>
       <input class="inp-field" type="text" id="memName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#127970; Company Name *</label>
-      <input class="inp-field" type="text" id="memCompany" oninput="try{_loadManagerOptions(this.value)}catch(e){}" onchange="try{_loadManagerOptions(this.value)}catch(e){}" placeholder="Your company name" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#128100; Select your Manager *</label>
-      <select class="inp-field" id="memManagerSelect" style="margin-bottom:10px">
-        <option value="">-- Select Manager --</option>
-      </select>
-      <div id="memNoManagerHint" style="display:none;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:11px;color:#f97316;line-height:1.6">
-        &#9888;&#65039; No approved Manager found yet. Ask your Manager to register first, then come back.
-      </div>
+      <label class="inp-label" for="memManagerPhone">Manager’s registered mobile (optional) / प्रबंधक का पंजीकृत मोबाइल (वैकल्पिक)</label>
+      <input class="inp-field" type="tel" id="memManagerPhone" placeholder="10-digit Indian number or +country code" autocomplete="off" style="margin-bottom:10px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Leave blank to continue independently. / स्वतंत्र रूप से जारी रखने के लिए खाली छोड़ें।</div>
       <label class="inp-label">&#128196; Employee Code / Emp ID <span style="font-weight:600;opacity:.7">(optional)</span></label>
       <input class="inp-field" type="text" id="memEmpCode" placeholder="e.g. 30000422" autocomplete="off" style="margin-bottom:10px">
       <div style="font-size:11px;color:#64748b;margin:-4px 0 12px;line-height:1.4">If you know your official Emp Code, enter it. Manager can also set it when approving.</div>
@@ -1139,7 +1127,7 @@ html.mp-login-active, body.mp-login-active {
         Your registration was sent to Admin.
       </div>
       <div style="background:#1e293b;border-radius:10px;padding:12px;margin-bottom:16px;font-size:12px;color:#94a3b8">
-        &#128222; VKS Tech: <b style="color:#f97316">+91-8929394920</b>
+        &#128222; VKS Tech: <b style="color:#f97316">CareMP@vkstech.com</b>
       </div>
       <button class="back-btn" onclick="backToStep1()">&larr; Back</button>
     </div>
@@ -1160,13 +1148,13 @@ html.mp-login-active, body.mp-login-active {
       <div class="err-msg" id="loginErrAdmin"></div>
       <div class="inp-group">
         <label class="inp-label">Username</label>
-        <input class="inp-field" type="text" id="aUser" autocomplete="off"
+        <input class="inp-field" type="text" id="aUser" autocomplete="username"
           onkeydown="if(event.key==='Enter')document.getElementById('aPass').focus()">
       </div>
       <div class="inp-group">
         <label class="inp-label">Password</label>
         <div style="position:relative">
-          <input class="inp-field" type="password" id="aPass"
+          <input class="inp-field" type="password" id="aPass" autocomplete="current-password"
             onkeydown="if(event.key==='Enter')tryAdminLogin()">
           <button onclick="togglePass('aPass',this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
             background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px">👁</button>
@@ -1198,7 +1186,7 @@ html.mp-login-active, body.mp-login-active {
     </div>
     <div style="padding:12px 16px;background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);
       border-radius:12px;font-size:13px;color:#f97316;margin-bottom:20px">
-      📞 For faster approval contact <b>+91-8929394920</b>
+      📞 For faster approval contact <b>CareMP@vkstech.com</b>
     </div>
     <button onclick="hidePendingBox()"
       style="width:100%;padding:15px;border-radius:13px;border:1px solid rgba(255,255,255,.15);
@@ -2059,30 +2047,30 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/commercial/public-offer.js?v=6042"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=6068"></script>
-<script src="js/auth/app-login.js?v=6069"></script>
-<script src="js/auth/app-login-device.js?v=6044"></script>
-<script src="js/auth/app-session-auth.js?v=400020"></script>
-<script src="js/session/app-session-nav.js?v=400020"></script>
+<script src="js/core/app-core.js?v=6.12-r12"></script>
+<script src="js/auth/app-login.js?v=6.12-r12"></script>
+<script src="js/auth/app-login-device.js?v=6.12-r12"></script>
+<script src="js/auth/app-session-auth.js?v=6.12-r12"></script>
+<script src="js/session/app-session-nav.js?v=6.12-r12"></script>
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
-<script src="js/session/app-session-settings-profile.js?v=5100"></script>
-<script src="js/session/app-session-settings-security.js?v=5100"></script>
+<script src="js/session/app-session-settings-profile.js?v=6.12-r12"></script>
+<script src="js/session/app-session-settings-security.js?v=6.12-r12"></script>
 <script src="js/session/app-announce.js?v=6050"></script>
-<script src="js/session/app-session-settings.js?v=6026"></script>
-<script src="js/session/app-account-backup.js?v=500001"></script>
+<script src="js/session/app-session-settings.js?v=6.12-r12"></script>
+<script src="js/session/app-account-backup.js?v=6.12-r12"></script>
 <script src="js/session/app-session-home.js?v=6026"></script>
-<script src="js/session/app-work-diary.js?v=6025"></script>
-<script src="js/session/pay-gate.js?v=6054"></script>
-<script src="js/session/pay-trial.js?v=6054"></script>
-<script src="js/session/pay-admin.js?v=6054"></script>
+<script src="js/session/app-work-diary.js?v=6.12-r12"></script>
+<script src="js/session/pay-gate.js?v=6.12-r12"></script>
+<script src="js/session/pay-trial.js?v=6.12-r12"></script>
+<script src="js/session/pay-admin.js?v=6.12-r12"></script>
 <script src="js/session/app-session-payment.js?v=6054"></script>
 <script src="js/auth/app-login-session.js?v=400020"></script>
 <script src="js/core/app.js?v=400020"></script>
-<script src="js/team/app-team-print.js?v=6053"></script>
-<script src="js/team/app-learn.js?v=6053"></script>
+<script src="js/team/app-team-print.js?v=6.12-r12"></script>
+<script src="js/team/app-learn.js?v=6.12-r12"></script>
 <script src="js/team/app-team-skills.js?v=5014"></script>
 <script src="js/team/app-team-ops-layer.js?v=5014"></script>
-<script src="js/commercial/mp-commercial.js?v=400021-payplan"></script>
+<script src="js/commercial/mp-commercial.js?v=6.12-r12"></script>
 <script src="js/core/a11y.js?v=400020"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
@@ -2090,14 +2078,14 @@ window.__sectionsReady = (async function loadSections(){
   var heavy = [
     'js/i18n/i18n_ml.js?v=5100',
     'js/i18n/i18n_dict.js?v=5100',
-    'js/schedule/app-schedule.js?v=6053',
-    'js/schedule/sched-admin-teams.js?v=6053',
+    'js/schedule/app-schedule.js?v=6.12-r12',
+    'js/schedule/sched-admin-teams.js?v=6.12-r12',
     'js/team/app-team.js?v=5100',
-    'js/team/app-team-import-core.js?v=5100',
-    'js/team/app-team-emp-forms.js?v=5130',
-    'js/team/app-team-excel-ops.js?v=5100',
+    'js/team/app-team-import-core.js?v=6.12-r12',
+    'js/team/app-team-emp-forms.js?v=6.12-r12',
+    'js/team/app-team-excel-ops.js?v=6.12-r12',
     'js/schedule/sched-work-hours.js?v=6027',
-    'js/schedule/sched-shift-edit.js?v=6000',
+    'js/schedule/sched-shift-edit.js?v=6.12-r12',
     'js/schedule/app-sched-builder.js?v=5131',
     'js/schedule/sched-auto-coverage.js?v=5127',
     'js/team/app-team-import.js?v=5100',
@@ -2241,7 +2229,6 @@ window.__sectionsReady = (async function loadSections(){
       var b = document.getElementById('sendOtpBtn');
       if(!m||!b) return;
       var v = String(m.value||'').replace(/\D/g,'').slice(0,10);
-      if(m.value !== v) m.value = v;
       b.removeAttribute('disabled'); b.disabled = false;
       b.style.pointerEvents = 'auto';
       b.style.opacity = v.length===10 ? '1' : '0.55';
@@ -2261,9 +2248,7 @@ window.__sectionsReady = (async function loadSections(){
     if(b){
       b.addEventListener('touchend', function(e){
         try{
-          if(typeof mpSyncLoginCta==='function') mpSyncLoginCta();
-          var v = String((document.getElementById('loginMobile')||{}).value||'').replace(/\D/g,'');
-          if(v.length===10 && typeof _sendOTP==='function'){ e.preventDefault(); _sendOTP(); }
+          if(typeof mpSyncLoginCta==='function' && mpSyncLoginCta() && typeof _sendOTP==='function'){ e.preventDefault(); _sendOTP(); }
         }catch(err){ console.error(err); }
       }, {passive:false});
     }
@@ -2305,6 +2290,13 @@ html body #loginScreen.show #sendOtpBtn{background:linear-gradient(135deg,#f9731
  html body #loginScreen.show > #loginStep1{max-width:420px!important;width:100%!important;justify-self:start!important;margin:0!important}
 }
 @media(max-width:959px){html body #loginScreen.show{grid-template-columns:minmax(0,1fr)!important;align-content:start!important;justify-items:center!important;padding:24px 16px 36px!important}html body #loginScreen.show > #loginStep1{width:100%!important;max-width:420px!important}}
+
+/* Password login uses the same intentional light login surface. */
+html body #loginScreen.show #adminLoginPanel{width:100%;max-width:420px;min-width:0;margin:auto;color:#0f172a!important}
+html body #loginScreen.show #adminLoginPanel .inp-label,html body #loginScreen.show #adminLoginPanel .back-btn{color:#334155!important}
+html body #loginScreen.show #adminLoginPanel .inp-field{box-sizing:border-box;width:100%;background:#fff!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;border:1px solid #94a3b8!important}
+html body #loginScreen.show #aPass{padding-right:48px!important}
+html body #loginScreen.show #adminLoginPanel .err-msg{color:#b91c1c!important}
 </style>
 </body>
 </html>

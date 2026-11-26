@@ -40,7 +40,7 @@ async function openAddEmpForm(){
   </div>
   ${typeof isAdmin==='function'&&isAdmin()?`<div class="field"><label>🏅 ${L('किस Manager की team में','Under which Manager')}</label>
     <select id="ne_managerId" class="inp-field" style="width:100%">
-      <option value="">— ${L('Manager चुनें (ज़रूरी)','Select Manager (required)')} —</option>
+      <option value="">— ${L('स्वतंत्र सदस्य','Independent member')} —</option>
       ${_adminManagerOptionsHtml()}
     </select>
     <div style="font-size:10px;color:var(--muted2);margin-top:4px">${L('यह सदस्य चुने हुए Manager की team + schedule में दिखेगा','Member appears on that Manager’s team & schedule')}</div>
@@ -119,11 +119,11 @@ async function addEmployee(){
     if(typeof isAdmin==='function' && isAdmin()){
       const sel = (document.getElementById('ne_managerId')||{}).value || '';
       const mgrKey = (typeof _normMobileKey==='function'?_normMobileKey(sel):String(sel||'').replace(/\D/g,'').slice(-10));
-      if(!mgrKey || mgrKey.length!==10){
+      if(mgrKey && mgrKey.length!==10){
         toast(L('⚠️ Manager चुनें — Admin को member किस team में जोड़ना है बताना ज़रूरी है','⚠️ Select a Manager — required when Admin adds a member'));
         return;
       }
-      emp.managerId = mgrKey;
+      emp.managerId = mgrKey || null;
       try{
         const muAll = (_cache && _cache.mobileUsers) || {};
         const mu = muAll[mgrKey] || Object.values(muAll).find(u=>u && _normMobileKey(u.mobile||u.phone||'')===mgrKey) || null;
@@ -962,7 +962,7 @@ async function renderLeftMembers(){
           phone: v.mobile || v.phone || k,
           mobile: v.mobile || v.phone || k,
           managerId: v.managerId || v.managerMobile || '',
-          companyId: v.company || v.companyId || '',
+          companyId: v.companyId || '',
           company: v.company || ''
         };
         if(!_leftBelongsHere(cand)) return;
@@ -1035,52 +1035,35 @@ async function renderLeftMembers(){
           <div class="left-meta">${escHtml(e.empId||'—')} · ${escHtml(e.mc||'—')} · ${escHtml(e.designation||'—')}</div>
           ${joinDate ? `<div class="left-meta">📅 Joined: ${joinDate}</div>` : ''}
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:4px">
-            <span class="left-exit">🚪 Left: ${leftDate}</span>
+            <span class="left-exit">🚪 ${L("टीम छोड़ी","Left")}: ${leftDate}</span>
             <span style="font-size:10px;color:var(--muted2)">${_enLeft?'Reason: ':'कारण: '}${escHtml(reason)}</span>
           </div>
         </div>
-        ${isAdmin() && !e._fromCache ? `<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
-          <button onclick="restoreEmployee('${e.id}','${escHtml(e.name||'')}')" style="padding:6px 9px;font-size:11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:7px;color:#22c55e;cursor:pointer;font-weight:700">↩️ ${_enLeft?'Restore':'वापस'}</button>
-          <button onclick="permanentDeleteEmp('${e.id}','${escHtml(e.name||'')}')" style="padding:6px 9px;font-size:11px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:7px;color:#f43f5e;cursor:pointer;font-weight:700">🗑️</button>
+        ${e.restoration ? '<span>' + L('बहाल किया गया','Restored') + '</span>' : isAdmin() && !e._fromCache ? `<div style="display:flex;flex-direction:column;gap:5px;flex-shrink:0">
+          <button data-restore-key="${escHtml(e._fbKey || e.id)}" data-restore-name="${escHtml(e.name||'')}" style="padding:6px 9px;font-size:11px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);border-radius:7px;color:#22c55e;cursor:pointer;font-weight:700">↩️ ${_enLeft?'Restore':'वापस'}</button>
         </div>` : ''}
       </div>`;
     }).join('');
   });
 
   listEl.innerHTML = html;
+  for (const button of listEl.querySelectorAll('[data-restore-key]')) {
+    button.onclick = async () => {
+      button.disabled = true;
+      try { await restoreEmployee(button.dataset.restoreKey,button.dataset.restoreName); }
+      finally { button.disabled = false; }
+    };
+  }
 }
 
 async function restoreEmployee(id, name){
-  const raw = await fbGet('leftEmployees/' + id).catch(()=>null);
-  if(!raw){ toast(L('❌ Data नहीं मिला','❌ Data not found')); return; }
-  // Remove leftAt/leftReason/archivedAt fields and restore to active employees
-  const { leftAt, leftReason, archivedAt, ...empData } = raw;
-  empData.status = 'active';
-  await fbSet('employees/' + id, empData);
-  await fbRemove('leftEmployees/' + id);
-  toast('✅ ' + name + L(' वापस टीम में आ गए!',' is back on the team!'));
-  renderTeam();
-  renderLeftMembers();
+  try {
+    await window._fbCall('restoreArchivedEmployee',{key:id});
+    toast(name + L(' वापस टीम में आ गए!',' is back on the team!'));
+    await renderTeam();
+    await renderLeftMembers();
+  } catch (error) { toast(error.message); }
 }
-
-async function permanentDeleteEmp(id, name){
-  openModal(`<div class="modal-handle"></div>
-  <div style="text-align:center;padding:10px 0">
-    <div style="font-size:36px;margin-bottom:10px">⚠️</div>
-    <div class="modal-title">${name} का डेटा हमेशा के लिए हटाएं?</div>
-    <div style="font-size:12px;color:#f43f5e;margin-bottom:20px;font-weight:700">यह वापस नहीं होगा!</div>
-    <button class="big-btn red" onclick="doPermDelete('${id}','${name}')">हाँ, हमेशा के लिए हटाएं</button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
-  </div>`);
-}
-
-async function doPermDelete(id, name){
-  await fbRemove('leftEmployees/' + id);
-  closeModal();
-  toast('🗑️ ' + name + L(' का डेटा हमेशा के लिए हटाया',' data permanently deleted'));
-  renderLeftMembers();
-}
-
 
 // ── Manager: delete ALL team members (OTP verified) ──
 let _deleteAllConfirmResult = null;
@@ -1494,21 +1477,7 @@ async function sendTeamTransferRequest(payload){
     const phone = _normMobileKey(payload.phone);
     const fromMgr = _normMobileKey(SESSION.mobile||'');
     if(!fromMgr){ toast(typeof L==='function'?L('❌ Manager login required','❌ Manager login required'):'Manager login required'); return; }
-    const req = {
-      phone: phone,
-      kind: payload.kind || 'member_other_team',
-      targetEmpId: payload.targetEmpId || null,
-      targetName: payload.targetName || '',
-      fromManagerId: fromMgr,
-      fromManagerName: SESSION.name || SESSION.displayName || 'Manager',
-      fromCompanyId: (typeof myCompanyId==='function'?myCompanyId():'') || '',
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      shiftVisibility: 'target_and_new_manager',
-      // Target manager_with_team must appoint successor before accept
-      requiresSuccessor: payload.kind === 'manager_with_team'
-    };
-    await fbPush('teamTransferRequests', req);
+    await window._fbCall('createVerifiedTeamTransfer',{phone});
     try{ if(typeof renderTeamPendingTransfers==='function') await renderTeamPendingTransfers(); }catch(e){}
     try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
     try{
@@ -1570,47 +1539,8 @@ function openTransferAcceptSuccessorModal(reqKey, req){
   const esc = (typeof escHtml==='function'?escHtml:function(s){return String(s||'').replace(/</g,'&lt;');});
   const fromName = (req && (req.fromManagerName||req.fromManagerId)) || 'Manager';
 
-  if(!eligible.length){
-    // No other mobile on roster → do NOT block. Offer accept; remaining members move under the inviting Manager.
-    const remaining = _teamMembersUnderManager(myKey).filter(function(e){
-      return e && _normMobileKey(e.phone||e.mobile||'') !== myKey;
-    });
-    const remNames = remaining.slice(0,6).map(function(e){ return esc(e.name||e.empId||'member'); }).join(', ')
-      + (remaining.length > 6 ? (' +'+(remaining.length-6)) : '');
-    openModal('<div class="modal-handle"></div>'
-      +'<div class="modal-title">'+(typeof L==='function'?L('✅ Successor की जरूरत नहीं','✅ No successor needed'):'No successor needed')+'</div>'
-      +'<div style="font-size:13px;line-height:1.55;color:var(--text);margin:8px 0 14px">'
-      +(typeof L==='function'?L(
-        'आपकी team में किसी दूसरे सदस्य के पास valid 10-digit mobile नहीं है, इसलिए नया Manager designate करने की जरूरत नहीं। Accept करने पर:'
-        +'<br><br>• आप <b>'+esc(fromName)+'</b> की team में <b>member</b> बनेंगे।'
-        +(remaining.length
-          ? ('<br>• आपके बाकी members ('+remNames+') भी उसी Manager के नीचे चले जाएंगे — बिना leader नहीं छोड़ेंगे।')
-          : '<br>• आपकी team में और member नहीं हैं।'),
-        'No other team member has a valid 10-digit mobile, so you do not need to appoint a successor. On Accept:'
-        +'<br><br>• You join <b>'+esc(fromName)+'</b>\'s team as a <b>member</b>.'
-        +(remaining.length
-          ? ('<br>• Your remaining members ('+remNames+') also move under that Manager — they will not be left without a leader.')
-          : '<br>• You have no other team members.')
-      ):'')
-      +'</div>'
-      +'<button type="button" class="submit-btn" id="mpAcceptNoSuccBtn">'+(typeof L==='function'?L('✅ Accept — join as member','✅ Accept — join as member'):'Accept')+'</button>'
-      +'<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+(typeof L==='function'?L('अभी नहीं','Not now'):'Not now')+'</button>');
-    try{
-      const b = document.getElementById('mpAcceptNoSuccBtn');
-      if(b) b.onclick = function(){
-        try{
-          if(typeof confirmTransferAcceptWithoutSuccessor!=='function'){
-            toast(L('❌ स्वीकार हैंडलर अनुपलब्ध — ऐप रीफ़्रेश करें','❌ Accept handler missing — refresh app'));
-            return;
-          }
-          b.disabled = true; b.textContent = '⏳…';
-          Promise.resolve(confirmTransferAcceptWithoutSuccessor(reqKey, req)).catch(function(err){
-            toast(L('❌ ','❌ ')+(err&&err.message||err));
-            try{ b.disabled=false; }catch(e){}
-          });
-        }catch(err){ toast(L('❌ ','❌ ')+(err&&err.message||err)); }
-      };
-    }catch(e){}
+  if (!eligible.length) {
+    toast(L('पहले सीधे रिपोर्ट करने वाले कर्मचारी का खाता सत्यापित करें।','Verify an account for a direct report before choosing a successor.'));
     return;
   }
 
@@ -1658,261 +1588,24 @@ function openTransferAcceptSuccessorModal(reqKey, req){
 /** Handoff old team to successor, then join requesting manager as member. */
 
 /** Accept join request when no successor is required — move remaining members under new manager, then join. */
-async function confirmTransferAcceptWithoutSuccessor(reqKey, req){
-  try{
-    const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-    const newMgr = _normMobileKey(req.fromManagerId||'');
-    if(!myKey || !newMgr){ toast(L('अमान्य अनुरोध','Invalid request')); return; }
-    if(typeof _ensureWriteAuth==='function'){
-      const ok = await _ensureWriteAuth();
-      if(!ok){ toast(typeof L==='function'?L('❌ Phone ओटीपी सत्यापन करें','❌ Verify phone OTP'):'OTP required'); return; }
-    }
-    toast(typeof L==='function'?L('⏳ Accept हो रहा है…','⏳ Accepting…'):'Accepting…');
-    const all = (_cache && _cache.employees) || [];
-    const team = (typeof getEmps==='function'?getEmps():[]) || all.filter(function(e){ return _normMobileKey(e.managerId||'')===myKey; });
-    // Move other members under the inviting manager so they are not orphaned
-    const others = team.filter(function(e){
-      return e && _normMobileKey(e.phone||e.mobile||'') !== myKey;
-    });
-    for(var i=0;i<others.length;i++){
-      try{
-        await fbUpdate('employees/'+others[i].id, {
-          managerId: newMgr,
-          previousManagerId: myKey,
-          managerTransferredAt: new Date().toISOString()
-        });
-      }catch(ex){ console.warn('[xfer no-succ] member', ex); }
-    }
-    const handoffMeta = null;
-    await _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta);
-    try{ closeModal(); }catch(e){}
-    toast(typeof L==='function'?L('✅ Accept हो गया — आप member हैं','✅ Accepted — you are now a member'):'Accepted');
-    try{ if(typeof loadAll==='function') await loadAll(); }catch(e){}
-    try{ if(typeof goTab==='function') goTab('home'); }catch(e){}
-  }catch(e){
-    console.warn('[confirmTransferAcceptWithoutSuccessor]', e);
-    toast(L('❌ ','❌ ')+(e&&e.message||e));
-  }
-}
-try{ window.confirmTransferAcceptWithoutSuccessor = confirmTransferAcceptWithoutSuccessor; }catch(e){}
-
-async function confirmTransferAcceptWithSuccessor(reqKey, req, succId){
-  try{
-    const myKey = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-    const all = (_cache && _cache.employees) || [];
-    const team = (typeof getEmps==='function'?getEmps():[]) || all.filter(function(e){ return _normMobileKey(e.managerId||'')===myKey; });
-    const succ = team.find(function(e){ return e.id===succId; }) || all.find(function(e){ return e.id===succId; });
-    if(!succ){ toast(L('❌ सदस्य नहीं मिला','❌ Member not found')); return; }
-    const newKey = _normMobileKey(succ.phone||succ.mobile||'');
-    if(newKey.length !== 10){
-      toast(typeof L==='function'?L('❌ चुने गए member के पास valid mobile होना चाहिए','❌ Selected member needs a valid mobile'):'Need valid mobile');
-      return;
-    }
-    if(newKey === myKey){
-      toast(typeof L==='function'?L('❌ खुद को successor नहीं बना सकते','❌ You cannot appoint yourself'):'Cannot appoint yourself');
-      return;
-    }
-
-    toast(typeof L==='function'?L('⏳ Team handoff…','⏳ Team handoff…'):'Handoff…');
-    if(typeof _ensureWriteAuth==='function'){
-      const ok = await _ensureWriteAuth();
-      if(!ok){ toast(typeof L==='function'?L('❌ Phone ओटीपी सत्यापन करें','❌ Verify phone OTP'):'OTP required'); return; }
-    }
-
-    // 1) Point every member (except leaving manager) at successor
-    const toTransfer = team.filter(function(e){
-      return e && e.id !== (typeof myEmp==='function' && myEmp() && myEmp().id) && _normMobileKey(e.phone||e.mobile||'') !== myKey;
-    });
-    // Always include successor in promote set
-    const updates = {};
-    toTransfer.forEach(function(e){
-      updates['employees/'+e.id+'/managerId'] = newKey;
-      updates['employees/'+e.id+'/previousManagerId'] = myKey;
-      updates['employees/'+e.id+'/managerTransferredAt'] = new Date().toISOString();
-    });
-    updates['employees/'+succ.id+'/managerId'] = newKey;
-    updates['employees/'+succ.id+'/accessLevel'] = 'manager';
-    updates['employees/'+succ.id+'/role'] = 'manager';
-    updates['employees/'+succ.id+'/isTeamManager'] = true;
-    updates['employees/'+succ.id+'/status'] = 'active';
-    updates['employees/'+succ.id+'/perms'] = { schedule:true, leave:true, reports:true, pending:true };
-
-    try{
-      if(window._fbAccess) await window._fbAccess('update', '/', updates);
-      else {
-        for(const e of toTransfer){
-          await fbUpdate('employees/'+e.id, { managerId:newKey, previousManagerId:myKey, managerTransferredAt:new Date().toISOString() });
-        }
-        await fbUpdate('employees/'+succ.id, {
-          managerId:newKey, accessLevel:'manager', role:'manager', isTeamManager:true, status:'active',
-          perms:{ schedule:true, leave:true, reports:true, pending:true }
-        });
-      }
-    }catch(batchErr){
-      console.warn('[xfer handoff] batch', batchErr);
-      for(const e of toTransfer){
-        try{ await fbUpdate('employees/'+e.id, { managerId:newKey, previousManagerId:myKey, managerTransferredAt:new Date().toISOString() }); }catch(ex){}
-      }
-      await fbUpdate('employees/'+succ.id, {
-        managerId:newKey, accessLevel:'manager', role:'manager', isTeamManager:true, status:'active',
-        perms:{ schedule:true, leave:true, reports:true, pending:true }
-      });
-    }
-
-    // 2) Promote successor mobileUsers
-    try{
-      await fbSet('mobileUsers/'+newKey, Object.assign({}, (await fbGet('mobileUsers/'+newKey))||{}, {
-        role: 'manager',
-        status: 'approved',
-        pendingApproval: false,
-        empId: succ.empId || succ.code || '',
-        empObjId: succ.id,
-        name: succ.name || '',
-        managerId: newKey,
-        approvedAt: new Date().toISOString(),
-        approvedBy: 'transfer_handoff:'+(SESSION.name||myKey),
-        transferredFrom: myKey,
-        managerSince: new Date().toISOString()
-      }));
-    }catch(eMu){ console.warn('[xfer] promote mu', eMu); }
-
-    // 3) Re-point mobileUsers.managerId for old team
-    try{
-      const allMU = await fbGet('mobileUsers') || {};
-      for(const mob of Object.keys(allMU)){
-        const rec = allMU[mob];
-        if(!rec || typeof rec !== 'object') continue;
-        if(String(rec.managerId||'') === myKey || String(rec.managerId||'') === '+91'+myKey){
-          try{ await fbUpdate('mobileUsers/'+mob, { managerId: newKey, managerName: succ.name, previousManagerId: myKey }); }catch(ex){}
-        }
-      }
-    }catch(ex){}
-
-    // 4) Copy shift config / leave quotas if possible
-    try{
-      const oldCfgKey = ('mgr:'+myKey).replace(/[:.#$\[\]]/g,'_');
-      const newCfgKey = ('mgr:'+newKey).replace(/[:.#$\[\]]/g,'_');
-      const cfg = await fbGet('shiftConfigs/'+oldCfgKey);
-      if(cfg){
-        await fbSet('shiftConfigs/'+newCfgKey, Object.assign({}, cfg, { transferredFrom:myKey, transferredAt:new Date().toISOString() }));
-      }
-    }catch(ex){}
-
-    // 5) Notify successor
-    try{
-      await fbPush('userNotifications/'+newKey, {
-        type: 'became_manager',
-        title: (typeof L==='function'?L('🏅 आप अब Manager हैं','🏅 You are now Manager'):'You are now Manager'),
-        body: (typeof L==='function'?L((SESSION.name||'Previous manager')+' ने team आपको transfer की।','Previous manager transferred the team to you.'):'Team transferred to you'),
-        read: false,
-        at: new Date().toISOString()
-      });
-      if(succ.id) await fbPush('userNotifications/'+succ.id, {
-        type: 'became_manager',
-        title: (typeof L==='function'?L('🏅 आप अब Manager हैं','🏅 You are now Manager'):'You are now Manager'),
-        body: (typeof L==='function'?L((SESSION.name||'Previous manager')+' ने team आपको transfer की।','Previous manager transferred the team to you.'):'Team transferred to you'),
-        read: false,
-        at: new Date().toISOString()
-      });
-    }catch(e){}
-
-    // 6) Join requesting manager as member (this phone)
-    await _finalizeJoinAsMemberAfterTransfer(reqKey, req, {
-      successorId: succ.id,
-      successorPhone: newKey,
-      successorName: succ.name || ''
-    });
-  }catch(e){
-    console.warn('[confirmTransferAcceptWithSuccessor]', e);
-    toast(L('❌ ','❌ ')+(e&&e.message||e));
-  }
+async function confirmTransferAcceptWithoutSuccessor(reqKey){
+  await _finalizeJoinAsMemberAfterTransfer(reqKey);
 }
 
-async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoffMeta){
-  const phone = _normMobileKey(req.phone || SESSION.mobile || '');
-  const newMgr = _normMobileKey(req.fromManagerId||'');
-  if(!phone||!newMgr){ toast(L('अमान्य अनुरोध','Invalid request')); return; }
-  const all = (_cache&&_cache.employees)||[];
-  const matches = all.filter(function(e){ return e && _normMobileKey(e.phone||e.mobile||'')===phone; });
-  const today = (typeof TODAY_STR!=='undefined'?TODAY_STR:(new Date().toISOString().slice(0,10)));
-  for(var i=0;i<matches.length;i++){
-    var e = matches[i];
-    var patch = {
-      managerId: newMgr,
-      role: 'member',
-      accessLevel: 'worker',
-      isTeamManager: false,
-      status: 'active',
-      transferredAt: new Date().toISOString(),
-      previousManagerId: e.managerId || null,
-      shiftHistoryPrivateFrom: today,
-      shiftHistoryPrivateToMgr: newMgr
-    };
-    if(handoffMeta){
-      patch.handedTeamTo = handoffMeta.successorPhone;
-      patch.handedTeamToName = handoffMeta.successorName;
-      patch.handedTeamToEmpId = handoffMeta.successorId;
-    }
-    // v6.0.8: archive previous company + set new manager company
-    try{
-      const oldCo = e.company || e.companyName || e.companyLabel || '';
-      const oldCode = e.empId || e.empCode || '';
-      const hist = Array.isArray(e.companyHistory) ? e.companyHistory.slice() : [];
-      if(oldCo || oldCode){
-        hist.push({ company: oldCo, empCode: oldCode, from: e.joiningDate||e.doj||'', to: new Date().toISOString().slice(0,10) });
-        patch.companyHistory = hist;
-      }
-      const mgrCo = (typeof SESSION!=='undefined' && (SESSION.companyLabel||SESSION.company)) || '';
-      if(mgrCo){ patch.company = mgrCo; patch.companyLabel = mgrCo; }
-      patch.role = 'member';
-      patch.accessLevel = 'worker';
-    }catch(_ch){}
-    await fbUpdate('employees/'+e.id, patch);
-  }
-  try{
-    await fbUpdate('mobileUsers/'+phone, {
-      role: 'member',
-      managerId: newMgr,
-      status: 'approved',
-      pendingApproval: false,
-      transferredAt: new Date().toISOString(),
-      previousRole: 'manager'
-    });
-  }catch(ex){}
-  // Live session → member under new manager (stops independent-manager UI until re-login)
-  try{
-    if(typeof SESSION!=='undefined' && SESSION){
-      SESSION.role = 'member';
-      SESSION.managerId = newMgr;
-      SESSION.accessLevel = 'worker';
-      SESSION.isTeamManager = false;
-      try{ SESSION.previousRole = 'manager'; }catch(e){}
-    }
-    // Keep paymentStatus validity, but mark role member so Admin hierarchy is correct
-    try{
-      const ps = await fbGet('paymentStatus/'+phone);
-      if(ps && typeof ps==='object'){
-        await fbUpdate('paymentStatus/'+phone, { role:'member', managerId:newMgr, wasManager:true, updatedAt:new Date().toISOString() });
-      }
-    }catch(e){}
-  }catch(sessErr){ console.warn('[xfer session]', sessErr); }
-  await fbUpdate('teamTransferRequests/'+reqKey, {
-    status:'accepted',
-    acceptedAt: new Date().toISOString(),
-    handoff: handoffMeta || null
-  });
-  try{ closeModal(); }catch(e){}
-  toast(typeof L==='function'?L(
-    handoffMeta
-      ? ('✅ Team '+ (handoffMeta.successorName||'') +' को दी · आप नई team में member हैं')
-      : '✅ Team transfer complete — shifts आपके साथ रहेंगे',
-    handoffMeta
-      ? ('✅ Team handed to '+(handoffMeta.successorName||'successor')+' · you joined as member')
-      : '✅ Team transfer complete — shifts stay with you'
-  ):'Transfer complete');
-  try{ if(typeof loadAll==='function') await loadAll(); }catch(e){}
-  try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
-  try{ if(typeof renderHome==='function') renderHome(); }catch(e){}
+async function confirmTransferAcceptWithSuccessor(reqKey, req, successorId){
+  await _finalizeJoinAsMemberAfterTransfer(reqKey, req, {successorId});
+}
+
+async function _finalizeJoinAsMemberAfterTransfer(reqKey, req, handoff){
+  try {
+    if (!await _ensureWriteAuth()) return;
+    await window._fbCall('acceptVerifiedTeamTransfer',{key:reqKey,successorId:handoff?.successorId || null});
+    await window._fbCall('syncMyClaims');
+    await window._fbAuth.currentUser.getIdToken(true);
+    await launchVerifiedRosterSession(_normMobileKey(window._fbAuth.currentUser.phoneNumber));
+    closeModal();
+    toast(L('टीम स्थानांतरण पूरा हुआ','Team transfer completed'));
+  } catch (error) { toast(error.message); }
 }
 
 async function rejectTeamTransferRequest(reqKey){
@@ -2165,10 +1858,11 @@ function openAddManagerForm(){
   </div>
   <div class="grid2">
     <div class="field"><label>${L('नाम','Name')} *</label><input class="inp-field" id="am_name" placeholder="FULL NAME" oninput="this.value=this.value.toUpperCase()"></div>
-    <div class="field"><label>📱 ${L('मोबाइल','Mobile')} *</label><input class="inp-field" id="am_phone" placeholder="10-digit" type="tel" maxlength="10" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
+    <div class="field"><label for="am_phone">📱 ${L('सत्यापित मोबाइल','Verified mobile')} *</label><input class="inp-field" id="am_phone" type="tel" maxlength="24"></div>
   </div>
   <div class="grid2">
-    <div class="field"><label>${L('कंपनी','Company')}</label><input class="inp-field" id="am_company" placeholder="e.g. VKS Tech"></div>
+    <div class="field"><label for="am_company_id">${L('मौजूदा कंपनी','Existing company')}</label><select class="inp-field" id="am_company_id"><option value="">${L('नई कंपनी','New company')}</option>${listAllCompanies().map(company => `<option value="${escAttr(company.id)}">${escHtml(company.label)} · ${escHtml(company.id)}</option>`).join('')}</select></div>
+    <div class="field"><label for="am_company">${L('नई कंपनी का नाम','New company name')}</label><input class="inp-field" id="am_company"></div>
     <div class="field"><label>${L('पद / Designation','Designation')}</label><input class="inp-field" id="am_desig" placeholder="Manager" value="Manager"></div>
   </div>
   <div class="grid2">
@@ -2183,175 +1877,23 @@ function openAddManagerForm(){
 }
 
 async function addManagerByAdmin(){
-  if(typeof isAdmin!=='function' || !isAdmin()){
-    toast(L('❌ केवल व्यवस्थापक','❌ Admin only'));
-    return;
-  }
-  const btn = document.getElementById('am_saveBtn');
-  const setBusy = (b, label)=>{
-    if(!btn) return;
-    btn.disabled = !!b;
-    if(label) btn.textContent = label;
-  };
-  const name = String((document.getElementById('am_name')||{}).value||'').trim().toUpperCase();
-  const phoneRaw = String((document.getElementById('am_phone')||{}).value||'').trim();
-  const phone = (typeof _normMobileKey==='function'?_normMobileKey(phoneRaw):phoneRaw.replace(/\D/g,'').slice(-10));
-  const company = String((document.getElementById('am_company')||{}).value||'').trim() || 'Man Power';
-  const desig = String((document.getElementById('am_desig')||{}).value||'').trim() || 'Manager';
-  const code = String((document.getElementById('am_code')||{}).value||'').trim();
-  const dept = String((document.getElementById('am_dept')||{}).value||'').trim() || 'General';
-
-  if(!name){ toast(L('⚠️ नाम भरें','⚠️ Enter name')); return; }
-  if(!phone || phone.length!==10){ toast(L('⚠️ 10-digit मोबाइल भरें','⚠️ Enter 10-digit mobile')); return; }
-
-  try{
-    let clash = null;
-    if(typeof _findPhoneConflictAsync==='function') clash = await _findPhoneConflictAsync(phone, null, code);
-    else if(typeof _findPhoneConflict==='function') clash = _findPhoneConflict(phone, null, code);
-    if(clash){
-      const existingMu = await fbGet('mobileUsers/'+phone).catch(()=>null);
-      if(existingMu && String(existingMu.role||'').toLowerCase()==='manager' && String(existingMu.status||'')==='approved'){
-        toast(L('📱 यह नंबर पहले से Manager है','📱 This number is already a Manager'));
-        return;
-      }
-      if(clash.emp && clash.emp.id){
-        toast(L('ℹ️ नंबर roster में है — Edit → Access Level = Manager से promote करें','ℹ️ Number already on roster — Edit → Access Level = Manager to promote'));
-        return;
-      }
-      toast(L('📱 मोबाइल पहले से registered है','📱 Mobile already registered'));
-      return;
-    }
-  }catch(ex){ console.warn('[addManagerByAdmin] clash', ex); }
-
-  setBusy(true, L('⏳ सेव हो रहा…','⏳ Saving…'));
-  try{
-    let accessDefaults = {
-      validTill: null,
-      paymentPaidUntil: null,
-      paidUntil: null,
-      teamSize: 200,
-      maxMembers: 200,
-      planMaxMembers: 200,
-      planPeriod: 'monthly',
-      planLabel: 'Monthly · Up to 200 members',
-      paymentTrialGranted: true,
-      paymentTrialDays: 7,
-      paymentUpdatedBy: 'admin_add_manager'
-    };
-    try{
-      if(typeof _newManagerAccessDefaults==='function'){
-        accessDefaults = Object.assign(accessDefaults, await _newManagerAccessDefaults());
-      } else if(typeof _getAdminFreeTrialDays==='function'){
-        const td = await _getAdminFreeTrialDays();
-        const end = new Date(); end.setHours(23,59,59,999); end.setDate(end.getDate()+td);
-        const iso = end.toISOString();
-        accessDefaults.validTill = iso;
-        accessDefaults.paymentPaidUntil = iso;
-        accessDefaults.paidUntil = iso;
-        accessDefaults.trialDays = td;
-        accessDefaults.paymentTrialDays = td;
-      }
-    }catch(eAcc){ console.warn('[addManagerByAdmin] trial', eAcc); }
-
-    const id = 'e'+Date.now().toString(36);
-    const today = new Date().toISOString().slice(0,10);
-    const emp = {
-      id,
-      name,
-      empId: code || '',
-      phone,
-      mobile: phone,
-      company,
-      companyLabel: company,
-      companyId: company,
-      companyName: company,
-      sec: dept,
-      section: dept,
-      designation: desig,
-      accessLevel: 'manager',
-      role: 'manager',
-      managerId: phone,
-      isTeamManager: true,
-      isManagerSelf: true,
-      status: 'active',
-      woff: 'SUN',
-      ms: Array(31).fill('D'),
-      joiningDate: today,
-      createdAt: new Date().toISOString(),
-      createdBy: 'admin_add_manager'
-    };
-    await fbUpdate('employees/'+id, emp);
-
-    const muPayload = {
-      role: 'manager',
-      name,
-      displayName: name,
-      mobile: phone,
-      phone,
-      company,
-      companyId: company,
-      designation: desig,
-      department: dept,
-      status: 'approved',
-      autoApproved: true,
-      registeredAt: new Date().toISOString(),
-      empObjId: id,
-      employeeId: id,
-      empId: code || '',
-      empCode: code || '',
-      validTill: accessDefaults.validTill,
-      paymentPaidUntil: accessDefaults.paymentPaidUntil,
-      paidUntil: accessDefaults.paidUntil,
-      teamSize: accessDefaults.teamSize || 200,
-      maxMembers: accessDefaults.maxMembers || 200,
-      planMaxMembers: accessDefaults.planMaxMembers || 200,
-      planPeriod: accessDefaults.planPeriod || 'monthly',
-      planLabel: accessDefaults.planLabel || 'Monthly · Up to 200 members',
-      paymentTrialGranted: !!accessDefaults.paymentTrialGranted,
-      paymentTrialDays: accessDefaults.paymentTrialDays || 7,
-      paymentUpdatedBy: accessDefaults.paymentUpdatedBy || 'admin_add_manager',
-      promotedBy: (SESSION && SESSION.name) || 'admin',
-      forceFreshLogin: null,
-      removedAt: null,
-      removedBy: null,
-      updatedAt: new Date().toISOString()
-    };
-    await fbSet('mobileUsers/'+phone, muPayload);
-
-    try{
-      if(typeof fbSet==='function' && accessDefaults.paymentPaidUntil){
-        await fbSet('paymentStatus/'+phone, {
-          mobile: phone,
-          phone,
-          name,
-          paymentPaidUntil: accessDefaults.paymentPaidUntil,
-          paidUntil: accessDefaults.paidUntil,
-          validTill: accessDefaults.validTill,
-          teamSize: accessDefaults.teamSize || 200,
-          updatedAt: new Date().toISOString(),
-          updatedBy: 'admin_add_manager'
-        });
-      }
-    }catch(ePay){ console.warn('[addManagerByAdmin] paymentStatus', ePay); }
-
-    try{
-      if(typeof _cache!=='undefined' && _cache){
-        _cache.employees = _cache.employees || [];
-        _cache.employees.push(Object.assign({}, emp));
-        _cache.mobileUsers = _cache.mobileUsers || {};
-        _cache.mobileUsers[phone] = muPayload;
-      }
-    }catch(_c){}
-    try{ if(typeof loadEmployees==='function') await loadEmployees(); }catch(_le){}
-    try{ if(typeof renderAdminTeamHierarchy==='function') renderAdminTeamHierarchy(); }catch(_h){}
-    try{ if(typeof renderTeam==='function') renderTeam(); }catch(_rt){}
-
+  if (!isAdmin()) return;
+  const field = id => document.getElementById(id)?.value.trim() || '';
+  const button = document.getElementById('am_saveBtn');
+  if (button) button.disabled = true;
+  try {
+    await window._fbCall('provisionManagerCompany', {
+      name: field('am_name'), phone: field('am_phone'), companyId: field('am_company_id'),
+      displayName: field('am_company'), designation: field('am_desig') || 'Manager',
+      section: field('am_dept') || 'General', code: field('am_code')
+    });
     closeModal();
-    toast('✅ '+name+L(' Manager के रूप में सेव — OTP लॉगिन पर सीधा Manager',' saved as Manager — OTP login enters as Manager'));
-  }catch(err){
-    console.error('[addManagerByAdmin]', err);
-    setBusy(false, L('Manager सेव करें','Save Manager'));
-    toast(L('❌ सेव विफल: ','❌ Save failed: ')+(err.message||err.code||''));
+    toast(L('प्रबंधक का खाता तैयार है।', 'Manager account is ready.'));
+    if (typeof renderAdminTeamHierarchy === 'function') renderAdminTeamHierarchy();
+  } catch (error) {
+    toast(error.message);
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 

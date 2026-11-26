@@ -128,6 +128,7 @@ function openLearnSection(section){
       setTimeout(()=>{ fr.src=''; setTimeout(()=>{ fr.src='https://mentor.vkstech.com/Met_Train_Pro/met_train_pro.html'; },100); },50);
     }
   } else if(section === 'supskill'){
+    if (!isAdmin()) { toast(L('केवल एडमिन','Admin only')); return; }
     supSkillView.style.display='flex';
     const fr     = document.getElementById('supSkillIframe');
     const loader = document.getElementById('supSkillLoading');
@@ -141,7 +142,7 @@ function openLearnSection(section){
     if(!isAdminOrMgr()){ toast(L('⚠️ केवल प्रबंधक पहुँच','⚠️ Manager access only')); document.getElementById('learnMainButtons').style.display='block'; return; }
     mrSkillView.style.display='flex'; try{ const m=localStorage.getItem('metcost_theme_v1')||'dark'; applyMRSkillTheme(m==='light'?'light':'dark'); }catch(e){}
   } else if(section === 'metcost'){
-    if(!isAdminOrMgr()){ toast(L('⚠️ केवल प्रबंधक पहुँच','⚠️ Manager access only')); document.getElementById('learnMainButtons').style.display='block'; return; }
+    if(!isAdmin()){ toast(L('⚠️ केवल एडमिन पहुँच','⚠️ Admin access only')); document.getElementById('learnMainButtons').style.display='block'; return; }
     metCostView.style.display='flex';
     const fr     = document.getElementById('metCostIframe');
     const loader = document.getElementById('metCostLoading');
@@ -200,7 +201,7 @@ function openLearnSection(section){
         try{
           const frEl = document.getElementById('excelExpertIframe');
           if(frEl && frEl.contentWindow){
-            frEl.contentWindow.postMessage({type:'userInfo', name:SESSION.name||'User', role:isAdminOrMgr()?'admin':'user', isAdmin:isAdminOrMgr()}, '*');
+            _postLearnFrame(frEl, {type:'userInfo', name:SESSION.name||'User', role:isAdminOrMgr()?'admin':'user', isAdmin:isAdminOrMgr()});
           }
         }catch(e){}
       };
@@ -264,7 +265,7 @@ window.applyMRSkillTheme = function(mode){
     ['metCostIframe','mrmPresIframe'].forEach(function(id){
       const fr = document.getElementById(id);
       if(!fr || !fr.contentWindow) return;
-      try{ fr.contentWindow.postMessage({ type:'metcost-theme', mode: mode }, '*'); }catch(e){}
+      try{ _postLearnFrame(fr, { type:'metcost-theme', mode: mode }); }catch(e){}
       try{ if(fr.contentWindow.applyTheme) fr.contentWindow.applyTheme(mode); }catch(e){}
     });
   }catch(e){}
@@ -354,15 +355,42 @@ window.closeKPIDashboard = function(){
   if(mrView) mrView.style.display='flex'; try{window.applyMRSkillTheme(localStorage.getItem('metcost_theme_v1')||'dark');}catch(e){};
 };
 
+function _learnFrameOrigin(frame){
+  const src = frame?.getAttribute('src');
+  if (!src) return null;
+  try {
+    const url = new URL(src, location.href);
+    return url.protocol === 'https:' || url.origin === location.origin ? url.origin : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function _postLearnFrame(frame, payload){
+  const origin = _learnFrameOrigin(frame);
+  if (!origin || !frame.contentWindow) return;
+  const protectedTypes = ['userInfo','MANPOWER_DATA','METCOST_LOAD','METCOST_LOAD_SETTINGS',
+    'MP_SHIFT_DATA','METPOWER_SHIFT_DATA_FOR_DATE','METPOWER_SHIFT_DATA'];
+  if (protectedTypes.includes(payload.type) && origin !== location.origin &&
+      !window.MP_TRUSTED_WORK_TOOL_ORIGINS?.includes(origin)) return;
+  frame.contentWindow.postMessage(payload, origin);
+}
+
+function _matchesLearnFrame(event, id){
+  const frame = document.getElementById(id);
+  const origin = _learnFrameOrigin(frame);
+  return !!origin && event.origin === origin && event.source === frame.contentWindow;
+}
+
 // ── KPI DASHBOARD: Send manpower data to iframe (reuses _metCostManpowerData) ──
 window.sendManpowerToKPIDashboard = function(){
   const fr = document.getElementById('kpiDashboardIframe');
   if(fr && fr.contentWindow && window._metCostManpowerData){
     console.log('[KPI Dashboard] Sending manpower data to iframe');
-    fr.contentWindow.postMessage({
+    _postLearnFrame(fr, {
       type: 'MANPOWER_DATA',
       data: window._metCostManpowerData
-    }, '*');
+    });
   }else{
     console.warn('[KPI Dashboard] Cannot send: iframe=',!!fr,' data=',!!window._metCostManpowerData);
   }
@@ -460,10 +488,10 @@ window.sendManpowerToMetCost = function(){
   const fr = document.getElementById('metCostIframe');
   if(fr && fr.contentWindow && window._metCostManpowerData){
     console.log('[MetCost] Sending manpower data to iframe');
-    fr.contentWindow.postMessage({
+    _postLearnFrame(fr, {
       type: 'MANPOWER_DATA',
       data: window._metCostManpowerData
-    }, '*');
+    });
   }else{
     console.warn('[MetCost] Cannot send: iframe=',!!fr,' data=',!!window._metCostManpowerData);
   }
@@ -472,6 +500,7 @@ window.sendManpowerToMetCost = function(){
 // ── METCOST PRO: Listen for refresh requests from iframe ──
 // Auto-load saved data from Firebase when iframe opens
 window._loadMetCostFromFirebase = async function(){
+  if (typeof isAdmin !== 'function' || !isAdmin()) return;
   try{
     console.log('[MetCost Parent] 📡 Loading from Firebase...');
     const data = await fbGet('metcostData');
@@ -496,8 +525,8 @@ window._loadMetCostFromFirebase = async function(){
     // Also try postMessage as backup
     const fr = document.getElementById('metCostIframe');
     if(fr && fr.contentWindow){
-      if(data) fr.contentWindow.postMessage({type:'METCOST_LOAD', data:data}, '*');
-      if(settings) fr.contentWindow.postMessage({type:'METCOST_LOAD_SETTINGS', data:settings}, '*');
+      if(data) _postLearnFrame(fr, {type:'METCOST_LOAD', data:data});
+      if(settings) _postLearnFrame(fr, {type:'METCOST_LOAD_SETTINGS', data:settings});
     }
   }catch(ex){
     console.error('[MetCost Parent] ❌ Firebase error:', ex.message||ex);
@@ -505,7 +534,11 @@ window._loadMetCostFromFirebase = async function(){
   }
 };
 window.addEventListener('message', async function(e) {
-  if(!e.data||!e.data.type) return;
+  if(!e.data?.type) return;
+  const mrm = e.data.type === 'MRM_REQUEST_DATA';
+  const manpower = e.data.type === 'REQUEST_MANPOWER';
+  if (mrm ? !_matchesLearnFrame(e,'mrmPresIframe') :
+      !_matchesLearnFrame(e,'metCostIframe') && !(manpower && _matchesLearnFrame(e,'kpiDashboardIframe'))) return;
   if(e.data.type === 'REQUEST_MANPOWER'){
     window._generateManpowerForMetCost();
     setTimeout(function(){
@@ -519,11 +552,11 @@ window.addEventListener('message', async function(e) {
       await fbSet('metcostData', e.data.data);
       console.log('[MetCost] ✅ Firebase save SUCCESS: '+Object.keys(e.data.data).length+' months');
       const fr = document.getElementById('metCostIframe');
-      if(fr && fr.contentWindow) fr.contentWindow.postMessage({type:'METCOST_SAVE_OK',count:Object.keys(e.data.data).length},'*');
+      if(fr && fr.contentWindow) _postLearnFrame(fr, {type:'METCOST_SAVE_OK',count:Object.keys(e.data.data).length});
     }catch(ex){
       console.error('MetCost save error:', ex);
       const fr = document.getElementById('metCostIframe');
-      if(fr && fr.contentWindow) fr.contentWindow.postMessage({type:'METCOST_SAVE_FAIL',error:ex.message||'Unknown error'},'*');
+      if(fr && fr.contentWindow) _postLearnFrame(fr, {type:'METCOST_SAVE_FAIL',error:ex.message||'Unknown error'});
     }
   }
   // Firebase bridge: save MetCost settings (rates, material targets, BOMs)
@@ -673,10 +706,10 @@ window.sendShiftDataToSupSkill = function(dayIdx, shiftCode){
       machineCode: supMachine,             // supervisor's machine code (M-1, M-2, M-1&2 etc.)
       employees:  allEmps,                 // ALL employees with shift info
       onDuty:     onDuty,                  // employees present this shift
-      firebaseProject: 'man-power-mp'
+      firebaseProject: window.MP_FIREBASE_CONFIG?.projectId || ''
     };
-    fr.contentWindow.postMessage(payload, '*');
-    try{ fr.contentWindow.postMessage({...payload, type:'MP_SHIFT_DATA'}, '*'); }catch(e){}
+    _postLearnFrame(fr, payload);
+    try{ _postLearnFrame(fr, {...payload, type:'MP_SHIFT_DATA'}); }catch(e){}
     window.updateSupSkillShiftBadge();
   }catch(err){ console.warn('[SupSkill] sendShiftDataToSupSkill error:', err); }
 };
@@ -685,7 +718,7 @@ window.sendShiftDataToSupSkill = function(dayIdx, shiftCode){
 // PATCHED: past-date requests now pass yr/mo so getShift() works correctly.
 // Also shows richer toast when a report is submitted.
 window.addEventListener('message', function(e){
-  if(!e.data) return;
+  if(!e.data || !isAdmin() || !_matchesLearnFrame(e,'supSkillIframe')) return;
 
   // ── SupSkill requesting employees for a specific past date ──
   if(e.data.type === 'SUPSKILL_REQUEST_SHIFT_DATA'){
@@ -711,7 +744,7 @@ window.addEventListener('message', function(e){
     // Use patched function with full year/month — leaves + overrides respected
     const empsForDate = getEmployeesOnCurrentShift(dayIdx, shiftCode, yr, mo);
 
-    fr.contentWindow.postMessage({
+    _postLearnFrame(fr, {
       type:      'METPOWER_SHIFT_DATA_FOR_DATE',
       date:      reqDate,
       dayIndex:  dayIdx,
@@ -720,7 +753,7 @@ window.addEventListener('message', function(e){
       employees: empsForDate,
       section:   (typeof myEmp === 'function' && myEmp() && myEmp().sec) ? myEmp().sec
                : (EMP_ROLES[SESSION.name] ? EMP_ROLES[SESSION.name].section : 'M1')
-    }, '*');
+    });
   }
 
   // ── SupSkill report submitted — show detailed toast in Man Power ──
@@ -828,32 +861,8 @@ window.saveSupSkillVideoLink = function(key, url, btn){
 
 
 // Get all active subscriptions for current user
-function getMySubscriptions(){
-  try{
-    const s = localStorage.getItem('mp_learn_subs_' + ((typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||SESSION.uid||''):'')||SESSION.empId||SESSION.name||'guest'));
-    if(!s) return [];
-    const subs = JSON.parse(s);
-    const now = new Date();
-    return subs.filter(sub => new Date(sub.validTill) > now);
-  }catch(e){ return []; }
-}
-
-function hasAccessTo(category){
-  const subs = getMySubscriptions();
-  return subs.some(s => s.plan === 'combo' || s.plan === category);
-}
-
-function saveSubscription(plan){
-  const key = 'mp_learn_subs_' + ((typeof _normMobileKey==='function'?_normMobileKey(SESSION.mobile||SESSION.uid||''):'')||SESSION.empId||SESSION.name||'guest');
-  let subs = [];
-  try{ subs = JSON.parse(localStorage.getItem(key)||'[]'); }catch(e){}
-  const validTill = new Date();
-  validTill.setMonth(validTill.getMonth()+1);
-  // Remove old same-plan subscription
-  subs = subs.filter(s => s.plan !== plan);
-  subs.push({ plan, validTill: validTill.toISOString(), subscribedAt: new Date().toISOString() });
-  localStorage.setItem(key, JSON.stringify(subs));
-}
+function getMySubscriptions(){ return []; }
+function hasAccessTo(){ return false; }
 
 function renderLearnScreen(){
   // Show/hide admin panel
@@ -875,7 +884,7 @@ function renderLearnScreen(){
   if(adminBadge) adminBadge.style.display = isAdmin() ? 'flex' : 'none';
   // Show MR Skill Hub button only for Manager/Admin
   const mcBtn = document.getElementById('mrSkillBtn');
-  if(mcBtn) mcBtn.style.display = isAdminOrMgr() ? 'block' : 'none';
+  if(mcBtn) mcBtn.style.display = isAdmin() ? 'block' : 'none';
   // Render training cards
   renderTrainCards();
   // Update price badges on main buttons
@@ -896,179 +905,15 @@ function renderLearnScreen(){
   if(cs) cs.style.display = 'none';
 }
 
-function selectPlan(plan){
-  _selectedPlan = plan;
-  const pi = PLAN_INFO[plan];
-  if(!pi) return;
-
-  // Highlight selected
-  ['planCombo','planMetOp','planMetMaint','planMsOffice','planManagerial'].forEach(id=>{
-    const el = document.getElementById(id);
-    if(el) el.classList.remove('selected');
-  });
-  const planEls = { combo:'planCombo', met_operation:'planMetOp', met_maintenance:'planMetMaint', ms_office:'planMsOffice', managerial:'planManagerial' };
-  const el = document.getElementById(planEls[plan]);
-  if(el) el.classList.add('selected');
-
-  // Update proceed button
-  const proceedBtn = document.getElementById('proceedBtn');
-  proceedBtn.style.display = 'block';
-  proceedBtn.innerHTML = `<button class="learn-pay-btn" onclick="proceedToPayment()" style="margin-bottom:8px">
-    ${pi.icon} ${escHtml(pi.name)} लें — ₹${getPrice(plan)}/month →
-  </button>`;
-
-  document.getElementById('paymentForm').style.display = 'none';
-  setTimeout(()=>proceedBtn.scrollIntoView({behavior:'smooth'}),100);
+function paidLearnUnavailable(){
+  toast(L('सशुल्क पाठ्यक्रम की खरीद अभी उपलब्ध नहीं है।', 'Paid Learn checkout is currently unavailable.'));
 }
-
-function proceedToPayment(){
-  if(!_selectedPlan){ toast(L('पहले plan चुनें','Select a plan first')); return; }
-  const pi = PLAN_INFO[_selectedPlan];
-  document.getElementById('paymentForm').style.display='block';
-  document.getElementById('proceedBtn').style.display='none';
-  document.getElementById('selectedPlanInfo').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:14px;font-weight:800;color:#fff">${pi.icon} ${escHtml(pi.name)}</div>
-        <div style="font-size:11px;color:var(--muted2)">${L('1 महीने की access · Audio + Video','1 month access · Audio + Video')}</div>
-      </div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:${pi.color}">₹${getPrice(_selectedPlan)}</div>
-    </div>`;
-  document.getElementById('payNowBtn').textContent = `💳 Pay ₹${getPrice(_selectedPlan)} Now`;
-  setTimeout(()=>document.getElementById('paymentForm').scrollIntoView({behavior:'smooth'}),100);
-}
-
+function selectPlan(){ paidLearnUnavailable(); }
+function proceedToPayment(){ paidLearnUnavailable(); }
+function initiatePayment(){ paidLearnUnavailable(); }
 function cancelPayment(){
-  document.getElementById('paymentForm').style.display='none';
-  document.getElementById('proceedBtn').style.display = _selectedPlan?'block':'none';
-}
-
-function initiatePayment(){
-  const name  = (document.getElementById('payName').value||'').trim();
-  const phone = (document.getElementById('payPhone').value||'').trim();
-  if(!name){ toast(L('नाम भरें','Enter name')); return; }
-  if(!phone||phone.length<10){ toast(L('सही मोबाइल नंबर डालें','Enter a valid mobile number')); return; }
-  if(!_selectedPlan){ toast(L('Plan चुनें','Select plan')); return; }
-
-  const pi_check = PLAN_INFO[_selectedPlan]||PLAN_INFO.met_operation;
-  const amount = getPrice(_selectedPlan) * 100;
-
-  // Razorpay removed — use UPI only
-  showUPIFallback(name, phone, amount);
-}
-
-function showUPIFallback(name, phone, amount){
-  // Show UPI payment option as fallback
-  const amtRs = amount/100;
-  const pi_upi = PLAN_INFO[_selectedPlan]||PLAN_INFO.met_operation;
-  const upiLink = `upi://pay?pa=8168771239-2@ibl&pn=MP+Learn&am=${amtRs}&cu=INR&tn=${escHtml(encodeURIComponent(pi_upi.name))}`;
-  openModal(`<div class="modal-handle"></div>
-  <div style="text-align:center;padding:6px 0">
-    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:2px">💳 ${L('UPI से Pay करें','Pay via UPI')}</div>
-    <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${pi_upi.icon} ${escHtml(pi_upi.name)}</div>
-
-    <!-- Amount Badge -->
-    <div style="background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(56,189,248,.15));border:1px solid rgba(168,85,247,.4);
-      border-radius:14px;padding:14px;margin-bottom:14px">
-      <div style="font-size:11px;color:var(--muted2);margin-bottom:4px">${L('भुगतान राशि','Payment amount')}</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:36px;font-weight:900;
-        background:linear-gradient(135deg,#a855f7,#38bdf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent">
-        ₹${amtRs}
-      </div>
-    </div>
-
-    <!-- UPI ID Box -->
-    <div style="background:var(--panel);border:2px solid rgba(168,85,247,.35);border-radius:14px;padding:14px;margin-bottom:10px">
-      <div style="font-size:10px;color:var(--muted2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">UPI ID</div>
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px">
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#a855f7;letter-spacing:1px">
-          8168771239-2@ibl
-        </div>
-        <button onclick="navigator.clipboard.writeText('8168771239-2@ibl').then(()=>toast(L('✅ UPI ID Copy हो गई!','✅ UPI ID copied!')))"
-          style="background:rgba(168,85,247,.2);border:1px solid rgba(168,85,247,.4);border-radius:7px;
-          color:#a855f7;font-size:12px;padding:5px 10px;cursor:pointer;font-weight:700">
-          📋 Copy
-        </button>
-      </div>
-    </div>
-
-    <!-- UPI Apps Buttons -->
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-      <a href="${upiLink}" style="text-decoration:none">
-        <div style="background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer">
-          <div style="font-size:22px">📱</div>
-          <div style="font-size:10px;color:var(--s1);font-weight:700;margin-top:3px">PhonePe</div>
-        </div>
-      </a>
-      <a href="${upiLink}" style="text-decoration:none">
-        <div style="background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer">
-          <div style="font-size:22px">💚</div>
-          <div style="font-size:10px;color:var(--green);font-weight:700;margin-top:3px">GPay</div>
-        </div>
-      </a>
-      <a href="${upiLink}" style="text-decoration:none">
-        <div style="background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.25);border-radius:10px;padding:10px 6px;text-align:center;cursor:pointer">
-          <div style="font-size:22px">💙</div>
-          <div style="font-size:10px;color:var(--m1);font-weight:700;margin-top:3px">Paytm</div>
-        </div>
-      </a>
-    </div>
-
-    <!-- WhatsApp reminder -->
-    <div style="background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--green);line-height:1.6">
-      📸 ${L('Payment होने के बाद Screenshot','After payment, send screenshot')}<br>
-      ${L('WhatsApp करें:','WhatsApp:')} <a href="https://wa.me/918929394920" style="color:#fff;font-weight:800">+91 8929394920</a>
-    </div>
-
-    <button class="submit-btn" onclick="manualPaymentDone('${name}','${phone}')">
-      ✅ ${L('मैंने Pay कर दिया','I have paid')}
-    </button>
-    <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
-  </div>`);
-}
-
-function manualPaymentDone(name, phone){
-  // Save pending subscription - admin will verify
-  const _lrMgr=(typeof _normMobileKey==='function'?_normMobileKey(SESSION&&(SESSION.mobile||SESSION.uid)||''):String(SESSION&&SESSION.mobile||'').replace(/\D/g,'').slice(-10));
-  const pending = {
-    name, phone, plan:_selectedPlan,
-    amount: _selectedPlan==='basic'?99:399,
-    status:'pending_verification',
-    requestedAt: new Date().toISOString(),
-    managerId: _lrMgr || (SESSION && SESSION.managerId) || '',
-    companyId: (SESSION && SESSION.companyId) || '',
-    company: (SESSION && SESSION.company) || '',
-    requestedByEmpId: (SESSION && SESSION.empObjId) || ''
-  };
-  localStorage.setItem('mp_learn_pending_' + _selectedPlan, JSON.stringify(pending));
-
-  // Also save to Firebase for admin to see
-  fbPush('learnRequests', pending).then(key=>{
-    fbUpdate('learnRequests/'+key, {_key:key});
-  });
-
-  closeModal();
-  toast(L('✅ Request भेज दी! Manager verify करेंगे।','✅ Request sent! Manager will verify.'));
-  document.getElementById('paymentForm').style.display='none';
-}
-
-function onPaymentSuccess(response, plan, name, phone){
-  // Save subscription per category
-  saveSubscription(plan);
-
-  // Save to Firebase for admin records
-  const pi = PLAN_INFO[plan]||{};
-  fbPush('subscriptions', {
-    plan, name, phone, planName: pi.name||plan, amount: pi.price||399,
-    paymentId: response.razorpay_payment_id||'manual',
-    subscribedAt: new Date().toISOString(),
-    validTill: new Date(Date.now() + 30*86400000).toISOString(),
-    userId: SESSION.empObjId||SESSION.empId||phone
-  });
-
-  toast('🎉 ' + (pi.icon||'✅') + ' ' + (pi.name||plan) + L(' का access मिल गया!',' access granted!'));
-  closeModal();
-  renderLearnScreen();
+  const form = document.getElementById('paymentForm');
+  if (form) form.style.display = 'none';
 }
 
 // ── CONTENT LIBRARY ──
@@ -1185,6 +1030,7 @@ function getLearnContent(){
 }
 
 function playContent(id){
+  if (!isAdmin()) return paidLearnUnavailable();
   const content = getLearnContent();
   const item = content.find(c=>c.id===id);
   if(!item){ toast(L('Content नहीं मिला','Content not found')); return; }
@@ -1219,31 +1065,8 @@ function playContent(id){
 }
 function closePlayer(){ document.getElementById('playerOverlay').classList.remove('open'); }
 
-function showCatUpgradePrompt(category){
-  const pi = PLAN_INFO[category]||PLAN_INFO.met_operation;
-  const ci = CAT_INFO[category]||CAT_INFO.met_operation;
-  openModal(`<div class="modal-handle"></div>
-  <div style="text-align:center;padding:14px 0">
-    <div style="font-size:44px;margin-bottom:10px">🔒</div>
-    <div style="font-size:18px;font-weight:900;color:#fff;margin-bottom:6px">${ci.icon} ${escHtml(ci.label)}</div>
-    <div style="font-size:13px;color:var(--muted2);margin-bottom:16px;line-height:1.6">
-      यह content देखने के लिए<br>
-      <b style="color:#fff">${escHtml(ci.label)}</b> category subscribe करें
-    </div>
-    <div style="background:var(--panel);border:1px solid var(--border2);border-radius:12px;padding:14px;margin-bottom:16px">
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;color:${ci.color}">₹${getPrice(category)}/month</div>
-      <div style="font-size:11px;color:var(--muted2)">Audio + Video · 1 month access</div>
-    </div>
-    <button class="submit-btn" onclick="closeModal();openLearnScreen();setTimeout(()=>selectPlan('${category}'),300)">
-      ${ci.icon} Subscribe करें — ₹${getPrice(category)}
-    </button>
-    <button style="background:linear-gradient(135deg,#f97316,#a855f7);color:#fff;border:none;border-radius:12px;padding:14px;width:100%;font-size:14px;font-weight:700;cursor:pointer;margin-top:8px;font-family:'Noto Sans Devanagari',sans-serif"
-      onclick="closeModal();openLearnScreen();setTimeout(()=>selectPlan('combo'),300)">
-      🎯 All Access Combo — ₹${getPrice('combo')}
-    </button>
-    <button class="cancel-btn" onclick="closeModal()">बाद में</button>
-  </div>`);
-}
+function showCatUpgradePrompt(){ paidLearnUnavailable(); }
+
 function showUpgradePrompt(){ showCatUpgradePrompt('met_operation'); }
 
 function openContentUpload(){

@@ -4,24 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title data-rb-i18n="title">Top-Class Resume Builder</title>
-  <!-- Favicons (Resume Builder — not ManPower root) -->
+  <!-- Favicons (icons/ folder on GitHub) -->
   <link rel="icon" href="icons/favicon.ico" sizes="any">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/favicon-192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
-  <link rel="shortcut icon" href="icons/favicon.ico">
-  <!-- Open Graph / social / YouTube link preview -->
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Resume Builder FREE">
-  <meta property="og:title" content="Resume Builder FREE — VKS Tech">
-  <meta property="og:description" content="Free top-class resume builder. Create and download professional resumes.">
-  <meta property="og:url" content="https://manpower.vkstech.com/resume-builder/">
-  <meta property="og:image" content="https://manpower.vkstech.com/resume-builder/icons/favicon-192.png">
-  <meta property="og:image:width" content="192">
-  <meta property="og:image:height" content="192">
-  <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Resume Builder FREE — VKS Tech">
-  <meta name="twitter:image" content="https://manpower.vkstech.com/resume-builder/icons/favicon-192.png">
-  <meta name="theme-color" content="#2563eb">
+  <link rel="icon" type="image/png" href="icons/favicon-192.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" href="icons/resume-icon.jpg" type="image/jpeg" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -45,21 +32,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 
-  <!-- Man Power Firebase (metpowervks) — mobile login + cloud resume -->
+  <!-- Man Power Firebase — verified account and cloud resume -->
+  <script src="../js/config/firebase.local.js"></script>
   <script type="module">
     import { initializeApp, getApps, getApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
     import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
     import { getAuth, signInAnonymously, onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-    const firebaseConfig = {
-      apiKey: "AIzaSyAG3xE_Bfj7VuA3hg5ClUAKUy7S6TNExGs",
-      authDomain: "metpowervks.firebaseapp.com",
-      databaseURL: "https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "metpowervks",
-      storageBucket: "metpowervks.firebasestorage.app",
-      messagingSenderId: "953633730980",
-      appId: "1:953633730980:web:3b5dfc28f0d8778cb3d131"
-    };
+    const firebaseConfig = window.MP_FIREBASE_CONFIG;
     try {
+      if (!firebaseConfig) throw new Error('Firebase configuration required');
       const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
       const db = getDatabase(app);
       const auth = getAuth(app);
@@ -87,19 +68,21 @@
         },
         async saveResume(mobile10, payload) {
           await this.ensureAuth();
-          const path = 'resume_builder/' + mobile10;
+          if (!auth.currentUser || auth.currentUser.isAnonymous) throw new Error('Verify your account');
+          const path = 'resume_builder/' + auth.currentUser.uid;
           await set(ref(db, path), Object.assign({}, payload, { mobile: mobile10, updatedAt: Date.now() }));
         },
         async loadResume(mobile10) {
           await this.ensureAuth();
-          const snap = await get(ref(db, 'resume_builder/' + mobile10));
+          if (!auth.currentUser || auth.currentUser.isAnonymous) throw new Error('Verify your account');
+          const snap = await get(ref(db, 'resume_builder/' + auth.currentUser.uid));
           return snap.exists() ? snap.val() : null;
         }
       };
       onAuthStateChanged(auth, () => { window.ResumeFB.ready = true; });
       window.ResumeFB.ready = true;
       window.dispatchEvent(new Event('resume-fb-ready'));
-      console.info('[ResumeFB] connected metpowervks');
+      console.info('[ResumeFB] Firebase connected');
     } catch (e) {
       console.warn('[ResumeFB] init failed', e);
       window.ResumeFB = null;

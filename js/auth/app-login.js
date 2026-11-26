@@ -20,21 +20,6 @@ let _step1Company = '';
 let _step1Code    = '';
 let _step3Dept    = '';
 
-const COMPANY_INFO = {
-  // Page 1 — Top 5
-  METPOWER:   { ico:'🏭', label:'Man Power',    sub:'Team Management',     color:'#f97316', page:1 },
-  UFLEX:      { ico:'📦', label:'UFlex',         sub:'Noida',         color:'#38bdf8', page:1 },
-  JINDAL:     { ico:'🎞️', label:'Jindal',        sub:'Poly Films',    color:'#a3e635', page:1 },
-  CHIRIPAL:   { ico:'🏬', label:'Chiripal',      sub:'Poly Films',    color:'#e879f9', page:1 },
-  COSMO:      { ico:'🌀', label:'Cosmo Films',   sub:'Mumbai',        color:'#818cf8', page:1 },
-  // Page 2 — Next 5
-  POLYPLEX:   { ico:'🔷', label:'Polyplex',      sub:'PET Films',     color:'#22d3ee', page:2 },
-  HUHTAMAKI:  { ico:'🌿', label:'Huhtamaki',     sub:'PPL',           color:'#4ade80', page:2 },
-  ESTER:      { ico:'🧪', label:'Ester Films',   sub:'Films',         color:'#fb923c', page:2 },
-  GARWARE:    { ico:'🏗️', label:'Garware',       sub:'Poly Films',    color:'#facc15', page:2 },
-  TREOFAN:    { ico:'⚙️', label:'Treofan',       sub:'BOPP Films',    color:'#a78bfa', page:2 },
-  OTHERS:     { ico:'🌐', label:'Others',        sub:'Any Company',   color:'#94a3b8', page:2 },
-};
 const DEPT_INFO = {
   MET:     { ico:'🏭', label:'MET',      sub:'Metalliser' },
   PET:     { ico:'🔵', label:'PET Line', sub:'PET Film' },
@@ -165,12 +150,24 @@ function goToStep2(){ try{ showStep(1); }catch(e){} }
 let _loginMobile='', _loginConfirmResult=null, _otpResendInterval=null;
 
 /** v6.0.44: sync CTA from live input — never leave button HTML-disabled (blocks all taps on mobile). */
+function _registrationPhone(value) {
+  if (typeof value !== 'string' || !/^[+0-9 ()-]+$/.test(value.trim())) return '';
+  let phone = value.replace(/[ ()-]/g, '');
+  if (phone.startsWith('00')) phone = '+' + phone.slice(2);
+  if (/^[1-9][0-9]{9}$/.test(phone)) phone = '+91' + phone;
+  if (/^91[1-9][0-9]{9}$/.test(phone)) phone = '+' + phone;
+  return /^\+[1-9][0-9]{7,14}$/.test(phone) ? phone : '';
+}
+
+function _registrationPhoneKey(value) {
+  const phone = _registrationPhone(value);
+  return /^\+91[0-9]{10}$/.test(phone) ? phone.slice(3) : phone;
+}
+
 function mpSyncLoginCta(){
   try{
     var m = document.getElementById('loginMobile');
-    var val = String((m && m.value) || '').replace(/\D/g, '').slice(0, 10);
-    if(m && m.value !== val) m.value = val;
-    var ok = val.length === 10;
+    const ok = !!_registrationPhone(m?.value);
     var btn = document.getElementById('sendOtpBtn');
     var sticky = document.getElementById('loginStickyCta');
     if(btn){
@@ -193,14 +190,7 @@ function mpSyncLoginCta(){
     return ok;
   }catch(e){ return false; }
 }
-function _onMobileInput(val){
-  try{
-    val = String(val||'').replace(/\D/g,'').slice(0,10);
-    var m = document.getElementById('loginMobile');
-    if(m && String(m.value||'').replace(/\D/g,'') !== val) m.value = val;
-  }catch(e){}
-  mpSyncLoginCta();
-}
+function _onMobileInput(){ mpSyncLoginCta(); }
 try{ window.mpSyncLoginCta = mpSyncLoginCta; window._onMobileInput = _onMobileInput; }catch(e){}
 
 function _onOtpInput(val){
@@ -240,28 +230,15 @@ async function _sendOTP(isResend){
     }
   } catch (e) { console.warn('[otp] device route', e); }
 
-  const mobileEl=document.getElementById('loginMobile');
-  const mobile=(mobileEl?.value||'').trim().replace(/\D/g,'');
-  if(mobile.length!==10){ toast(L('⚠️ 10 अंकों का Mobile Number डालें','⚠️ Enter a 10-digit mobile number')); return; }
-  const fullPhone='+91'+mobile;
+  const fullPhone = _registrationPhone(document.getElementById('loginMobile')?.value);
+  if (!fullPhone) { toast(L('देश कोड सहित मोबाइल नंबर डालें।', 'Enter a mobile number with its country code.')); return; }
+  const mobile = _registrationPhoneKey(fullPhone);
+  const legacyIndianPhone = /^\d{10}$/.test(mobile);
   _loginMobile=fullPhone;
   const errEl=document.getElementById('loginErr');
   if(errEl) errEl.textContent='';
 
   // v6.0.70: Admin-approved login → skip SMS OTP when bypass stamp / approved request exists
-  if(!isResend){
-    try{
-      if(typeof _tryLoginWithoutOtpIfApproved==='function'){
-        const skipped = await _tryLoginWithoutOtpIfApproved(mobile);
-        if(skipped){
-          window._mpOtpSendInFlight = false;
-          try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
-          return;
-        }
-      }
-    }catch(bypassErr){ console.warn('[otp] bypass check', bypassErr); }
-  }
-
   window._mpOtpSendInFlight = true;
   try{ window._mpOtpSendStartedAt = Date.now(); }catch(e){}
   // Instant UI feedback — was delayed until after several Firebase reads
@@ -281,8 +258,7 @@ async function _sendOTP(isResend){
     try{ window._mpOtpSendStartedAt = 0; }catch(e){}
     try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
     if(!sendBtn) return;
-    const mob = (document.getElementById('loginMobile')?.value||'').replace(/\D/g,'');
-    const ok = mob.length === 10;
+    const ok = !!_registrationPhone(document.getElementById('loginMobile')?.value);
     try{ sendBtn.removeAttribute('disabled'); }catch(e){}
     sendBtn.disabled = false;
     sendBtn.style.opacity = ok ? '1' : '.55';
@@ -310,7 +286,7 @@ async function _sendOTP(isResend){
 
   // ── One parallel fetch (was 2–4 sequential RTDB reads → slow) ──
   let userData = null, dRec = null;
-  if(!isResend && !window._forceOtpAfterMgrWait && !window._forceOtpAfterPwForgot){
+  if(legacyIndianPhone && !isResend && !window._forceOtpAfterMgrWait && !window._forceOtpAfterPwForgot){
     try{
       const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
       userData = await Promise.race([
@@ -356,7 +332,7 @@ async function _sendOTP(isResend){
               && dRec.validTill && new Date(dRec.validTill) > new Date()){
             const _isHard = (typeof _isHardAdminPhone==='function')
               ? _isHardAdminPhone(mobile)
-              : ['8929397949'].includes(String(mobile||'').replace(/\D/g,'').slice(-10));
+              : false;
             if(!_isHard){
               _restoreBtn();
               showOtherDeviceLoginRequest({
@@ -399,7 +375,7 @@ async function _sendOTP(isResend){
     // Only now move to OTP entry
     showStep(2);
     const sentEl=document.getElementById('otpSentTo');
-    if(sentEl) sentEl.textContent=(typeof L==='function'?L('+91-'+mobile+' पर OTP भेजा गया','OTP sent to +91-'+mobile):('OTP sent to +91-'+mobile));
+    if(sentEl) sentEl.textContent=L(fullPhone+' पर OTP भेजा गया','OTP sent to '+fullPhone);
     const otpEl = document.getElementById('otpInput');
     if(otpEl){
       try{
@@ -441,381 +417,17 @@ async function _sendOTP(isResend){
     }catch(e){}
     const msg = '❌ '+(typeof _fbOtpErrorMessage==='function' ? _fbOtpErrorMessage(err) : (err&&err.message)||String(err));
     if(errEl) errEl.textContent=msg; toast(msg);
-    // SMS quota / rate-limit / billing down → fall back to device notify or admin
-    try{
-      await _fallbackLoginWhenOtpUnavailable(mobile, err);
-    }catch(fbErr){
-      console.warn('[otp] fallback notify failed', fbErr);
-    }
   }finally{
     // Never leave button stuck on "Sending…"
     try{ _restoreBtn(); }catch(e){}
   }
 }
 
-/**
- * When Firebase SMS cannot be sent (quota, billing, too-many-requests),
- * offer the same path as other-device login:
- *  1) Notify already-logged-in device of this manager/member (if any)
- *  2) Always notify Admin so they can help
- */
-async function _fallbackLoginWhenOtpUnavailable(mobile10, err){
-  const code = (err && err.code) || '';
-  const raw = String((err && err.message) || err || '');
-  // Treat most phone-auth send failures as "SMS unavailable" so Admin/other device still get a request
-  // Only real SMS/quota problems → Admin approve screen.
-  // Do NOT treat captcha / timeout / generic errors as "quota blocked" (desktop was false-positive).
-  const isSmsBlocked =
-    code === 'auth/quota-exceeded' ||
-    code === 'auth/too-many-requests' ||
-    code === 'auth/billing-not-enabled' ||
-    code === 'auth/operation-not-allowed' ||
-    (/quota-exceeded|too-many-requests|billing-not-enabled|sms.?quota|rate.?limit/i.test(code + ' ' + raw) &&
-      !/captcha|timeout|network|invalid-phone|invalid-app/i.test(code + ' ' + raw));
-  // Network-only: still notify so user is not stuck, but mark reason clearly
-  const isNetwork = code === 'auth/network-request-failed' || /network|offline|Failed to fetch/i.test(raw);
-  if(!isSmsBlocked && !isNetwork) return;
-
-  const mobile = String(mobile10||'').replace(/\D/g,'').slice(-10);
-  if(mobile.length !== 10) return;
-
-  // Must have auth for RTDB read/write under current rules
-  try{ await window._fbSignInAnon(); }catch(e){ console.warn('[otp-fallback] anon', e); }
-
-  let userData = null;
-  try{ userData = await _mpFbGet('mobileUsers/'+mobile); }catch(e){ console.warn('[otp-fallback] mobileUsers', e); }
-
-  const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : ('web_'+Date.now());
-  const empObjId = (userData && (userData.empObjId || userData.employeeId)) || '';
-  const empName = (userData && userData.name) || ('+91-'+mobile);
-  const empId = (userData && (userData.empId || userData.empCode)) || '';
-  const role = (userData && userData.role) || 'member';
-  const approved = userData && userData.status === 'approved';
-
-  let dRec = null;
-  let otherDeviceActive = false;
-  if(empObjId){
-    try{
-      dRec = await _mpFbGet('deviceApprovals/'+empObjId);
-      if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
-          && dRec.validTill && new Date(dRec.validTill) > new Date()){
-        otherDeviceActive = true;
-      }
-    }catch(e){}
-  }
-
-  const emp = {
-    id: empObjId || ('m_'+mobile),
-    empId, name: empName, phone: mobile, mobile: mobile, role
-  };
-
-  // Always notify Admin (best-effort) — do not swallow silently without log
-  try{
-    await notifyAdmin(
-      '⚠️ Login needs approval (SMS blocked)',
-      empName+' · +91-'+mobile+' · '+(role||'')+
-      ' — '+(code|| (isNetwork?'network':'sms_blocked'))+
-      (otherDeviceActive ? ' · other device online' : '')
-    );
-  }catch(e){ console.warn('[otp-fallback] notifyAdmin', e); }
-
-  // Create login request + fan-out notifications
-  // Prefer device_transfer when another device is active so the other device listener matches;
-  // always also tag otpBlocked so Admin UI can filter.
-  let reqKey = null;
-  const reqType = otherDeviceActive ? 'device_transfer' : 'otp_unavailable';
-  try{
-    reqKey = await _mpFbPush('loginRequests', {
-      type: reqType,
-      otpBlocked: true,
-      reason: code || (isNetwork ? 'network' : 'sms_blocked'),
-      empObjId: emp.id || empObjId || '',
-      empId: emp.empId || empId || '',
-      empName: emp.name,
-      mobile,
-      phone: mobile,
-      role: role,
-      deviceId,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      fromDevice: deviceId,
-      note: 'SMS OTP blocked — approve login without OTP'
-    });
-  }catch(e){
-    console.error('[otp-fallback] loginRequests write failed', e);
-    toast(L('⚠️ लॉगिन अनुरोध नहीं बन सका — फायरबेस में अनाम प्रमाणीकरण सक्षम करें, फिर पुनः प्रयास करें','⚠️ Cannot create login request — enable Anonymous Auth in Firebase, then retry'));
-  }
-
-  if(reqKey){
-    const notif = {
-      type: 'device_login_request',
-      title: '📱 Login request (SMS OTP blocked)',
-      body: empName+' wants to login. SMS unavailable. Open Pending → Approve.',
-      empObjId: emp.id || empObjId || '',
-      empId: emp.empId || empId || '',
-      reqKey,
-      deviceId,
-      mobile,
-      read: false,
-      at: new Date().toISOString()
-    };
-    const targets = new Set([emp.id, emp.empId, mobile, empObjId].filter(Boolean));
-    // Normalize mobile key variants
-    targets.add(String(mobile).replace(/\D/g,'').slice(-10));
-    for(const t of targets){
-      try{ await _mpFbPush('userNotifications/'+t, notif); }catch(e){ console.warn('[otp-fallback] notif', t, e); }
-    }
-    // Extra adminNotifications entry with reqKey for Pending deep-link style
-    try{
-      await _mpFbPush('adminNotifications', {
-        title: '📱 SMS blocked — approve login',
-        body: empName+' · +91-'+mobile+' · open Pending → Login requests',
-        type: 'otp_unavailable',
-        reqKey,
-        mobile,
-        read: false,
-        at: new Date().toISOString()
-      });
-    }catch(e){ console.warn('[otp-fallback] adminNotifications', e); }
-  }
-
-  // Show waiting UI (always — even if writes partially failed)
-  _odlCtx = { emp, dRec: dRec||{}, deviceId, reqKey, timer:null, poller:null, userData: userData||null };
-  let ov = document.getElementById('otherDeviceLoginOverlay');
-  if(!ov){ ov=document.createElement('div'); ov.id='otherDeviceLoginOverlay'; document.body.appendChild(ov); }
-  const hasReq = !!reqKey;
-  ov.style.cssText='position:fixed;inset:0;z-index:9600;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto';
-  // Kill light-theme overrides that turn buttons white / hide text
-  if(!document.getElementById('odlForceDarkCss')){
-    var st=document.createElement('style'); st.id='odlForceDarkCss';
-    st.textContent=
-      '#otherDeviceLoginOverlay,#otherDeviceLoginOverlay *{color-scheme:dark;}'+
-      '#otherDeviceLoginOverlay{background:#0a0f1a!important;}'+
-      '#otherDeviceLoginOverlay .odl-title{color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;font-weight:900!important;}'+
-      '#otherDeviceLoginOverlay .odl-body,#otherDeviceLoginOverlay .odl-status{color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;}'+
-      '#otherDeviceLoginOverlay .odl-chip{background:#1e293b!important;border:1px solid #334155!important;}'+
-      '#otherDeviceLoginOverlay .odl-chip-lbl{color:#94a3b8!important;-webkit-text-fill-color:#94a3b8!important;}'+
-      '#otherDeviceLoginOverlay .odl-chip-name{color:#f97316!important;-webkit-text-fill-color:#f97316!important;font-weight:900!important;}'+
-      '#otherDeviceLoginOverlay .odl-chip-sub{color:#cbd5e1!important;-webkit-text-fill-color:#cbd5e1!important;}'+
-      '#otherDeviceLoginOverlay .odl-btn-primary{background:linear-gradient(135deg,#f97316,#ea580c)!important;color:#ffffff!important;-webkit-text-fill-color:#ffffff!important;border:none!important;font-weight:900!important;}'+
-      '#otherDeviceLoginOverlay .odl-btn-secondary{background:#1e293b!important;color:#e2e8f0!important;-webkit-text-fill-color:#e2e8f0!important;border:1px solid #475569!important;font-weight:700!important;}'+
-      '#otherDeviceLoginOverlay b{color:#4ade80!important;}'+
-      '#otherDeviceLoginOverlay b.odl-accent{color:#f97316!important;}'+
-      '#otherDeviceLoginOverlay b.odl-white{color:#ffffff!important;}';
-    document.head.appendChild(st);
-  }
-  ov.innerHTML=`
-    <div style="width:100%;max-width:400px;text-align:center">
-      <div style="font-size:44px;margin-bottom:8px">⚠️📱</div>
-      <div class="odl-title" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;color:#fff;margin-bottom:6px">SMS OTP blocked</div>
-      <div class="odl-body" style="font-size:14px;color:#e2e8f0;line-height:1.6;margin-bottom:14px">
-        Firebase rate-limit / quota reached for this number.<br>
-        ${hasReq
-          ? ('A <b class="odl-accent">login request</b> was sent to <b class="odl-white">Admin</b>'+(otherDeviceActive?' and your other device':'')+'.')
-          : 'Could not write request — enable <b class="odl-white">Anonymous Auth</b> in Firebase, then retry.'}
-      </div>
-      <div class="odl-chip" style="background:#1e293b;border-radius:12px;padding:12px;margin-bottom:14px;text-align:left">
-        <div class="odl-chip-lbl" style="font-size:11px;color:#94a3b8;font-weight:800;letter-spacing:.04em">ACCOUNT</div>
-        <div class="odl-chip-name" style="font-size:16px;font-weight:900;color:#f97316">${String(empName).replace(/</g,'')}</div>
-        <div class="odl-chip-sub" style="font-size:12px;color:#cbd5e1">+91-${mobile}${empId?' · '+String(empId).replace(/</g,''):''}${approved?'':' · not in mobileUsers'}</div>
-      </div>
-      <div id="odlStatus" class="odl-status" style="font-size:14px;color:#e2e8f0;margin-bottom:12px;line-height:1.6;min-height:40px">
-        ${hasReq
-          ? '⏳ Waiting for approval…<br>On the other device / Admin app → <b>Pending</b> → <b>Approve</b>.'
-          : '⚠️ Fix Firebase Anonymous Auth, then tap Retry below.'}
-      </div>
-      <button type="button" class="odl-btn-primary" onclick="closeOtherDeviceLogin();setTimeout(()=>{try{_sendOTP(false);}catch(e){}},200)"
-        style="width:100%;padding:14px;border:none;border-radius:12px;background:linear-gradient(135deg,#f97316,#ea580c);color:#fff;font-weight:900;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:10px">
-        🔄 Retry OTP
-      </button>
-      <button type="button" class="odl-btn-secondary" onclick="closeOtherDeviceLogin()"
-        style="width:100%;padding:12px;background:#1e293b;border:1px solid #475569;border-radius:12px;color:#e2e8f0;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">← Back</button>
-    </div>`;
-  ov.style.display='flex';
-
-  if(reqKey){
-    if(window._odlPoller) clearInterval(window._odlPoller);
-    _odlCtx.poller = setInterval(async ()=>{
-      try{
-        const rec = await _mpFbGet('loginRequests/'+reqKey);
-        if(rec && rec.status==='approved'){
-          clearInterval(_odlCtx.poller);
-          try{ await doLoginAfterApproval(emp, userData, deviceId); }catch(e){
-            console.error('[otp-fallback] doLoginAfterApproval', e);
-            toast(L('❌ अनुमोदन मिला पर लॉगिन विफल: ','❌ Approval received but login failed: ')+(e.message||e));
-          }
-          closeOtherDeviceLogin();
-        } else if(rec && (rec.status==='rejected'||rec.status==='cancelled')){
-          clearInterval(_odlCtx.poller);
-          const st = document.getElementById('odlStatus');
-          if(st) st.innerHTML='❌ Request was rejected. Contact Admin.';
-        }
-      }catch(e){}
-    }, 2500);
-    window._odlPoller = _odlCtx.poller;
-    toast(L('✅ अनुमोदन अनुरोध भेजा — प्रतीक्षा…','✅ Approval request sent — waiting…'));
-  }
+async function doLoginAfterApproval(emp){
+  const auth = window._fbAuth?.currentUser;
+  if (auth?.phoneNumber && emp?.id && await launchVerifiedRosterSession(auth.phoneNumber, emp.id)) return;
+  throw new Error(L('अपने खाते में ओटीपी से प्रवेश करें।', 'Sign in to your account with OTP.'));
 }
-
-/** Complete flow after device/Admin approved a loginRequests row (no SMS OTP).
- *  - Existing fully registered approved user → login
- *  - New / deleted / incomplete → Manager / Member choice + registration (same as OTP path)
- */
-
-/** v6.0.70: if Admin approved loginRequests OR mobileUsers.allowLoginWithoutOtp still valid → skip SMS */
-async function _tryLoginWithoutOtpIfApproved(mobile){
-  const mob = String(mobile||'').replace(/\D/g,'').slice(-10);
-  if(!mob || mob.length!==10) return false;
-  async function _consumeBypass(reqKey){
-    try{
-      const clear = {
-        allowLoginWithoutOtp: false,
-        otpBypassUntil: null,
-        otpBypassConsumedAt: new Date().toISOString()
-      };
-      if(typeof _mpFbUpdate==='function') await _mpFbUpdate('mobileUsers/'+mob, clear);
-      else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+mob, clear);
-    }catch(e){ console.warn('[otpBypass] clear mobileUsers', e); }
-    if(reqKey){
-      try{
-        const patch = { usedAt: new Date().toISOString(), otpBypassConsumed: true, status: 'approved_used' };
-        if(typeof _mpFbUpdate==='function') await _mpFbUpdate('loginRequests/'+reqKey, patch);
-        else if(typeof fbUpdate==='function') await fbUpdate('loginRequests/'+reqKey, patch);
-      }catch(e2){ console.warn('[otpBypass] consume request', e2); }
-    }
-  }
-  try{
-    let ud = null;
-    try{ ud = await _mpFbGet('mobileUsers/'+mob); }catch(e){}
-    // 1) mobileUsers stamp — 5 min window, one-time
-    if(ud && ud.allowLoginWithoutOtp){
-      const until = ud.otpBypassUntil ? Date.parse(ud.otpBypassUntil) : 0;
-      if(until && until > Date.now()){
-        const emp = { phone: mob, mobile: mob, name: ud.name||'', empId: ud.empId||ud.empCode||'', id: ud.empObjId||ud.employeeId||'' };
-        await doLoginAfterApproval(emp, ud, (typeof getDeviceId==='function'?getDeviceId():'')||'web');
-        await _consumeBypass(null);
-        return true;
-      }
-    }
-    // 2) recent approved loginRequests (5 min, not yet used)
-    try{
-      const all = await _mpFbGet('loginRequests') || {};
-      const list = Object.entries(all).map(function(e){ return Object.assign({}, e[1], { _key: e[0] }); });
-      list.sort(function(a,b){ return String(b.approvedAt||b.requestedAt||'').localeCompare(String(a.approvedAt||a.requestedAt||'')); });
-      for(var i=0;i<list.length;i++){
-        var r = list[i];
-        if(!r || (r.status!=='approved' && r.status!=='approved_used')) continue;
-        if(r.status==='approved_used' || r.usedAt || r.otpBypassConsumed) continue;
-        var rm = String(r.mobile||r.phone||'').replace(/\D/g,'').slice(-10);
-        if(rm!==mob) continue;
-        var at = Date.parse(r.approvedAt||0);
-        if(!at || (Date.now()-at) > 5*60*1000) continue;
-        var emp = { phone: mob, mobile: mob, name: r.empName||r.name||'', empId: r.empId||'', id: r.empObjId||'' };
-        await doLoginAfterApproval(emp, ud, r.deviceId||r.fromDevice||'web');
-        await _consumeBypass(r._key);
-        return true;
-      }
-    }catch(e2){ console.warn('[otpBypass] loginRequests scan', e2); }
-  }catch(e){ console.warn('[_tryLoginWithoutOtpIfApproved]', e); }
-  return false;
-}
-
-async function doLoginAfterApproval(emp, userData, deviceId){
-  const mobile = String((emp && (emp.phone||emp.mobile)) || (userData && (userData.phone||userData.mobile)) || '')
-    .replace(/\D/g,'').slice(-10);
-  if(!mobile || mobile.length!==10){
-    throw new Error('Mobile missing on approved request');
-  }
-  try{ await window._fbSignInAnon(); }catch(e){}
-
-  // Always re-read live registration — do not invent a fake member
-  let ud = null;
-  try{ ud = await _mpFbGet('mobileUsers/'+mobile); }catch(e){}
-  if(!ud && userData && userData.status) ud = userData;
-
-  _loginMobile = '+91'+mobile;
-  try{ _markWriteAuthFromLogin(mobile); }catch(e){}
-  try{
-    localStorage.setItem('mp_device_phone', mobile);
-    localStorage.setItem('mp_device_verified_at', String(Date.now()));
-  }catch(e){}
-
-  const isRemoved = !ud || !ud.status
-    || ud.status==='removed' || ud.status==='revoked' || ud.status==='left' || ud.status==='left_team'
-    || ud.forceFreshLogin || ud.role==='removed';
-  const isCompleteApproved = ud && ud.status==='approved'
-    && (ud.role==='manager' || ud.role==='member' || ud.role==='worker')
-    && (ud.name || ud.empObjId || ud.employeeId || ud.empId);
-
-  // NEW or incomplete → same as successful OTP for a new number: choose Manager / Member
-  if(isRemoved || !isCompleteApproved){
-    if(isRemoved && ud){
-      try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-        try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){}
-      }
-    }
-    try{
-      const rosterEmp = (typeof _resolveEmpByMobile==='function') ? await _resolveEmpByMobile(mobile) : null;
-      if(rosterEmp && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'
-          && rosterEmp.status!=='resigned' && rosterEmp.status!=='left'){
-        window._otpRosterEmp = rosterEmp;
-      }
-    }catch(e){}
-    toast(typeof L==='function'
-      ? L('✅ Approve हो गया — Manager या Member चुनें','✅ Approved — choose Manager or Member')
-      : '✅ Approved — choose Manager or Member');
-    try{ closeOtherDeviceLogin(); }catch(e){}
-    try{
-      var login=document.getElementById('loginScreen');
-      if(login){ login.style.display='flex'; login.classList.add('show'); }
-    }catch(e){}
-    showStep(3);
-    setTimeout(function(){ try{ showStep(3); }catch(e){} }, 200);
-    return;
-  }
-
-  // Pending registration — open pending UI, do not full-launch
-  if(ud.status==='pending'){
-    toast(typeof L==='function'
-      ? L('⏳ Registration अभी pending है — Manager/Admin approve करें','⏳ Registration still pending — Manager/Admin must approve')
-      : '⏳ Registration still pending');
-    try{ closeOtherDeviceLogin(); }catch(e){}
-    if(ud.role==='member' && typeof _launchAsNewUser==='function'){
-      try{ await _launchAsNewUser(ud); }catch(e){}
-      setTimeout(function(){ try{ _watchApprovalStatus(mobile); }catch(e){} }, 500);
-      return;
-    }
-    try{ showStep('pending'); }catch(e){ showStep(3); }
-    try{ _watchApprovalStatus(mobile); }catch(e){}
-    return;
-  }
-
-  // Fully registered approved user → claim device + login
-  const empObjId = ud.empObjId || ud.employeeId || (emp && emp.id) || '';
-  const devId = deviceId || (typeof getDeviceId==='function' ? getDeviceId() : '');
-  if(empObjId && devId){
-    try{
-      await _mpFbUpdate('deviceApprovals/'+empObjId, {
-        approvedDeviceId: devId,
-        approvedAt: new Date().toISOString(),
-        validTill: new Date(Date.now()+365*86400000).toISOString(),
-        empName: ud.name||'',
-        empId: ud.empId||ud.empCode||'',
-        via: 'login_request_approval'
-      });
-    }catch(e){ console.warn('[doLoginAfterApproval] deviceApprovals', e); }
-  }
-
-  toast(L('✅ लॉगिन स्वीकृत — स्वागत ','✅ Login approved — Welcome ')+(ud.name||mobile));
-  if(typeof _launchAsNewUser === 'function'){
-    await _launchAsNewUser(ud);
-  } else {
-    throw new Error('Launch function missing');
-  }
-}
-try{ window._fallbackLoginWhenOtpUnavailable = _fallbackLoginWhenOtpUnavailable; window.doLoginAfterApproval = doLoginAfterApproval; }catch(e){}
-
-
 
 function _startResendTimer(){
   let sec=30;
@@ -864,12 +476,6 @@ async function _verifyOTP(){
     toast(L('⏳ सत्यापित हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
     toast(L('✅ मोबाइल सत्यापित!','✅ Mobile Verified!'));
-    try{
-      if(typeof _isAdminMobileQuick==='function' && _isAdminMobileQuick(_loginMobile)){
-        _launchAsHardAdmin(_loginMobile);
-        return;
-      }
-    }catch(e){}
     await _checkUserAfterOTP();
   }catch(err){
     const errEl=document.getElementById('loginErr2');
@@ -1099,383 +705,85 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
   return true;
 }
 
+async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null) {
+  await window._fbAuthStateReady?.();
+  const user = window._fbAuth?.currentUser;
+  const fullPhone = _registrationPhone(mobile);
+  mobile = _registrationPhoneKey(fullPhone);
+  if (!user || user.isAnonymous || !fullPhone || user.phoneNumber !== fullPhone) return false;
+  const identity = await window._fbCall('getMyRosterIdentity');
+  if (expectedEmployeeId && identity.employeeId !== expectedEmployeeId) return false;
+  if (identity.admin) return _launchAsHardAdmin(mobile);
+  if (!identity.employeeId) return false;
+  const [employee, profiles] = await Promise.all([
+    _mpFbGet('employees/' + identity.employeeId),
+    window._fbCall('getMyOwnedProfiles')
+  ]);
+  const approved = Object.values(profiles || {}).filter(row => row?.status === 'approved');
+  const profile = profiles?.[mobile] || (approved.length === 1 ? approved[0] : null);
+  if (!employee || profile?.forceFreshLogin || ['removed','revoked','left','left_team'].includes(profile?.status)) return false;
+  _launchAsNewUser({
+    ...profile, name: employee.name, mobile: fullPhone || '',
+    company: employee.companyLabel || profile?.company || employee.companyId,
+    companyId: identity.companyKey, managerId: employee.managerId || '',
+    managerUid: identity.managerUid || '', empObjId: identity.employeeId, empId: employee.empId,
+    role: identity.manager ? 'manager' : 'member', status: 'approved',
+    rosterLinked: true, authUid: identity.uid, individual: identity.independent,
+    joinRequestPending: identity.independent && profile?.status === 'pending'
+  });
+  if (SESSION.joinRequestPending) _watchApprovalStatus(mobile);
+  return true;
+}
+
 async function _checkUserAfterOTP(){
-  const mobile=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
-  try{
-    // Hard-coded Admin phones → always Admin (full team), not User/Member from mobileUsers
-    if((typeof _isAdminMobileQuick==='function' && (_isAdminMobileQuick(mobile) || _isAdminMobileQuick(_loginMobile))) || _isHardAdminPhone(mobile) || _isHardAdminPhone(_loginMobile)){
-      _launchAsHardAdmin(mobile || _loginMobile);
+  try {
+    if (await launchVerifiedRosterSession(_loginMobile)) return;
+    const profiles = await window._fbCall('getMyOwnedProfiles');
+    const pending = Object.entries(profiles || {}).filter(([,row]) => row?.status === 'pending');
+    if (pending.length === 1) {
+      const [key, profile] = pending[0];
+      _launchAsNewUser(profile);
+      _watchApprovalStatus(key);
       return;
     }
-    // Rejoin only if mobileUsers still exists and is approved (user did NOT delete account).
-    // After Delete Account → always Manager/Member choice.
-    try{
-      let forceFreshLocal = false;
-      try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
-      const muPre = await _mpFbGet('mobileUsers/'+mobile);
-      if(forceFreshLocal){
-        try{ localStorage.removeItem('mp_force_fresh_'+mobile); localStorage.removeItem('mp_force_fresh_at_'+mobile); }catch(e){}
-        // skip rejoin
-      } else if(muPre && muPre.status==='approved' && !muPre.forceFreshLogin && typeof _tryRejoinPreserveShifts==='function'){
-        const rejoined = await _tryRejoinPreserveShifts(mobile);
-        if(rejoined){
-          const roster = await _resolveEmpByMobile(mobile);
-          if(roster && roster.status!=='left_team' && roster.status!=='removed' && roster.status!=='resigned' && roster.status!=='left'){
-            const ok = await _loginRosterMemberAfterOtp(mobile, roster);
-            if(ok){
-              try{ toast(L('✅ वापस join — पुरानी shifts बहाल','✅ Rejoined — previous shifts restored')); }catch(e){}
-              return;
-            }
-          }
-        }
-      }
-    }catch(e){ console.warn('[otp] rejoin', e); }
-    // Roster auto-link (v6.0.46):
-    // ONLY when mobileUsers still exists and is usable.
-    // After Delete Account (no mobileUsers / removed / forceFreshLogin) → ALWAYS Manager/Member choice.
-    // Do NOT auto-rejoin from employees roster alone.
-    try{
-      const earlyRoster = await _resolveEmpByMobile(mobile);
-      if(earlyRoster && earlyRoster.status!=='resigned' && earlyRoster.status!=='left'
-          && earlyRoster.status!=='left_team' && earlyRoster.status!=='removed'){
-        const mu = await _mpFbGet('mobileUsers/'+mobile);
-        // Local flag set by Delete Account on this device
-        let forceFreshLocal = false;
-        try{ forceFreshLocal = localStorage.getItem('mp_force_fresh_'+mobile)==='1'; }catch(e){}
-        const muGoneOrRemoved = (
-          !mu
-          || mu.status==='removed' || mu.status==='revoked' || mu.status==='left' || mu.status==='left_team'
-          || mu.role==='removed' || mu.forceFreshLogin === true
-        );
-        if(forceFreshLocal || muGoneOrRemoved){
-          // Explicit self-delete / cleared registration → skip roster auto-login
-          try{
-            if(forceFreshLocal){
-              localStorage.removeItem('mp_force_fresh_'+mobile);
-              localStorage.removeItem('mp_force_fresh_at_'+mobile);
-            }
-          }catch(e){}
-          // fall through to Manager/Member registration below
-        } else {
-        const rosterMgr = (typeof _normMobileKey==='function')
-          ? _normMobileKey(earlyRoster.managerId||earlyRoster.managerMobile||'')
-          : String(earlyRoster.managerId||'').replace(/\D/g,'').slice(-10);
-        const rosterIsWorker = (
-          String(earlyRoster.accessLevel||'').toLowerCase()==='worker'
-          || String(earlyRoster.role||'').toLowerCase()==='member'
-          || String(earlyRoster.accessLevel||'').toLowerCase()==='member'
-          || (!!rosterMgr && rosterMgr!==mobile)
-        );
-        const canAutoRoster = (
-          // Classic: approved member/worker in mobileUsers
-          (mu && mu.status==='approved' && (mu.role==='member' || mu.role==='worker'))
-          || (mu && mu.linkedVia==='roster' && mu.status!=='rejected' && mu.status!=='revoked')
-          // Stale manager mobileUsers but employee row is under another manager as worker
-          // (still requires live mobileUsers — not after delete)
-          || (mu && rosterIsWorker && rosterMgr && rosterMgr.length===10 && rosterMgr!==mobile
-              && !(mu.role==='manager' && String(earlyRoster.accessLevel||'').toLowerCase()==='manager'
-                  && String(earlyRoster.managerId||'')===mobile))
-        );
-        // Do NOT auto-login as member if they are still the owning manager of this row
-        const stillOwningMgr = (
-          (String(earlyRoster.accessLevel||'').toLowerCase()==='manager'
-            || String(earlyRoster.role||'').toLowerCase()==='manager')
-          && (!rosterMgr || rosterMgr===mobile)
-        );
-        if(canAutoRoster && !stillOwningMgr){
-          // Force member role on login when roster says worker under another mgr
-          try{
-            if(rosterIsWorker && rosterMgr && rosterMgr!==mobile){
-              earlyRoster._forceMemberLogin = true;
-              earlyRoster._forceManagerId = rosterMgr;
-            }
-          }catch(ex){}
-          const ok = await _loginRosterMemberAfterOtp(mobile, earlyRoster);
-          if(ok) return;
-        }
-        try{ window._otpRosterEmp = earlyRoster; }catch(e){}
-        } // end else (not force-fresh / not deleted)
-      }
-    }catch(e){ console.warn('[otp] early roster', e); }
-
-    let userData=await _mpFbGet('mobileUsers/'+mobile);
-    if(userData){
-      if(userData.status==='pending'){
-        // Team Member pending → if on roster, already handled above; else limited app
-        if(userData.role==='member'){
-          try{
-            await _launchAsNewUser(userData);
-          }catch(e){
-            console.error('[otp] pending member launch', e);
-            showPendingBox(L('आपका Member registration <b>pending</b> है। Manager approve होने तक सीमित access।<br><br>कृपया page refresh करके दोबारा OTP try करें।','Your member registration is <b>pending</b>. Limited access until manager approves.<br><br>Please refresh and try OTP again.'));
-          }
-          setTimeout(()=>{ try{ _watchApprovalStatus(mobile); }catch(e){} }, 800);
-          return;
-        }
-        // Manager or other pending → clear waiting UI (not black)
-        const rLabel=userData.role==='manager'?'Manager':'Member';
-        const name = userData.name || mobile;
-        const msg = userData.role==='manager'
-          ? L('आपका <b>Manager</b> registration (<b>'+name+'</b>) Admin approval का इंतज़ार कर रहा है।','Your <b>Manager</b> registration (<b>'+name+'</b>) is waiting for Admin approval.')
-          : L('आपका registration (<b>'+name+'</b>) approval का इंतज़ार कर रहा है।','Your registration (<b>'+name+'</b>) is waiting for approval.');
-        try{
-          const pendMsg=document.getElementById('pendingMsg');
-          if(pendMsg) pendMsg.innerHTML=msg+'<br><br>'+(userData.role==='manager'?L('VKS Tech Admin वेरिफाई करेगा।','VKS Tech Admin will verify.'):L('आपका Manager अप्रूव करेगा।','Your manager will approve.'));
-          showStep('pending');
-        }catch(e){
-          showPendingBox(msg);
-        }
-        _watchApprovalStatus(mobile);
-        return;
-      }
-      if(userData.status==='rejected'){
-        // Allow fresh re-registration after rejection (clear old record)
-        try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-          try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){}
-        }
-        toast(L('👋 पिछला registration clear — दोबारा Manager/Member चुनें','👋 Previous registration cleared — choose Manager/Member again'));
-        showStep(3);
-        return;
-      }
-      // Revoked / removed / left — treat as deleted: wipe node so next reg is fresh
-      if(userData.status==='revoked' || userData.status==='left_team' || userData.status==='left' || userData.status==='removed' || userData.forceFreshLogin){
-        try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-          try{ await _mpFbSet('mobileUsers/'+mobile, null); }catch(e2){
-            // Last resort: overwrite with tombstone that registration can replace
-            try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e3){}
-          }
-        }
-        // Also clear device approval so no sticky device lock
-        try{
-          const n = (typeof _normMobileKey==='function')?_normMobileKey(mobile):String(mobile||'').replace(/\D/g,'').slice(-10);
-          if(n){ try{ await fbRemove('deviceApprovals/'+n); }catch(x){} }
-          if(userData.empObjId){ try{ await fbRemove('deviceApprovals/'+userData.empObjId); }catch(x){} }
-        }catch(e){}
-        toast(L('👋 Account clear हो गया — दोबारा Manager या Member register करें','👋 Account cleared — register again as Manager or Member'));
-        showStep(3);
-        return;
-      }
-      try{
-        const allEmp = _cache.employees || [];
-        const empHit = allEmp.find(e => _normMobileKey(e.phone||e.mobile||'')===mobile);
-        if(empHit && (empHit.status==='resigned'||empHit.status==='left'||empHit.status==='left_team'||empHit.status==='removed')){
-          try{ await fbRemove('mobileUsers/'+mobile); }catch(e){
-            try{ await _mpFbUpdate('mobileUsers/'+mobile, { status:'removed', role:'removed', managerId:null, forceFreshLogin:true, leftAt:new Date().toISOString() }); }catch(e2){}
-          }
-          toast(L('👋 आप team से remove हो चुके हैं — दोबारा register करें','👋 You were removed from the team — register again'));
-          showStep(3);
-          return;
-        }
-      }catch(e){}
-      if(userData.status==='approved' && userData.forceFreshLogin){
-        try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString() }); }catch(e){}
-        toast(L('👋 Account clear — दोबारा register करें','👋 Account cleared — register again'));
-        showStep(3);
-        return;
-      }
-      if(userData.status==='approved'){
-        if(userData.validTill && new Date(userData.validTill)<new Date()){
-          toast(L('⏰ आपकी access expire हो गई है। Admin से validity बढ़वाएं: +91-8929394920','⏰ Your access has expired. Ask Admin to extend: +91-8929394920')); return;
-        }
-        // v6.0.67: only force re-reg when employee is CONFIRMED left/removed.
-        // Do NOT treat "roster not found" as deleted (lookup can fail for members / slow network).
-        try{
-          const rosterChk = await _resolveEmpByMobile(mobile);
-          const rst = rosterChk ? String(rosterChk.status||'').toLowerCase() : '';
-          const roleMu = String(userData.role||'').toLowerCase();
-          if((roleMu==='member' || roleMu==='worker') && rosterChk
-              && ['resigned','left','left_team','removed','revoked'].indexOf(rst)>=0){
-            try{ await _mpFbSet('mobileUsers/'+mobile, { status:'removed', role:'removed', forceFreshLogin:true, clearedAt:new Date().toISOString(), reason:'stale_member_left_roster' }); }catch(e){}
-            toast(L('👋 Team से remove हो चुके हैं — दोबारा register करें','👋 Removed from team — register again'));
-            showStep(3);
-            return;
-          }
-        }catch(eStale){ console.warn('[otp] stale member check', eStale); }
-        // Notify Admin when approved Manager logs in (OTP already verified here — info + optional Approve for future)
-        if(userData.role==='manager'){
-          try{ await _notifyAdminManagerLoginAttempt(mobile, userData.name); }catch(e){}
-        }
-        // Mobile-first login: never ask Emp Code — but if another device already active, request approve there
-        try{
-          const deviceId = getDeviceId();
-          // Resolve employee by mobile
-          let empMatch = null;
-          try{
-            const employeeSnap = await _mpFbGet('employees');
-            const all = employeeSnap && typeof employeeSnap==='object' ? Object.entries(employeeSnap).filter(([k,v])=>k!=='undefined'&&v&&typeof v==='object').map(([k,v])=>({...v,id:k,_key:k,memberUid:k})) : (_cache.employees||[]);
-            const mobKey = _normMobileKey(mobile);
-            empMatch = all.find(e => _normMobileKey(e.phone||e.mobile||'') === mobKey);
-            if(!empMatch && userData.empObjId) empMatch = all.find(e=>String(e.id)===String(userData.empObjId));
-            if(!empMatch && (userData.empId||userData.empCode)){
-              const code = String(userData.empId||userData.empCode).trim().toUpperCase();
-              empMatch = all.find(e=>String(e.empId||'').trim().toUpperCase()===code);
-            }
-          }catch(e){}
-          const empObjId = (empMatch&&empMatch.id) || userData.empObjId || userData.employeeId || '';
-          // Never authorize a manager's own shift using an unresolved/legacy identity.
-          if(empObjId==='undefined' || empObjId==='null') { toast('Account identity needs verification. Contact admin.'); return; }
-          if(empObjId && (userData.role==='member' || userData.role==='worker' || userData.role==='manager')){
-            let dRec = null;
-            try{ dRec = await _mpFbGet('deviceApprovals/'+empObjId); }catch(e){}
-            if(dRec && dRec.approvedDeviceId && dRec.approvedDeviceId !== deviceId
-                && dRec.validTill && new Date(dRec.validTill) > new Date()){
-              // OTP already verified on this device → auto-claim (no manager/other-device approval)
-              // Manager only gets an info notification later via _notifyManagerMemberLogin
-              try{
-                await _mpFbUpdate('deviceApprovals/'+empObjId, {
-                  approvedDeviceId: deviceId,
-                  approvedAt: new Date().toISOString(),
-                  validTill: new Date(Date.now()+365*86400000).toISOString(),
-                  empName: (empMatch&&empMatch.name)||userData.name||'',
-                  empId: (empMatch&&empMatch.empId)||userData.empId||userData.empCode||'',
-                  mobile: _normMobileKey(mobile),
-                  deviceName: (typeof _guessDeviceLabel==='function'?_guessDeviceLabel():''),
-                  previousDeviceId: dRec.approvedDeviceId||'',
-                  via: 'otp_device_switch'
-                });
-              }catch(e){ console.warn('[device switch]', e); }
-              // continue login below (do not return / do not open approval UI)
-            }
-            // First time / same device → claim this device (CURRENT employee name, not stale mobileUsers)
-            try{
-              const liveName = (empMatch && empMatch.name) || userData.name || '';
-              const liveCode = (empMatch && empMatch.empId) || userData.empId || userData.empCode || '';
-              await _mpFbUpdate('deviceApprovals/'+empObjId, {
-                approvedDeviceId: deviceId,
-                approvedAt: new Date().toISOString(),
-                validTill: new Date(Date.now()+365*86400000).toISOString(),
-                empName: liveName,
-                empId: liveCode,
-                mobile: _normMobileKey(mobile),
-                deviceName: (typeof _guessDeviceLabel==='function'?_guessDeviceLabel():''),
-                via: 'mobile_otp'
-              });
-              // Refresh mobileUsers to current employee identity
-              try{
-                await _syncMobileUserToCurrentEmployee(mobile, userData, { deviceId, via:'mobile_otp' });
-              }catch(e){}
-            }catch(e){}
-          }
-        }catch(e){ console.warn('[mobile login device]', e); }
-        // Prefer live employee identity before launch
-        try{
-          const live = await _resolveEmpByMobile(mobile);
-          if(live && live.name){
-            userData = Object.assign({}, userData, {
-              name: live.name,
-              empId: live.empId || userData.empId,
-              empCode: live.empId || userData.empCode,
-              empObjId: live.id,
-              employeeId: live.id,
-              managerId: userData.managerId || live.managerId || ''
-            });
-          }
-        }catch(e){}
-        // Member/worker login → notify manager (info only, no approval)
-        if(userData.role==='member' || userData.role==='worker'){
-          try{ await _notifyManagerMemberLogin(userData, mobile); }catch(e){}
-        }
-        _launchAsNewUser(userData);
-        // Remember device: offer password / fingerprint if not set
-        try{
-          const empObjId = userData.empObjId || userData.employeeId || '';
-          const deviceId = (typeof getDeviceId==='function') ? getDeviceId() : '';
-          const savedPw = (typeof _getDevicePasswordHash==='function') ? _getDevicePasswordHash(empObjId, mobile) : null;
-          if(!savedPw && empObjId){
-            setTimeout(()=>{
-              try{
-                showSetPasswordScreen(
-                  { id: empObjId, name: userData.name, empId: userData.empId, phone: mobile, mobile: mobile },
-                  deviceId, true, userData, mobile
-                );
-              }catch(e){}
-            }, 900);
-          } else if(empObjId && userData.name){
-            setTimeout(()=>{ try{ registerFingerprint(userData.name, empObjId); }catch(e){} }, 1200);
-          }
-        }catch(e){}
-        return;
-      }
+  } catch (error) {
+    console.warn('[roster identity]', error.code || error.message);
+    if (String(error.code).includes('permission-denied')) {
+      showStep(1);
+      toast(L('फिर से मोबाइल से साइन इन करें या व्यवस्थापक से संपर्क करें।','Sign in again by mobile or contact your administrator.'));
+      return;
     }
-    // No mobileUsers row → always role select (Manager / Member).
-    // Do not force roster auto-login here; user may want to register as Manager.
-    try{
-      const rosterEmp = await _resolveEmpByMobile(mobile);
-      if(rosterEmp) window._otpRosterEmp = rosterEmp;
-    }catch(e){ console.warn('[otp] roster resolve', e); }
-
-    // Truly new mobile → role select (Manager / Member). Never leave blank.
-    showStep(3);
-    setTimeout(function(){
-      try{
-        var step3 = document.getElementById('loginStep3');
-        var login = document.getElementById('loginScreen');
-        var visible = step3 && step3.style.display !== 'none' && login &&
-          (login.classList.contains('show') || login.style.display === 'flex' || login.style.display === 'flex');
-        if(!visible){
-          console.warn('[otp] role step not visible — force showStep(3)');
-          showStep(3);
-        }
-      }catch(e){}
-    }, 400);
-  }catch(err){
-    console.error('_checkUserAfterOTP:',err);
-    try{
-      if(typeof _isAdminMobileQuick==='function' && (_isAdminMobileQuick(_loginMobile) || _isAdminMobileQuick(mobile))){
-        _launchAsHardAdmin(_loginMobile || mobile);
-        return;
-      }
-    }catch(eAd){}
-    // Last chance: roster only if active employee AND mobileUsers approved still exists
-    try{
-      const mobile2=(typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
-      const mu2 = await _mpFbGet('mobileUsers/'+mobile2);
-      const rosterEmp = await _resolveEmpByMobile(mobile2);
-      if(mu2 && mu2.status==='approved' && rosterEmp
-          && rosterEmp.status!=='left_team' && rosterEmp.status!=='removed'
-          && rosterEmp.status!=='resigned' && rosterEmp.status!=='left'){
-        const ok = await _loginRosterMemberAfterOtp(mobile2, rosterEmp);
-        if(ok) return;
-      }
-    }catch(e2){}
-    showStep(3);
-    setTimeout(function(){ try{ showStep(3); }catch(e){} }, 300);
   }
+  showStep(3);
 }
 
 let _approvalWatchActive=false;
 let _approvalPollTimer=null;
+let _approvalWatchGeneration=0;
 function _watchApprovalStatus(mobile){
   if(_approvalWatchActive) return;
   _approvalWatchActive=true;
-
-  const handleUpdate=userData=>{
-    if(!userData) return false;
-    if(userData.status==='approved'){
-      if(userData.validTill && new Date(userData.validTill)<new Date()) return false;
+  const generation = ++_approvalWatchGeneration;
+  const handleUpdate = userData => {
+    if (!_approvalWatchActive || generation !== _approvalWatchGeneration || !userData) return;
+    const uid = window._fbAuth?.currentUser?.uid;
+    if (!uid || userData.accountUid !== uid) return;
+    if (userData.status === 'approved' && !userData.individual && userData.empObjId) {
       _stopApprovalWatch();
-      // Already inside app as pending member → unlock full access without full re-login flash
-      if(SESSION && SESSION.role==='member' && SESSION.pendingApproval){
-        SESSION.status='approved';
-        SESSION.pendingApproval=false;
-        SESSION.name=userData.name||SESSION.name;
-        SESSION.managerId=userData.managerId||SESSION.managerId;
-        saveSession();
-        toast(L('✅ Manager ने approve कर दिया — full access!','✅ Manager approved — full access!'));
-        try{ buildNav().then(()=>{ goTab('home'); renderAll(); }); }catch(e){
-          try{ location.reload(); }catch(e2){}
-        }
-        return true;
+      launchVerifiedRosterSession(window._fbAuth.currentUser.phoneNumber, userData.empObjId)
+        .then(ok => {
+          if (ok) toast(L('Manager ने स्वीकृति दे दी।','Manager approved your request.'));
+        }).catch(error => toast(error.message));
+    } else if (userData.status === 'rejected' || userData.status === 'cancelled') {
+      _stopApprovalWatch();
+      SESSION.joinRequestPending = false;
+      if (!SESSION.rosterLinked) {
+        SESSION.pendingApproval = false;
+        SESSION.status = userData.status;
       }
-      toast(L('✅ स्वीकृत! लॉगिन हो रहा है...','✅ Approved! Logging in...'));
-      _launchAsNewUser(userData);
-      return true;
-    }else if(userData.status==='rejected'){
-      _stopApprovalWatch();
-      toast(L('❌ आपका रजिस्ट्रेशन reject हो गया। VKS Tech से संपर्क करें।','❌ Your registration was rejected. Contact VKS Tech.'));
-      return true;
+      saveSession();
+      if (userData.status === 'rejected') toast(L('Manager ने अनुरोध अस्वीकार किया।','Manager rejected your request.'));
     }
-    return false;
   };
 
   // Primary: realtime listener (instant, but can be affected by tab throttling)
@@ -1504,74 +812,7 @@ function _selectRole(role){
       el.style.background=r===role?'rgba(249,115,22,.08)':'var(--card2)';
     }
   });
-  setTimeout(()=>{ if(role==='manager') showStep('mgrReg'); else { showStep('memReg'); _loadManagerOptions(); } },200);
-}
-
-async function _loadManagerOptions(companyFilter){
-  const sel=document.getElementById('memManagerSelect');
-  const hint=document.getElementById('memNoManagerHint');
-  if(!sel) return;
-  sel.innerHTML='<option value="">-- Loading... --</option>';
-  try{
-    const data=await _mpFbGet('mobileUsers');
-    let managers=data?Object.entries(data).filter(([k,v])=>v && v.role==='manager'&&v.status==='approved'):[];
-    // Smart company match: tokens from company name (e.g. "VKS Tech" → VKS, Tech)
-    // Show managers whose company contains any significant token
-    const rawCo = (companyFilter!=null ? String(companyFilter) : (document.getElementById('memCompany')?.value||'')).trim();
-    function _coTokens(s){
-      return String(s||'').toUpperCase().replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(function(w){
-        return w.length>=2 && !/^(THE|AND|PVT|LTD|LLC|INC|CO|OF|FOR)$/.test(w);
-      });
-    }
-    function _coScore(mgrCo, tokens){
-      const hay = String(mgrCo||'').toUpperCase();
-      if(!tokens.length) return 0;
-      let score = 0;
-      tokens.forEach(function(tok){ if(hay.indexOf(tok)>=0) score += tok.length; });
-      // full phrase boost
-      if(rawCo && hay.indexOf(rawCo.toUpperCase())>=0) score += 100;
-      return score;
-    }
-    const tokens = _coTokens(rawCo);
-    if(tokens.length && managers.length){
-      const scored = managers.map(function(pair){
-        const v = pair[1]||{};
-        const co = v.company || v.companyLabel || v.companyName || '';
-        return { pair: pair, score: _coScore(co, tokens), co: co };
-      });
-      scored.sort(function(a,b){ return b.score - a.score || String(a.pair[1].name||'').localeCompare(String(b.pair[1].name||'')); });
-      const matched = scored.filter(function(s){ return s.score > 0; });
-      // Prefer matched; if none match, show all (so user is not stuck)
-      managers = (matched.length ? matched : scored).map(function(s){ return s.pair; });
-      // Mark matched vs others in label
-      window._mpMgrMatchMeta = scored.reduce(function(acc,s){
-        const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(s.pair[0]||s.pair[1].mobile||'') : String(s.pair[0]||'').replace(/\D/g,'').slice(-10);
-        acc[phoneKey] = s.score;
-        return acc;
-      }, {});
-    } else {
-      window._mpMgrMatchMeta = {};
-    }
-    if(!managers.length){
-      sel.innerHTML='<option value="">-- No Manager available --</option>';
-      if(hint) hint.style.display='block';
-      return;
-    }
-    if(hint) hint.style.display='none';
-    // Always use last-10-digit phone as value so member.managerId matches SESSION.mobile
-    sel.innerHTML='<option value="">-- Select Manager --</option>'+
-      managers.map(([k,v])=>{
-        const phoneKey = (typeof _normMobileKey==='function') ? _normMobileKey(k||v.mobile||v.phone||'') : String(k||'').replace(/\D/g,'').slice(-10);
-        const nm = String(v.name||phoneKey).replace(/"/g,'&quot;').replace(/</g,'');
-        const co = String(v.company||v.companyLabel||'—').replace(/</g,'');
-        const masked = phoneKey && phoneKey.length>=4 ? (phoneKey.slice(0,2)+'●●●●●●'+phoneKey.slice(-2)) : phoneKey;
-        const score = (window._mpMgrMatchMeta && window._mpMgrMatchMeta[phoneKey]) || 0;
-        const tag = score>0 ? ' ★' : '';
-        return `<option value="${escAttr(phoneKey)}" data-name="${escAttr(nm)}" data-company="${escAttr(co)}" data-score="${score}">${escHtml(nm)} (${escHtml(co)})${tag} · ${escHtml(masked)}</option>`;
-      }).join('');
-  }catch(e){
-    sel.innerHTML='<option value="">-- Error loading --</option>';
-  }
+  setTimeout(()=>{ if(role==='manager') showStep('mgrReg'); else showStep('memReg'); },200);
 }
 
 function _toggleOtherField(selectId,otherId){
@@ -1665,301 +906,62 @@ try{
 }catch(e){}
 
 async function _submitManagerReg(){
-  try{
-    const ready = await _mpEnsureFb();
-    if(!ready && typeof fbSet!=='function' && typeof window.fbSet!=='function' && typeof window._fbAccess!=='function'){
-      const errEl0=document.getElementById('mgrRegErr');
-      if(errEl0){ errEl0.textContent=L('❌ Firebase लोड नहीं हुआ — page refresh करें','❌ Firebase not loaded — refresh the page'); errEl0.classList.add('show'); }
-      return;
+  const field = id => document.getElementById(id)?.value.trim() || '';
+  const designation = field('mgrDesignation');
+  const section = field('mgrDepartment');
+  const errorEl = document.getElementById('mgrRegErr');
+  try {
+    const result = await window._fbCall('registerManagerCompany', {
+      name: field('mgrName'), displayName: field('mgrCompany'),
+      designation: designation === 'Others' ? field('mgrDesignationOther') : designation,
+      section: section === 'Others' ? field('mgrDepartmentOther') : section
+    });
+    if (!await launchVerifiedRosterSession(_loginMobile, result.employeeId)) {
+      throw Error(L('फिर से मोबाइल सत्यापित करें।', 'Verify your phone again to sign in.'));
     }
-  }catch(e){}
-  const name=(document.getElementById('mgrName')?.value||'').trim();
-  const comp=(document.getElementById('mgrCompany')?.value||'').trim();
-  let desig=(document.getElementById('mgrDesignation')?.value||'').trim();
-  if(desig==='Others') desig=(document.getElementById('mgrDesignationOther')?.value||'').trim();
-  let dept=(document.getElementById('mgrDepartment')?.value||'').trim();
-  if(dept==='Others') dept=(document.getElementById('mgrDepartmentOther')?.value||'').trim();
-  const errEl=document.getElementById('mgrRegErr');
-  if(!name||!comp||!desig||!dept){
-    if(errEl){ errEl.textContent=L('⚠️ सभी फ़ील्ड अनिवार्य हैं','⚠️ All fields are required'); errEl.classList.add('show'); } return;
-  }
-  // No invite code — any new manager can self-register after OTP (auto-approved)
-  if(!_loginMobile){
-    if(errEl){ errEl.textContent=L('❌ Mobile session lost — OTP दोबारा verify करें','❌ Mobile session lost — verify OTP again'); errEl.classList.add('show'); }
-    toast(L('❌ मोबाइल सत्र खो गया — वापस जाकर ओटीपी फिर सत्यापित करें','❌ Mobile session lost — go back and verify OTP again'));
-    try{ showStep(1); }catch(e){}
-    return;
-  }
-  const mobile=_loginMobile.replace('+91','').replace(/[^0-9]/g,'');
-  if(mobile.length!==10){
-    if(errEl){ errEl.textContent=L('❌ अमान्य मोबाइल — OTP दोबारा करें','❌ Invalid mobile — try OTP again'); errEl.classList.add('show'); }
-    toast(L('❌ अमान्य मोबाइल','❌ Invalid mobile'));
-    try{ showStep(1); }catch(e){}
-    return;
-  }
-  // Free trial days + 200 team size from Admin license settings
-  let accessDefaults = {
-    trialDays: 7,
-    validTill: new Date(Date.now()+7*86400000).toISOString(),
-    paymentPaidUntil: new Date(Date.now()+7*86400000).toISOString(),
-    paidUntil: new Date(Date.now()+7*86400000).toISOString(),
-    teamSize: 200,
-    maxMembers: 200,
-    planMaxMembers: 200,
-    planPeriod: 'monthly',
-    planLabel: 'Monthly · Up to 200 members',
-    paymentTrialGranted: true,
-    paymentTrialDays: 7,
-    paymentUpdatedBy: 'auto_trial_reg'
-  };
-  try{
-    if(typeof _newManagerAccessDefaults === 'function'){
-      accessDefaults = await _newManagerAccessDefaults();
-    } else if(typeof _getAdminFreeTrialDays === 'function'){
-      const td = await _getAdminFreeTrialDays();
-      const end = new Date(); end.setHours(23,59,59,999); end.setDate(end.getDate()+td);
-      const iso = end.toISOString();
-      accessDefaults.validTill = iso;
-      accessDefaults.paymentPaidUntil = iso;
-      accessDefaults.paidUntil = iso;
-      accessDefaults.trialDays = td;
-      accessDefaults.paymentTrialDays = td;
-      accessDefaults.paymentUpdatedBy = 'auto_trial_'+td+'d_reg';
-      accessDefaults.planLabel = 'Monthly · Up to 200 members';
-    }
-  }catch(eAcc){ console.warn('[mgrReg] access defaults', eAcc); }
-
-  const userData={
-    role:'manager',
-    name,
-    mobile:_loginMobile.startsWith('+') ? _loginMobile : ('+91'+mobile),
-    company:comp,
-    designation:desig,
-    department:dept,
-    status:'approved',
-    registeredAt:new Date().toISOString(),
-    autoApproved:true,
-    validTill: accessDefaults.validTill,
-    paymentPaidUntil: accessDefaults.paymentPaidUntil,
-    paidUntil: accessDefaults.paidUntil,
-    teamSize: accessDefaults.teamSize || 200,
-    maxMembers: accessDefaults.maxMembers || 200,
-    planMaxMembers: accessDefaults.planMaxMembers || 200,
-    planPeriod: accessDefaults.planPeriod || 'monthly',
-    planLabel: accessDefaults.planLabel || 'Monthly · Up to 200 members',
-    paymentTrialGranted: true,
-    paymentTrialDays: accessDefaults.paymentTrialDays || accessDefaults.trialDays || 7,
-    paymentUpdatedBy: accessDefaults.paymentUpdatedBy || 'auto_trial_reg',
-    firstLoginAt: new Date().toISOString(),
-    forceFreshLogin: null,
-    removedAt: null,
-    removedBy: null
-  };
-  try{
-    // Overwrite any leftover deleted/removed tombstone so re-login works
-    await _mpFbSet('mobileUsers/'+mobile, userData);
-    // Mirror paymentStatus so Admin list / Pay gate match trial
-    try{
-      if((typeof fbSet==='function'||typeof window.fbSet==='function'||typeof _mpFbSet==='function')){
-        await _mpFbSet('paymentStatus/'+mobile, {
-          mobile: mobile,
-          phone: mobile,
-          name: name,
-          paymentPaidUntil: userData.paymentPaidUntil,
-          paidUntil: userData.paidUntil,
-          validTill: userData.validTill,
-          teamSize: 200,
-          maxMembers: 200,
-          planMaxMembers: 200,
-          planPeriod: 'monthly',
-          planLabel: userData.planLabel,
-          paymentTrialGranted: true,
-          paymentTrialDays: userData.paymentTrialDays,
-          firstLoginAt: userData.firstLoginAt,
-          paymentUpdatedBy: userData.paymentUpdatedBy,
-          updatedAt: new Date().toISOString()
-        });
-      }
-    }catch(ePay){ console.warn('[mgrReg] paymentStatus', ePay); }
-
-    const notifBody = name+' joined as Manager\nCompany: '+comp+'\nDept: '+dept+'\nMobile: '+(_loginMobile||mobile);
-    try{
-      await _mpFbPush('adminNotifications', {
-        type:'manager_joined',
-        title:'🆕 New Manager joined',
-        body: notifBody,
-        name, company:comp, department:dept, mobile:_loginMobile||mobile,
-        message: name+' joined as Manager · '+comp,
-        read:false,
-        at: new Date().toISOString()
-      });
-    }catch(e){ console.warn('[mgrReg] adminNotifications', e); }
-    try{ await notifyAdmin('🆕 New Manager joined', name+' · '+comp+' · '+(_loginMobile||mobile)); }catch(e){}
-    // Auto-add Manager to own Team roster (blank schedule until they add shifts)
-    try{
-      const mgrMob = mobile;
-      const today = new Date().toISOString().slice(0,10);
-      let existingId = null;
-      try{
-        const all = (_cache && _cache.employees) || (typeof getEmps==='function' ? getEmps() : []) || [];
-        const found = (all||[]).find(function(e){
-          if(!e) return false;
-          const ph = String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
-          return ph === mgrMob;
-        });
-        if(found && found.id) existingId = found.id;
-      }catch(x){}
-      const selfEmp = {
-        name: name,
-        empId: '',
-        phone: mgrMob,
-        mobile: mgrMob,
-        company: comp,
-        companyId: comp,
-        companyName: comp,
-        sec: dept || 'General',
-        section: dept || 'General',
-        designation: desig || 'Manager',
-        accessLevel: 'manager',
-        role: 'manager',
-        managerId: mgrMob,
-        status: 'active',
-        joiningDate: today,
-        createdAt: new Date().toISOString(),
-        createdBy: 'mgr_self_register',
-        isManagerSelf: true
-      };
-      if(existingId){
-        await _mpFbUpdate('employees/'+existingId, Object.assign({id:existingId}, selfEmp));
-        try{ userData.empObjId = existingId; }catch(x){}
-        try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: existingId }); }catch(x){}
-      }else if(typeof fbPush==='function'){
-        const newRef = await _mpFbPush('employees', selfEmp);
-        const newId = (newRef && (newRef.key || newRef.name)) || null;
-        if(newId){
-          try{ await _mpFbUpdate('employees/'+newId, {id:newId}); }catch(idErr){ console.warn('[mgrReg] record key saved but id hydration pending',idErr); }
-          try{ userData.empObjId = newId; }catch(x){}
-          try{ await _mpFbUpdate('mobileUsers/'+mgrMob, { empObjId: newId }); }catch(x){}
-          try{
-            if(typeof _cache!=='undefined' && _cache){
-              _cache.employees = _cache.employees || [];
-              _cache.employees.push(Object.assign({id:newId}, selfEmp));
-            }
-          }catch(x){}
-        }
-      }
-      console.log('[mgrReg] self roster ensured', existingId || userData.empObjId || '');
-    }catch(eRoster){ console.warn('[mgrReg] self roster', eRoster); }
-
-    // Browser push for Admin if they allowed notifications on this device earlier (best-effort)
-    try{
-      if(typeof Notification!=='undefined' && Notification.permission==='granted'){
-        new Notification('🆕 New Manager joined', { body: name+' · '+comp, tag:'mgr-join-'+mobile });
-      }
-    }catch(e){}
-
-    const adminPhone = _normMobileKey(CFG.contactAdmin || '8929394920');
-    const waText =
-      '🆕 *New Manager joined — Man Power*\n\n'+
-      '*Name:* '+name+'\n'+
-      '*Company:* '+comp+'\n'+
-      '*Department:* '+dept+'\n'+
-      '*Designation:* '+desig+'\n'+
-      '*Mobile:* '+(_loginMobile||('+91'+mobile))+'\n\n'+
-      '_Auto-approved — no action required._';
-    // Store WA text so Admin can resend from notifications if popup blocked
-    try{ sessionStorage.setItem('mp_pending_mgr_wa', JSON.stringify({phone:adminPhone, text:waText})); }catch(e){}
-
-    toast(L('✅ प्रबंधक खाता तैयार — लॉगिन हो रहा है…','✅ Manager account ready — logging in...'));
-    // Do NOT auto-open WhatsApp here (was causing black screen / navigation issues).
-    // Admin still gets in-app notification. WA text saved for optional later send.
-    try{
-      _launchAsNewUser(userData);
-    }catch(launchErr){
-      console.error('[mgrReg] launch failed', launchErr);
-      toast(L('⚠️ लॉगिन समस्या — पुनः प्रयास…','⚠️ Login shell issue — retrying…'));
-      setTimeout(function(){ try{ _launchAsNewUser(userData); }catch(e2){ try{ location.reload(); }catch(e3){} } }, 400);
-    }
-  }catch(e){
-    console.error('[mgrReg]', e);
-    const msg = (e && e.message) ? e.message : String(e);
-    if(errEl){ errEl.textContent='❌ Error: '+msg; errEl.classList.add('show'); }
-    toast(L('❌ पंजीकरण विफल: ','❌ Registration failed: ')+msg);
-    // Keep Manager form visible — never black screen on write failure
-    try{ showStep('mgrReg'); }catch(e2){}
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.classList.add('show');
   }
 }
-
 
 async function _submitMemberReg(){
   const name=(document.getElementById('memName')?.value||'').trim();
   const comp=(document.getElementById('memCompany')?.value||'').trim();
-  const mgrSel=document.getElementById('memManagerSelect');
-  let managerId=mgrSel?.value||'';
-  const managerName=mgrSel?.selectedOptions?.[0]?.dataset?.name||mgrSel?.selectedOptions?.[0]?.textContent||'';
-  const errEl=document.getElementById('memRegErr');
-  if(!name||!comp){
-    if(errEl){ errEl.textContent=(typeof L==='function'?L('⚠️ नाम और Company अनिवार्य हैं','⚠️ Name and Company are required'):'⚠️ Name and Company required'); errEl.classList.add('show'); } return;
+  const managerId = (document.getElementById('memManagerPhone')?.value || '').trim();
+  const errEl = document.getElementById('memRegErr');
+  const mobile = _registrationPhoneKey(_loginMobile);
+  if (!name || !mobile) {
+    errEl.textContent = L('नाम और सत्यापित मोबाइल ज़रूरी हैं।', 'Name and verified mobile are required.');
+    errEl.classList.add('show');
+    return;
   }
-  if(!managerId){
-    if(errEl){ errEl.textContent=(typeof L==='function'?L('⚠️ कृपया अपना Manager चुनें','⚠️ Please select your Manager'):'⚠️ Please select your Manager'); errEl.classList.add('show'); } return;
-  }
-  // Normalize both sides to last-10 digits so Manager Pending always finds this member
-  const mobile = (typeof _normMobileKey==='function') ? _normMobileKey(_loginMobile) : String(_loginMobile||'').replace(/\D/g,'').slice(-10);
-  managerId = (typeof _normMobileKey==='function') ? _normMobileKey(managerId) : String(managerId).replace(/\D/g,'').slice(-10);
-  if(!mobile || mobile.length!==10){
-    if(errEl){ errEl.textContent='⚠️ Invalid mobile — login again'; errEl.classList.add('show'); } return;
-  }
-  // Pending member: enter app immediately with LIMITED access until Manager approves
   const _memCode=(document.getElementById('memEmpCode')?.value||'').trim();
-  const userData={
-    role:'member', name,
-    displayName: name,
-    mobile: '+91'+mobile,
-    phone: mobile,
-    company:comp,
-    status:'pending', empCode:_memCode, empId:_memCode,
-    managerId: managerId,
-    managerMobile: managerId,
-    managerName: String(managerName).replace(/\s*\(.*\)\s*$/,'').trim(),
-    registeredAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-  try{
-    await _mpFbSet('mobileUsers/'+mobile, userData);
-    try{
-      await _mpFbPush('adminNotifications',{type:'member_registration',...userData,
-        message: name+' registered as Member. Manager: '+(userData.managerName||managerId)});
-    }catch(e){}
-    // Notify manager on phone key AND any empObjId path if resolvable
-    const notif = {
-      type:'member_pending',
-      title:'👤 New team member request',
-      body: name+' wants to join your team',
-      mobile: '+91'+mobile, name, company:comp, memberMobile: mobile,
-      empCode: _memCode, empId: _memCode,
-      managerId: managerId,
-      read:false, at: new Date().toISOString()
-    };
-    try{ await _mpFbPush('userNotifications/'+managerId, notif); }catch(e){}
-    try{
-      // Also push under manager mobileUsers record empObjId if present
-      const mgrRec = await _mpFbGet('mobileUsers/'+managerId);
-      if(mgrRec && (mgrRec.empObjId||mgrRec.employeeId)){
-        await _mpFbPush('userNotifications/'+(mgrRec.empObjId||mgrRec.employeeId), notif);
-      }
-    }catch(e){}
-    toast((typeof L==='function')?L('✅ Register हो गया — Manager approve तक limited access','✅ Registered — limited access until Manager approves'):'✅ Registered — limited access until Manager approves');
-    _launchAsNewUser(userData);
-    setTimeout(()=>{ try{ _watchApprovalStatus(mobile); }catch(e){} }, 800);
-  }catch(e){ if(errEl){ errEl.textContent='❌ Error: '+e.message; errEl.classList.add('show'); } }
+  if (!managerId) {
+    try {
+      const profile = await window._fbCall('registerIndependent', {name, company: comp, code: _memCode});
+      await launchVerifiedRosterSession(_loginMobile, profile.empObjId);
+    } catch (error) {
+      if (errEl) { errEl.textContent = error.message; errEl.classList.add('show'); }
+    }
+    return;
+  }
+  try {
+    const profile = await window._fbCall('manageTeamMembership', {
+      action:'request', name, company:comp, code:_memCode, managerPhone:managerId
+    });
+    toast(L('पंजीकरण पूरा हुआ। प्रबंधक की स्वीकृति बाकी है।','Registered. Manager approval is pending.'));
+    _launchAsNewUser(profile);
+    setTimeout(() => { try { _watchApprovalStatus(mobile); } catch (error) {} }, 800);
+  } catch (error) {
+    if (errEl) { errEl.textContent = error.message; errEl.classList.add('show'); }
+  }
 }
 
 /** Launch session as full Admin from OTP (hard-admin phone list) */
 function _isAdminMobileQuick(m){
   const d = String(m||'').replace(/\D/g,'');
   const last10 = d.slice(-10);
-  if(last10 === '8929397949') return true;
   try{ if(typeof _isHardAdminPhone==='function' && _isHardAdminPhone(m)) return true; }catch(e){}
   try{ if(typeof MP_UTILS!=='undefined' && MP_UTILS.isHardAdminPhone && MP_UTILS.isHardAdminPhone(m)) return true; }catch(e){}
   try{
@@ -2161,26 +1163,26 @@ async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
 }
 
 function _launchAsNewUser(userData){
-  // Safety: never demote hard-admin phone to member/manager
-  const mob = _normMobileKey(userData.mobile||userData.uid||'');
-  if(_isHardAdminPhone(mob)){
-    _launchAsHardAdmin(mob);
-    return;
-  }
+  const mob = _registrationPhoneKey(userData.mobile || userData.uid);
   SESSION.uid=userData.mobile;
+  SESSION.authUid=userData.authUid||'';
+  SESSION.rosterLinked=userData.rosterLinked===true;
   SESSION.name=userData.name;
   SESSION.role=userData.role;
   if(userData.photoUrl) SESSION.photoUrl = userData.photoUrl;
   SESSION.company=userData.company||'';
-  SESSION.companyId=_normCompanyId(userData.company);
+  SESSION.companyId=userData.companyId||'default';
   SESSION.managerId=userData.managerId||'';
+  SESSION.managerUid=userData.managerUid||'';
   SESSION.mobile=userData.mobile;
   SESSION.empId=userData.empId||userData.empCode||'';
   SESSION.empObjId=userData.empObjId||userData.employeeId||'';
   SESSION.status=userData.status||'approved';
   SESSION.pendingApproval=(userData.role==='member' && userData.status==='pending');
+  SESSION.individual=userData.individual===true;
+  SESSION.joinRequestPending=userData.joinRequestPending===true;
   // Sync managerId from employees roster if mobileUsers missing/wrong (fixes 0-member count)
-  try{
+  if(!SESSION.rosterLinked && !SESSION.pendingApproval && /^\d{10}$/.test(mob)) try{
     if(userData.role==='member' || userData.role==='worker'){
       const mobKey = _normMobileKey(userData.mobile||SESSION.mobile||'');
       const all = (_cache.employees||[]);
@@ -2197,7 +1199,7 @@ function _launchAsNewUser(userData){
   SESSION.newUser=true;
   SESSION.loginAt=new Date().toISOString();
   // ALWAYS prefer current employees/{id} by mobile — never keep old member name
-  try{
+  if(!SESSION.rosterLinked && !SESSION.pendingApproval && /^\d{10}$/.test(mob)) try{
     const mobKey = _normMobileKey(userData.mobile||'');
     const all = (_cache.employees||[]);
     const active = all.filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
@@ -2377,95 +1379,13 @@ async function hashPass(str){
 }
 
 async function tryAdminLogin(){
-  const u=(document.getElementById('aUser')?.value||'').trim().toLowerCase();
-  const p=(document.getElementById('aPass')?.value||'').trim();
-  if(!u||!p){ showLoginErrAdmin('Username aur Password daalein'); return; }
-
-  const rl = checkRateLimit('admin');
-  if(!rl.ok){ showLoginErrAdmin('🔒 ' + rl.msg); return; }
-
-  const btn=document.getElementById('aLoginBtn')||(document.querySelector('#adminLoginPanel .big-btn'));
-  if(btn){ btn.innerHTML='⏳ Login ho raha hai...'; btn.style.opacity='0.7'; btn.style.pointerEvents='none'; }
-  const restoreBtn=()=>{ if(btn){ btn.innerHTML=L('🔐 लॉगिन करें','🔐 Login'); btn.style.opacity='1'; btn.style.pointerEvents='auto'; } };
-
-  try{
-    const passHash = await hashPass(u+':'+p+':MP_ADMIN');
-    let adminInfo = null;
-
-    // ── STEP 1: Direct Firebase check (fast, reliable, was always working) ──
-    try{
-      const fbAuthData = await _mpFbGet('adminAuth');
-            if(fbAuthData && fbAuthData[u]){
-        if(fbAuthData[u].h === passHash){
-          adminInfo = {name:fbAuthData[u].name||u.toUpperCase(), role:'Admin'};
-        }
-      }
-    }catch(e){ console.warn('[adminLogin] Firebase read failed:', e.message); }
-
-    // SECURITY: No client-side emergency password fallback (hashes must not ship in the bundle).
-    // If Firebase is unreachable, admin login fails closed — use Console / network recovery.
-
-    if(!adminInfo){
-      recordFailedAttempt('admin');
-      showLoginErrAdmin('❌ Username ya Password galat hai');
-      restoreBtn(); return;
-    }
-
-    // ── STEP 2: Get Firebase Auth token (Cloud Function or anonymous) ──
-    // This runs AFTER password is verified — so login is not blocked by slow CF
-    try{
-      const result = await Promise.race([
-        window._fbCall('adminLogin', { username: u, passHash }),
-        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
-      ]);
-      if(result.data && result.data.token){
-        await window._fbSignInWithToken(result.data.token);
-      }
-    }catch(cfErr){
-      console.warn('[adminLogin] CF auth failed, using anonymous:', cfErr.message);
-      try{ await window._fbSignInAnon(); }catch(e){}
-    }
-
-    resetAttempts('admin');
-    SESSION = {
-      role:'admin', name:adminInfo.name||u.toUpperCase(),
-      empId:u, empObjId:'admin_'+u,
-      adminRole:adminInfo.role||'Admin',
-      loginAt:new Date().toISOString()
-    };
-    saveSession();
-    restoreBtn();
-    writeIntegrityToken();
-    localStorage.setItem('mp_int_ok','1');
-    // Google Analytics — admin login
-    try{
-      if(typeof window._fbLogEvent === 'function'){
-        window._fbLogEvent('admin_login', {
-          method: 'password',
-          admin_user: u,
-          admin_name: adminInfo.name || u,
-          app_name: 'Man Power'
-        });
-        window._fbLogEvent('login', { method: 'admin_password' });
-      }
-    }catch(e){ console.warn('[analytics] admin_login', e); }
-    try{
-      _recordLoginEvent({
-        name: adminInfo.name || u.toUpperCase(),
-        mobile: '—',
-        company: '—',
-        role: 'admin',
-        method: 'admin_password'
-      });
-    }catch(e){}
-    launchApp();
-    listenAdminNotifications();
-    setTimeout(()=>registerFingerprint(adminInfo.name||u.toUpperCase(), 'admin_'+u), 1500);
-  }catch(err){
-    console.error('Admin login error:',err);
-    showLoginErrAdmin('❌ Error: '+err.message);
-    restoreBtn();
-  }
+  try {
+    const user = window._fbAuth?.currentUser;
+    const identity = user && !user.isAnonymous && await window._fbCall('getMyRosterIdentity');
+    if (identity?.admin && user.phoneNumber && await launchVerifiedRosterSession(user.phoneNumber)) return;
+  } catch (error) { console.warn('[admin authentication]', error.code || error.message); }
+  showStep(1);
+  toast(L('एडमिन खाते में सत्यापित मोबाइल से प्रवेश करें।','Sign in to your verified Admin account.'));
 }
 
 async function proceedFromCode(){

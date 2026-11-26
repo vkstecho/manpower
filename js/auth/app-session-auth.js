@@ -12,36 +12,16 @@
 // LAUNCH
 // ════════════════════════════════════════
 
-/** Ensure Firebase RTDB role nodes match SESSION so security rules allow writes.
- *  Managers: managers/{auth.uid}=true when phone-auth user is approved manager.
- *  Admins: admins/{auth.uid}=true for hardcoded admin phones or SESSION.role=admin.
- */
+/** Refresh Firebase claims from server-managed UID grants. */
 async function _syncAuthRoleNodes(){
-  try{
-    const auth = window._fbAuth;
-    if(!auth || !auth.currentUser) return false;
-    const uid = auth.currentUser.uid;
-    if(!uid) return false;
-    // Prefer Custom Claims when present (Admin SDK); still mirror to RTDB nodes for rules fallback
-    try{ if(typeof _refreshIdTokenClaims==='function') await _refreshIdTokenClaims(); }catch(e){}
-    const claims = window.__mpIdTokenClaims || {};
-    const phone = (auth.currentUser.phoneNumber || '').replace(/\s/g,'');
-    const isHardAdmin = _isHardAdminPhone(phone) || _isHardAdminPhone(SESSION.mobile) || SESSION.role==='admin' || claims.admin === true;
-    if(SESSION.role === 'admin' || isHardAdmin || claims.admin === true){
-      try{ await fbSet('admins/'+uid, true); }catch(e){ console.warn('[roleSync] admins write:', e.message); }
-    }
-    if(SESSION.role === 'manager' || isMgr() || isHardAdmin || claims.manager === true || claims.admin === true){
-      try{ await fbSet('managers/'+uid, true); }catch(e){ console.warn('[roleSync] managers write:', e.message); }
-    }
-
-    // Issue/refresh Custom Claims when Cloud Function is deployed
-    try{
-      if(SESSION.role === 'admin' || SESSION.role === 'manager' || isHardAdmin){
-        setTimeout(function(){ try{ _requestRoleClaims({}); }catch(e){} }, 800);
-      }
-    }catch(e){}
+  if (!window._fbAuth?.currentUser) return false;
+  try {
+    await _requestRoleClaims({});
     return true;
-  }catch(e){ console.warn('[roleSync]', e.message); return false; }
+  } catch (error) {
+    console.warn('[roleSync]', error.code || error.message);
+    return false;
+  }
 }
 
 /**

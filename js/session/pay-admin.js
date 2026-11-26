@@ -10,7 +10,7 @@ async function openPaymentSettingsAdmin(){
   const link = (cfg && cfg.link) || '';
   const enabled = !cfg || cfg.enabled !== false;
   const title = (cfg && cfg.title) || ('Pay ₹'+amount+' / month');
-  const message = (cfg && cfg.message) || 'After payment, WhatsApp UTR + your registered mobile to +91-8929394920. Access is enabled within a few minutes.';
+  const message = (cfg && cfg.message) || 'After payment, Email your UTR and registered mobile to CareMP@vkstech.com. Access is enabled within a few minutes.';
   const opts = _getPaymentAmountOptions(cfg);
   window._payAmountOptionsEdit = opts.slice();
   window._payLinksByAmountEdit = Object.assign({}, (cfg && cfg.linksByAmount) || {});
@@ -129,7 +129,7 @@ async function openPaymentSettingsAdmin(){
 
   <button class="big-btn" style="margin-top:8px" onclick="savePaymentSettingsAdmin()">💾 Save payment settings</button>
   <div style="margin:14px 0;padding:12px;border-radius:12px;border:1px solid rgba(249,115,22,.4);background:rgba(249,115,22,.08)">
-    <div style="font-size:13px;font-weight:900;margin-bottom:6px">🎬 Landing videos — 4 URLs (Admin · 8929397949)</div>
+    <div style="font-size:13px;font-weight:900;margin-bottom:6px">🎬 Landing videos — 4 URLs (Admin)</div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.45">
       Set <b>English</b> and <b>Hindi</b> videos. Landing page shows EN or HI set based on language toggle.
       YouTube / youtu.be / MP4. After <b>Save</b> + <b>Publish to landing page</b>.
@@ -165,7 +165,7 @@ async function openPaymentSettingsAdmin(){
     <select id="pay_user" class="inp-field">${userOpts}</select>
   </div>
   <div class="field"><label>Or type mobile (10 digits) — for users missing from list</label>
-    <input id="pay_user_manual" type="tel" inputmode="numeric" maxlength="14" class="inp-field" placeholder="e.g. 8929394920" autocomplete="off">
+    <input id="pay_user_manual" type="tel" inputmode="numeric" maxlength="14" class="inp-field" placeholder="e.g. 9000000000" autocomplete="off">
     <div style="font-size:10px;color:var(--muted2);margin-top:4px">Use this when the number is not in the dropdown (deleted / rejoined / paymentStatus-only).</div>
   </div>
   <div class="field"><label>Subscription amount</label>
@@ -397,7 +397,7 @@ function payAmountListRemove(i){
 
 
 
-/** Landing video URLs — Admin only (hard admin 8929397949). Stored at settings/landingVideos */
+/** Landing video URLs — Admin only. Stored at settings/landingVideos */
 async function loadLandingVideosAdmin(){
   try{
     if(typeof fbGet!=='function') return {};

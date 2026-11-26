@@ -40,8 +40,9 @@
         resolve(val);
       }
       try {
+        if (!window.MP_FIREBASE_CONFIG?.databaseURL) { finish(null); return; }
         var url =
-          'https://metpowervks-default-rtdb.asia-southeast1.firebasedatabase.app/publicOffer.json';
+          (window.MP_FIREBASE_CONFIG?.databaseURL || '').replace(/\/$/, '') + '/publicOffer.json';
         fetch(url, { method: 'GET', cache: 'no-store' })
           .then(function (r) {
             return r.ok ? r.json() : null;

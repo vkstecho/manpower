@@ -56,17 +56,11 @@ async function saveChangeCompanyName(){
       const ok = await _ensureWriteAuth();
       if(!ok){ toast(L('❌ पहले इस device पर Phone verify करें','❌ Phone verify on this device first')); return; }
     }
-    const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-    if(!mob){ toast(L('❌ सत्र में मोबाइल नहीं मिला','❌ Mobile not found in session')); return; }
-    await fbUpdate('mobileUsers/'+mob, { company: name, companyUpdatedAt: new Date().toISOString() });
-    try{ await fbUpdate('managers/'+mob, { company: name }); }catch(e){}
-    SESSION.company = name;
-    try{ SESSION.companyId = (typeof _normCompanyId==='function') ? _normCompanyId(name) : name; }catch(e){ SESSION.companyId = name; }
-    try{ saveSession(); }catch(e){}
-    // Propagate new name to all team employee records so Admin company list is not stale
-    let synced = 0;
-    try{ if(typeof _syncCompanyLabelToTeam==='function') synced = await _syncCompanyLabelToTeam(name); }catch(e){}
-    toast(L('✅ कंपनी नाम अपडेट'+(synced?' · '+synced+' टीम':'') ,'✅ Company name updated'+(synced?' · '+synced+' team records':'')));
+    const result = await window._fbCall('renameManagerCompany', {displayName: name});
+    SESSION.company = result.displayName;
+    SESSION.companyLabel = result.displayName;
+    saveSession();
+    toast(L('कंपनी का नाम अपडेट किया गया।', 'Company name updated.'));
     closeModal();
     try{ if(typeof renderCompanySwitcher==='function') renderCompanySwitcher(); }catch(e){}
     try{ showProfile(); }catch(e){}
@@ -644,6 +638,12 @@ function _updateSchedAdminVisibility(){
   _show('minManpowerBtn', isTrueMgr);
   _show('uploadSchedBtn', isTrueMgr);
   _show('empReorderBtn', isTrueMgr);
+  const historicalReview = document.getElementById('historicalReviewBtn');
+  if (historicalReview) {
+    historicalReview.hidden = !isAdmin();
+    historicalReview.style.display = historicalReview.hidden ? 'none' : '';
+    historicalReview.textContent = L('ऐतिहासिक शिफ्ट रिकॉर्ड','Historical shift records');
+  }
   // Print / Excel: managers always; delegated editors optional
   _show('printBtn', isTrueMgr || canEdit);
   _show('excelBtn', isTrueMgr || canEdit);
@@ -925,38 +925,12 @@ function getBaseShift(emp, dateStr){
         if(hit != null) return hit;
       }
     }catch(x){}
-    // SESSION empId (manager viewing own schedule)
-    try{
-      if(typeof SESSION!=='undefined' && SESSION && SESSION.empId){
-        hit = tryKey(sched, String(SESSION.empId).trim());
-        if(hit != null) return hit;
-      }
-    }catch(x){}
-    // Loose match current code without leading zeros
-    if(codeRaw){
-      const code = codeRaw.replace(/^0+/,'').toUpperCase();
-      for(const k of Object.keys(sched)){
-        const kk = String(k).replace(/^0+/,'').toUpperCase();
-        if(kk === code) return sched[k];
-      }
+    // A viewer's code or mobile must never supply another employee's day.
+    const ownPhone = String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
+    if(ownPhone.length===10){
+      hit = tryKey(sched, ownPhone) || tryKey(sched, 'M_'+ownPhone);
+      if(hit != null) return hit;
     }
-    // Phone keys (mobile is durable identity across companies)
-    try{
-      const ph = (typeof _normMobileKey==='function')
-        ? _normMobileKey(emp.phone||emp.mobile||'')
-        : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
-      if(ph && ph.length===10){
-        hit = tryKey(sched, ph) || tryKey(sched, 'M_'+ph);
-        if(hit != null) return hit;
-      }
-      if(typeof SESSION!=='undefined' && SESSION){
-        const sph=(typeof _normMobileKey==='function')?_normMobileKey(SESSION.mobile||SESSION.uid||''):'';
-        if(sph && sph.length===10){
-          hit = tryKey(sched, sph) || tryKey(sched, 'M_'+sph);
-          if(hit != null) return hit;
-        }
-      }
-    }catch(x){}
     return null;
   }
   // Prefer first non-empty among Firebase schedule + in-memory Excel
@@ -1005,8 +979,7 @@ function getShift(emp, dateStr){
   const keys = [];
   if(emp._key && emp._key!=='undefined') keys.push(emp._key+'_'+dateStr);
   if(emp.id && emp.id!=='undefined' && !keys.includes(emp.id+'_'+dateStr)) keys.push(emp.id+'_'+dateStr);
-  // Legacy read-only compatibility: historical overrides may have used employee code.
-  if(emp.empId) keys.push(String(emp.empId)+'_'+dateStr);
+  // The backend projects reviewed historical overrides onto canonical employee keys.
 
   for(const k of keys){
     if(ov[k] != null && ov[k] !== ''){
@@ -1145,7 +1118,7 @@ function mpShiftBadgeHtml(code, opts){
   const cls = (typeof cellClass==='function' ? cellClass(code) : '') || '';
   const w = opts.w || 28;
   const h = opts.h || 24;
-  const fs = opts.fs || 13;
+  const fs = String(code||'').split('+').length>=3 ? Math.min(opts.fs||13,8) : (opts.fs || 13);
   const extra = opts.extraStyle || '';
   // Font colour MUST match Schedule: D=#000 black, N/G=#fff white (never inherit parent muted colour)
   return '<span class="shc shc-sm '+cls+'" data-shift="'+String(cls).replace(/"/g,'')+'" style="'+
@@ -1497,9 +1470,10 @@ function _countShiftCodesForDate(emps, dateStr){
   (emps||[]).forEach(e=>{
     try{
       let sh = (typeof getShift==='function') ? getShift(e, dateStr) : '';
+      const work = typeof parseShiftWorkCodes==='function' ? parseShiftWorkCodes(sh) : [];
       sh = _normShiftCode(sh);
-      if(!sh) return;
-      counts[sh] = (counts[sh]||0) + 1;
+      if(!sh && !work.length) return;
+      for(const code of new Set(work.length ? work : [sh])) counts[code] = (counts[code]||0) + 1;
     }catch(err){}
   });
   return counts;
@@ -1528,6 +1502,7 @@ function _homeTodaySummaryHtml(){
 
     const counts = _countShiftCodesForDate(emps, ymd);
     const total = emps.length;
+    const generalMin = Math.max(0,Number((typeof getShiftConfigSync==='function'?getShiftConfigSync():{}).minGeneralTotal)||0);
     const en = (typeof _lang!=='undefined' && _lang!=='hi');
 
     // Preferred display order
@@ -1551,7 +1526,7 @@ function _homeTodaySummaryHtml(){
     const cards = [];
     order.forEach(code=>{
       const n = counts[code] || 0;
-      if(n <= 0) return;
+      if(n <= 0 && !(code==='G' && generalMin>0)) return;
       seen.add(code);
       cards.push({code, n, label: labels[code]||code, color: colors[code]||'#64748b'});
     });
@@ -1567,7 +1542,8 @@ function _homeTodaySummaryHtml(){
     let html = `<div class="today-summary today-summary-split" style="display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px" aria-label="Today shift split">
       <div class="today-summary-card" style="${cardStyle}"><div class="today-summary-val" style="${valStyle};color:var(--green)">${total}</div><div class="today-summary-lbl" style="${lblStyle}">${lblTotal}</div></div>`;
     cards.forEach(c=>{
-      html += `<div class="today-summary-card" style="${cardStyle}"><div class="today-summary-val" style="${valStyle};color:${c.color}">${c.n}</div><div class="today-summary-lbl" style="${lblStyle}">${escHtml(c.label)}</div></div>`;
+      const warn = c.code==='G' && generalMin>0 && c.n<generalMin;
+      html += `<div class="today-summary-card" style="${cardStyle}${warn?';border:2px solid #dc2626;background:rgba(220,38,38,.10)':''}"><div class="today-summary-val" style="${valStyle};color:${warn?'#dc2626':c.color}">${warn?'⚠ '+c.n+'/'+generalMin:c.n}</div><div class="today-summary-lbl" style="${lblStyle}">${escHtml(c.label)}</div></div>`;
     });
     html += `</div>`;
     return html;
@@ -1693,10 +1669,7 @@ try {
 
 
 // ══════════════════════════════════════════════════════════════
-// v6.0.44 — Member Leave team (soft) + Self-upgrade to Manager
-// Phone remains durable identity; history never wiped.
-// ══════════════════════════════════════════════════════════════
-
+// Member role changes keep the canonical employee and Auth UID.
 function openMemberLeaveTeamModal(){
   try{ if(typeof closeModal==='function') closeModal(); }catch(e){}
   const Lfn = (typeof L==='function') ? L : (h,e)=>e||h;
@@ -1704,11 +1677,11 @@ function openMemberLeaveTeamModal(){
     <div style="padding:4px 2px 8px">
       <div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:6px">👋 ${Lfn('Leave this team','Leave this team')}</div>
       <div style="font-size:13px;color:var(--muted2);line-height:1.5;margin-bottom:12px">
-        ${Lfn('टीम का रोस्टर नहीं दिखेगा जब तक Manager आपको दोबारा add न करे। आपकी शिफ्ट हिस्ट्री मोबाइल नंबर पर सुरक्षित रहेगी।',
-              'You will not see this team roster until the Manager adds you again. Your shift history stays linked to your mobile number.')}
+        ${Lfn('टीम छोड़ने के बाद आप स्वतंत्र उपयोगकर्ता होंगे और आपकी शिफ्ट हिस्ट्री आपके खाते में रहेगी।',
+              'After leaving, you will be an independent user. Your shift history stays with your account.')}
       </div>
       <ul style="font-size:12px;color:var(--muted2);line-height:1.55;margin:0 0 14px 18px;padding:0">
-        <li>${Lfn('स्टेटस: left_team','Status becomes left_team')}</li>
+        <li>${Lfn('आपका खाता और कर्मचारी आईडी वही रहेंगे','Your account and employee ID stay the same')}</li>
         <li>${Lfn('My Shift / व्यक्तिगत हिस्ट्री बनी रहती है','My Shift / personal history remains')}</li>
         <li>${Lfn('Manager की टीम लिस्ट से हट जाएंगे','Removed from Manager live team list')}</li>
       </ul>
@@ -1730,86 +1703,7 @@ async function confirmMemberLeaveTeam(){
     try{ document.getElementById('memberLeaveConfirm')?.focus(); }catch(e){}
     return;
   }
-  const phone = (typeof _normMobileKey==='function')
-    ? _normMobileKey(SESSION.mobile||SESSION.phone||'')
-    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
-  if(!phone){
-    if(typeof toast==='function') toast(Lfn('❌ Mobile नहीं मिला','❌ Mobile not found'));
-    return;
-  }
-  let emp = null;
-  try{
-    if(typeof _myEmployeeRecord==='function') emp = _myEmployeeRecord();
-    if(!emp && typeof _findOwnEmployeeRecord==='function') emp = _findOwnEmployeeRecord();
-  }catch(e){}
-  const empId = (emp && emp.id) || SESSION.empObjId || '';
-  const parentMgr = (emp && (emp.managerId||emp.managerMobile)) || SESSION.managerId || '';
-  const now = new Date().toISOString();
-  try{
-    if(empId && typeof fbUpdate==='function'){
-      await fbUpdate('employees/'+empId, {
-        status: 'left_team',
-        leftAt: now,
-        leftTeamAt: now,
-        leftFromManagerId: parentMgr || null,
-        leftReason: 'member_self_leave',
-        updatedAt: now,
-        active: false
-      });
-    }
-    if(typeof fbUpdate==='function'){
-      await fbUpdate('mobileUsers/'+phone, {
-        status: 'left_team',
-        role: 'member',
-        leftAt: now,
-        leftFromManagerId: parentMgr || null,
-        currentTeamManagerId: null,
-        updatedAt: now
-      }).catch(function(){});
-    }
-    // Archive snapshot for manager "left members" list
-    try{
-      if(empId && typeof fbSet==='function'){
-        await fbSet('leftEmployees/'+empId, Object.assign({}, emp||{}, {
-          id: empId,
-          status: 'left_team',
-          leftAt: now,
-          leftReason: 'member_self_leave',
-          managerId: parentMgr,
-          phone: phone,
-          name: SESSION.name || (emp && emp.name) || '',
-          archivedAt: Date.now(),
-          removedBy: 'self'
-        }));
-      }
-    }catch(ex){}
-    try{
-      if(_cache && Array.isArray(_cache.employees) && empId){
-        const ix = _cache.employees.findIndex(e=>e && e.id===empId);
-        if(ix>=0){
-          _cache.employees[ix].status = 'left_team';
-          _cache.employees[ix].leftAt = now;
-        }
-      }
-    }catch(ex){}
-    SESSION.status = 'left_team';
-    try{
-      const raw = localStorage.getItem('mp_session');
-      if(raw){
-        const s = JSON.parse(raw);
-        s.status = 'left_team';
-        localStorage.setItem('mp_session', JSON.stringify(s));
-      }
-    }catch(ex){}
-    if(typeof toast==='function') toast(Lfn('✅ टीम छोड़ दी — अपनी हिस्ट्री सुरक्षित है','✅ Left team — your history is safe'));
-    try{ closeModal(); }catch(e){}
-    try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
-    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
-    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
-  }catch(err){
-    console.error('[confirmMemberLeaveTeam]', err);
-    if(typeof toast==='function') toast(Lfn('❌ Leave failed: ','❌ Leave failed: ')+(err && err.message || err));
-  }
+  await _submitMemberRoleChange('leave');
 }
 
 function openUpgradeToManagerModal(){
@@ -1819,17 +1713,9 @@ function openUpgradeToManagerModal(){
     <div style="padding:4px 2px 8px">
       <div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:6px">⬆️ ${Lfn('Upgrade to Manager','Upgrade to Manager')}</div>
       <div style="font-size:13px;color:var(--muted2);line-height:1.5;margin-bottom:10px">
-        ${Lfn('आप अपनी टीम जोड़ सकेंगे। ऊपर वाले Manager की टीम सिर्फ देख पाएंगे (एडिट तभी जब उन्होंने अधिकार दिए हों)। उनके members को आप नहीं लेते।',
-              'You can add your own team. You only view the parent Manager’s team (edit only if they granted authority). You do not take their members.')}
+        ${Lfn('आप उसी कंपनी में अपनी टीम प्रबंधित कर सकेंगे। आपकी शिफ्ट हिस्ट्री और कर्मचारी आईडी वही रहेंगी।',
+              'You can manage your own team within the same company. Your shift history and employee ID stay the same.')}
       </div>
-      <ul style="font-size:12px;color:var(--muted2);line-height:1.55;margin:0 0 14px 18px;padding:0">
-        <li>${Lfn('Parent Manager आपके नीचे के members नहीं देखेगा','Parent Manager will not see members under you')}</li>
-        <li>${Lfn('Billing: आपकी टीम साइज़ = सीधे आपके members','Billing: your team size = your direct members')}</li>
-        <li>${Lfn('शिफ्ट हिस्ट्री उसी मोबाइल पर रहती है','Shift history stays on this mobile')}</li>
-      </ul>
-      <label style="font-size:12px;font-weight:700;color:var(--text)">${Lfn('Company name (आपकी टीम)','Company name (your team)')}</label>
-      <input class="inp-field" id="upgradeMgrCompany" placeholder="${Lfn('कंपनी / टीम नाम','Company / team name')}"
-        value="${(SESSION.company||SESSION.companyLabel||'').replace(/"/g,'&quot;')}" style="margin-top:6px">
       <label style="font-size:12px;font-weight:700;color:var(--text);margin-top:10px;display:block">${Lfn('पुष्टि: MANAGER लिखें','Type MANAGER to confirm')}</label>
       <input class="inp-field" id="upgradeMgrConfirm" placeholder="MANAGER" autocomplete="off"
         style="margin-top:6px;text-transform:uppercase;letter-spacing:1px">
@@ -1848,115 +1734,20 @@ async function confirmUpgradeToManager(){
     try{ document.getElementById('upgradeMgrConfirm')?.focus(); }catch(e){}
     return;
   }
-  const company = (document.getElementById('upgradeMgrCompany')?.value||'').trim().slice(0,80);
-  const phone = (typeof _normMobileKey==='function')
-    ? _normMobileKey(SESSION.mobile||SESSION.phone||'')
-    : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
-  if(!phone || phone.length!==10){
-    if(typeof toast==='function') toast(Lfn('❌ Mobile नहीं मिला','❌ Mobile not found'));
-    return;
-  }
-  let emp = null;
-  try{
-    if(typeof _myEmployeeRecord==='function') emp = _myEmployeeRecord();
-    if(!emp && typeof _findOwnEmployeeRecord==='function') emp = _findOwnEmployeeRecord();
-  }catch(e){}
-  const empId = (emp && emp.id) || SESSION.empObjId || '';
-  // Keep parent link — do NOT re-point siblings
-  const parentMgr = (emp && (emp.managerId||emp.managerMobile)) || SESSION.managerId || '';
-  const parentKey = (typeof _normMobileKey==='function') ? _normMobileKey(parentMgr) : String(parentMgr||'').replace(/\D/g,'').slice(-10);
-  const now = new Date().toISOString();
-  try{
-    // 1) mobileUsers FIRST — role flip unlocks employees writes under manager rules
-    const muPatch = {
-      role: 'manager',
-      status: 'approved',
-      pendingApproval: false,
-      managesTeam: true,
-      isTeamManager: true,
-      parentManagerId: (parentKey && parentKey!==phone) ? parentKey : null,
-      managerId: (parentKey && parentKey!==phone) ? parentKey : null,
-      company: company || SESSION.company || '',
-      companyLabel: company || SESSION.companyLabel || SESSION.company || '',
-      name: SESSION.name || (emp && emp.name) || '',
-      upgradedToManagerAt: now,
-      updatedAt: now,
-      teamSize: 0,
-      mobile: '+91'+phone,
-      phone: phone
-    };
-    if(typeof fbSet==='function'){
-      const prev = (typeof fbGet==='function') ? (await fbGet('mobileUsers/'+phone).catch(()=>null)) || {} : {};
-      await fbSet('mobileUsers/'+phone, Object.assign({}, prev, muPatch));
-    } else if(typeof fbUpdate==='function'){
-      await fbUpdate('mobileUsers/'+phone, muPatch);
+  await _submitMemberRoleChange('upgrade');
+}
+
+async function _submitMemberRoleChange(action){
+  try {
+    const profile = await window._fbCall('manageTeamMembership', {action});
+    if (!await launchVerifiedRosterSession(window._fbAuth?.currentUser?.phoneNumber,
+        profile.empObjId || profile.employeeId)) {
+      throw Error(L('अपना खाता खोलने के लिए फिर साइन इन करें।','Sign in again to open your updated account.'));
     }
-    // managers index (best-effort)
-    try{
-      if(typeof fbSet==='function'){
-        await fbSet('managers/'+phone, {
-          mobile: phone,
-          name: muPatch.name,
-          company: muPatch.company,
-          role: 'manager',
-          status: 'approved',
-          updatedAt: now
-        });
-      }
-    }catch(_mgrIdx){ console.warn('[upgrade] managers index', _mgrIdx); }
-    // 2) Employee row after mobileUsers is manager (rules allow manager writes)
-    if(empId && typeof fbUpdate==='function'){
-      const patch = {
-        role: 'manager',
-        accessLevel: 'manager',
-        isTeamManager: true,
-        managesTeam: true,
-        status: 'active',
-        updatedAt: now,
-        upgradedToManagerAt: now
-      };
-      if(parentKey && parentKey !== phone){
-        patch.managerId = parentKey;
-        patch.parentManagerId = parentKey;
-      }
-      if(company){
-        patch.company = company;
-        patch.companyLabel = company;
-      }
-      try{
-        await fbUpdate('employees/'+empId, patch);
-        try{ if(emp) Object.assign(emp, patch); }catch(ex){}
-      }catch(empErr){
-        console.warn('[upgrade] employees patch (non-fatal)', empErr);
-        // mobileUsers already upgraded — still succeed for login role
-      }
-    }
-    // Session flip to manager
-    SESSION.role = 'manager';
-    SESSION.status = 'approved';
-    SESSION.parentManagerId = (parentKey && parentKey!==phone) ? parentKey : '';
-    if(parentKey && parentKey!==phone) SESSION.managerId = parentKey;
-    if(company){ SESSION.company = company; SESSION.companyLabel = company; }
-    try{
-      const raw = localStorage.getItem('mp_session');
-      if(raw){
-        const s = JSON.parse(raw);
-        s.role = 'manager';
-        s.status = 'approved';
-        s.parentManagerId = SESSION.parentManagerId;
-        s.managerId = SESSION.managerId;
-        if(company){ s.company = company; s.companyLabel = company; }
-        localStorage.setItem('mp_session', JSON.stringify(s));
-      }
-    }catch(ex){}
-    if(typeof toast==='function') toast(Lfn('✅ अब आप Manager हैं — अपनी टीम जोड़ें','✅ You are a Manager — add your team'));
-    try{ closeModal(); }catch(e){}
-    try{ if(typeof renderTeam==='function') renderTeam(); }catch(e){}
-    try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
-    try{ if(typeof showProfile==='function') setTimeout(showProfile, 400); }catch(e){}
-  }catch(err){
-    console.error('[confirmUpgradeToManager]', err);
-    if(typeof toast==='function') toast(Lfn('❌ Upgrade failed: ','❌ Upgrade failed: ')+(err && err.message || err));
+    closeModal();
+    location.reload();
+  } catch (error) {
+    toast(error.message);
   }
 }
 

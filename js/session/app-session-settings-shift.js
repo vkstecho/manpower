@@ -118,6 +118,7 @@ if(d.minAll==null) d.minAll = 4;
   if(d.minSup==null) d.minSup = 2;
   if(!d.minBySec || typeof d.minBySec !== 'object') d.minBySec = {};
   if(d.minGeneralTotal==null) d.minGeneralTotal = 0;
+  if(d.compOffLookbackDays==null) d.compOffLookbackDays=31;
   if(!d.minByField || typeof d.minByField !== 'object') d.minByField = { section:{}, machine:{}, responsibility:{}, designation:{} };
   ['section','machine','designation','responsibility'].forEach(k=>{ if(!d.minByField[k]) d.minByField[k]={}; });
   if(!d.minFieldActive || typeof d.minFieldActive !== 'object'){
@@ -267,6 +268,14 @@ d.shiftCount = d.shifts.filter(s=>s.active).length;
   <div style="font-size:10px;color:#64748b;margin-bottom:8px">Shown only in Schedule → All (total manpower). 0 = no G warning. This is NOT machine-wise.</div>
   <label style="display:block;margin-bottom:12px"><span style="font-size:10px;color:var(--muted2)">Minimum General Shift manpower across entire team</span>
   <input id="ss_minGeneralTotal" type="number" min="0" max="999" value="${Math.max(0,Number(d.minGeneralTotal)||0)}" style="display:block;width:100%;padding:9px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:13px;font-weight:800;text-align:center" oninput="_shiftDraft.minGeneralTotal=Math.max(0,Number(this.value)||0)"></label>
+  <div style="margin:14px 0 12px;padding:12px;border:1px solid var(--border2);border-radius:12px;background:var(--card)">
+    <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:5px">📅 ${L('Comp Off Policy — पिछली Duty की सीमा','Comp Off Policy — Eligible Duty Lookback')}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:8px;line-height:1.5">${L('आपकी टीम के लिए C-Off देते समय कितने दिन पुरानी Weekly Off/Holiday duty स्वीकार होगी? डिफ़ॉल्ट 31 दिन।','How many days back may a manager select Weekly Off/Holiday duty when marking C-Off for team members? Default: 31 days.')}</div>
+    <label style="display:block;font-size:11px;font-weight:700;color:var(--text)">${L('पिछली Duty की अधिकतम उम्र (दिन)','Maximum duty lookback (days)')}
+      <input id="ss_compOffLookbackDays" type="number" min="1" max="365" step="1" value="${Math.min(365,Math.max(1,Math.round(Number(d.compOffLookbackDays)||31)))}" style="display:block;margin-top:6px;width:160px;max-width:100%;padding:9px;border-radius:8px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:800;text-align:center" oninput="_shiftDraft.compOffLookbackDays=Math.min(365,Math.max(1,Math.round(Number(this.value)||31)))">
+    </label>
+    <div style="font-size:10px;color:var(--muted2);margin-top:7px">${L('1–365 दिन। सीमा C-Off की तारीख से गिनी जाएगी।','1–365 days. The window is measured backwards from the C-Off date.')}</div>
+  </div>
   <div style="font-size:11px;font-weight:800;color:#a78bfa;margin:8px 0 6px">Responsibility <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
   <div id="ss_minResp" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">${_renderDynamicMinRows('responsibility')}</div>
   <div style="font-size:11px;font-weight:800;color:#4ade80;margin:8px 0 6px">Designation <span style="font-weight:600;color:#64748b">(0 = skip this value)</span></div>
@@ -645,6 +654,7 @@ async function _saveShiftSettings(){
     }
   }catch(e){ /* keep existing sequence */ }
   _shiftDraft.minGeneralTotal=Math.max(0,Number(_shiftDraft.minGeneralTotal)||0);
+  _shiftDraft.compOffLookbackDays=Math.min(365,Math.max(1,Math.round(Number(_shiftDraft.compOffLookbackDays)||31)));
   _shiftDraft.minAll = Number(_shiftDraft.minAll)||0;
   _shiftDraft.minMet = Number(_shiftDraft.minMet)||0;
   _shiftDraft.minSlit = Number(_shiftDraft.minSlit)||0;

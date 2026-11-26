@@ -372,7 +372,7 @@ async function showProfile(){
     const roleLabel = isMgr()?'🏅 Manager':isSupervisor()?'👁️ Supervisor':'👤 User';
     openModal(`<div class="modal-handle"></div>
     <div class="modal-scroll-body" style="text-align:center;padding:10px 0 48px;min-height:0" data-v="v5.1.13-profile-spacer">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:#fff;font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img src="${SESSION.photoUrl}" style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:#fff;font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img ${mpMediaAttr(SESSION.photoUrl)} style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
       <div style="font-size:20px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px">${(SESSION.role==='manager'||SESSION.role==='member')?(function(){ const s=String(SESSION.mobile||'').replace(/\s/g,''); if(s.startsWith('+91')&&s.length>=13) return '📱 +91 '+s.slice(3,8)+' '+s.slice(8); if(s.length===10) return '📱 +91 '+s.slice(0,5)+' '+s.slice(5); return '📱 '+(SESSION.mobile||'—'); })():escHtml((SESSION.empId||'—')+' · '+secLabel)}</div>
       <div style="margin-top:6px"><span style="background:rgba(249,115,22,.15);color:#f97316;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:800">${roleLabel}</span></div>
@@ -445,7 +445,7 @@ async function showProfile(){
         <div><div class="pa-label">${L('Leave team / Transfer Manager','Leave team / Transfer Manager')}</div><div class="pa-sub">${L('किसी सदस्य को नया Manager बनाकर टीम छोड़ें','Promote a member and leave the team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
-      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='left' && SESSION.status!=='individual' && !SESSION.individual ? `<button type="button" class="profile-action" onclick="openMemberLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.rosterLinked && SESSION.managerUid && !SESSION.pendingApproval && !SESSION.individual ? `<button type="button" class="profile-action" onclick="openMemberLeaveTeamModal()" style="border-color:rgba(244,63,94,.35)">
         <div class="pa-icon" style="background:rgba(244,63,94,.12)">👋</div>
         <div><div class="pa-label">${L('Leave this team','Leave this team')}</div><div class="pa-sub">${L('रोस्टर नहीं दिखेगा · अपनी शिफ्ट हिस्ट्री रहेगी','Hide team roster · keep your shift history')}</div></div>
         <div class="pa-arrow">›</div>
@@ -456,7 +456,7 @@ async function showProfile(){
           var ind=!!SESSION.individual || st==='individual' || st==='left_team' || st==='left'
             || ((SESSION.role==='member'||SESSION.role==='worker') && !SESSION.managerId);
           if(!ind && SESSION.role!=='member' && SESSION.role!=='worker') return '';
-          if(!ind) return '';
+          if(!ind || !SESSION.rosterLinked || SESSION.joinRequestPending) return '';
           return '<button type="button" class="profile-action" onclick="openJoinTeamModal()" style="border-color:rgba(37,99,235,.45)">'
             +'<div class="pa-icon" style="background:rgba(37,99,235,.12)">👥</div>'
             +'<div><div class="pa-label">'+(typeof L==='function'?L('Join a team','Join a team'):'Join a team')+'</div>'
@@ -464,13 +464,13 @@ async function showProfile(){
             +'<div class="pa-arrow">›</div></button>';
         }catch(e){ return ''; }
       })()}
-      ${(SESSION.pendingApproval || SESSION.status==='pending') ? `<button type="button" class="profile-action" onclick="openChangeJoinManagerModal()" style="border-color:rgba(37,99,235,.4)">
+      ${(SESSION.pendingApproval || SESSION.joinRequestPending || SESSION.status==='pending') ? `<button type="button" class="profile-action" onclick="openChangeJoinManagerModal()" style="border-color:rgba(37,99,235,.4)">
         <div class="pa-ico">🔄</div>
         <div><div class="pa-label">${L('Change Manager request','Change Manager request')}</div><div class="pa-sub">${L('गलत Manager चुना हो तो बदलें','Change if you picked the wrong Manager')}</div></div>
       </button>` : ''}
-      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.status!=='left_team' && SESSION.status!=='individual' ? `<button type="button" class="profile-action" onclick="openUpgradeToManagerModal()" style="border-color:rgba(249,115,22,.4)">
+      ${(SESSION.role==='member'||SESSION.role==='worker') && SESSION.rosterLinked && SESSION.status==='approved' && !SESSION.joinRequestPending ? `<button type="button" class="profile-action" onclick="openUpgradeToManagerModal()" style="border-color:rgba(249,115,22,.4)">
         <div class="pa-icon" style="background:rgba(249,115,22,.12)">⬆️</div>
-        <div><div class="pa-label">${L('Upgrade to Manager','Upgrade to Manager')}</div><div class="pa-sub">${L('अपनी टीम जोड़ें · ऊपर वाले मैनेजर की टीम सिर्फ देखें','Add your own team · view parent team only')}</div></div>
+        <div><div class="pa-label">${L('Upgrade to Manager','Upgrade to Manager')}</div><div class="pa-sub">${L('अपनी टीम प्रबंधित करें','Manage your own team')}</div></div>
         <div class="pa-arrow">›</div>
       </button>`:''}
       <button class="profile-action" onclick="closeModal();openCustomerCarePage()">
@@ -865,343 +865,84 @@ try{
 
 
 // ── Join a team (individual / left_team / orphan members) ──
-async function openJoinTeamModal(){
-  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
-  let managers = [];
-  try{
-    const mu = (window._cache && _cache.mobileUsers) || (typeof fbGet==='function' ? await fbGet('mobileUsers') : {}) || {};
-    const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
-    Object.entries(mu).forEach(function([k,u]){
-      if(!u) return;
-      if(String(u.role||'').toLowerCase()!=='manager') return;
-      if(u.status==='removed'||u.status==='revoked'||u.status==='rejected') return;
-      if(u.status && u.status!=='approved' && u.status!=='active') return;
-      const n = norm(u.mobile||u.phone||k);
-      if(n.length!==10) return;
-      managers.push({ mobile: n, name: u.name || n, company: u.company || '' });
-    });
-    managers.sort(function(a,b){ return String(a.name).localeCompare(String(b.name)); });
-  }catch(e){ console.warn('[joinTeam] load managers', e); }
-  // Prefill name / empCode from session + live mobileUsers
-  let _joinPrefName = String(SESSION.name||'').trim();
-  let _joinPrefCode = String(SESSION.empId||SESSION.empCode||'').trim();
-  try{
-    const myK = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||SESSION.uid||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
-    if(myK && typeof fbGet==='function'){
-      const self = await fbGet('mobileUsers/'+myK);
-      if(self){
-        const sn = String(self.name||self.displayName||'').trim();
-        const sd = sn.replace(/\D/g,'');
-        if(sn && !(sd.length>=10 && sd.slice(-10)===myK)) _joinPrefName = sn;
-        const sc = String(self.empCode||self.empId||self.code||'').trim();
-        if(sc) _joinPrefCode = sc;
-      }
-    }
-  }catch(_pj){}
-  // Smart company sort (same tokens as registration)
-  try{
-    const myCo = String(SESSION.company||SESSION.companyLabel||'').toUpperCase();
-    const tokens = myCo.replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(function(w){ return w.length>=2 && !/^(THE|AND|PVT|LTD|LLC|INC|CO)$/.test(w); });
-    if(tokens.length){
-      managers.sort(function(a,b){
-        function sc(m){
-          const hay = String(m.company||'').toUpperCase();
-          let s=0; tokens.forEach(function(tok){ if(hay.indexOf(tok)>=0) s+=tok.length; });
-          return s;
-        }
-        return sc(b)-sc(a);
-      });
-    }
-  }catch(_s){}
-  const opts = managers.map(function(m){
-    const myCo = String(SESSION.company||SESSION.companyLabel||'').toUpperCase();
-    const tokens = myCo.replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(function(w){ return w.length>=2; });
-    const matched = tokens.some(function(tok){ return String(m.company||'').toUpperCase().indexOf(tok)>=0; });
-    return '<option value="'+m.mobile+'">'+String(m.name).replace(/</g,'')+' · +91-'+m.mobile+(m.company?' · '+String(m.company).replace(/</g,''):'')+(matched?' ★':'')+'</option>';
-  }).join('');
-  const html = '<div class="modal-handle"></div>'
-    + '<div class="modal-title">👥 '+T('Join a team','Join a team')+'</div>'
-    + '<div style="font-size:13px;color:var(--muted2);margin-bottom:12px;line-height:1.5">'
-    + T('Manager चुनें। Request भेजने पर वे Approve करेंगे — आपके पुराने shifts सुरक्षित रहेंगे।','Pick a Manager. After they Approve, you join their team — your old shifts stay with you.')
-    + '</div>'
-    + (managers.length
-        ? ('<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager','Manager')+'</label>'
-          + '<select id="joinTeamMgr" class="inp-field" style="width:100%;margin:6px 0 14px">'+opts+'</select>')
-        : ('<div style="padding:12px;border-radius:10px;background:rgba(249,115,22,.1);color:#f97316;font-size:13px;margin-bottom:12px">'
-          + T('अभी कोई Manager list में नहीं। Manager का 10-digit mobile डालें।','No managers listed. Enter Manager 10-digit mobile.')
-          + '</div>'
-          + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Manager mobile','Manager mobile')+'</label>'
-          + '<input id="joinTeamMgrManual" class="inp-field" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" style="width:100%;margin:6px 0 14px">'))
-    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('आपका नाम *','Your name *')+'</label>'
-    + '<input id="joinTeamName" class="inp-field" type="text" placeholder="'+T('पूरा नाम','Full name')+'" value="'+(String(_joinPrefName||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 12px">'
-    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('Employee Code / Emp ID','Employee Code / Emp ID')+'</label>'
-    + '<input id="joinTeamEmpCode" class="inp-field" type="text" placeholder="e.g. 30000422" value="'+(String(_joinPrefCode||'').replace(/"/g,'&quot;').replace(/</g,''))+'" style="width:100%;margin:6px 0 14px">'
-    + '<div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px;line-height:1.4">'+T('Name Manager के Approve form में pre-fill होगा। Emp Code optional — Manager भी set कर सकता है।','Name is pre-filled on Manager Approve. Emp Code optional — Manager can set it too.')+'</div>'
-    + '<button type="button" class="submit-btn" onclick="confirmJoinTeamRequest()">'+T('📩 Request भेजें','📩 Send request')+'</button>'
-    + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+T('रद्द','Cancel')+'</button>';
-  if(typeof openModal==='function') openModal(html);
+let _joinRequestVersion = '';
+
+function openJoinTeamModal(){
+  openModal(`<div class="modal-handle"></div>
+    <div class="modal-title">${L('टीम से जुड़ें','Join a team')}</div>
+    <label for="joinTeamMgrManual">${L('Manager का मोबाइल','Manager mobile')}</label>
+    <input id="joinTeamMgrManual" class="inp-field" type="tel" inputmode="tel">
+    <button type="button" class="submit-btn" onclick="confirmJoinTeamRequest()">${L('अनुरोध भेजें','Send request')}</button>
+    <button type="button" class="cancel-btn" onclick="closeModal()">${L('बंद करें','Close')}</button>`);
 }
 
-async function confirmJoinTeamRequest(){
-  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
-  const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
-  let mgr = '';
-  try{
-    const sel = document.getElementById('joinTeamMgr');
-    if(sel && sel.value) mgr = norm(sel.value);
-    else {
-      const man = document.getElementById('joinTeamMgrManual');
-      if(man) mgr = norm(man.value);
-    }
-  }catch(e){}
-  if(!mgr || mgr.length!==10){
-    try{ toast(T('⚠️ Manager चुनें / 10-digit mobile डालें','⚠️ Select Manager or enter 10-digit mobile')); }catch(e){}
-    return;
-  }
-  const myMob = norm(SESSION.mobile||SESSION.uid||'');
-  if(!myMob || myMob.length!==10){
-    try{ toast(T('❌ Session mobile missing','❌ Session mobile missing')); }catch(e){}
-    return;
-  }
-  if(myMob===mgr){
-    try{ toast(T('⚠️ अपना number Manager नहीं बना सकते','⚠️ Cannot set yourself as Manager')); }catch(e){}
-    return;
-  }
-  try{
-    if(typeof _ensureWriteAuth==='function'){ try{ await _ensureWriteAuth(); }catch(e){} }
-    const now = new Date().toISOString();
-    // v6.0.60: prefer form name; never store phone digits as name
-    let name = '';
-    try{ name = (document.getElementById('joinTeamName')?.value||'').trim(); }catch(e){}
-    if(!name) name = String(SESSION.name||'').trim();
-    const nameDigits = name.replace(/\D/g,'');
-    if(!name || (nameDigits.length>=10 && nameDigits.slice(-10)===myMob)){
-      try{ toast(T('⚠️ अपना नाम लिखें','⚠️ Enter your name')); }catch(e){}
-      return;
-    }
-    let empCode = '';
-    try{ empCode = (document.getElementById('joinTeamEmpCode')?.value||'').trim(); }catch(e){}
-    if(!empCode) empCode = String(SESSION.empId||SESSION.empCode||'').trim();
-    // Preserve existing good name + empCode on mobileUsers (never overwrite with empty)
-    let existing = null;
-    try{ existing = await fbGet('mobileUsers/'+myMob); }catch(e){}
-    if(existing){
-      if(existing.name){
-        const en = String(existing.name).trim();
-        const ed = en.replace(/\D/g,'');
-        if(en && !(ed.length>=10 && ed.slice(-10)===myMob) && (!name || name===myMob)) name = en;
-      }
-      const exCode = String(existing.empCode||existing.empId||existing.code||'').trim();
-      if(!empCode && exCode) empCode = exCode;
-    }
-    // Also try employees roster by phone for code
-    if(!empCode){
-      try{
-        const all = (window._cache && _cache.employees) || (typeof getEmps==='function' ? getEmps() : []) || [];
-        const hit = (all||[]).find(function(e){
-          if(!e) return false;
-          const ph = (typeof _normMobileKey==='function') ? _normMobileKey(e.phone||e.mobile||'') : String(e.phone||'').replace(/\D/g,'').slice(-10);
-          return ph === myMob;
-        });
-        if(hit && (hit.empId||hit.empCode||hit.code)) empCode = String(hit.empId||hit.empCode||hit.code||'').trim();
-      }catch(_e){}
-    }
-    // Set pending under chosen manager — keeps individual history (empObjId)
-    const payload = {
-      role: 'member',
-      status: 'pending',
-      name: name,
-      displayName: name,
-      mobile: '+91'+myMob,
-      phone: myMob,
-      managerId: mgr,
-      managerMobile: mgr,
-      individual: false,
-      forceFreshLogin: false,
-      empObjId: SESSION.empObjId || (existing && (existing.empObjId||existing.employeeId)) || null,
-      joinRequestAt: now,
-      updatedAt: now,
-      registeredAt: (existing && existing.registeredAt) || now
-    };
-    // Only write empCode/empId when we have a real value — never wipe existing with ""
-    if(empCode){
-      payload.empId = empCode;
-      payload.empCode = empCode;
-    } else if(existing && (existing.empCode||existing.empId)){
-      payload.empId = existing.empId || existing.empCode;
-      payload.empCode = existing.empCode || existing.empId;
-      empCode = String(payload.empCode||'');
-    }
-    // Merge carefully: start from existing, apply payload (empty emp fields already omitted)
-    const merged = Object.assign({}, existing||{}, payload);
-    if(typeof fbSet==='function') await fbSet('mobileUsers/'+myMob, merged);
-    else if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, payload);
-    try{ SESSION.name = name; if(empCode){ SESSION.empId = empCode; SESSION.empCode = empCode; } }catch(e){}
-    // Notify manager
-    try{
-      await fbPush('userNotifications/'+mgr, {
-        type: 'join_team_request',
-        title: '👤 Join team request',
-        body: name+' (+91-'+myMob+') wants to join your team',
-        fromMobile: myMob,
-        memberMobile: myMob,
-        mobile: '+91'+myMob,
-        name: name,
-        empCode: empCode,
-        empId: empCode,
-        read: false,
-        at: now
-      });
-    }catch(e){}
-    try{
-      if(typeof notifyAdmin==='function') await notifyAdmin('Join team request', name+' → manager '+mgr);
-    }catch(e){}
-    SESSION.status = 'pending';
-    SESSION.pendingApproval = true;
-    SESSION.managerId = mgr;
-    SESSION.individual = false;
-    try{ if(typeof saveSession==='function') saveSession(); }catch(e){}
-    try{ closeModal(); }catch(e){}
-    try{ toast(T('✅ Request भेज दी — Manager Approve करें','✅ Request sent — wait for Manager Approve')); }catch(e){}
-  }catch(err){
-    console.error('[joinTeam]', err);
-    try{ toast(L('❌ ','❌ ')+(err.message||L('विफल','Failed'))); }catch(e){}
-  }
+async function openChangeJoinManagerModal(){
+  try {
+    const profiles = await window._fbCall('getMyOwnedProfiles');
+    const pending = Object.values(profiles || {}).filter(profile => profile?.status === 'pending');
+    if (pending.length !== 1) throw Error(L('कोई लंबित अनुरोध नहीं','No pending join request'));
+    const request = pending[0];
+    _joinRequestVersion = request.requestVersion || '';
+    openModal(`<div class="modal-handle"></div>
+      <div class="modal-title">${L('Manager अनुरोध बदलें','Change Manager request')}</div>
+      <p>${L('वर्तमान Manager','Current Manager')}: ${escHtml(request.managerId || '—')}</p>
+      <label for="changeJoinMgr">${L('नए Manager का मोबाइल','New Manager mobile')}</label>
+      <input id="changeJoinMgr" class="inp-field" type="tel" inputmode="tel">
+      <button type="button" class="submit-btn" onclick="confirmChangeJoinManager()">${L('अनुरोध बदलें','Update request')}</button>
+      <button type="button" class="cancel-btn" onclick="cancelJoinTeamRequest()">${L('लंबित अनुरोध वापस लें','Withdraw pending request')}</button>
+      <button type="button" class="cancel-btn" onclick="closeModal()">${L('बंद करें','Close')}</button>`);
+  } catch (error) { toast(error.message); }
 }
+
+async function _submitJoinRequestChange(data){
+  try {
+    const profile = await window._fbCall('manageTeamMembership', data);
+    const mobile = window._fbAuth?.currentUser?.phoneNumber;
+    closeModal();
+    _stopApprovalWatch();
+    if (profile.status === 'cancelled') {
+      SESSION.pendingApproval = false;
+      SESSION.status = 'cancelled';
+      saveSession();
+      _loginMobile = mobile;
+      showStep('memReg');
+    } else if (SESSION.rosterLinked) {
+      if (!await launchVerifiedRosterSession(mobile, SESSION.empObjId)) {
+        throw Error(L('फिर से मोबाइल से साइन इन करें।','Sign in again by mobile.'));
+      }
+    } else {
+      SESSION.managerId = profile.managerId;
+      SESSION.managerUid = profile.managerUid;
+      SESSION.company = profile.company;
+      SESSION.companyId = profile.companyId;
+      saveSession();
+      _watchApprovalStatus(_registrationPhoneKey(mobile));
+    }
+    toast(data.action === 'cancel' ? L('अनुरोध वापस लिया गया','Request withdrawn') :
+      L('Manager की स्वीकृति बाकी है।','Manager approval is pending.'));
+  } catch (error) { toast(error.message); }
+}
+
+function confirmJoinTeamRequest(){
+  const managerPhone = document.getElementById('joinTeamMgrManual')?.value.trim();
+  return _submitJoinRequestChange({action:'request', managerPhone, name:SESSION.name, code:SESSION.empId});
+}
+
+function confirmChangeJoinManager(){
+  const managerPhone = document.getElementById('changeJoinMgr')?.value.trim();
+  return _submitJoinRequestChange({action:'change', managerPhone, requestVersion:_joinRequestVersion});
+}
+
+async function cancelJoinTeamRequest(){
+  if (!await confirmModal(L('अनुरोध वापस लें?','Withdraw this request?'), '',
+      L('वापस लें','Withdraw'), L('बंद करें','Close'))) return;
+  return _submitJoinRequestChange({action:'cancel',requestVersion:_joinRequestVersion});
+}
+
 try{
   window.openJoinTeamModal = openJoinTeamModal;
   window.confirmJoinTeamRequest = confirmJoinTeamRequest;
-
-
-/** Show current pending join request + allow changing manager */
-async function openChangeJoinManagerModal(){
-  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
-  const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
-  const myMob = norm(SESSION.mobile||SESSION.uid||'');
-  if(!myMob){ toast(T('❌ Mobile missing','❌ Mobile missing')); return; }
-  let u = null;
-  try{ u = await fbGet('mobileUsers/'+myMob); }catch(e){}
-  if(!u || String(u.status||'')!=='pending'){
-    // Also allow if pendingApproval on session
-    if(!(SESSION.pendingApproval || SESSION.status==='pending')){
-      toast(T('कोई pending join request नहीं','No pending join request'));
-      return;
-    }
-  }
-  const curMgr = norm((u&& (u.managerId||u.managerMobile)) || SESSION.managerId || '');
-  let managers = [];
-  try{
-    const all = await fbGet('mobileUsers') || {};
-    managers = Object.entries(all).filter(function(e){
-      const v = e[1];
-      return v && v.role==='manager' && v.status==='approved';
-    }).map(function(e){
-      const k = norm(e[0]||e[1].mobile||'');
-      return { mobile:k, name: e[1].name||k, company: e[1].company||e[1].companyLabel||'' };
-    });
-  }catch(e){}
-  // Smart sort by company of current user
-  const myCo = String((u&&u.company)||SESSION.company||'').toUpperCase();
-  const tokens = myCo.replace(/[^A-Z0-9\s]/g,' ').split(/\s+/).filter(function(w){ return w.length>=2; });
-  managers.sort(function(a,b){
-    function sc(m){
-      const hay = String(m.company||'').toUpperCase();
-      let s=0; tokens.forEach(function(t){ if(hay.indexOf(t)>=0) s+=t.length; });
-      return s;
-    }
-    return sc(b)-sc(a);
-  });
-  const opts = managers.map(function(m){
-    const sel = m.mobile===curMgr ? ' selected' : '';
-    const star = (tokens.length && tokens.some(function(t){ return String(m.company||'').toUpperCase().indexOf(t)>=0; })) ? ' ★' : '';
-    return '<option value="'+m.mobile+'"'+sel+'>'+String(m.name).replace(/</g,'')+' · '+String(m.company||'—').replace(/</g,'')+star+' · '+m.mobile+'</option>';
-  }).join('');
-  const sentAt = (u && (u.joinRequestAt||u.registeredAt||u.updatedAt)) || '';
-  const html = '<div class="modal-handle"></div>'
-    + '<div class="modal-title">🔄 '+T('Change Manager request','Change Manager request')+'</div>'
-    + '<div style="font-size:13px;color:var(--muted2);line-height:1.5;margin-bottom:12px">'
-    + T('आपकी pending request दिख रही है। गलत Manager चुना हो तो नया चुनें।','Your pending request is shown. If you picked the wrong Manager, choose another.')
-    + '</div>'
-    + '<div style="padding:10px 12px;border-radius:10px;background:rgba(37,99,235,.08);margin-bottom:12px;font-size:12px;line-height:1.5">'
-    + '<b>'+T('वर्तमान','Current')+':</b> '+(curMgr||'—')
-    + (sentAt ? ('<br><b>'+T('भेजा','Sent')+':</b> '+String(sentAt).replace('T',' ').slice(0,19)) : '')
-    + '<br><b>'+T('नाम','Name')+':</b> '+String((u&&u.name)||SESSION.name||'—').replace(/</g,'')
-    + '</div>'
-    + '<label style="font-size:11px;font-weight:800;color:var(--muted2)">'+T('नया Manager','New Manager')+'</label>'
-    + '<select id="changeJoinMgr" class="inp-field" style="width:100%;margin:6px 0 14px">'+opts+'</select>'
-    + '<button type="button" class="submit-btn" onclick="confirmChangeJoinManager()">'+T('🔄 Request अपडेट करें','🔄 Update request')+'</button>'
-    + '<button type="button" class="cancel-btn" style="margin-top:8px" onclick="closeModal()">'+T('रद्द','Cancel')+'</button>';
-  if(typeof openModal==='function') openModal(html);
-}
-
-async function confirmChangeJoinManager(){
-  const T = function(hi,en){ return typeof L==='function' ? L(hi,en) : en; };
-  const norm = function(p){ return (typeof _normMobileKey==='function') ? _normMobileKey(p||'') : String(p||'').replace(/\D/g,'').slice(-10); };
-  const myMob = norm(SESSION.mobile||SESSION.uid||'');
-  let mgr = '';
-  try{ mgr = norm(document.getElementById('changeJoinMgr')?.value||''); }catch(e){}
-  if(!myMob || !mgr || mgr.length!==10){
-    toast(T('⚠️ Manager चुनें','⚠️ Select a Manager'));
-    return;
-  }
-  try{
-    if(typeof _ensureWriteAuth==='function'){ try{ await _ensureWriteAuth(); }catch(e){} }
-    const now = new Date().toISOString();
-    let existing = null;
-    try{ existing = await fbGet('mobileUsers/'+myMob); }catch(e){}
-    const prevMgr = norm((existing&& (existing.managerId||existing.managerMobile))||SESSION.managerId||'');
-    const name = String((existing&&existing.name)||SESSION.name||myMob);
-    const empCode = String((existing&&(existing.empCode||existing.empId))||SESSION.empId||SESSION.empCode||'');
-    const patch = {
-      role: 'member',
-      status: 'pending',
-      managerId: mgr,
-      managerMobile: mgr,
-      previousManagerId: prevMgr || null,
-      joinRequestAt: now,
-      updatedAt: now,
-      name: name,
-      displayName: name
-    };
-    if(empCode){ patch.empCode = empCode; patch.empId = empCode; }
-    if(typeof fbUpdate==='function') await fbUpdate('mobileUsers/'+myMob, patch);
-    else await fbSet('mobileUsers/'+myMob, Object.assign({}, existing||{}, patch));
-    // Notify new manager
-    try{
-      await fbPush('userNotifications/'+mgr, {
-        type: 'join_team_request',
-        title: '👤 Join team request (updated)',
-        body: name+' (+91-'+myMob+') wants to join your team',
-        fromMobile: myMob, memberMobile: myMob, mobile: '+91'+myMob,
-        name: name, empCode: empCode, empId: empCode,
-        read: false, at: now
-      });
-    }catch(e){}
-    // Optional note to old manager
-    if(prevMgr && prevMgr!==mgr){
-      try{
-        await fbPush('userNotifications/'+prevMgr, {
-          type: 'join_request_withdrawn',
-          title: 'Join request moved',
-          body: name+' moved their join request to another manager',
-          fromMobile: myMob, read: false, at: now
-        });
-      }catch(e){}
-    }
-    SESSION.managerId = mgr;
-    SESSION.status = 'pending';
-    SESSION.pendingApproval = true;
-    try{ if(typeof saveSession==='function') saveSession(); }catch(e){}
-    try{ closeModal(); }catch(e){}
-    toast(T('✅ Request नए Manager को भेज दी','✅ Request sent to new Manager'));
-  }catch(err){
-    console.error('[changeJoinMgr]', err);
-    toast(L('❌ ','❌ ')+(err.message||'Failed'));
-  }
-}
-try{
   window.openChangeJoinManagerModal = openChangeJoinManagerModal;
   window.confirmChangeJoinManager = confirmChangeJoinManager;
-}catch(e){}
-
+  window.cancelJoinTeamRequest = cancelJoinTeamRequest;
 }catch(e){}

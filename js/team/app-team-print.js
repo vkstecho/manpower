@@ -472,10 +472,7 @@ async function exportSchedExcel(){
     'Machine','Designation','Responsibility','Salary (₹/month)','Joining Date','Date of Birth'
   ];
 
-  const headerDates = dates.map(d=>{
-    const dt = new Date(d+'T00:00:00');
-    return String(dt.getDate()).padStart(2,'0')+'-'+dt.toLocaleString('en',{month:'short'})+'-'+String(dt.getFullYear()).slice(2);
-  });
+  const headerDates = dates.slice();
   const weekdayRow = dates.map(d=>{
     const dt = new Date(d+'T00:00:00');
     return dayNames[dt.getDay()];

@@ -122,7 +122,7 @@ async function ensureEmployeesFromImport(items){
     cid = (typeof myCompanyId === 'function') ? myCompanyId() : (SESSION.companyId || '');
   }catch(e){}
   if(!cid || String(cid).toUpperCase() === 'ALL'){
-    cid = SESSION.companyId || SESSION.company || 'default';
+    cid = SESSION.companyId || 'default';
     if(String(cid).toUpperCase() === 'ALL') cid = 'default';
   }
   const label = SESSION.company || SESSION.companyLabel || cid || '';
@@ -482,6 +482,11 @@ function _normShiftCode(val){
   if(!s) return '';
   // Excel sometimes gives formulas or spaces
   s = s.replace(/\s+/g,'');
+  if (s.includes('+')) {
+    const work = s.split('+');
+    return work.length >= 2 && work.length <= 3 && new Set(work).size === work.length &&
+      work.every(code=>['A','B','C','D','N','G'].includes(code)) ? work.join('+') : '';
+  }
   const map = {
     'DAY':'D','D':'D','NIGHT':'N','N':'N',
     'A':'A','B':'B','C':'C',
@@ -695,7 +700,7 @@ async function confirmBulkImportTeam(){
 
   let cid = (typeof myCompanyId==='function') ? myCompanyId() : (SESSION.companyId||'');
   if(!cid || String(cid).toUpperCase()==='ALL'){
-    cid = SESSION.companyId || SESSION.company || 'default';
+    cid = SESSION.companyId || 'default';
     if(String(cid).toUpperCase()==='ALL') cid = 'default';
   }
   const label = SESSION.company || SESSION.companyLabel || cid || '';
