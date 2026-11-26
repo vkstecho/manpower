@@ -250,7 +250,7 @@ async function _sendOTP(isResend){
     try{ sendBtn.removeAttribute('disabled'); }catch(e){}
     sendBtn.style.opacity = '0.85';
     sendBtn.style.pointerEvents = 'auto';
-    sendBtn.innerHTML = '⏳ Sending…';
+    sendBtn.textContent = L('⏳ भेजा जा रहा है…','⏳ Sending…');
   }
   if(stickyBtn){ stickyBtn.disabled = true; stickyBtn.style.opacity = '0.7'; }
   const _restoreBtn = ()=>{
@@ -365,7 +365,7 @@ async function _sendOTP(isResend){
       toast(L('🔐 नीचे सुरक्षा चेकबॉक्स ✓ करें — टिक के बाद ही OTP जाएगा','🔐 Tick the security checkbox below — OTP sends only after that'));
       // Single captcha only: desktop bar is created inside _fbSendPhoneOtp — do not pre-mount another host
     } else {
-      toast(isResend ? L('⏳ Resending OTP…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
+      toast(isResend ? L('⏳ OTP फिर भेजा जा रहा है…','⏳ Resending OTP…') : L('OTP भेजा जा रहा है...','Sending OTP...'));
     }
     // Do NOT open Enter OTP until captcha + Firebase succeed
     if(typeof _fbSendPhoneOtp!=='function'){
@@ -374,6 +374,8 @@ async function _sendOTP(isResend){
     _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
     // Only now move to OTP entry
     showStep(2);
+    const otpError = document.getElementById('loginErr2');
+    if (otpError) otpError.textContent = '';
     const sentEl=document.getElementById('otpSentTo');
     if(sentEl) sentEl.textContent=L(fullPhone+' पर OTP भेजा गया','OTP sent to '+fullPhone);
     const otpEl = document.getElementById('otpInput');
@@ -402,7 +404,7 @@ async function _sendOTP(isResend){
       var _already = String((document.getElementById('otpInput')||{}).value||'').replace(/\D/g,'');
       if(_already.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 300);
     }catch(e){}
-    toast(L('✅ OTP भेज दिया! Keyboard में OTP tap करें','✅ OTP sent! Tap OTP on keyboard if shown'));
+    toast(L('✅ OTP भेज दिया। कीबोर्ड पर कोड दिखे तो उसे चुनें।','✅ OTP sent! Tap the code on your keyboard if shown.'));
     try{ _restoreBtn(); }catch(e){}
   }catch(err){
     console.error('OTP error:',err);
@@ -435,23 +437,14 @@ function _startResendTimer(){
   const resendBtn=document.getElementById('otpResendBtn');
   if(resendBtn) resendBtn.style.display='none';
   if(_otpResendInterval) clearInterval(_otpResendInterval);
-  const _resendLabel = function(s){
-    // Language-aware: never show Hindi when UI is English (or any non-hi)
-    if(typeof L === 'function'){
-      return L(s + 's में फिर भेजें', s + 's · Resend');
-    }
-    try{
-      var lang = (typeof _lang !== 'undefined' && _lang) ? String(_lang).toLowerCase() : (localStorage.getItem('mp_lang')||'en').toLowerCase();
-      if(lang === 'hi' || lang === 'hindi' || lang === 'hin') return s + 's में फिर भेजें';
-    }catch(e){}
-    return s + 's · Resend';
-  };
+  const _resendLabel = s => L(s + ' सेकंड में फिर भेजें', 'Resend in ' + s + 's');
+  if(timerEl) timerEl.textContent = _resendLabel(sec);
   _otpResendInterval=setInterval(()=>{
     sec--;
     if(timerEl) timerEl.textContent = sec > 0 ? _resendLabel(sec) : '';
     if(sec<=0){
       clearInterval(_otpResendInterval);
-      if(resendBtn) resendBtn.style.display='inline';
+      if(resendBtn) resendBtn.style.display='inline-flex';
       if(timerEl) timerEl.textContent='';
     }
   },1000);
@@ -473,6 +466,8 @@ async function _verifyOTP(){
   if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
   if(!_loginConfirmResult){ toast(L('⚠️ OTP पहले भेजें','⚠️ Send OTP first')); return; }
   try{
+    const errEl=document.getElementById('loginErr2');
+    if(errEl) errEl.textContent='';
     toast(L('⏳ सत्यापित हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
     toast(L('✅ मोबाइल सत्यापित!','✅ Mobile Verified!'));
@@ -736,25 +731,41 @@ async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null) {
 }
 
 async function _checkUserAfterOTP(){
+  let message;
   try {
+    const user = window._fbAuth?.currentUser;
+    if (!user || user.isAnonymous || user.phoneNumber !== _registrationPhone(_loginMobile)) {
+      throw new Error('Verified mobile session required');
+    }
     if (await launchVerifiedRosterSession(_loginMobile)) return;
     const profiles = await window._fbCall('getMyOwnedProfiles');
-    const pending = Object.entries(profiles || {}).filter(([,row]) => row?.status === 'pending');
+    if (!profiles || typeof profiles !== 'object' || Array.isArray(profiles)) throw new Error('Account lookup incomplete');
+    const pending = Object.entries(profiles).filter(([,row]) => row?.status === 'pending' && row.accountUid === user.uid);
     if (pending.length === 1) {
       const [key, profile] = pending[0];
       _launchAsNewUser(profile);
       _watchApprovalStatus(key);
       return;
     }
-  } catch (error) {
-    console.warn('[roster identity]', error.code || error.message);
-    if (String(error.code).includes('permission-denied')) {
-      showStep(1);
-      toast(L('फिर से मोबाइल से साइन इन करें या व्यवस्थापक से संपर्क करें।','Sign in again by mobile or contact your administrator.'));
-      return;
+    const existing = Object.values(profiles).some(profile =>
+      profile && !(profile.status === 'cancelled' && profile.accountUid === user.uid));
+    if (!existing) {
+      const identity = await window._fbCall('getMyRosterIdentity', {checkRegistration:true});
+      if (identity?.uid !== user.uid || typeof identity.registrationAllowed !== 'boolean') {
+        throw new Error('Registration eligibility could not be confirmed');
+      }
+      if (identity.registrationAllowed === true) return showStep(3);
     }
+    message = L('इस मोबाइल नंबर से जुड़ा रिकॉर्ड जाँच के लिए लंबित है। अपने खाते की पहुँच बहाल करने के लिए व्यवस्थापक से संपर्क करें।',
+      'This mobile number needs an account review. Contact your administrator to restore access to your account.');
+  } catch (error) {
+    console.warn('[roster identity]', error?.code || error?.message);
+    message = L('खाते की जाँच पूरी नहीं हो सकी। फिर कोशिश करें या व्यवस्थापक से संपर्क करें।',
+      'We could not check your account. Try again or contact your administrator.');
   }
-  showStep(3);
+  showStep(2);
+  document.getElementById('loginErr2').textContent = message;
+  toast(message);
 }
 
 let _approvalWatchActive=false;

@@ -7,7 +7,7 @@
    - Keeps mp-integrity cache (session token) across version bumps
 */
 const SW_VERSION = '6.12';
-const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '') + '-r12';
+const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '') + '-r13';
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 
 const PRECACHE = [

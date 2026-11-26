@@ -132,14 +132,14 @@ window.addEventListener('appinstalled', function () {
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
 <script src="js/config/firebase.local.js"></script>
-<script src="js/config/private-media.js?v=6.12-r12"></script>
-<script type="module" src="js/config/firebase-init.js?v=6.12-r12"></script>
+<script src="js/config/private-media.js?v=6.12-r13"></script>
+<script type="module" src="js/config/firebase-init.js?v=6.12-r13"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=6.12-r12">
+<link rel="stylesheet" href="css/app.css?v=6.12-r13">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -992,28 +992,27 @@ html.mp-login-active, body.mp-login-active {
 
 
   <div id="loginStep2" style="display:none;width:100%;max-width:360px;flex-direction:column;align-items:center">
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;text-align:center;background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:3px;margin-bottom:16px">MAN POWER</div>
+    <div class="mp-otp-brand">MAN POWER</div>
     <div class="login-card" style="width:100%">
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:38px;margin-bottom:6px">&#128172;</div>
-        <div id="loginOtpTitle" style="font-size:16px;font-weight:900;color:#fff">Enter OTP</div>
-        <div id="loginOtpTitleHi" style="font-size:12px;color:#94a3b8;font-weight:600;margin-top:2px">Enter OTP</div>
-        <div style="font-size:13px;color:#e2e8f0;font-weight:600;margin-top:4px" id="otpSentTo">OTP sent</div>
+        <div id="loginOtpTitle" role="heading" aria-level="1">Enter OTP</div>
+        <div id="otpSentTo" aria-live="polite">OTP sent</div>
       </div>
-      <div class="err-msg" id="loginErr2"></div>
+      <div class="err-msg" id="loginErr2" role="alert"></div>
       <form id="otpAutoForm" action="javascript:void(0)" onsubmit="event.preventDefault();_verifyOTP();return false;" autocomplete="on" style="width:100%">
       <!-- Mentor-style: autocomplete=one-time-code + focus → Android/Chrome shows OTP chip to tap-paste -->
       <input class="inp-field" type="text" id="otpInput" name="one-time-code" placeholder="••••••"
         inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"
-        enterkeyhint="done" autocapitalize="off" spellcheck="false" autocomplete="one-time-code"
+        enterkeyhint="done" autocapitalize="off" spellcheck="false" aria-labelledby="loginOtpTitle" aria-describedby="otpSentTo"
         oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,6);_onOtpInput(this.value)"
         onkeydown="if(event.key==='Enter'){_verifyOTP();return false;}"
-        style="font-size:28px;letter-spacing:0.4em;text-align:center;margin-bottom:12px;width:100%;box-sizing:border-box;font-weight:800;color:#f8fafc;-webkit-text-fill-color:#f8fafc;caret-color:#f97316;background:#0f1b2d">
+        style="font-size:28px;letter-spacing:0.4em;text-align:center;margin-bottom:12px;width:100%;box-sizing:border-box;font-weight:800">
       <button type="submit" class="big-btn" id="verifyOtpBtn" disabled style="opacity:.5">Verify &#10003;</button>
       </form>
       <div style="text-align:center;margin-top:10px">
-        <span id="otpResendTimer" style="font-size:13px;color:#cbd5e1;font-weight:600"></span>
-        <span id="otpResendBtn" onclick="_sendOTP(true)" style="font-size:12px;color:var(--m1);font-weight:700;cursor:pointer;display:none">Resend OTP &#8635;</span>
+        <span id="otpResendTimer"></span>
+        <button type="button" id="otpResendBtn" onclick="_sendOTP(true)" style="display:none">Resend OTP &#8635;</button>
       </div>
       <button type="button" class="back-btn" id="loginBackBtn2" onclick="backToStep1()">← Change number</button>
     </div>
@@ -1041,7 +1040,7 @@ html.mp-login-active, body.mp-login-active {
           <div class="role-pick-sub" id="loginRoleMemSub">I am a Member — I join my Manager's team</div>
         </div>
       </div>
-      <button class="back-btn" onclick="backToStep1()">&larr; Back</button>
+      <button type="button" class="back-btn" id="loginBackBtn3" onclick="backToStep1()">&larr; Back</button>
     </div>
   </div>
 
@@ -2019,7 +2018,7 @@ html.mp-login-active, body.mp-login-active {
   </div>
 </div>
 
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="js/core/polyfill.js"></script>
 <script src="js/config/config.js"></script>
@@ -2047,30 +2046,30 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/commercial/public-offer.js?v=6042"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=6.12-r12"></script>
-<script src="js/auth/app-login.js?v=6.12-r12"></script>
-<script src="js/auth/app-login-device.js?v=6.12-r12"></script>
-<script src="js/auth/app-session-auth.js?v=6.12-r12"></script>
-<script src="js/session/app-session-nav.js?v=6.12-r12"></script>
+<script src="js/core/app-core.js?v=6.12-r13"></script>
+<script src="js/auth/app-login.js?v=6.12-r13"></script>
+<script src="js/auth/app-login-device.js?v=6.12-r13"></script>
+<script src="js/auth/app-session-auth.js?v=6.12-r13"></script>
+<script src="js/session/app-session-nav.js?v=6.12-r13"></script>
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
-<script src="js/session/app-session-settings-profile.js?v=6.12-r12"></script>
-<script src="js/session/app-session-settings-security.js?v=6.12-r12"></script>
+<script src="js/session/app-session-settings-profile.js?v=6.12-r13"></script>
+<script src="js/session/app-session-settings-security.js?v=6.12-r13"></script>
 <script src="js/session/app-announce.js?v=6050"></script>
-<script src="js/session/app-session-settings.js?v=6.12-r12"></script>
-<script src="js/session/app-account-backup.js?v=6.12-r12"></script>
+<script src="js/session/app-session-settings.js?v=6.12-r13"></script>
+<script src="js/session/app-account-backup.js?v=6.12-r13"></script>
 <script src="js/session/app-session-home.js?v=6026"></script>
-<script src="js/session/app-work-diary.js?v=6.12-r12"></script>
-<script src="js/session/pay-gate.js?v=6.12-r12"></script>
-<script src="js/session/pay-trial.js?v=6.12-r12"></script>
-<script src="js/session/pay-admin.js?v=6.12-r12"></script>
+<script src="js/session/app-work-diary.js?v=6.12-r13"></script>
+<script src="js/session/pay-gate.js?v=6.12-r13"></script>
+<script src="js/session/pay-trial.js?v=6.12-r13"></script>
+<script src="js/session/pay-admin.js?v=6.12-r13"></script>
 <script src="js/session/app-session-payment.js?v=6054"></script>
 <script src="js/auth/app-login-session.js?v=400020"></script>
 <script src="js/core/app.js?v=400020"></script>
-<script src="js/team/app-team-print.js?v=6.12-r12"></script>
-<script src="js/team/app-learn.js?v=6.12-r12"></script>
+<script src="js/team/app-team-print.js?v=6.12-r13"></script>
+<script src="js/team/app-learn.js?v=6.12-r13"></script>
 <script src="js/team/app-team-skills.js?v=5014"></script>
 <script src="js/team/app-team-ops-layer.js?v=5014"></script>
-<script src="js/commercial/mp-commercial.js?v=6.12-r12"></script>
+<script src="js/commercial/mp-commercial.js?v=6.12-r13"></script>
 <script src="js/core/a11y.js?v=400020"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
@@ -2078,14 +2077,14 @@ window.__sectionsReady = (async function loadSections(){
   var heavy = [
     'js/i18n/i18n_ml.js?v=5100',
     'js/i18n/i18n_dict.js?v=5100',
-    'js/schedule/app-schedule.js?v=6.12-r12',
-    'js/schedule/sched-admin-teams.js?v=6.12-r12',
+    'js/schedule/app-schedule.js?v=6.12-r13',
+    'js/schedule/sched-admin-teams.js?v=6.12-r13',
     'js/team/app-team.js?v=5100',
-    'js/team/app-team-import-core.js?v=6.12-r12',
-    'js/team/app-team-emp-forms.js?v=6.12-r12',
-    'js/team/app-team-excel-ops.js?v=6.12-r12',
+    'js/team/app-team-import-core.js?v=6.12-r13',
+    'js/team/app-team-emp-forms.js?v=6.12-r13',
+    'js/team/app-team-excel-ops.js?v=6.12-r13',
     'js/schedule/sched-work-hours.js?v=6027',
-    'js/schedule/sched-shift-edit.js?v=6.12-r12',
+    'js/schedule/sched-shift-edit.js?v=6.12-r13',
     'js/schedule/app-sched-builder.js?v=5131',
     'js/schedule/sched-auto-coverage.js?v=5127',
     'js/team/app-team-import.js?v=5100',
@@ -2256,47 +2255,241 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<style id="mp-login-final-light-v6075">
-/* Login-only theme. Deliberately placed after all original styles and scripts. */
-html.mp-login-active,body.mp-login-active{background:#f4f7fb!important;color:#0f172a!important}
-html body #loginScreen.show,
-html body #loginScreen.show::before,
-html body #loginScreen.show::after{background:#f4f7fb!important;background-image:none!important;color:#0f172a!important}
-html body #loginScreen.show{background:linear-gradient(120deg,#f7faff 0%,#edf4fb 100%)!important;isolation:isolate!important}
-html body #loginScreen.show > #mpDesktopPitch{color:#0f172a!important;opacity:1!important}
-html body #loginScreen.show > #mpDesktopPitch h1{background:none!important;background-image:none!important;color:#0a1f44!important;-webkit-text-fill-color:#0a1f44!important;text-shadow:none!important;opacity:1!important;font-weight:900!important}
-html body #loginScreen.show > #mpDesktopPitch p,
-html body #loginScreen.show > #mpDesktopPitch .lead{color:#475569!important;-webkit-text-fill-color:#475569!important;opacity:1!important}
-html body #loginScreen.show > #mpDesktopPitch a{color:#1d4ed8!important;-webkit-text-fill-color:#1d4ed8!important;opacity:1!important}
-html body #loginScreen.show > #loginStep1,
-html body #loginScreen.show > #loginStep2{background:#fff!important;background-image:none!important;color:#0f172a!important;border:1px solid #d9e3ef!important;box-shadow:0 18px 48px rgba(15,35,70,.10)!important}
-html body #loginScreen.show .login-card{background:#f8fafc!important;background-image:none!important;color:#0f172a!important;border:1px solid #dce5f0!important;box-shadow:none!important}
-html body #loginScreen.show .mp-login-brand,
-html body #loginScreen.show #loginBrandTitle{background:none!important;background-image:none!important;color:#0a1f44!important;-webkit-text-fill-color:#0a1f44!important}
-html body #loginScreen.show .mp-login-headline,
-html body #loginScreen.show #loginOutcomeHeadline,
-html body #loginScreen.show .mp-login-field-label{color:#334155!important;-webkit-text-fill-color:#334155!important;text-shadow:none!important}
-html body #loginScreen.show #loginMobile{background:#fff!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;border:1px solid #cbd5e1!important;min-width:0!important;font-size:16px!important;letter-spacing:0!important}
-html body #loginScreen.show #loginMobile::placeholder{color:#64748b!important;opacity:1!important;font-size:14px!important;letter-spacing:0!important}
-html body #loginScreen.show .mp-login-cc,
-html body #loginScreen.show .mp-login-lang,
-html body #loginScreen.show .mp-login-secondary a,
-html body #loginScreen.show .mp-login-secondary button{background:#f1f5f9!important;color:#0f172a!important;border-color:#cbd5e1!important}
-html body #loginScreen.show #loginTrustLine{color:#64748b!important}
-html body #loginScreen.show #sendOtpBtn{background:linear-gradient(135deg,#f97316,#ea580c)!important;color:#fff!important}
-@media(min-width:960px){
- html body #loginScreen.show{grid-template-columns:minmax(0,420px) minmax(360px,420px)!important;column-gap:clamp(30px,4vw,64px)!important;justify-content:center!important;justify-items:stretch!important;align-content:center!important;align-items:center!important;padding:32px 30px!important}
- html body #loginScreen.show > #mpDesktopPitch{max-width:420px!important;width:100%!important;justify-self:end!important}
- html body #loginScreen.show > #loginStep1{max-width:420px!important;width:100%!important;justify-self:start!important;margin:0!important}
+<style id="mp-login-theme">
+html body :is(#loginScreen.show, #otpLoginOverlay) {
+  --login-bg: #0b1220;
+  --login-panel: #111d2e;
+  --login-card: #162336;
+  --login-control: #0f1b2d;
+  --login-text: #f8fafc;
+  --login-muted: #cbd5e1;
+  --login-border: #64748b;
+  --login-link: #bfdbfe;
+  --login-error: #fecaca;
+  --login-error-bg: #451a20;
+  --login-disabled: #334155;
+  background: var(--login-bg) !important;
+  color: var(--login-text) !important;
+  isolation: isolate !important;
+  color-scheme: dark;
 }
-@media(max-width:959px){html body #loginScreen.show{grid-template-columns:minmax(0,1fr)!important;align-content:start!important;justify-items:center!important;padding:24px 16px 36px!important}html body #loginScreen.show > #loginStep1{width:100%!important;max-width:420px!important}}
-
-/* Password login uses the same intentional light login surface. */
-html body #loginScreen.show #adminLoginPanel{width:100%;max-width:420px;min-width:0;margin:auto;color:#0f172a!important}
-html body #loginScreen.show #adminLoginPanel .inp-label,html body #loginScreen.show #adminLoginPanel .back-btn{color:#334155!important}
-html body #loginScreen.show #adminLoginPanel .inp-field{box-sizing:border-box;width:100%;background:#fff!important;color:#0f172a!important;-webkit-text-fill-color:#0f172a!important;border:1px solid #94a3b8!important}
-html body #loginScreen.show #aPass{padding-right:48px!important}
-html body #loginScreen.show #adminLoginPanel .err-msg{color:#b91c1c!important}
+html body.light :is(#loginScreen.show, #otpLoginOverlay) {
+  --login-bg: #f0f5fb;
+  --login-panel: #fff;
+  --login-card: #f8fafc;
+  --login-control: #fff;
+  --login-text: #0f172a;
+  --login-muted: #475569;
+  --login-border: #64748b;
+  --login-link: #1d4ed8;
+  --login-error: #991b1b;
+  --login-error-bg: #fff1f2;
+  --login-disabled: #e2e8f0;
+  color-scheme: light;
+}
+html body #loginScreen.show::before,
+html body #loginScreen.show::after {
+  background: var(--login-bg) !important;
+}
+html body #loginScreen.show > #mpDesktopPitch h1,
+html body #loginScreen.show .mp-login-brand,
+html body #loginScreen.show .mp-otp-brand,
+html body #loginScreen.show #loginOtpTitle {
+  background: none !important;
+  color: var(--login-text) !important;
+  -webkit-text-fill-color: var(--login-text) !important;
+  text-shadow: none !important;
+}
+.mp-otp-brand {
+  font: 900 22px 'Barlow Condensed', sans-serif;
+  text-align: center;
+  letter-spacing: 3px;
+  margin-bottom: 14px;
+}
+#otpLoginOverlay .device-otp-note { color: var(--login-muted); }
+#otpLoginOverlay .device-otp-card {
+  background: var(--login-card);
+  border: 1px solid var(--login-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  text-align: left;
+}
+#otpLoginOverlay .device-otp-card label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+#otpLoginOverlay :is(button, #deviceOtpInput) {
+  background: var(--login-control) !important;
+  color: var(--login-text) !important;
+  -webkit-text-fill-color: var(--login-text) !important;
+  border: 1px solid var(--login-border);
+  border-radius: 10px;
+  box-sizing: border-box;
+  font: inherit;
+  width: 100%;
+  padding: 12px;
+}
+#otpLoginOverlay button { min-height: 44px; margin-bottom: 8px; font-weight: 700; }
+#otpLoginOverlay #deviceOtpInput { text-align: center; font-size: 24px; letter-spacing: .26em; }
+#otpLoginOverlay #deviceOtpInput::placeholder {
+  color: var(--login-muted) !important;
+  -webkit-text-fill-color: var(--login-muted) !important;
+  opacity: 1;
+}
+#otpLoginOverlay #deviceOtpInput:-webkit-autofill {
+  box-shadow: 0 0 0 1000px var(--login-control) inset !important;
+}
+#otpLoginOverlay button.device-otp-primary:enabled {
+  background: #9a3412 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+#otpLoginOverlay button:disabled { background: var(--login-disabled) !important; opacity: 1 !important; }
+#otpLoginOverlay :is(button, #deviceOtpInput):focus-visible {
+  outline: 2px solid var(--login-link);
+  outline-offset: 2px;
+}
+#otpLoginOverlay #otpErr:not(:empty) { color: var(--login-error); margin-top: 8px; font-size: 13px; }
+html body #loginScreen.show > #mpDesktopPitch p,
+html body #loginScreen.show :is(.mp-login-headline, .mp-login-field-label, .mp-login-field-sub, #loginNeutralLine, #loginTrustLine, #otpSentTo, #otpResendTimer) {
+  color: var(--login-muted) !important;
+  -webkit-text-fill-color: var(--login-muted) !important;
+  text-shadow: none !important;
+}
+html body #loginScreen.show :is(#mpDesktopPitch a, #otpResendBtn) {
+  color: var(--login-link) !important;
+  -webkit-text-fill-color: var(--login-link) !important;
+}
+html body #loginScreen.show #mpDesktopPitch .tag {
+  background: var(--login-control);
+  color: var(--login-text);
+  border-color: var(--login-border);
+}
+html body #loginScreen.show > :is(#loginStep1, #loginStep2) {
+  background: var(--login-panel) !important;
+  border: 1px solid var(--login-border) !important;
+  border-radius: 22px;
+  color: var(--login-text) !important;
+  box-sizing: border-box;
+}
+html body #loginScreen.show > #loginStep2 {
+  width: 100%;
+  max-width: 420px !important;
+  padding: 16px;
+}
+html body #loginScreen.show .login-card {
+  background: var(--login-card) !important;
+  color: var(--login-text) !important;
+  border: 1px solid var(--login-border) !important;
+  box-shadow: none !important;
+  box-sizing: border-box;
+  max-width: none;
+}
+html body #loginScreen.show :is(#loginMobile, #otpInput, #adminLoginPanel .inp-field) {
+  background: var(--login-control) !important;
+  color: var(--login-text) !important;
+  -webkit-text-fill-color: var(--login-text) !important;
+  caret-color: var(--login-text) !important;
+  border: 1px solid var(--login-border) !important;
+  min-width: 0;
+  box-sizing: border-box;
+}
+html body #loginScreen.show :is(#loginMobile, #otpInput, #adminLoginPanel .inp-field)::placeholder {
+  color: var(--login-muted) !important;
+  -webkit-text-fill-color: var(--login-muted) !important;
+  opacity: 1 !important;
+}
+html body #loginScreen.show :is(#loginMobile, #otpInput, #adminLoginPanel .inp-field):-webkit-autofill {
+  box-shadow: 0 0 0 1000px var(--login-control) inset !important;
+}
+html body #loginScreen.show #loginMobile { font-size: 16px !important; }
+html body #loginScreen.show #loginMobile::placeholder { font-size: 14px !important; letter-spacing: 0 !important; }
+html body #loginScreen.show #loginOtpTitle { font-size: 20px; font-weight: 900; }
+html body #loginScreen.show :is(#otpSentTo, #otpResendTimer) { font-size: 13px; font-weight: 600; }
+html body #loginScreen.show #otpSentTo { margin-top: 6px; overflow-wrap: anywhere; }
+html body #loginScreen.show #otpResendBtn {
+  background: var(--login-control);
+  border: 1px solid var(--login-border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  min-height: 40px;
+  align-items: center;
+  padding: 6px 12px;
+}
+html body #loginScreen.show :is(.mp-login-lang, .mp-login-secondary a, .mp-login-secondary button, .back-btn) {
+  background: var(--login-control) !important;
+  border-color: var(--login-border) !important;
+  color: var(--login-text) !important;
+  -webkit-text-fill-color: var(--login-text) !important;
+}
+html body #loginScreen.show :is(#sendOtpBtn, #verifyOtpBtn) {
+  background: #9a3412 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+html body #loginScreen.show :is(#sendOtpBtn, #verifyOtpBtn):enabled:hover {
+  background: #7c2d12 !important;
+}
+html body #loginScreen.show :is(#verifyOtpBtn:disabled, #sendOtpBtn[aria-disabled="true"]) {
+  background: var(--login-disabled) !important;
+  color: var(--login-muted) !important;
+  -webkit-text-fill-color: var(--login-muted) !important;
+  opacity: 1 !important;
+}
+html body #loginScreen.show :is(input, button, a):focus-visible {
+  outline: 2px solid var(--login-link);
+  outline-offset: 2px;
+}
+html body #loginScreen.show .err-msg {
+  background: var(--login-error-bg) !important;
+  color: var(--login-error) !important;
+  -webkit-text-fill-color: var(--login-error) !important;
+}
+html body #loginScreen.show #loginErr2:not(:empty) { display: block; }
+html body #loginScreen.show.otp-step {
+  grid-template-columns: minmax(0, 420px) !important;
+  justify-content: center !important;
+  justify-items: center !important;
+}
+html body #loginScreen.show.otp-step > #mpDesktopPitch { display: none !important; }
+@media (min-width: 960px) {
+  html body #loginScreen.show {
+    grid-template-columns: repeat(2, minmax(0, 420px)) !important;
+    gap: clamp(24px, 4vw, 64px) !important;
+    justify-content: center !important;
+    align-content: safe center !important;
+    align-items: center !important;
+    padding: 32px 30px !important;
+  }
+  html body #loginScreen.show > :is(#mpDesktopPitch, #loginStep1) {
+    max-width: 420px !important;
+    width: 100% !important;
+    margin: 0 !important;
+  }
+}
+@media (max-width: 959px) {
+  html body #loginScreen.show {
+    grid-template-columns: minmax(0, 1fr) !important;
+    align-content: start !important;
+    justify-items: center !important;
+    padding: 24px 16px 36px !important;
+  }
+  html body #loginScreen.show > #loginStep1 { width: 100% !important; max-width: 420px !important; }
+}
+html body #loginScreen.show #adminLoginPanel {
+  width: 100%;
+  max-width: 420px;
+  min-width: 0;
+  margin: auto;
+  color: var(--login-text) !important;
+}
+html body #loginScreen.show #adminLoginPanel .inp-label { color: var(--login-muted) !important; }
+html body #loginScreen.show #aPass { padding-right: 48px !important; }
 </style>
 </body>
 </html>

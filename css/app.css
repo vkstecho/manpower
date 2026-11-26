@@ -1806,14 +1806,41 @@ body.light .overlay.open .modal input::placeholder,body.light .overlay.open .mod
 body.light .overlay.open .modal .cancel-btn:not([disabled]){color:#0f172a}
 body.light .overlay.open .modal .modal-handle{background:#cbd5e1}
 
-/* v6.12 light toast contrast */
-body.light .toast{background:#fff!important;color:#0f172a!important;border-color:#94a3b8!important;box-shadow:0 8px 28px rgba(15,23,42,.18)!important}
+/* Toasts sit above the login screen and its dialogs. */
+#toast.toast {
+  z-index: 20000;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  border: 1px solid #94a3b8 !important;
+  opacity: 0 !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+#toast.toast.show { opacity: 1 !important; visibility: visible; }
+body.light #toast.toast {
+  background: #fff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+  border-color: #64748b !important;
+  box-shadow: 0 8px 28px rgba(15,23,42,.18) !important;
+}
 
 /* Keep native controls and popup surfaces in the same color scheme. */
 body.light .overlay,
 body.light .modal { color-scheme: light; }
 body:not(.light) .overlay,
 body:not(.light) .modal { color-scheme: dark; }
+body:has(#loginScreen.show) :is(#overlay, #warnOverlay).open { z-index: 1200; }
+.overlay.open .modal :is(.submit-btn, .cancel-btn):focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -4px;
+}
+.overlay.open .modal .submit-btn:enabled:not([style*="background"]) {
+  background: #9a3412 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
 .overlay .modal :is(input, select, textarea):focus-visible {
   outline: 2px solid var(--s2);
   outline-offset: 2px;

@@ -582,15 +582,12 @@ function _doPlatformShare(kind){
 
   // OTP step
   setTxt('loginOtpTitle','OTP डालें','Enter OTP');
-  const otpTitleHi=document.getElementById('loginOtpTitleHi');
-  if(otpTitleHi){ if(lang==='en') otpTitleHi.style.display='none'; else { otpTitleHi.style.display=''; otpTitleHi.textContent=T('OTP डालें','Enter OTP'); } }
   const verifyBtn=document.getElementById('verifyOtpBtn');
-  if(verifyBtn){ const dis=verifyBtn.disabled; verifyBtn.innerHTML=T('Verify करें','Verify')+' &#10003;'; verifyBtn.disabled=dis; }
+  if(verifyBtn) verifyBtn.innerHTML=T('सत्यापित करें','Verify')+' &#10003;';
   const resend=document.getElementById('otpResendBtn');
   if(resend) resend.innerHTML=T('OTP फिर भेजें','Resend OTP')+' &#8635;';
-  document.querySelectorAll('#loginBackBtn2, #loginStep2 .back-btn, #loginStep3 .back-btn').forEach(function(b){
-    if(b) b.innerHTML=T('&larr; वापस','&larr; Back');
-  });
+  setTxt('loginBackBtn2','← नंबर बदलें','← Change number');
+  setTxt('loginBackBtn3','← वापस','← Back');
 
   // Role
   setTxt('loginRoleHeading','आप कौन हैं?','Who are you?');

@@ -885,12 +885,11 @@ function _startWebOtpListen(inputId, onFilled){
     el.setAttribute('spellcheck', 'false');
     el.removeAttribute('readonly');
     el.removeAttribute('disabled');
-    // Visible digits on dark login
-    el.style.setProperty('color', '#f8fafc', 'important');
-    el.style.setProperty('-webkit-text-fill-color', '#f8fafc', 'important');
-    el.style.setProperty('caret-color', '#f97316', 'important');
-    el.style.setProperty('background', '#0f1b2d', 'important');
-    el.style.setProperty('background-color', '#0f1b2d', 'important');
+    // Keep the active login palette when the OS autofill listener runs.
+    el.style.setProperty('color', 'var(--login-text, #f8fafc)', 'important');
+    el.style.setProperty('-webkit-text-fill-color', 'var(--login-text, #f8fafc)', 'important');
+    el.style.setProperty('caret-color', 'var(--login-text, #f97316)', 'important');
+    el.style.setProperty('background', 'var(--login-control, #0f1b2d)', 'important');
     el.style.setProperty('font-size', '28px', 'important');
     el.style.setProperty('font-weight', '800', 'important');
     el.style.setProperty('letter-spacing', '0.4em', 'important');
@@ -1589,58 +1588,40 @@ async function showOTPLoginScreen(emp, deviceId){
 
   let ov = document.getElementById('otpLoginOverlay');
   if(!ov){ ov=document.createElement('div'); ov.id='otpLoginOverlay'; document.body.appendChild(ov); }
-  ov.style.cssText='position:fixed;inset:0;z-index:9500;background:#0a0f1a;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto';
+  ov.style.cssText='position:fixed;inset:0;z-index:9500;display:flex;flex-direction:column;align-items:center;justify-content:safe center;padding:clamp(12px,4vw,24px);box-sizing:border-box;overflow-y:auto';
   ov.innerHTML=`
     <div style="width:100%;max-width:360px;text-align:center">
       <div style="font-size:48px;margin-bottom:10px">📲</div>
-      <div style="font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:900;
-        background:linear-gradient(135deg,#f97316,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px">
-        OTP Verification
+      <div class="mp-otp-brand" role="heading" aria-level="1">
+        ${L('OTP सत्यापन','OTP verification')}
       </div>
-      <div style="font-size:14px;color:#94a3b8;margin-bottom:24px">
-        <b style="color:#f97316">${escHtml(emp.name)}</b><br>
-        <span style="font-size:12px">+91 ${maskedPhone} पर OTP भेजा जाएगा</span>
+      <div class="device-otp-note" style="font-size:14px;margin-bottom:24px">
+        <b>${escHtml(emp.name)}</b><br>
+        <span style="font-size:12px">${L('+91 ' + maskedPhone + ' पर OTP भेजा जाएगा','OTP will be sent to +91 ' + maskedPhone)}</span>
       </div>
       <div id="recaptcha-container-device"></div>
       <div id="otpStep1" style="">
-        <button onclick="_sendDeviceOTP()" id="sendOtpBtn"
-          style="width:100%;padding:16px;background:linear-gradient(135deg,#22c55e,#15803d);border:none;
-                 border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
-                 margin-bottom:12px;font-family:inherit">
-          📤 OTP भेजें
+        <button type="button" onclick="_sendDeviceOTP()" id="deviceSendOtpBtn" class="device-otp-primary">
+          ${L('📤 OTP भेजें','📤 Send OTP')}
         </button>
       </div>
       <div id="otpStep2" style="display:none">
-        <div style="font-size:13px;color:#22c55e;margin-bottom:16px;font-weight:700">
-          ✅ OTP भेज दिया गया +91 ${maskedPhone} पर
+        <div class="device-otp-note" style="font-size:13px;margin-bottom:16px;font-weight:700" aria-live="polite">
+          ${L('✅ +91 ' + maskedPhone + ' पर OTP भेजा गया','✅ OTP sent to +91 ' + maskedPhone)}
         </div>
-        <div style="background:#162032;border:1.5px solid #3b5a8a;border-radius:14px;padding:20px;margin-bottom:14px;text-align:left">
-          <div style="font-size:11px;font-weight:800;color:#64748b;letter-spacing:1px;margin-bottom:10px">6-digit OTP डालें *</div>
+        <div class="device-otp-card">
+          <label for="deviceOtpInput">${L('6 अंकों का OTP डालें','Enter the 6-digit OTP')}</label>
           <input id="deviceOtpInput" type="tel" name="one-time-code" inputmode="numeric" placeholder="● ● ● ● ● ●" maxlength="6"
             autocomplete="one-time-code" enterkeyhint="done" autocapitalize="off" spellcheck="false"
-            style="width:100%;box-sizing:border-box;background:#1e3251;border:1.5px solid #60a5fa;border-radius:10px;
-                   padding:16px;color:#fff;-webkit-text-fill-color:#fff;caret-color:#f97316;
-                   font-size:28px;text-align:center;outline:none;font-family:inherit;letter-spacing:8px;box-shadow:0 0 0 2px rgba(96,165,250,.3)"
             oninput="this.value=this.value.replace(/\\D/g,'').slice(0,6);_otpValidate()">
-          <div id="otpErr" style="color:#f43f5e;font-size:12px;margin-top:8px;min-height:16px;text-align:center"></div>
+          <div id="otpErr" role="alert"></div>
         </div>
-        <button id="deviceVerifyOtpBtn" type="button" onclick="_verifyDeviceOTP()" disabled
-          style="width:100%;padding:16px;background:linear-gradient(135deg,#f97316,#c2410c);border:none;
-                 border-radius:13px;color:#fff;font-size:17px;font-weight:900;cursor:pointer;
-                 margin-bottom:10px;opacity:.4;pointer-events:none;font-family:inherit">
-          ✅ Verify करें
+        <button id="deviceVerifyOtpBtn" type="button" class="device-otp-primary" onclick="_verifyDeviceOTP()" disabled>
+          ${L('✅ सत्यापित करें','✅ Verify')}
         </button>
-        <button onclick="_resendOTP()"
-          style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;
-                 color:#64748b;font-size:13px;cursor:pointer;font-family:inherit">
-          🔄 OTP दोबारा भेजें
-        </button>
+        <button type="button" onclick="_resendOTP()">${L('🔄 OTP फिर भेजें','🔄 Resend OTP')}</button>
       </div>
-      <button onclick="_cancelOTP()"
-        style="width:100%;padding:12px;background:none;border:1px solid #334155;border-radius:12px;
-               color:#64748b;font-size:13px;cursor:pointer;font-family:inherit;margin-top:8px">
-        ← वापस जाएं
-      </button>
+      <button type="button" onclick="_cancelOTP()">${L('← वापस जाएँ','← Back')}</button>
     </div>`;
   ov.style.display='flex';
 }
@@ -1704,10 +1685,10 @@ async function _sendDeviceOTP(isResend){
   const mobile = (digits.length===12 && digits.startsWith('91')) ? digits.slice(2) : digits;
   if(mobile.length!==10){ toast(L('⚠️ अमान्य कर्मचारी मोबाइल','⚠️ Invalid employee mobile')); return; }
   _deviceOtpBusy = true;
-  const btn = document.getElementById('sendOtpBtn');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Sending…'; }
+  const btn = document.getElementById('deviceSendOtpBtn');
+  if(btn){ btn.disabled=true; btn.textContent=L('⏳ भेजा जा रहा है…','⏳ Sending…'); }
   try{
-    toast(isResend?L('⏳ Resending OTP…','⏳ Resending OTP…'):L('OTP भेजा जा रहा है...','Sending OTP...'));
+    toast(isResend?L('⏳ OTP फिर भेजा जा रहा है…','⏳ Resending OTP…'):L('OTP भेजा जा रहा है...','Sending OTP...'));
     try{
       _startWebOtpListen('deviceOtpInput', function(code){
         if(code && String(code).replace(/\D/g,'').length===6){
@@ -1728,7 +1709,7 @@ async function _sendDeviceOTP(isResend){
     toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }finally{
     _deviceOtpBusy=false;
-    if(btn){ btn.disabled=false; btn.textContent='📤 OTP भेजें'; }
+    if(btn){ btn.disabled=false; btn.textContent=L('📤 OTP भेजें','📤 Send OTP'); }
   }
 }
 
@@ -1741,7 +1722,7 @@ async function _verifyDeviceOTP(){
   if(!_deviceOtpConfirm){ toast(L('⚠️ पहले OTP भेजें','⚠️ Send OTP first')); return; }
   _deviceOtpBusy=true;
   const btn=document.getElementById('deviceVerifyOtpBtn')||document.getElementById('verifyOtpBtn');
-  if(btn){ btn.disabled=true; btn.textContent='⏳ Verifying…'; }
+  if(btn){ btn.disabled=true; btn.textContent=L('⏳ सत्यापित हो रहा है…','⏳ Verifying…'); }
   try{
     await _fbVerifyPhoneOtp(_deviceOtpConfirm, otp);
     toast(L('✅ ओटीपी सत्यापित!','✅ OTP verified!'));
@@ -1764,7 +1745,7 @@ async function _verifyDeviceOTP(){
     toast(L('❌ ','❌ ')+_fbOtpErrorMessage(err));
   }finally{
     _deviceOtpBusy=false;
-    if(btn){ btn.disabled=false; btn.textContent='✅ Verify करें'; btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
+    if(btn){ btn.disabled=false; btn.textContent=L('✅ सत्यापित करें','✅ Verify'); btn.style.opacity='1'; btn.style.pointerEvents='auto'; }
   }
 }
 
