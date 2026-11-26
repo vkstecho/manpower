@@ -3,51 +3,38 @@
  * Split from app-login-session.js for maintainability.
  * Global function names unchanged — load order matters (see index.html).
  */
-async function launchApp(){
-  // v2.4.5: stamp this device as write-trusted whenever app opens with a session
-  try{
-    if(SESSION && SESSION.role && getWriteSecurityMode()==='trusted'){
-      const m = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-      if(m) localStorage.setItem('mp_device_phone', '+91'+m);
-      if(!localStorage.getItem('mp_device_verified_at'))
-        localStorage.setItem('mp_device_verified_at', String(Date.now()));
-      localStorage.setItem('mp_write_auth_at', String(Date.now()));
-      sessionStorage.setItem('mp_write_auth','1');
-    }
-  }catch(e){}
+let _launchingApp = null;
+function launchApp() {
+  const uid = SESSION.authUid;
+  if (_launchingApp?.uid === uid && uid) return _launchingApp.promise;
+  const promise = launchVerifiedApp(uid).finally(() => {
+    if (_launchingApp?.promise === promise) _launchingApp = null;
+  });
+  _launchingApp = {uid,promise};
+  return promise;
+}
 
-  try{
-  warmShiftConfigCache();
-  // ── Restore Firebase Auth: WAIT for IndexedDB restore before any anon sign-in ──
-  try{
-    if(typeof window._fbAuthStateReady === 'function'){
-      await window._fbAuthStateReady();
-    } else if(window._fbAuth && typeof window._fbAuth.authStateReady === 'function'){
-      await window._fbAuth.authStateReady();
+async function launchVerifiedApp(uid) {
+  await window._fbAuthStateReady?.();
+  if (!uid || window._fbAuth?.currentUser?.uid !== uid || window._fbAuth.currentUser.isAnonymous || window._mpLoggingOut) {
+    _showSessionLogin();
+    return false;
+  }
+  _sessionLoading(L('टीम और शिफ्ट लोड हो रही हैं…','Loading your team and shifts…'));
+  try {
+    if (!await initData()) return false;
+  } catch (error) {
+    if (SESSION.authUid === uid) {
+      _sessionLoading(L('टीम लोड नहीं हुई। कनेक्शन जाँचें।','Your team could not load. Check your connection.'),true);
     }
-    const cu = window._fbAuth && window._fbAuth.currentUser;
-    if(cu && cu.phoneNumber){
-      try{
-        localStorage.setItem('mp_device_phone', cu.phoneNumber);
-        localStorage.setItem('mp_device_uid', cu.uid);
-      }catch(e){}
-      console.log('[launchApp] Phone auth restored for', cu.phoneNumber);
-    } else if(window._fbAuth && !cu && SESSION.role){
-      // Only anonymous if this device never did phone verify
-      let hadPhone = false;
-      try{ hadPhone = !!(localStorage.getItem('mp_device_phone')); }catch(e){}
-      if(!hadPhone){
-        await window._fbSignInAnon();
-      } else {
-        console.warn('[launchApp] Waiting for phone auth restore — skip anon');
-      }
-    } else if(cu && cu.isAnonymous && localStorage.getItem('mp_device_phone')){
-      // Had phone before but lost — will prompt OTP on next write only (do NOT stay on anon forever)
-      console.warn('[launchApp] Phone session lost; device flag still set');
-    }
-  }catch(e){ console.warn('[launchApp] Firebase auth restore:', e.message); }
-  // Sync managers/{uid} or admins/{uid} so RTDB rules allow schedule writes
-  try{ await _syncAuthRoleNodes(); }catch(e){}
+    return false;
+  }
+  if (SESSION.authUid !== uid || window._fbAuth?.currentUser?.uid !== uid) return false;
+  try {
+    warmShiftConfigCache();
+    if (typeof _loadWaAppLinkSettings === 'function') void _loadWaAppLinkSettings();
+    void _hydrateUserPaymentStatus();
+    void _refreshIdTokenClaims();
 
   // ── Reset all overlapping screens ──
   const _hide = id => { const el=document.getElementById(id); if(el){ el.style.display='none'; el.classList && el.classList.remove('show'); }};
@@ -169,7 +156,6 @@ async function launchApp(){
   try { await buildNav(); } catch(e){ console.warn('buildNav error:',e); }
   // Re-sync header height after nav is built (sidebar depends on accurate --hdr-height)
   try{ syncStickyTop(); }catch(e){}
-  goTab(_currentTab||'home'); // buildNav() already set _currentTab to the correct role-based landing tab
   renderAll();
   updateSyncTime();
   setTimeout(()=>{ try{syncStickyTop();}catch(e){} }, 1200);
@@ -375,7 +361,11 @@ async function buildNav(){
 }
 
 // ── PROPER LOGOUT — clears ALL storage including IndexedDB ──
-function doLogout(){
+async function doLogout(){
+  if (window._mpLoggingOut) return;
+  window._mpLoggingOut = true;
+  _stopVerifiedRoster();
+  if (typeof _resetLoginOtp === "function") _resetLoginOtp();
   // ── 1. Show instant visual feedback ──
   try{
     const logoutBtn = document.querySelector('.profile-action[onclick*="doLogout"]');
@@ -417,34 +407,32 @@ function doLogout(){
   // ── 4. Clear integrity cache ──
   if('caches' in window){ try{ caches.delete(INTEGRITY_CACHE_NAME).catch(()=>{}); }catch(e){} }
 
-  // ── 5. Firebase sign-out FIRST so Phone session is cleared only on Logout ──
-  try{ if(window._fbSignOut) window._fbSignOut().catch(()=>{}); }catch(e){}
+  // Hide all protected UI before waiting for the local Firebase sign-out.
+  _showSessionLogin();
+  ['mainContent','mainHdr'].forEach(id => document.getElementById(id)?.style.setProperty('display','none'));
+  try {
+    if (window._fbSignOut) await window._fbSignOut();
+  } catch (error) {
+    toast(L('लॉगआउट पूरा नहीं हुआ। फिर कोशिश करें।','Could not finish signing out. Try again.'));
+    window._mpLoggingOut = false;
+    return;
+  }
+  try {
+    await new Promise(resolve => {
+      const request = indexedDB.open('mp_db',1);
+      request.onerror = request.onblocked = resolve;
+      request.onsuccess = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('sess')) { db.close(); resolve(); return; }
+        const transaction = db.transaction('sess','readwrite');
+        transaction.objectStore('sess').delete('mp_session');
+        transaction.oncomplete = transaction.onerror = transaction.onabort = () => { db.close(); resolve(); };
+      };
+    });
+  } finally {
+    window.location.replace(window.location.pathname + '?logout=' + Date.now());
+  }
 
-  // ── 6. Hide app UI immediately (avoid white screen) ──
-  try{
-    var main=document.getElementById('mainApp')||document.getElementById('appRoot');
-    if(main) main.style.display='none';
-    var hdr=document.getElementById('mainHdr');
-    if(hdr) hdr.style.display='none';
-    var login=document.getElementById('loginScreen');
-    if(login){ login.style.display='flex'; login.classList.add('show'); login.style.visibility='visible'; }
-    var ls=document.getElementById('loadingScreen');
-    if(ls){ ls.style.cssText='display:none!important;opacity:0;pointer-events:none;visibility:hidden'; }
-  }catch(e){}
-  // ── 7. Redirect ──
-  window.location.href = window.location.pathname + '?logout=' + Date.now();
-  try{
-    const req = indexedDB.open('mp_db', 1);
-    req.onsuccess = e => {
-      try{
-        const db = e.target.result;
-        if(Array.from(db.objectStoreNames).includes('sess')){
-          db.transaction('sess','readwrite').objectStore('sess').delete('mp_session');
-        }
-        db.close();
-      }catch(x){}
-    };
-  }catch(e){}
 }
 
 function updateSyncTime(){

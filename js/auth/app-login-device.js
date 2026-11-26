@@ -1167,19 +1167,6 @@ async function _fbSendPhoneOtp(e164Phone, containerId, storeKey){
     throw new Error('Invalid phone number');
   }
 
-  // Fast signOut of anonymous / mismatched phone (cap 800ms) — don't block OTP.
-  // Skip when caller opts out (e.g. Admin deleted-backup OTP) so SESSION stays alive.
-  try{
-    if(!window._mpSkipOtpSignOut){
-      const cu = window._fbAuth && window._fbAuth.currentUser;
-      if(cu && (cu.isAnonymous || (cu.phoneNumber && (cu.phoneNumber||'').replace(/\D/g,'').slice(-10) !== phone.replace(/\D/g,'').slice(-10)))){
-        if(window._fbSignOut){
-          await Promise.race([window._fbSignOut(), new Promise(r=>setTimeout(r, 800))]);
-        }
-      }
-    }
-  }catch(e){ console.warn('[otp] signOut before phone', e); }
-
   const cid = containerId || 'recaptcha-container';
   const key = storeKey || '_fbRecaptchaNew';
   if (window.MP_FIREBASE_EMULATORS === true && window._fbAuth?.config?.emulator &&
@@ -1685,6 +1672,7 @@ async function _sendDeviceOTP(isResend){
   const mobile = (digits.length===12 && digits.startsWith('91')) ? digits.slice(2) : digits;
   if(mobile.length!==10){ toast(L('⚠️ अमान्य कर्मचारी मोबाइल','⚠️ Invalid employee mobile')); return; }
   _deviceOtpBusy = true;
+  _deviceOtpConfirm = null;
   const btn = document.getElementById('deviceSendOtpBtn');
   if(btn){ btn.disabled=true; btn.textContent=L('⏳ भेजा जा रहा है…','⏳ Sending…'); }
   try{

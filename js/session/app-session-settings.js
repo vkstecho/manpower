@@ -594,7 +594,7 @@ function goTab(t){
       if(ok){
         _pendingShiftChanges = {};
         _updateSaveBar();
-        _goTabDirect(t);
+        _enforcePaymentGate(t);
       }
     });
     return;
@@ -603,18 +603,30 @@ function goTab(t){
   _enforcePaymentGate(t);
 }
 
-async function _enforcePaymentGate(tab){
-  try{
-    if(!_isPaymentExemptUser()){
-      try{ await _loadPaymentSettings(true); }catch(e){}
-      try{ await _hydrateUserPaymentStatus(); }catch(e){}
-    }
-  }catch(e){}
-  if(!_paymentGateAllows(tab)){
-    openPaymentRequiredModal(tab);
+let _paymentNavigation = 0;
+async function _enforcePaymentGate(tab) {
+  const request = ++_paymentNavigation;
+  const uid = window._fbAuth?.currentUser?.uid;
+  const stillRequested = () => request === _paymentNavigation && uid === window._fbAuth?.currentUser?.uid;
+  const state = _paymentAccessState(tab);
+  if (state === 'allowed') { _goTabDirect(tab); return; }
+  if (state === 'unauthenticated') {
+    toast(L('सत्र की पुष्टि नहीं हुई।','Your session is not available.'));
     return;
   }
-  _goTabDirect(tab);
+  const loading = setTimeout(() => {
+    if (stillRequested()) toast(L('सदस्यता की जाँच हो रही है…','Checking subscription…'));
+  },180);
+  const verified = await _loadCommercialEntitlement();
+  clearTimeout(loading);
+  if (!stillRequested()) return;
+  if (!verified) {
+    toast(L('सदस्यता की जाँच नहीं हो सकी। कनेक्शन जाँचें और फिर कोशिश करें।',
+      'Could not verify your subscription. Check your connection and try again.'));
+    return;
+  }
+  if (_paymentGateAllows(tab)) _goTabDirect(tab);
+  else if (_paymentAccessState(tab) === 'expired') openPaymentRequiredModal(tab,stillRequested);
 }
 
 function _updateSchedAdminVisibility(){

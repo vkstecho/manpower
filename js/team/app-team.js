@@ -739,7 +739,7 @@ async function loadDeviceInfoForCard(empId, empName){
     const accessBadge = accessLevel==='manager'?'<span style="color:#a855f7;font-weight:800;font-size:10px">🏅 MANAGER</span>&nbsp;·&nbsp;':
                         accessLevel==='supervisor'?'<span style="color:#38bdf8;font-weight:800;font-size:10px">👁️ SUP</span>&nbsp;·&nbsp;':'';
     if(revokeRec&&revokeRec.status==='revoked'){
-      el.innerHTML=`${accessBadge}<span style="color:#f43f5e;font-weight:700">🚫 Access Revoked</span>`;
+      el.innerHTML=`${accessBadge}<span style="color:var(--red);font-weight:700">🚫 ${L('पुरानी डिवाइस अनुमति रद्द','Legacy device approval revoked')}</span>`;
       return;
     }
     if(!dRec||!dRec.approvedDeviceId){
@@ -781,12 +781,13 @@ async function loadDeviceManagerContent(empId, empName){
   const el=document.getElementById('dmContent_'+empId);
   if(!el) return;
   try{
-    const [dRec, revokeRec, loginReqs] = await Promise.all([
+    const admin = isAdmin();
+    const [dRec, access, loginReqs] = await Promise.all([
       fbGet('deviceApprovals/'+empId).catch(()=>null),
-      fbGet('userApprovals/'+empId).catch(()=>null),
+      admin ? window._fbCall('setRoleClaim',{action:'accountAccess',employeeId:empId}).catch(()=>null) : null,
       fbGet('loginRequests').catch(()=>null)
     ]);
-    const isRevoked=revokeRec&&revokeRec.status==='revoked';
+    const isRevoked=access?.locked === true;
     const expDate=dRec&&dRec.validTill?new Date(dRec.validTill):null;
     const daysLeft=expDate?Math.ceil((expDate-Date.now())/86400000):null;
     const expColor=daysLeft==null?'#64748b':daysLeft<7?'#f43f5e':daysLeft<30?'#f97316':'#22c55e';
@@ -796,17 +797,16 @@ async function loadDeviceManagerContent(empId, empName){
 
     el.innerHTML=`
       <!-- Access Status -->
-      <div style="background:${isRevoked?'rgba(244,63,94,.1)':'rgba(34,197,94,.08)'};border:1px solid ${isRevoked?'rgba(244,63,94,.3)':'rgba(34,197,94,.2)'};border-radius:12px;padding:14px;margin-bottom:12px">
-        <div style="font-size:12px;font-weight:800;color:#64748b;letter-spacing:.5px;margin-bottom:6px">ACCESS STATUS</div>
-        <div style="font-size:15px;font-weight:900;color:${isRevoked?'#f43f5e':'#22c55e'}">${isRevoked?'🚫 Revoked':'✅ Active'}</div>
-        ${isRevoked?`<div style="font-size:11px;color:#64748b;margin-top:4px">Revoked on ${revokeRec.revokedAt?new Date(revokeRec.revokedAt).toLocaleDateString('en-IN'):'—'}</div>`:''}
+      ${admin ? `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:6px">${L('खाते की पहुँच','Account access')}</div>
+        <div style="font-size:15px;font-weight:900;color:var(--text)">${!access ? L('खाता सत्यापित नहीं हो सका','Account could not be verified') : isRevoked ? L('🚫 पहुँच बंद','🚫 Locked') : L('✅ सक्रिय','✅ Active')}</div>
         <div style="display:flex;gap:8px;margin-top:10px">
-          ${isRevoked
-            ? `<button onclick="adminRestoreAccess('${empId}','${empName}')" style="flex:1;padding:10px;background:rgba(34,197,94,.15);border:1px solid rgba(34,197,94,.3);border-radius:9px;color:#22c55e;font-size:13px;font-weight:700;cursor:pointer">✅ Restore Access</button>`
-            : `<button onclick="adminRevokeAccess('${empId}','${empName}')" style="flex:1;padding:10px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:9px;color:#f43f5e;font-size:13px;font-weight:700;cursor:pointer">🚫 Revoke Access</button>`
+          ${!access ? '' : isRevoked
+            ? `<button class="submit-btn" onclick="adminRestoreAccess('${empId}','${empName}')">${L('पहुँच बहाल करें','Restore access')}</button>`
+            : `<button class="cancel-btn" onclick="adminRevokeAccess('${empId}','${empName}')">${L('पहुँच बंद करें','Revoke access')}</button>`
           }
         </div>
-      </div>
+      </div>` : ''}
 
       <!-- Device Info -->
       <div style="background:#0f172a;border:1px solid #334155;border-radius:12px;padding:14px;margin-bottom:12px">
@@ -862,7 +862,7 @@ async function adminExtendExpiry(empId, empName, days){
 }
 
 async function adminRemoveDevice(empId, empName){
-  const ok = await confirmModal(L('डिवाइस हटाएँ?','Remove device?'), `<b>${empName}</b> ${L('का device हटाया जाएगा।<br>Login के लिए Admin approval लेनी होगी।','device will be removed.<br>Admin approval will be needed to login.')}`, L('🗑️ हाँ, हटाएं','🗑️ Yes, Remove'), L('रद्द करें','Cancel'));
+  const ok = await confirmModal(L('पुरानी डिवाइस अनुमति हटाएँ?','Clear legacy device approval?'), L('खाते की पहुँच अलग से बंद की जा सकती है।','Use Revoke access to lock the verified account.'), L('🗑️ हाँ, हटाएं','🗑️ Yes, Remove'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
     await fbUpdate('deviceApprovals/'+empId,{
@@ -878,9 +878,7 @@ async function adminRevokeAccess(empId, empName){
   const ok = await confirmModal(L('पहुँच रद्द करें?','Revoke access?'), `<b>${empName}</b> ${L('की App पहुँच रद्द होगी।<br>वो login नहीं कर पाएंगे।','app access will be revoked.<br>They will not be able to login.')}`, L('🚫 हाँ, Revoke करें','🚫 Yes, Revoke'), L('रद्द करें','Cancel'));
   if(!ok) return;
   try{
-    await fbUpdate('userApprovals/'+empId,{
-      status:'revoked', revokedBy:SESSION.name, revokedAt:new Date().toISOString()
-    });
+    await window._fbCall('setRoleClaim',{action:'accountAccess',employeeId:empId,locked:true});
     toast('🚫 '+empName+L(' की पहुँच रद्द कर दी',' access revoked'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);
@@ -889,9 +887,7 @@ async function adminRevokeAccess(empId, empName){
 
 async function adminRestoreAccess(empId, empName){
   try{
-    await fbUpdate('userApprovals/'+empId,{
-      status:'active', restoredBy:SESSION.name, restoredAt:new Date().toISOString()
-    });
+    await window._fbCall('setRoleClaim',{action:'accountAccess',employeeId:empId,locked:false});
     toast('✅ '+empName+L(' की access restore हो गई',' access restored'));
     loadDeviceManagerContent(empId, empName);
     loadDeviceInfoForCard(empId, empName);

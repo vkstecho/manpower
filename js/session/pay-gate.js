@@ -63,34 +63,19 @@ async function _refreshUserPaidUntilFromServer(){
 }
 window._refreshUserPaidUntilFromServer = _refreshUserPaidUntilFromServer;
 
-function _paymentGateAllows(tab){
-  const t = String(tab||'').toLowerCase();
-  // Always free tabs (+ Learn & Grow overlay is never paywalled)
-  if(!t || t==='home' || t==='myshift' || t==='my-shift' || t==='learn' || t==='learngrow' || t==='train' || t==='diary') return true;
-  if(_isPaymentExemptUser()) return true;
+function _paymentAccessState(tab) {
+  const key = String(tab || '').toLowerCase();
+  if (['','home','myshift','my-shift','learn','learngrow','train','diary'].includes(key)) return 'allowed';
+  const user = window._fbAuth?.currentUser;
+  if (!user || user.isAnonymous) return 'unauthenticated';
   const entitlement = _currentCommercialEntitlement();
-  if (entitlement?.enabled === false) return true;
-  if (entitlement?.paidUntil && Date.parse(entitlement.paidUntil) >= Date.now()) return true;
-  // SESSION may be stale after Admin sets validity — kick a background live refresh
-  // so next navigation / retry unlocks without forcing logout.
-  try{
-    if(typeof _refreshUserPaidUntilFromServer === 'function'){
-      const lastTry = window._paidUntilRefreshAt || 0;
-      if(Date.now() - lastTry > 8000){
-        window._paidUntilRefreshAt = Date.now();
-        _refreshUserPaidUntilFromServer().then(function(d){
-          if(d){
-            try{
-              // Soft-refresh UI that depends on paid status
-              if(typeof renderProfileCard === 'function') renderProfileCard();
-              if(typeof renderHome === 'function') renderHome();
-            }catch(e){}
-          }
-        }).catch(function(){});
-      }
-    }
-  }catch(e){}
-  return false;
+  if (entitlement?.admin === true || entitlement?.enabled === false ||
+      (entitlement?.paidUntil && Date.parse(entitlement.paidUntil) >= Date.now())) return 'allowed';
+  if (entitlement) return 'expired';
+  return _commercialRequest?.uid === user.uid ? 'loading' : 'unavailable';
+}
+function _paymentGateAllows(tab) {
+  return _paymentAccessState(tab) === 'allowed';
 }
 
 function _getLinksByAmountMap(cfg){
@@ -490,21 +475,10 @@ async function saveCustomerCareAdmin(){
 }
 
 
-function openPaymentRequiredModal(attemptedTab){
-  // Always re-hydrate before showing paywall — Admin may have just extended validTill / paymentPaidUntil
-  Promise.resolve()
-    .then(async function(){
-      try{ await _hydrateUserPaymentStatus(); }catch(e){}
-      try{ await _loadPaymentSettings(false); }catch(e){}
-      // If access is now valid, do NOT show paywall — open the requested tab
-      if(_paymentGateAllows(attemptedTab || 'home')){
-        try{
-          if(typeof _goTabDirect === 'function') _goTabDirect(attemptedTab || 'home');
-          else if(typeof goTab === 'function') goTab(attemptedTab || 'home');
-        }catch(e){}
-        return;
-      }
-      const cfg = await _loadPaymentSettings(true);
+async function openPaymentRequiredModal(attemptedTab, stillRequested = () => true) {
+  if (_paymentAccessState(attemptedTab) !== 'expired' || !stillRequested()) return;
+  try {
+      const cfg = await _loadPaymentSettings(false);
       const amount = (SESSION && SESSION.paymentAmount) || (cfg && cfg.amount) || 799;
       const link = (typeof _resolvePaymentLink === 'function')
         ? _resolvePaymentLink(cfg, amount)
@@ -525,6 +499,7 @@ function openPaymentRequiredModal(attemptedTab){
       <div style="font-size:11px;color:var(--text);line-height:1.45;margin-bottom:8px">${escHtml(String(cc.refundPolicy||'').slice(0,280))}</div>
       <button type="button" onclick="closeModal();openCustomerCarePage()" style="border:none;background:transparent;color:#38bdf8;font-weight:800;font-size:12px;padding:0;cursor:pointer;text-decoration:underline">🎧 Customer Care / Request refund ›</button>
     </div>`;
+      if (!stillRequested() || _paymentAccessState(attemptedTab) !== 'expired') return;
       openModal(`<div class="modal-handle"></div>
       <div style="text-align:center;padding:8px 0 4px">
         <div style="font-size:42px;margin-bottom:8px">💳</div>
@@ -535,8 +510,9 @@ function openPaymentRequiredModal(attemptedTab){
         ${refundBox}
         <button type="button" class="cancel-btn" style="margin-top:10px;width:100%" onclick="closeModal();goTab('home')">← Back to Home</button>
       </div>`);
-    })
-    .catch(function(){ toast(L('भुगतान जाँच विफल','Payment check failed')); });
+  } catch (error) {
+    if (stillRequested()) toast(L('भुगतान जाँच विफल','Payment check failed'));
+  }
 }
 
 

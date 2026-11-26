@@ -139,7 +139,7 @@ function hidePendingBox(){
   showStep(1);
 }
 
-function backToStep1(){ _stopApprovalWatch(); showStep(1); }
+function backToStep1(){ if(_loginOtpVerifying)return; _resetLoginOtp(); _stopApprovalWatch(); showStep(1); }
 function showAdminLogin(){ showStep('admin'); setTimeout(()=>document.getElementById('aUser')?.focus(),100); }
 // Guest multi-company entry removed — mobile OTP is the only login entry
 function checkGuestCompany(){ /* removed */ }
@@ -148,6 +148,14 @@ function showCompanyPage(){ /* removed */ }
 function goToStep2(){ try{ showStep(1); }catch(e){} }
 
 let _loginMobile='', _loginConfirmResult=null, _otpResendInterval=null;
+let _loginOtpVerifying = false, _otpResendAt = 0, _otpGeneration = 0;
+function _resetLoginOtp() {
+  _otpGeneration++;
+  _loginConfirmResult = null;
+  _otpResendAt = 0;
+  clearInterval(_otpResendInterval);
+  _stopWebOtpListen();
+}
 
 /** v6.0.44: sync CTA from live input — never leave button HTML-disabled (blocks all taps on mobile). */
 function _registrationPhone(value) {
@@ -208,6 +216,8 @@ function _onOtpInput(val){
 }
 
 async function _sendOTP(isResend){
+  if (_loginOtpVerifying || (isResend && Date.now() < _otpResendAt)) return;
+  const attempt = _otpGeneration;
   // v6.0.44: always re-read mobile + unlock CTA before anything else
   try{ if(typeof mpSyncLoginCta==='function') mpSyncLoginCta(); }catch(e){}
   try{
@@ -371,7 +381,9 @@ async function _sendOTP(isResend){
     if(typeof _fbSendPhoneOtp!=='function'){
       throw new Error('OTP module not loaded — hard refresh the page (Ctrl+Shift+R)');
     }
-    _loginConfirmResult = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
+    const confirmation = await _fbSendPhoneOtp(fullPhone, 'recaptcha-container', '_fbRecaptchaNew');
+    if (attempt !== _otpGeneration) return;
+    _loginConfirmResult = confirmation;
     // Only now move to OTP entry
     showStep(2);
     const otpError = document.getElementById('loginErr2');
@@ -380,6 +392,8 @@ async function _sendOTP(isResend){
     if(sentEl) sentEl.textContent=L(fullPhone+' पर OTP भेजा गया','OTP sent to '+fullPhone);
     const otpEl = document.getElementById('otpInput');
     if(otpEl){
+      otpEl.value = '';
+      _onOtpInput('');
       try{
         otpEl.setAttribute('autocomplete','one-time-code');
         otpEl.setAttribute('name','one-time-code');
@@ -399,10 +413,6 @@ async function _sendOTP(isResend){
           }
         });
       }
-    }catch(e){}
-    try{
-      var _already = String((document.getElementById('otpInput')||{}).value||'').replace(/\D/g,'');
-      if(_already.length===6) setTimeout(function(){ try{ _verifyOTP(); }catch(e){} }, 300);
     }catch(e){}
     toast(L('✅ OTP भेज दिया। कीबोर्ड पर कोड दिखे तो उसे चुनें।','✅ OTP sent! Tap the code on your keyboard if shown.'));
     try{ _restoreBtn(); }catch(e){}
@@ -431,26 +441,23 @@ async function doLoginAfterApproval(emp){
   throw new Error(L('अपने खाते में ओटीपी से प्रवेश करें।', 'Sign in to your account with OTP.'));
 }
 
-function _startResendTimer(){
-  let sec=30;
-  const timerEl=document.getElementById('otpResendTimer');
-  const resendBtn=document.getElementById('otpResendBtn');
-  if(resendBtn) resendBtn.style.display='none';
-  if(_otpResendInterval) clearInterval(_otpResendInterval);
-  const _resendLabel = s => L(s + ' सेकंड में फिर भेजें', 'Resend in ' + s + 's');
-  if(timerEl) timerEl.textContent = _resendLabel(sec);
-  _otpResendInterval=setInterval(()=>{
-    sec--;
-    if(timerEl) timerEl.textContent = sec > 0 ? _resendLabel(sec) : '';
-    if(sec<=0){
-      clearInterval(_otpResendInterval);
-      if(resendBtn) resendBtn.style.display='inline-flex';
-      if(timerEl) timerEl.textContent='';
-    }
-  },1000);
+function _startResendTimer() {
+  _otpResendAt = Date.now()+30000;
+  const timer = document.getElementById('otpResendTimer');
+  const resend = document.getElementById('otpResendBtn');
+  clearInterval(_otpResendInterval);
+  function renderCountdown() {
+    const secs = Math.max(0, Math.ceil((_otpResendAt-Date.now())/1000));
+    if (timer) timer.textContent = secs ? L(secs+' सेकंड में फिर भेजें','Resend in '+secs+'s') : '';
+    if (resend) resend.style.display = secs ? 'none' : 'inline-flex';
+    if (!secs) clearInterval(_otpResendInterval);
+  }
+  _otpResendInterval = setInterval(renderCountdown,1000);
+  renderCountdown();
 }
 
 async function _verifyOTP(){
+  if (_loginOtpVerifying) return;
   _stopWebOtpListen();
 
   // If device OTP overlay is open, use device flow
@@ -465,18 +472,24 @@ async function _verifyOTP(){
   const otp=(document.getElementById('otpInput')?.value||'').trim().replace(/\D/g,'');
   if(otp.length!==6){ toast(L('⚠️ 6 अंकों का OTP डालें','⚠️ Enter the 6-digit OTP')); return; }
   if(!_loginConfirmResult){ toast(L('⚠️ OTP पहले भेजें','⚠️ Send OTP first')); return; }
+  _loginOtpVerifying = true;
   try{
     const errEl=document.getElementById('loginErr2');
     if(errEl) errEl.textContent='';
     toast(L('⏳ सत्यापित हो रहा है...','⏳ Verifying...'));
     await _fbVerifyPhoneOtp(_loginConfirmResult, otp);
+    _loginConfirmResult = null;
     toast(L('✅ मोबाइल सत्यापित!','✅ Mobile Verified!'));
     await _checkUserAfterOTP();
   }catch(err){
+    if (['auth/code-expired','auth/session-expired','auth/invalid-verification-id'].includes(err.code)) {
+      _loginConfirmResult = null;
+      _otpResendAt = 0;
+    }
     const errEl=document.getElementById('loginErr2');
     const msg='❌ '+_fbOtpErrorMessage(err);
     if(errEl) errEl.textContent=msg; toast(msg);
-  }
+  } finally { _loginOtpVerifying = false; }
 }
 
 
@@ -700,15 +713,16 @@ async function _loginRosterMemberAfterOtp(mobile, empMatch){
   return true;
 }
 
-async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null) {
+async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null, restoring = false) {
   await window._fbAuthStateReady?.();
   const user = window._fbAuth?.currentUser;
   const fullPhone = _registrationPhone(mobile);
   mobile = _registrationPhoneKey(fullPhone);
   if (!user || user.isAnonymous || !fullPhone || user.phoneNumber !== fullPhone) return false;
   const identity = await window._fbCall('getMyRosterIdentity');
-  if (expectedEmployeeId && identity.employeeId !== expectedEmployeeId) return false;
-  if (identity.admin) return _launchAsHardAdmin(mobile);
+  if (identity.uid !== user.uid || window._fbAuth?.currentUser?.uid !== user.uid ||
+      (expectedEmployeeId && identity.employeeId !== expectedEmployeeId)) return false;
+  if (identity.admin) return _launchAsHardAdmin(fullPhone, identity.uid, restoring);
   if (!identity.employeeId) return false;
   const [employee, profiles] = await Promise.all([
     _mpFbGet('employees/' + identity.employeeId),
@@ -716,14 +730,14 @@ async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null) {
   ]);
   const approved = Object.values(profiles || {}).filter(row => row?.status === 'approved');
   const profile = profiles?.[mobile] || (approved.length === 1 ? approved[0] : null);
-  if (!employee || profile?.forceFreshLogin || ['removed','revoked','left','left_team'].includes(profile?.status)) return false;
+  if (window._fbAuth?.currentUser?.uid !== user.uid || !employee || profile?.forceFreshLogin || ['removed','revoked','left','left_team'].includes(profile?.status)) return false;
   _launchAsNewUser({
     ...profile, name: employee.name, mobile: fullPhone || '',
     company: employee.companyLabel || profile?.company || employee.companyId,
     companyId: identity.companyKey, managerId: employee.managerId || '',
     managerUid: identity.managerUid || '', empObjId: identity.employeeId, empId: employee.empId,
     role: identity.manager ? 'manager' : 'member', status: 'approved',
-    rosterLinked: true, authUid: identity.uid, individual: identity.independent,
+    rosterLinked: true, authUid: identity.uid, individual: identity.independent, restoring,
     joinRequestPending: identity.independent && profile?.status === 'pending'
   });
   if (SESSION.joinRequestPending) _watchApprovalStatus(mobile);
@@ -743,7 +757,7 @@ async function _checkUserAfterOTP(){
     const pending = Object.entries(profiles).filter(([,row]) => row?.status === 'pending' && row.accountUid === user.uid);
     if (pending.length === 1) {
       const [key, profile] = pending[0];
-      _launchAsNewUser(profile);
+      _launchAsNewUser({...profile,authUid:user.uid});
       _watchApprovalStatus(key);
       return;
     }
@@ -984,21 +998,21 @@ function _isAdminMobileQuick(m){
   }catch(e){}
   return false;
 }
-function _launchAsHardAdmin(mobile10){
+function _launchAsHardAdmin(mobile10, authUid, restoring = false){
   try{
-    const key = (typeof _normMobileKey==='function')
-      ? _normMobileKey(mobile10||_loginMobile||'')
-      : String(mobile10||_loginMobile||'').replace(/\D/g,'').slice(-10);
-    if(!key) throw new Error('no admin mobile');
+    const phone = _registrationPhone(mobile10);
+    const user = window._fbAuth?.currentUser;
+    if (!phone || !authUid || user?.uid !== authUid || user.phoneNumber !== phone) return false;
     SESSION = {
-      uid: '+91'+key,
+      uid: phone,
+      authUid,
       name: 'ADMIN',
       role: 'admin',
       company: '',
       companyId: 'ALL',
       viewCompanyId: 'ALL',
       managerId: '',
-      mobile: '+91'+key,
+      mobile: phone,
       empId: '',
       empObjId: '',
       newUser: false,
@@ -1008,12 +1022,11 @@ function _launchAsHardAdmin(mobile10){
     try{ localStorage.setItem('mp_int_ok','1'); }catch(e){}
     try{ if(typeof saveSession==='function') saveSession(); }catch(e){}
     try{
-      if(typeof _recordLoginEvent==='function') _recordLoginEvent({
+      if(!restoring && typeof _recordLoginEvent==='function') _recordLoginEvent({
         name: 'ADMIN', mobile: SESSION.mobile, company: '—', role: 'admin', method: 'admin_otp'
       });
     }catch(e){}
-    try{ if(typeof _syncAuthRoleNodes==='function') _syncAuthRoleNodes(); }catch(e){}
-    try{ toast(L('✅ व्यवस्थापक लॉगिन','✅ Admin login')); }catch(e){}
+    if(!restoring) try{ toast(L('✅ व्यवस्थापक लॉगिन','✅ Admin login')); }catch(e){}
     try{
       const ls = document.getElementById('loginScreen');
       if(ls){ ls.style.display='none'; ls.classList.remove('show'); }
@@ -1028,7 +1041,6 @@ function _launchAsHardAdmin(mobile10){
         setTimeout(()=>{ try{ location.reload(); }catch(e){} }, 400);
       }
     }catch(e){ console.error('[admin] launchApp', e); }
-    setTimeout(()=>{ try{ if(typeof _syncAuthRoleNodes==='function') _syncAuthRoleNodes(); }catch(e){} }, 1500);
     return true;
   }catch(e){
     console.error('[admin] _launchAsHardAdmin failed', e);
@@ -1176,7 +1188,7 @@ async function _syncMobileUserToCurrentEmployee(mobile, userData, opts){
 function _launchAsNewUser(userData){
   const mob = _registrationPhoneKey(userData.mobile || userData.uid);
   SESSION.uid=userData.mobile;
-  SESSION.authUid=userData.authUid||'';
+  SESSION.authUid=userData.authUid || (userData.accountUid === window._fbAuth?.currentUser?.uid ? userData.accountUid : '') || '';
   SESSION.rosterLinked=userData.rosterLinked===true;
   SESSION.name=userData.name;
   SESSION.role=userData.role;
@@ -1207,8 +1219,8 @@ function _launchAsNewUser(userData){
       }
     }
   }catch(e){}
-  SESSION.newUser=true;
-  SESSION.loginAt=new Date().toISOString();
+  SESSION.newUser=!userData.restoring;
+  if (!userData.restoring || !SESSION.loginAt) SESSION.loginAt=new Date().toISOString();
   // ALWAYS prefer current employees/{id} by mobile — never keep old member name
   if(!SESSION.rosterLinked && !SESSION.pendingApproval && /^\d{10}$/.test(mob)) try{
     const mobKey = _normMobileKey(userData.mobile||'');
@@ -1244,7 +1256,7 @@ function _launchAsNewUser(userData){
   }catch(e){}
   saveSession();
   try{ writeIntegrityToken(); localStorage.setItem('mp_int_ok','1'); }catch(e){}
-  try{
+  if (!userData.restoring) try{
     _recordLoginEvent({
       name: SESSION.name,
       mobile: SESSION.mobile,
@@ -1268,34 +1280,14 @@ function _launchAsNewUser(userData){
       localStorage.setItem('mp_device_uid', u.uid||'');
     }
   }catch(e){}
-  try{
-    // Show shell immediately so OTP never ends on a black page
-    const _mh = document.getElementById('mainHdr');
-    const _mc = document.getElementById('mainContent');
-    if(_mh) _mh.style.display='block';
-    if(_mc) _mc.style.display='block';
-    const ls = document.getElementById('loginScreen');
-    if(ls){
-      ls.classList.remove('show');
-      ls.style.setProperty('display','none','important');
-      ls.style.visibility='hidden';
-      ls.style.opacity='0';
-      ls.style.pointerEvents='none';
-    }
-    const pb = document.getElementById('pendingBox');
-    if(pb) pb.style.display='none';
-  }catch(e){}
-  Promise.resolve(launchApp()).catch(err=>{
-    console.error('[launch] failed', err);
-    try{
-      document.getElementById('mainHdr').style.display='block';
-      document.getElementById('mainContent').style.display='block';
-      toast(L('⚠️ ऐप लोड समस्या — स्क्रीन खाली हो तो रीफ़्रेश करें','⚠️ App load issue — pull to refresh if screen is empty'));
-    }catch(e){}
-  });
-  setTimeout(()=>{ try{ _syncAuthRoleNodes(); }catch(e){} }, 500);
-  setTimeout(()=>{ try{ _resolveSessionEmpLink(); _syncAuthRoleNodes(); }catch(e){} }, 1500);
-  setTimeout(()=>{ try{ _resolveSessionEmpLink(); listenUserShiftNotifications(); _syncAuthRoleNodes(); }catch(e){} }, 4000);
+  if (userData.restoring) {
+    Promise.resolve(checkFingerprintOnStart()).then(shown => {
+      if (!shown) return launchApp();
+      document.getElementById('loadingScreen')?.style.setProperty('display','none','important');
+    }).catch(() => { void launchApp(); });
+    return;
+  }
+  void launchApp();
 
   // v2.4.3: After OTP/approval — prefer Fingerprint setup, then device password
   try{
@@ -1330,6 +1322,7 @@ function _launchAsNewUser(userData){
 
 /** Match logged-in mobile user to employees record for notifications */
 function _resolveSessionEmpLink(){
+  if(SESSION.rosterLinked) return;
   if(SESSION.role!=='member' && SESSION.role!=='manager' && SESSION.role!=='worker') return;
   const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
   if(!mob) return;

@@ -1853,3 +1853,61 @@ body:has(#loginScreen.show) :is(#overlay, #warnOverlay).open { z-index: 1200; }
 .identity-review-record button { color: var(--text); background: var(--card2); border: 1px solid var(--border2); border-radius: .4rem; padding: .4rem .6rem; }
 
 .shift-save-error { background: var(--lvbg); border: 1px solid var(--lv); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; color: var(--text); font-size: 12px; font-weight: 800; line-height: 1.45; }
+
+/* Session, schedule confirmation and reauthentication surfaces. */
+#loadingScreen {
+  background: var(--bg) !important;
+  color: var(--text) !important;
+}
+#sessionLoadStatus {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  font-size: 15px;
+  text-align: center;
+  margin: 8px 20px;
+}
+#sessionLoadRetry { width: auto; margin: 8px auto; }
+#sessionLoadRetry[hidden] { display: none !important; }
+body.light #loadingScreen { background: #f4f7fb !important; }
+:is(#schedSaveBar, #schedSaveBarMyShift) {
+  --save-panel: #092b22;
+  --save-item: #153b30;
+  --save-text: #edfff5;
+  --save-muted: #bbf7d0;
+  background: var(--save-panel) !important;
+  color: var(--save-text) !important;
+  border-color: #15803d !important;
+}
+body.light :is(#schedSaveBar, #schedSaveBarMyShift) {
+  --save-panel: #ecfdf5;
+  --save-item: #dcfce7;
+  --save-text: #14532d;
+  --save-muted: #166534;
+}
+body :is(#schedSaveBar, #schedSaveBarMyShift) :is(#saveBarTitle, #saveBarTitleMy, #saveBarSub, #saveBarSubMy) {
+  color: var(--save-text) !important;
+  -webkit-text-fill-color: var(--save-text) !important;
+}
+body :is(#schedSaveBar, #schedSaveBarMyShift) button[onclick*="saveAllShiftChanges"],
+#shiftSaveSendWhatsApp,
+#quickReauthOverlay :is(#reauthSendBtn, #reauthVerifyBtn) {
+  background: #166534 !important;
+  color: #fff !important;
+  -webkit-text-fill-color: #fff !important;
+}
+body :is(#schedSaveBar, #schedSaveBarMyShift) button[onclick*="discardAllShiftChanges"] {
+  background: var(--save-item) !important;
+  color: var(--save-text) !important;
+}
+.shift-save-confirm-message { color: var(--text); font-size: 14px; margin-block: 8px 16px; }
+body.light .shift-save-error { background: #fff1f2; color: #881337; border-color: #be123c; }
+body:not(.light) .shift-save-error { background: #4c1724; color: #ffe4e6; border-color: #fb7185; }
+#quickReauthOverlay .reauth-title { font-size: 17px; font-weight: 900; margin-bottom: 6px; color: var(--text); }
+#quickReauthOverlay .reauth-copy { font-size: 13px; line-height: 1.5; margin-bottom: 14px; color: var(--text); }
+#quickReauthOverlay .reauth-copy b { color: inherit !important; }
+#quickReauthOverlay :is(button[onclick*="_reauthCancel"], #reauthOtpInput) {
+  background: var(--card) !important;
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+}
+body.light #quickReauthOverlay #reauthErr { color: #991b1b !important; }

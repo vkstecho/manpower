@@ -931,6 +931,7 @@ const _TOAST_HI_EN = {
   'नाम भरें': 'Enter name',
 };
 
+let _mpToastTimer;
 function toast(msg){
   let out = msg;
   try{
@@ -967,5 +968,6 @@ function toast(msg){
   if(!t_el){ console.log('[toast]', out); return; }
   t_el.textContent = out;
   t_el.classList.add('show');
-  setTimeout(()=>t_el.classList.remove('show'),3000);
+  clearTimeout(_mpToastTimer);
+  _mpToastTimer = setTimeout(()=>t_el.classList.remove('show'),3000);
 }

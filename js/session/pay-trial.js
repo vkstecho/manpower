@@ -1,19 +1,26 @@
-// Trials are assigned by the backend when a verified account is registered.
-async function _hydrateUserPaymentStatus(){
-  try{
-    const uid = window._fbAuth?.currentUser?.uid;
-    if (!uid || typeof window._fbCall !== 'function') return null;
-    const entitlement = await window._fbCall('getMyCommercialEntitlement');
-    if (window._fbAuth?.currentUser?.uid !== uid) return null;
-    window._verifiedCommercialEntitlement = {...entitlement, uid, checkedAt:Date.now()};
-    SESSION.paymentPaidUntil = entitlement.paidUntil;
-    SESSION.paidUntil = entitlement.paidUntil;
-    SESSION.paymentSource = entitlement.source;
-    window._userPaymentPaidUntil = entitlement.paidUntil;
-    return entitlement.paidUntil ? new Date(entitlement.paidUntil) : null;
-  }catch(error){
-    return null;
-  }
+// Trials and subscription eligibility come from the verified server account.
+let _commercialRequest = null;
+function _loadCommercialEntitlement() {
+  const user = window._fbAuth?.currentUser;
+  if (!user || user.isAnonymous || typeof window._fbCall !== 'function') return Promise.resolve(null);
+  if (_commercialRequest?.uid === user.uid) return _commercialRequest.promise;
+  const promise = window._fbCall('getMyCommercialEntitlement').then(entitlement => {
+    if (window._fbAuth?.currentUser?.uid !== user.uid || !entitlement ||
+        typeof entitlement.enabled !== 'boolean') return null;
+    const verified = {...entitlement,uid:user.uid,checkedAt:Date.now()};
+    window._verifiedCommercialEntitlement = verified;
+    SESSION.paymentPaidUntil = verified.paidUntil;
+    SESSION.paidUntil = verified.paidUntil;
+    SESSION.paymentSource = verified.source;
+    window._userPaymentPaidUntil = verified.paidUntil;
+    return verified;
+  }).catch(() => null).finally(() => {
+    if (_commercialRequest?.promise === promise) _commercialRequest = null;
+  });
+  _commercialRequest = {uid:user.uid,promise};
+  return promise;
 }
-
-setTimeout(()=>{ _hydrateUserPaymentStatus(); }, 2500);
+async function _hydrateUserPaymentStatus() {
+  const entitlement = _currentCommercialEntitlement() || await _loadCommercialEntitlement();
+  return entitlement?.paidUntil ? new Date(entitlement.paidUntil) : null;
+}

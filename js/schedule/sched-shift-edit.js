@@ -43,14 +43,7 @@ function _updateSaveBar(){
   if(title) title.textContent = _titleTxt;
   if(titleMy) titleMy.textContent = _titleTxt;
 
-  // WhatsApp count
-  const withPhone = empIds.filter(id=>{
-    const emp=getEmps().find(e=>e.id===id);
-    return emp && emp.phone && emp.phone.length===10;
-  }).length;
-  const _subTxt = withPhone
-    ? L('📲 सहेजने पर '+withPhone+' कर्मचारी को WhatsApp जाएगा (मुफ़्त)','📲 On Save, WhatsApp will be sent to '+withPhone+' employee(s) (Free)')
-    : L('⚠️ किसी कर्मचारी का मोबाइल नंबर नहीं है','⚠️ No employee mobile number available');
+  const _subTxt = L('सहेजने के बाद WhatsApp भेजना वैकल्पिक है।','WhatsApp is optional after saving.');
   if(sub) sub.textContent = _subTxt;
   if(subMy) subMy.textContent = _subTxt;
 
@@ -60,13 +53,14 @@ function _updateSaveBar(){
       const fmtD = new Date(e.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short'});
       const shiftBg = {'D':'#f59e0b','N':'#4f46e5','O':'#334155','L':'#be123c','G':'#0284c7','C/O':'#92400e','HLF':'#ea580c','Ab':'#7f1d1d','H':'#ea580c','OD':'#0d9488','GP':'#6d28d9','A':'#16a34a','B':'#db2777','C':'#0891b2'};
       let bg = shiftBg[e.newShift] || shiftBg[String(e.newShift||'').toUpperCase()] || '#444';
-      try{ if(typeof mpShiftStyle==='function'){ const st=mpShiftStyle(e.newShift); if(st&&st.bg) bg=st.bg; } }catch(_e){}
+      let fg = '#fff';
+      try{ if(typeof mpShiftStyle==='function'){ const st=mpShiftStyle(e.newShift); if(st&&st.bg) bg=st.bg; if(st?.fg) fg=st.fg; } }catch(_e){}
 
-      return `<div style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px">
-      <span style="display:inline-flex;width:30px;height:26px;background:${bg};border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;flex-shrink:0">${cellDisp(e.newShift)}</span>
+      return `<div style="display:flex;align-items:center;gap:10px;background:var(--save-item);border-radius:8px;padding:8px 10px">
+      <span style="display:inline-flex;width:30px;height:26px;background:${bg};border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:${fg};flex-shrink:0">${cellDisp(e.newShift)}</span>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:800;color:#f0fdf4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.empName)}</div>
-        <div style="font-size:11px;color:#bbf7d0">${fmtD}</div>
+        <div style="font-size:13px;font-weight:800;color:var(--save-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.empName)}</div>
+        <div style="font-size:11px;color:var(--save-text)">${fmtD}</div>
       </div>
       <button onclick="removePendingChange('${escHtml(e.empId)}','${e.date}')" style="background:none;border:none;color:var(--lv);font-size:16px;cursor:pointer;padding:4px;flex-shrink:0">✕</button>
     </div>`;
@@ -81,13 +75,12 @@ function _updateSaveBar(){
   // Language-aware idle Save / Cancel labels on both bars
   try{
     const saveLabel = L('💾 सहेजें','💾 Save');
-    const saveWaLabel = L('💾 सहेजें और WhatsApp भेजें','💾 Save & WhatsApp');
     const cancelLabel = L('✕ रद्द करें','✕ Cancel');
     const discardLabel = L('✕ रद्द करें','✕ Discard');
     const schedSaveBtn = document.querySelector('#schedSaveBar button[onclick*="saveAllShiftChanges"]');
     if(schedSaveBtn && !schedSaveBtn.disabled) schedSaveBtn.innerHTML = saveLabel;
     const mySaveBtn = document.querySelector('#schedSaveBarMyShift button[onclick*="saveAllShiftChanges"]');
-    if(mySaveBtn && !mySaveBtn.disabled) mySaveBtn.innerHTML = saveWaLabel;
+    if(mySaveBtn && !mySaveBtn.disabled) mySaveBtn.innerHTML = saveLabel;
     const schedCancel = document.querySelector('#schedSaveBar button[onclick*="discardAllShiftChanges"]');
     if(schedCancel) schedCancel.textContent = cancelLabel;
     const myCancel = document.querySelector('#schedSaveBarMyShift button[onclick*="discardAllShiftChanges"]');
@@ -129,7 +122,10 @@ function discardAllShiftChanges(){
 }
 
 async function _retrySaveAfterReauth(){
-  const ok = await _ensureWriteAuth();
+  let ok = await _ensureWriteAuth();
+  if (!ok && !window._fbAuth?.currentUser && SESSION.authUid) {
+    ok = await _openQuickPhoneReauth(_registrationPhoneKey(SESSION.mobile));
+  }
   if(ok){
     const errEl = document.getElementById('saveBarPermErr');
     if(errEl) errEl.remove();
@@ -210,18 +206,48 @@ function localizedShiftSaveError(message) {
   return L('❌ सहेजना विफल: ','❌ Save failed: ') + String(message).slice(0,120);
 }
 
-async function saveAllShiftChanges(opts){
-  opts = opts || {};
-  const skipWhatsApp = !!opts.skipWhatsApp;
-  const stayOnMyShift = !!opts.stayOnMyShift;
+let _shiftSaveInFlight = false;
+function _showSaveError(message) {
+  const list = document.getElementById(_currentTab === 'myshift' ? 'saveBarListMy' : 'saveBarList');
+  if (!list) return;
+  let error = document.getElementById('saveBarPermErr');
+  if (!error) {
+    error = document.createElement('div');
+    error.id = 'saveBarPermErr';
+    error.className = 'shift-save-error';
+    error.setAttribute('role','alert');
+    list.before(error);
+  }
+  error.textContent = message;
+}
+
+function _confirmSavedShifts(count, queue) {
+  openModal('<div class="modal-title">' + L('शिफ्ट सहेजी गईं','Shifts saved') + '</div>' +
+    '<p class="shift-save-confirm-message">' + count + ' ' + L('बदलाव सहेजे गए।','changes saved.') + '</p>' +
+    (queue.length ? '<button type="button" class="submit-btn" id="shiftSaveSendWhatsApp">' +
+      L('WhatsApp भेजें','Send WhatsApp') + '</button>' : '') +
+    '<button type="button" class="cancel-btn" id="shiftSaveContinue">' + L('जारी रखें','Continue') + '</button>');
+  document.getElementById('shiftSaveContinue')?.addEventListener('click',closeModal);
+  document.getElementById('shiftSaveSendWhatsApp')?.addEventListener('click',() => {
+    closeModal();
+    if (queue.length === 1) openWA(queue[0].emp.phone,queue[0].msgLines);
+    else _sendWASequential(queue,0);
+  });
+}
+
+async function saveAllShiftChanges(opts = {}) {
+  if (_shiftSaveInFlight) return;
+  const {skipWhatsApp = false,stayOnMyShift = false} = opts;
   const entries = Object.values(_pendingShiftChanges);
   if(!entries.length){ toast(L('कोई बदलाव नहीं है','No changes to save')); return; }
 
-  const saveBtn = document.querySelector('#schedSaveBar button[onclick*="saveAllShiftChanges"]') ||
-                  document.querySelector('#schedSaveBar button:last-child');
-  const origBtnHtml = saveBtn ? saveBtn.innerHTML : L('💾 सहेजें और WhatsApp भेजें','💾 Save & WhatsApp');
+  const selector = stayOnMyShift ? '#schedSaveBarMyShift' : '#schedSaveBar';
+  const saveBtn = document.querySelector(selector+' button[onclick*="saveAllShiftChanges"]');
+  const origBtnHtml = saveBtn ? saveBtn.innerHTML : L('💾 सहेजें','💾 Save shifts');
   const showSaving = () => { if(saveBtn){ saveBtn.innerHTML=L('⏳ सहेजा जा रहा है...','⏳ Saving...'); saveBtn.disabled=true; }};
   const restoreBtn = () => { if(saveBtn){ saveBtn.innerHTML=origBtnHtml; saveBtn.disabled=false; }};
+  _shiftSaveInFlight = true;
+  const uid = SESSION.authUid;
   showSaving();
 
   try{
@@ -254,23 +280,16 @@ async function saveAllShiftChanges(opts){
     const savedEntries = entries.slice();
 
     const okAuth = await _ensureWriteAuth();
-    if(!okAuth){
-      restoreBtn();
-      toast(L('❌ फ़ोन OTP सत्यापित करें — लॉगआउट ज़रूरी नहीं','❌ Verify phone — logout not required'));
-      try{
-        const list = document.getElementById('saveBarList');
-        if(list){
-          let errEl = document.getElementById('saveBarPermErr');
-          if(!errEl){ errEl=document.createElement('div'); errEl.id='saveBarPermErr'; list.parentNode.insertBefore(errEl, list); }
-          errEl.style.cssText='background:rgba(244,63,94,.18);border:1.5px solid #f43f5e;border-radius:10px;padding:10px 12px;margin-bottom:10px;color:#fecdd3;font-size:12px;font-weight:800;line-height:1.45';
-          errEl.innerHTML=L('⛔ लिखने की अनुमति नहीं<br>एक बार <b>फ़ोन OTP</b> सत्यापित करें (ऐप खुला रहेगा)। फिर <b>सहेजें</b> दबाएँ।','⛔ Write auth missing<br>Verify <b>Phone OTP</b> once (app stays open), then press <b>Save</b>.');
-        }
-      }catch(e){}
+    if (!okAuth) {
+      _showSaveError(L('सत्र की पुष्टि नहीं हुई। कनेक्शन जाँचें और फिर सहेजें।',
+        'Could not verify your session. Check your connection and retry the save.'));
       return;
     }
 
-    // One RTDB update for all pending cells (fast)
-    await window._fbCall('saveShiftBatch', {updates, meta:metaUpdates});
+    const {notified} = await window._fbCall('saveShiftBatch', {updates,meta:metaUpdates,notificationLanguage:L('hi','en')});
+    if (SESSION.authUid !== uid || window._fbAuth?.currentUser?.uid !== uid) return;
+    document.getElementById('saveBarPermErr')?.remove();
+
     // Half-day / detail meta (history for single-click info)
     try{
       if(Object.keys(metaUpdates).length){
@@ -285,14 +304,6 @@ async function saveAllShiftChanges(opts){
     try{
       if(!_cache.overrides || typeof _cache.overrides !== 'object') _cache.overrides = {};
       Object.assign(_cache.overrides, updates);
-      for(const e of savedEntries){
-        try{
-          const emp = (_cache.employees||[]).find(x=>x && x.id===e.empId);
-          if(emp && Array.isArray(emp.ms) && e.date){
-            // optional: leave ms as-is; overrides drive display
-          }
-        }catch(e2){}
-      }
     }catch(e){}
 
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
@@ -304,67 +315,22 @@ async function saveAllShiftChanges(opts){
     try{ _updateSaveBar(); }catch(e){}
     try{ renderSchedule(); }catch(e){}
     try{ if(stayOnMyShift || (typeof _currentTab!=='undefined' && _currentTab==='myshift')) renderMyShift(); }catch(e){}
-    toast(`✅ ${savedEntries.length} ${L('बदलाव save हुए','changes saved')}`);
-
-    // ── 2) WhatsApp queue from LOCAL data only (no network) — open ASAP ──
-    const onlyOwn = savedEntries.every(e=>{
-      const myId = SESSION.empObjId || (typeof myEmp==='function' && myEmp() && myEmp().id);
-      return myId && e.empId === myId;
-    });
-
-    let waQueue = [];
-    if(!skipWhatsApp && !onlyOwn){
-      try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
-      try{
-        waQueue = _buildShiftSaveWaQueue(savedEntries) || [];
-      }catch(waBuildErr){ console.warn('[save] wa build', waBuildErr); waQueue = []; }
-
-      if(waQueue.length === 1){
-        try{ openWA(waQueue[0].emp.phone, waQueue[0].msgLines); }catch(e){}
-        toast(`📲 ${escHtml(waQueue[0].emp.name)} ${L('को WhatsApp भेजा','— WhatsApp sent')}`);
-      } else if(waQueue.length > 1){
-        toast(`📲 ${waQueue.length} ${L('कर्मचारियों को WhatsApp भेजना है','employees to message on WhatsApp')}`);
-        try{ _sendWASequential(waQueue, 0); }catch(e){}
-      }
-    }
-
-    // ── 3) BACKGROUND: OD cleanup, auto C-Off, in-app notifications (do not block WA) ──
-    setTimeout(function(){
-      _saveShiftChangesBackground(savedEntries).catch(function(bgErr){
-        console.warn('[save] background', bgErr);
-      });
-    }, 0);
-
-  }catch(err){
-    console.error('saveAllShiftChanges error:', err);
-    restoreBtn();
-    try{ _updateSaveBar(); }catch(e){}
-    const msg = (err && (err.message||err.code)) || 'Network error';
-    const isPerm = /permission|PERMISSION_DENIED/i.test(String(msg));
-    const friendly = isPerm
-      ? L('❌ अनुमति नहीं — फ़ोन OTP सत्यापित करें (लॉगआउट नहीं)','❌ Permission Denied — verify Phone OTP (no logout)')
-      : localizedShiftSaveError(msg);
+    const queue = skipWhatsApp ? [] : _buildShiftSaveWaQueue(savedEntries);
+    void _saveShiftChangesBackground(savedEntries).catch(error => console.warn('[save follow-up]',error));
+    try { _confirmSavedShifts(savedEntries.length,queue); }
+    catch (error) { toast(L('शिफ्ट सहेजी गईं।','Shifts saved.')); }
+    if (notified) toast('🔔 ' + notified + ' ' + L('सदस्य को ऐप में सूचना भेजी','notified in the app'));
+  } catch (error) {
+    console.warn('[shift save]',error.code || error.message);
+    const friendly = error.code === 'functions/permission-denied'
+      ? L('इस शिफ्ट को बदलने की अनुमति नहीं है। व्यवस्थापक से संपर्क करें।',
+        'You do not have permission to change this shift. Contact your administrator.')
+      : localizedShiftSaveError(error.message || error.code || 'Network error');
     toast(friendly);
-    try{
-      const list = document.getElementById('saveBarList');
-      if(list){
-        const errId = 'saveBarPermErr';
-        let errEl = document.getElementById(errId);
-        if(!errEl){
-          errEl = document.createElement('div');
-          errEl.id = errId;
-          list.parentNode.insertBefore(errEl, list);
-        }
-        errEl.style.cssText = '';
-        errEl.className = 'shift-save-error';
-        if(isPerm){
-          errEl.innerHTML = '⛔ <b>'+friendlyFbError({message:'PERMISSION_DENIED'})+'</b><br>'+ (typeof L==='function'?L('Firebase में anonymous session है। Logout की ज़रूरत नहीं — Phone verify करें, फिर Save।','Firebase has an anonymous session. No logout needed — verify phone, then Save.'):'Firebase has an anonymous session. No logout needed — verify phone, then Save.') +''
-            + '<br><button type="button" onclick="_retrySaveAfterReauth()" style="margin-top:8px;width:100%;padding:10px;border:none;border-radius:8px;background:#f97316;color:#fff;font-weight:900;cursor:pointer">🔐 Phone verify &amp; retry Save</button>';
-        } else {
-          errEl.textContent = friendly;
-        }
-      }
-    }catch(e2){}
+    _showSaveError(friendly);
+  } finally {
+    _shiftSaveInFlight = false;
+    restoreBtn();
   }
 }
 
@@ -382,11 +348,11 @@ function _buildShiftSaveWaQueue(savedEntries){
   const todayFmt = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
   const _fmtDate = (d) => new Date(d).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const _typeOn = (flag) => flag !== false;
-  const emps = (typeof getEmps==='function' ? getEmps() : (_cache && _cache.employees) || []) || [];
+  const emps = new Map((getEmps() || []).map(employee => [employee.id,employee]));
 
   for(const [empId, changes] of Object.entries(byEmp)){
     try{
-      const emp = emps.find(em => em && em.id === empId);
+      const emp = emps.get(empId);
       if(!emp) continue;
       if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) continue;
       if(emp.id === SESSION.empObjId) continue;
@@ -531,8 +497,10 @@ if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.wa
   return waQueue;
 }
 
-/** Non-blocking post-save work (OD cleanup, auto C-Off, in-app notifs). */
+/** Non-blocking OD cleanup and Weekly Off warnings after the atomic save. */
 async function _saveShiftChangesBackground(savedEntries){
+  const uid = SESSION.authUid;
+  if (!uid || window._fbAuth?.currentUser?.uid !== uid) return;
   // OD cleanup in parallel
   try{
     const odJobs = [];
@@ -546,62 +514,8 @@ async function _saveShiftChangesBackground(savedEntries){
     if(odJobs.length) await Promise.all(odJobs.map(p=>p.catch(err=>{ console.warn('[od]', err); })));
   }catch(odErr){ console.warn('[save] OD cleanup', odErr); }
 
+  if (window._fbAuth?.currentUser?.uid !== uid || SESSION.authUid !== uid) return;
   try{ showWeeklyOffGapWarnings(savedEntries); }catch(e){ console.warn('[weekly off review]', e); }
-  try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
-
-  // In-app notifications — parallel pushes
-  try{
-    const byEmp = {};
-    for(const e of savedEntries){
-      if(!byEmp[e.empId]) byEmp[e.empId] = [];
-      byEmp[e.empId].push(e);
-    }
-    const shiftNames = {D:'Day Shift',N:'Night Shift',A:'A Shift',B:'B Shift',C:'C Shift',O:'Weekly Off',L:'Leave',G:'General Shift','C/O':'Comp Off',HLF:'Half Day',Ab:'Absent',H:'Holiday',OD:'Other Dept',GP:'Gate Pass'};
-    const emps = (typeof getEmps==='function' ? getEmps() : []) || [];
-    const pushes = [];
-    let inAppCount = 0;
-    for(const [empId, changes] of Object.entries(byEmp)){
-      const emp = emps.find(em => em && em.id === empId);
-      if(!emp) continue;
-      if(emp.id === SESSION.empObjId) continue;
-      const changeLines = changes.map(c=>{
-        const fmtD = new Date(c.date).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-        const oldS = c.currentShift || c.oldShift || '—';
-        const newS = c.newShift || '—';
-        return `${fmtD}: ${shiftNames[oldS]||oldS} → ${shiftNames[newS]||newS}`;
-      }).join(' · ');
-      const first = changes[0];
-      const payload = {
-        type: 'shift_change',
-        title: L('📋 Shift बदली गई','📋 Shift changed'),
-        body: changeLines || L('आपकी shift update हुई','Your shift was updated'),
-        date: first.date,
-        oldShift: first.currentShift || first.oldShift || '',
-        newShift: first.newShift || '',
-        changes: changes.map(c=>({
-          date: c.date,
-          oldShift: c.currentShift||c.oldShift||'',
-          newShift: c.newShift
-        })),
-        changedBy: SESSION.name || 'Manager',
-        read: false,
-        at: new Date().toISOString()
-      };
-      pushes.push(
-        fbPush('userNotifications/'+emp.id, payload).then(()=>{ inAppCount++; }).catch(()=>{})
-      );
-      const mob = (typeof _normMobileKey==='function')
-        ? _normMobileKey(emp.phone||emp.mobile||'')
-        : String(emp.phone||emp.mobile||'').replace(/\D/g,'').slice(-10);
-      if(mob && mob !== emp.id){
-        pushes.push(fbPush('userNotifications/'+mob, payload).catch(()=>{}));
-      }
-    }
-    if(pushes.length) await Promise.all(pushes);
-    if(inAppCount){
-      try{ toast(`🔔 ${inAppCount} ${L('सदस्य को app notification भेजी','members notified in app')}`); }catch(e){}
-    }
-  }catch(ne){ console.warn('[in-app notif bg]', ne); }
 }
 
 
@@ -622,7 +536,7 @@ function _sendWASequential(queue, index){
   overlay.id = '_waSeqOverlay';
   overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
 
-  const ini = emp.name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
+  const ini = escHtml(String(emp.name || '').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase());
 
   overlay.innerHTML = `
     <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;border-top:1px solid var(--border2);animation:slideUp .25s cubic-bezier(.32,0,.15,1)">
@@ -634,13 +548,13 @@ function _sendWASequential(queue, index){
           <div style="font-size:17px;font-weight:900;color:var(--text)">${escHtml(emp.name)}</div>
           <div style="font-size:12px;color:var(--muted2)">📱 +91 ${escHtml(emp.phone)}</div>
         </div>
-        <div style="margin-left:auto;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:800;color:#25D366">${current} / ${total}</div>
+        <div style="margin-left:auto;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:800;color:var(--text)">${current} / ${total}</div>
       </div>
 
-      <div style="background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);border-radius:12px;padding:12px;margin:14px 0;font-size:12px;color:var(--muted2);line-height:1.6;max-height:100px;overflow:hidden;text-overflow:ellipsis;white-space:pre-wrap">${msgLines.substring(0,180)}${msgLines.length>180?'...':''}</div>
+      <div style="background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);border-radius:12px;padding:12px;margin:14px 0;font-size:12px;color:var(--muted2);line-height:1.6;max-height:100px;overflow:hidden;text-overflow:ellipsis;white-space:pre-wrap">${escHtml(msgLines.substring(0,180))}${msgLines.length>180?'...':''}</div>
 
       <button id="_waSendBtn"
-        style="width:100%;padding:16px;border-radius:13px;border:none;background:linear-gradient(135deg,#25D366,#128C7E);color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(37,211,102,.3)">
+        style="width:100%;padding:16px;border-radius:13px;border:none;background:#166534;color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(37,211,102,.3)">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         ${typeof L==='function'?L('WhatsApp भेजें','Send WhatsApp'):'Send WhatsApp'} — ${escHtml(emp.name.split(' ')[0])}
       </button>
@@ -1050,7 +964,7 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   }
   try {
     if (!await _ensureWriteAuth()) return;
-    await window._fbCall('saveShiftBatch', {updates, meta});
+    await window._fbCall('saveShiftBatch', {updates,meta,notificationLanguage:L('hi','en')});
     _cache.overrides = {...(getOverrides()||{}), ...updates};
   } catch (error) {
     toast(L('अवकाश सहेजा नहीं गया: ','Leave could not be saved: ') + error.message);
@@ -1067,34 +981,10 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(e){}
   try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
 
-  // WhatsApp leave message — manager Profile template + app link
-  try{
-    const emp = (getEmps()||[]).find(e=>e.id===empId) || {};
-    const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-    if(phone && phone.length===10){
-      try{ if(typeof _loadWaAppLinkSettings==='function') await _loadWaAppLinkSettings(); }catch(e){}
-      const cfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : null) || {};
-      const memLang = (typeof getEmpPreferredLang==='function' ? getEmpPreferredLang(emp) : undefined);
-      let tpl = (typeof getWATemplate==='function')
-        ? getWATemplate('waLeaveTemplate', cfg.waLeaveTemplate, memLang)
-        : (cfg.waLeaveTemplate || '');
-      if(!tpl || !String(tpl).trim()){
-        const def = (typeof _defaultShiftConfig==='function' ? _defaultShiftConfig() : {});
-        tpl = def.waLeaveTemplate || '🏖️ *Man Power — Leave*\n_{date}_\n\nनमस्ते *{name}*,\n\nआपकी *Leave* mark की गई है:\n{dates}\n\n_— {manager}_';
-      }
-      const fmtD = (()=>{ try{ return new Date(date+'T12:00:00').toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return date; }})();
-      const datesLine = fmtD + (reason ? (' · ' + reason) : (typeCode ? (' · ' + typeCode) : ''));
-      let msg = (typeof _fillNotifTemplate==='function')
-        ? _fillNotifTemplate(tpl, { name: empName||emp.name||'', date: fmtD, dates: datesLine, manager: SESSION.name||'Manager', changes: datesLine })
-        : String(tpl).replace(/\{name\}/g, empName||'').replace(/\{date\}/g, fmtD).replace(/\{dates\}/g, datesLine).replace(/\{manager\}/g, SESSION.name||'Manager');
-      if(typeof _appendWaAppLink==='function') msg = _appendWaAppLink(msg);
-      if(typeof openWA==='function') openWA(phone, msg);
-      else window.open('https://wa.me/91'+phone+'?text='+encodeURIComponent(msg), '_blank');
-      toast(L('✅ अवकाश चिह्नित · व्हाट्सऐप','✅ Leave marked · WhatsApp'));
-    } else {
-      toast(L('✅ अवकाश चिह्नित (व्हाट्सऐप हेतु मोबाइल नहीं)','✅ Leave marked (no mobile for WhatsApp)'));
-    }
-  }catch(e){ console.warn('[leave WA]', e); toast(L('✅ अवकाश चिह्नित','✅ Leave marked')); }
+  const saved = _bulkDates.map(day => ({empId,empName,date:day,newShift:'L',coMeta:{reason,leaveType:typeCode}}));
+  void _saveShiftChangesBackground(saved);
+  _confirmSavedShifts(saved.length,_buildShiftSaveWaQueue(saved));
+
 }
 
 

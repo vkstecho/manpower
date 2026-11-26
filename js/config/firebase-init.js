@@ -1,7 +1,7 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, connectDatabaseEmulator, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  import { getAuth, connectAuthEmulator, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+  import { getAuth, connectAuthEmulator, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
   const firebaseConfig = window.MP_FIREBASE_CONFIG;
@@ -35,76 +35,138 @@
       connectAuthEmulator(auth, 'http://127.0.0.1:9099');
       connectFunctionsEmulator(functions, '127.0.0.1', 5001);
     }
-    // Keep Phone OTP session across reloads (until explicit logout)
-    try{ setPersistence(auth, browserLocalPersistence).catch(e=>console.warn('[fb] setPersistence', e)); }catch(e){}
-    // Resolve when first auth state is known (phone restore from IndexedDB)
-    let _authReadyResolve;
-    const _authReadyPromise = new Promise((res)=>{ _authReadyResolve = res; });
-    let _authReadyDone = false;
-    onAuthStateChanged(auth, (u)=>{
-      if(!_authReadyDone){ _authReadyDone = true; try{ _authReadyResolve(u); }catch(e){} }
-      try{
-        if(u && u.phoneNumber){
-          localStorage.setItem('mp_device_phone', u.phoneNumber);
-          localStorage.setItem('mp_device_uid', u.uid||'');
-          localStorage.setItem('mp_device_verified_at', String(Date.now()));
-        }
-      }catch(e){}
+    // Firebase's default persistence restores IndexedDB before falling back to browser storage.
+    const authReady = auth.authStateReady();
+    window._fbAuthStateReady = () => authReady;
+    const verifiedUser = () => {
+      const user = auth.currentUser;
+      return user && !user.isAnonymous && user.uid ? user : null;
+    };
+    onAuthStateChanged(auth, user => {
+      if (user && !user.isAnonymous && user.phoneNumber) {
+        try {
+          localStorage.setItem('mp_device_phone', user.phoneNumber);
+          localStorage.setItem('mp_device_uid', user.uid);
+        } catch (error) {}
+      }
+      document.dispatchEvent(new CustomEvent('mp-firebase-auth', {detail:{uid:verifiedUser()?.uid || null}}));
     });
-    window._fbAuthStateReady = () => _authReadyPromise;
+
+    const requestCollections = new Set(['loginRequests','regRequests','deviceChangeRequests','learnRequests','resignations','teamTransferRequests']);
+    const scoped = new Set(['employees','overrides','schedules','leaves','shiftCellMeta','shiftHistory','shiftChangeRequests',
+      'reports','leftEmployees','deviceApprovals','mobileUsers','todos','settings',...requestCollections,
+      'checklistCompletions','trainingCompletions','shiftHandovers']);
+    const snapshot = value => ({exists:() => value != null &&
+      (typeof value !== 'object' || Object.keys(value).length > 0), val:() => value});
+    const reads = new Map();
+    const pollers = new Set();
+    const seeds = new Map();
+    let queued = [];
+    let flushPending = false;
+    let pollTimer;
+
+    async function flushReads() {
+      flushPending = false;
+      const entries = queued;
+      queued = [];
+      for (let start = 0; start < entries.length; start += 16) {
+        await readGroup(entries.slice(start,start+16));
+      }
+    }
+    async function readGroup(group) {
+        try {
+          if (!group.every(entry => entry.uid === auth.currentUser?.uid)) throw new Error('Firebase account changed');
+          const paths = group.map(entry => entry.path);
+          const result = await window._fbCall('readRosterData', paths.length === 1 ? {path:paths[0]} : {paths});
+          const values = paths.length === 1 ? [result?.value] : result?.values;
+          if (!values || values.length !== paths.length || values.some(value => value === undefined)) {
+            throw new Error('Incomplete roster response');
+          }
+          group.forEach((entry,index) => entry.resolve(snapshot(values[index])));
+        } catch (error) {
+          if (group.length > 1 && error.code === 'functions/resource-exhausted') {
+            const middle = Math.ceil(group.length/2);
+            await readGroup(group.slice(0,middle));
+            await readGroup(group.slice(middle));
+            return;
+          }
+          group.forEach(entry => entry.reject(error));
+        }
+    }
+    function rosterRead(uid,path) {
+      const key = JSON.stringify([uid,path]);
+      const current = reads.get(key);
+      if (current) return current;
+      const promise = new Promise((resolve,reject) => queued.push({uid,path,resolve,reject}));
+      reads.set(key,promise);
+      const remove = () => reads.delete(key);
+      promise.then(remove,remove);
+      if (!flushPending) {
+        flushPending = true;
+        queueMicrotask(flushReads);
+      }
+      return promise;
+    }
+    async function poll(entry) {
+      if (entry.running || document.hidden || auth.currentUser?.uid !== entry.uid) return;
+      entry.running = true;
+      try {
+        const value = await rosterRead(entry.uid,entry.path);
+        const serialized = JSON.stringify(value.val());
+        if (pollers.has(entry) && auth.currentUser?.uid === entry.uid && serialized !== entry.previous) {
+          entry.previous = serialized;
+          entry.callback(value);
+        }
+      } catch (error) {
+        // A failed poll must never replace an authorized roster with an empty dataset.
+        console.warn('[roster polling]',error.code || error.message);
+      } finally { entry.running = false; }
+    }
+    function refreshPollers() {
+      if (!document.hidden) for (const entry of pollers) void poll(entry);
+    }
+    function watchRoster(uid,path,callback) {
+      const key = JSON.stringify([uid,path]);
+      const seed = seeds.get(key);
+      seeds.delete(key);
+      const entry = {uid,path,callback,previous:seed?.value};
+      pollers.add(entry);
+      if (!seed || Date.now()-seed.at > 5000) void poll(entry);
+      if (!pollTimer) pollTimer = setInterval(refreshPollers,15000);
+      return () => {
+        pollers.delete(entry);
+        if (!pollers.size) {
+          clearInterval(pollTimer);
+          pollTimer = undefined;
+        }
+      };
+    }
+    window._fbRefreshRoster = refreshPollers;
+    window._fbSeedRosterListeners = data => {
+      const uid = verifiedUser()?.uid;
+      seeds.clear();
+      if (uid) for (const [branch,value] of Object.entries(data)) {
+        seeds.set(JSON.stringify([uid,[branch]]),{value:JSON.stringify(value),at:Date.now()});
+      }
+    };
+
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
     const _fbStore = { db, ref, set, get, onValue, push, update, remove };
     window._fbAccess = async function(op, path, val){
-      // Auto-reauthenticate if Firebase Auth expired (prevents rule denials)
-      if(op !== 'get' && op !== 'onValue' && !auth.currentUser){
-        // Wait for IndexedDB phone restore before creating anonymous (prevents OTP every open)
-        let hadPhone = false;
-        try{ hadPhone = !!(localStorage.getItem('mp_device_phone') || localStorage.getItem('mp_device_uid')); }catch(e){}
-        if(hadPhone){
-          try{
-            if(window._fbAuthStateReady) await window._fbAuthStateReady();
-            for(let i=0;i<12 && !auth.currentUser;i++) await new Promise(r=>setTimeout(r,120));
-          }catch(e){}
-        }
-        if(!auth.currentUser && !hadPhone){
-          try{ await signInAnonymously(auth); }catch(e){ console.warn('[fbAccess] re-auth failed:', e.message); }
-        }
-      }
-      
-      const _sessionCheck = ()=>{
-        try{ return !!(localStorage.getItem('mp_session') || sessionStorage.getItem('mp_session_bak') || auth.currentUser); }catch(e){ return false; }
-      };
-      // Block writes only if NO session exists at all (complete stranger)
-      if(!_sessionCheck() && op !== 'get' && op !== 'onValue'){
-        console.warn('[SECURITY] Unauthorized write blocked:', path);
-        return Promise.reject(new Error('Not authenticated'));
-      }
+      await authReady;
       const parts = path.split('/').filter(Boolean);
-      const requestCollections = ['loginRequests', 'regRequests', 'deviceChangeRequests', 'learnRequests', 'resignations', 'teamTransferRequests'];
-      const scoped = ['employees', 'overrides', 'schedules', 'leaves', 'shiftCellMeta', 'shiftHistory', 'shiftChangeRequests', 'reports', 'leftEmployees', 'deviceApprovals', 'mobileUsers', 'todos', 'settings', ...requestCollections, 'checklistCompletions', 'trainingCompletions', 'shiftHandovers'];
-      if (scoped.includes(parts[0]) && (op === 'get' || op === 'onValue')) {
-        await _authReadyPromise;
-        const read = async () => {
-          const value = auth.currentUser && (!auth.currentUser.isAnonymous || parts[0] === 'settings' || requestCollections.includes(parts[0]))
-            ? (await window._fbCall('readRosterData', {path: parts})).value : null;
-          return {exists: () => value != null && (typeof value !== 'object' || Object.keys(value).length > 0), val: () => value};
-        };
-        if (op === 'get') return read();
-        let stopped = false, timer, previous;
-        const poll = async () => {
-          try {
-            const snap = await read();
-            const serialized = JSON.stringify(snap.val());
-            if (!stopped && serialized !== previous) { previous = serialized; val(snap); }
-          } catch (error) {
-            if (!stopped && previous !== 'null') { previous = 'null'; val({exists: () => false, val: () => null}); }
-            console.warn('[roster polling]', error.code || error.message);
-          } finally {
-            if (!stopped) timer = setTimeout(poll, 15000);
-          }
-        };
-        void poll();
-        return () => { stopped = true; clearTimeout(timer); };
+      const user = verifiedUser();
+      if (scoped.has(parts[0]) && (op === 'get' || op === 'onValue')) {
+        const uid = user?.uid;
+        if (!uid) {
+          if (op === 'get') return snapshot(null);
+          return () => {};
+        }
+        return op === 'get' ? rosterRead(uid,parts) : watchRoster(uid,parts,val);
+      }
+      if (!user && op !== 'get' && op !== 'onValue' &&
+          !(auth.currentUser?.isAnonymous && requestCollections.has(parts[0]))) {
+        throw new Error('Verified account required');
       }
       if (parts[0] === 'employees') {
         if (op === 'set' || op === 'update') {
@@ -116,7 +178,7 @@
       if(path === 'overrides' && op === 'update'){
         await window._fbCall('saveShiftBatch',{updates:val}); return;
       }
-      if (requestCollections.includes(parts[0]) && op === 'push') {
+      if (requestCollections.has(parts[0]) && op === 'push') {
         val = {...val, createdByUid:auth.currentUser?.uid || null};
       }
       if (parts[0] === 'todos' && (op === 'push' || (op === 'set' && parts.length === 2))) {
@@ -142,24 +204,23 @@
     window._fbSignInWithPhoneNumber = signInWithPhoneNumber;
     window._fbSignInWithToken = (token) => signInWithCustomToken(auth, token);
     window._fbSignInAnon = async () => {
-      try{
-        const u = auth.currentUser;
-        if(u && u.phoneNumber){ console.log('[fb] skip anon — phone session active'); return u; }
-        if(u && !u.isAnonymous && u.uid){ return u; }
-      }catch(e){}
+      await authReady;
+      if (auth.currentUser) return auth.currentUser;
+      // Only an explicit legacy public registration flow can request anonymous auth.
+      if (localStorage.getItem('mp_device_uid') || localStorage.getItem('mp_session')) return null;
       return signInAnonymously(auth);
     };
     window._fbSignOut = () => signOut(auth);
     // ── Phone OTP Auth ──
     window._fbSendOTP = async function(phoneNumber){
       try{
+        await authReady;
         // Prefer app.js helper if loaded
         if(typeof window._fbSendPhoneOtp === 'function'){
           const confirmResult = await window._fbSendPhoneOtp(phoneNumber, 'recaptcha-container', '_fbRecaptcha');
           window._fbConfirmOTP = (code) => confirmResult.confirm(code);
           return { success: true };
         }
-        try{ if(auth.currentUser) await signOut(auth); }catch(e){}
         if(window._fbRecaptcha){ try{ window._fbRecaptcha.clear(); }catch(e){} window._fbRecaptcha=null; }
         let host = document.getElementById('recaptcha-container');
         if(!host){ host=document.createElement('div'); host.id='recaptcha-container'; document.body.appendChild(host); }
@@ -181,9 +242,22 @@
     };
     // ── Cloud Functions exposed for secure server calls ──
     window._fbFunctions = functions;
-    window._fbCall = async (name, data) => {
-      const result = await httpsCallable(functions, name)(data || {});
-      return result && result.data;
+    const callables = new Map();
+    window._fbCall = async (name,data) => {
+      await authReady;
+      const uid = auth.currentUser?.uid;
+      if (!callables.has(name)) callables.set(name,httpsCallable(functions,name));
+      try {
+        const result = await callables.get(name)(data || {});
+        if (uid !== auth.currentUser?.uid) throw new Error('Firebase account changed');
+        return result.data;
+      } catch (error) {
+        if (uid && uid === auth.currentUser?.uid && error.code === 'functions/permission-denied' &&
+            /session is locked or expired/i.test(error.message || '')) {
+          document.dispatchEvent(new CustomEvent('mp-firebase-revoked',{detail:{uid}}));
+        }
+        throw error;
+      }
     };
     window._fbReady = true;
     window._fbUploadSelfie = async (image,path) => {
