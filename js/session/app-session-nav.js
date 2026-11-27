@@ -53,6 +53,7 @@ async function launchVerifiedApp(uid) {
   const _mc = document.getElementById('mainContent');
   if(_mh){ _mh.style.display='block'; _mh.style.visibility='visible'; _mh.style.opacity='1'; }
   if(_mc){ _mc.style.display='block'; _mc.style.visibility='visible'; _mc.style.opacity='1'; }
+  document.dispatchEvent(new Event('mp-roster-open'));
   // Show Install App in header when not running as installed PWA
   try{
     if(typeof window._mpHideInstallButtons==='function') window._mpHideInstallButtons();
@@ -257,7 +258,8 @@ async function buildNav(){
     tabs = [{id:'home', ico:'🏠', lbl:'होम', lblEn:'Home', roles:['worker']}];
   }
   const _realTabs = tabs.filter(t=>!(t.action||t.id==='resign'));
-  const firstTab = (effectiveRole==='admin' && _realTabs.some(t=>t.id==='pending')) ? 'pending' : (_realTabs[0]&&_realTabs[0].id) || 'home';
+  const keepDiary = document.body.classList.contains('wd-active') && _realTabs.some(t=>t.id==='diary');
+  const firstTab = keepDiary ? 'diary' : (effectiveRole==='admin' && _realTabs.some(t=>t.id==='pending')) ? 'pending' : (_realTabs[0]&&_realTabs[0].id) || 'home';
   _currentTab = firstTab;
 
   // Hide sync row for guest users (irrelevant for guests)
@@ -323,6 +325,7 @@ async function buildNav(){
     // Insert before divider
     tabs.forEach((t,i)=>{
       const btn = document.createElement('button');
+      btn.type = 'button';
       btn.className = 'pc-nav-btn' + (t.id===firstTab && !(t.action||t.id==='resign')?' on':'');
       btn.id = 'pc-nb-'+t.id;
       const _lg2 = (typeof _lang!=='undefined' && _lang) ? _lang : 'hi';
@@ -330,7 +333,9 @@ async function buildNav(){
         ? t.lbl
         : (t.lblEn || ((typeof mlT === 'function') ? mlT(t.lbl, _lg2) : t.lbl) || t.lbl);
       btn.setAttribute('aria-label', sLabel);
-      btn.innerHTML = `<span class="pc-nav-ico">${t.ico}</span><span class="pc-nav-lbl">${sLabel}</span>`
+      btn.title = sLabel;
+      if(btn.classList.contains('on')) btn.setAttribute('aria-current','page');
+      btn.innerHTML = `<span class="pc-nav-ico" aria-hidden="true">${t.ico}</span><span class="pc-nav-lbl">${sLabel}</span>`
         + (t.id==='pending' ? `<span class="pc-nav-badge" id="pcPendingBadge" style="display:none">0</span>` : '')
         + (t.id==='todo'    ? `<span class="pc-nav-badge" id="pcTodoBadge" style="display:none">0</span>` : '');
       if(t.action || t.id==='resign'){
@@ -339,6 +344,11 @@ async function buildNav(){
         btn.onclick = ()=>goTab(t.id);
       }
       sidebar.insertBefore(btn, divider);
+    });
+    sidebar.querySelectorAll('.wd-nav-action').forEach(btn=>{
+      const label = L(btn.dataset.wdLabelHi,btn.dataset.wdLabelEn);
+      btn.title = label;
+      btn.setAttribute('aria-label',label);
     });
   }
 
@@ -364,7 +374,9 @@ async function buildNav(){
 async function doLogout(){
   if (window._mpLoggingOut) return;
   window._mpLoggingOut = true;
+  const clearingDiaryDrafts = window.wdResetWorkspace?.(true);
   _stopVerifiedRoster();
+  if (typeof _clearShiftWhatsApp === 'function') _clearShiftWhatsApp();
   if (typeof _resetLoginOtp === "function") _resetLoginOtp();
   // ── 1. Show instant visual feedback ──
   try{
@@ -430,6 +442,7 @@ async function doLogout(){
       };
     });
   } finally {
+    await clearingDiaryDrafts;
     window.location.replace(window.location.pathname + '?logout=' + Date.now());
   }
 

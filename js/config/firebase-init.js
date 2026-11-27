@@ -110,26 +110,36 @@
     async function poll(entry) {
       if (entry.running || document.hidden || auth.currentUser?.uid !== entry.uid) return;
       entry.running = true;
+      const revision = entry.revision;
       try {
         const value = await rosterRead(entry.uid,entry.path);
+        if (!pollers.has(entry) || auth.currentUser?.uid !== entry.uid || revision !== entry.revision) return;
+        const expected = entry.confirmedOverrides;
+        entry.confirmedOverrides = null;
+        const actual = value.val() || {};
+        const alreadyRendered = expected && Object.keys(expected).length === Object.keys(actual).length &&
+          Object.keys(expected).every(key=>Object.hasOwn(actual,key) && actual[key] === expected[key]);
         const serialized = JSON.stringify(value.val());
-        if (pollers.has(entry) && auth.currentUser?.uid === entry.uid && serialized !== entry.previous) {
+        if (serialized !== entry.previous || (expected && !alreadyRendered)) {
           entry.previous = serialized;
-          entry.callback(value);
+          if (!alreadyRendered) entry.callback(value);
         }
       } catch (error) {
         // A failed poll must never replace an authorized roster with an empty dataset.
         console.warn('[roster polling]',error.code || error.message);
       } finally { entry.running = false; }
     }
-    function refreshPollers() {
-      if (!document.hidden) for (const entry of pollers) void poll(entry);
+    function refreshPollers(branches) {
+      if (document.hidden) return;
+      for (const entry of pollers) {
+        if (!Array.isArray(branches) || branches.includes(entry.path[0])) void poll(entry);
+      }
     }
     function watchRoster(uid,path,callback) {
       const key = JSON.stringify([uid,path]);
       const seed = seeds.get(key);
       seeds.delete(key);
-      const entry = {uid,path,callback,previous:seed?.value};
+      const entry = {uid,path,callback,previous:seed?.value,revision:0};
       pollers.add(entry);
       if (!seed || Date.now()-seed.at > 5000) void poll(entry);
       if (!pollTimer) pollTimer = setInterval(refreshPollers,15000);
@@ -142,6 +152,14 @@
       };
     }
     window._fbRefreshRoster = refreshPollers;
+    window._fbNoteConfirmedShiftOverrides = renderedOverrides => {
+      const uid = verifiedUser()?.uid;
+      for (const entry of pollers) {
+        if (entry.uid !== uid || entry.path[0] !== 'overrides') continue;
+        entry.revision++;
+        if (entry.path.length === 1) entry.confirmedOverrides = {...renderedOverrides};
+      }
+    };
     window._fbSeedRosterListeners = data => {
       const uid = verifiedUser()?.uid;
       seeds.clear();
@@ -246,7 +264,8 @@
     window._fbCall = async (name,data) => {
       await authReady;
       const uid = auth.currentUser?.uid;
-      if (!callables.has(name)) callables.set(name,httpsCallable(functions,name));
+      if (!callables.has(name)) callables.set(name,httpsCallable(functions,name,
+        ['writeEmployee','saveShiftBatch'].includes(name) ? {timeout:25000} : undefined));
       try {
         const result = await callables.get(name)(data || {});
         if (uid !== auth.currentUser?.uid) throw new Error('Firebase account changed');

@@ -55,9 +55,10 @@ let _profilePhotoData = null;
 
 function openEditProfileModal(){
   _profilePhotoData = null;
+  _uploadedProfilePhoto = null;
   const photo = SESSION.photoUrl || '';
   const isEn = (typeof _lang !== 'undefined' && _lang !== 'hi');
-  const emp = myEmp() || {};
+  const emp = {...myEmp(),...SESSION.profileValues};
   const esc = (s)=> String(s==null?'':s).replace(/"/g,'&quot;');
   const toDateInput = (v)=>{
     if(!v) return '';
@@ -95,7 +96,7 @@ function openEditProfileModal(){
     <div class="field"><label>${L('पद','Designation')}</label>
       <input class="inp-field" id="profileDesigInput" value="${escHtml(esc(emp.designation||''))}" maxlength="40"></div>
     <div class="field"><label>${L('Emp ID','Emp ID')}</label>
-      <input class="inp-field" id="profileEmpIdInput" value="${escHtml(esc(emp.empId||SESSION.empId||''))}" maxlength="20"></div>
+      <input class="inp-field" id="profileEmpIdInput" readonly value="${escHtml(esc(emp.empId||SESSION.empId||''))}" maxlength="20"></div>
     <div class="field"><label>${L('विभाग','Department')}</label>
       <input class="inp-field" id="profileSecInput" value="${escHtml(esc(emp.sec||''))}" maxlength="40" placeholder="from Excel Department"></div>
     <div class="field"><label>${L('मशीन','Machine')}</label>
@@ -103,11 +104,11 @@ function openEditProfileModal(){
     <div class="field"><label>${L('ज़िम्मेदारी','Responsibility')}</label>
       <input class="inp-field" id="profileRespInput" value="${escHtml(esc(emp.resp||emp.responsibility||''))}" maxlength="40"></div>
     <div style="font-size:11px;color:var(--muted2);margin-bottom:12px;line-height:1.5">
-      ${L('Manager द्वारा भरी जानकारी यहाँ दिखती है। बदलाव पर Manager को notification जाएगी।','Details from Manager are shown here. Changes notify your Manager.')}
+      ${L('टीम रिकॉर्ड प्रबंधक के नियंत्रण में हैं।','Team records are managed by your Manager.')}
     </div>
     </div>
     <div class="modal-sticky-actions">
-    <button class="submit-btn" onclick="saveProfileEdits()">💾 ${L('सेव + Manager को सूचित करें','Save & Notify Manager')}</button>
+    <button class="submit-btn" id="profileSaveButton" onclick="saveProfileEdits()">💾 ${L('सहेजें','Save')}</button>
     <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
     </div>`);
 }
@@ -142,148 +143,77 @@ function onProfilePhotoPicked(input){
 
 function clearProfilePhoto(){
   _profilePhotoData = '';
-  SESSION.photoUrl = '';
   const prev = document.getElementById('profilePhotoPreview');
   if(prev) prev.innerHTML = (SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2);
   toast(L('फ़ोटो साफ़ — लागू करने के लिए सहेजें','Photo cleared — Save to apply'));
 }
 
+let _uploadedProfilePhoto = null;
 async function saveProfileEdits(){
-  const name = (document.getElementById('profileNameInput')?.value||'').trim();
-  if(!name){ toast(L('⚠️ नाम आवश्यक','⚠️ Name required')); return; }
-  try{
-    if(typeof _ensureWriteAuth==='function'){
-      const ok = await _ensureWriteAuth();
-      if(!ok){ toast(L('❌ Phone ओटीपी सत्यापन करें — फिर Save दबाएँ','❌ Verify phone OTP — then press Save')); return; }
-    }
-  }catch(e){ toast(L('❌ प्रमाणीकरण: ','❌ Auth: ')+(e.message||e)); return; }
-
-  const dob = (document.getElementById('profileDobInput')?.value||'').trim();
-  const doj = (document.getElementById('profileDojInput')?.value||'').trim();
-  const salary = (document.getElementById('profileSalaryInput')?.value||'').trim();
-  const woff = (document.getElementById('profileWoffInput')?.value||'').trim();
-  const desig = (document.getElementById('profileDesigInput')?.value||'').trim();
-    const empIdEdit = (document.getElementById('profileEmpIdInput')?.value||'').trim();
-    const secEdit = (document.getElementById('profileSecInput')?.value||'').trim();
-    const mcEdit = (document.getElementById('profileMcInput')?.value||'').trim();
-    const respEdit = (document.getElementById('profileRespInput')?.value||'').trim();
-  const btn = document.querySelector('.modal-box .submit-btn, .modal .submit-btn');
-  if(btn){ btn.disabled = true; btn.textContent = '⏳ Saving…'; }
-
-  try{
-    const empBefore = myEmp() || {};
-    let photoUrl = SESSION.photoUrl || '';
-    if(_profilePhotoData === ''){
-      photoUrl = '';
-    } else if(_profilePhotoData){
-      const key = window._fbAuth?.currentUser?.uid;
-      if (!key) throw new Error('Verified account required to upload an avatar');
-      const path = 'profilePhotos/'+key+'/avatar.jpg';
-      if(typeof window._fbUploadSelfie === 'function'){
-        const url = await window._fbUploadSelfie(_profilePhotoData, path);
-        if(url) photoUrl = url;
-        else toast(L('⚠️ फ़ोटो अपलोड विफल — अन्य फ़ील्ड सहेजेंगे','⚠️ Photo upload failed — other fields will still save'));
-      } else {
-        if(_profilePhotoData.length < 200000) photoUrl = _profilePhotoData;
-        else toast(L('⚠️ संग्रहण तैयार नहीं — पुनः प्रयास करें','⚠️ Storage not ready — try again'));
+  const btn = document.getElementById('profileSaveButton');
+  if (!btn || btn.disabled) return;
+  const value = field => document.getElementById('profile'+field+'Input')?.value.trim() || '';
+  const name = value('Name');
+  if (!name) { toast(L('⚠️ नाम आवश्यक','⚠️ Name required')); return; }
+  const uid = SESSION.authUid;
+  const profileKey = SESSION.profileKey;
+  const originalLabel = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = L('सहेजा जा रहा है…','Saving…');
+  try {
+    if (!await _ensureWriteAuth() || !profileKey) throw new Error(L('सत्यापित प्रोफ़ाइल उपलब्ध नहीं है।','Verified profile is unavailable.'));
+    const before = {...myEmp(),...SESSION.profileValues};
+    const salary = value('Salary');
+    if (salary && (!Number.isFinite(Number(salary)) || Number(salary)<0)) throw new Error(L('सैलरी जाँचें।','Enter a valid salary.'));
+    const fields = {name,dob:value('Dob') || '',joiningDate:value('Doj') || '',salary,
+      monthlySalary:salary ? Number(salary) : '',woff:value('Woff'),designation:value('Desig'),
+      sec:value('Sec'),mc:value('Mc'),machine:value('Mc'),resp:value('Resp'),responsibility:value('Resp')};
+    const aliases = {joiningDate:'doj',mc:'machine',machine:'mc',resp:'responsibility',responsibility:'resp',salary:'monthlySalary',monthlySalary:'salary'};
+    const patch = Object.fromEntries(Object.entries(fields).filter(([field,current]) =>
+      String(field === 'name' ? SESSION.name : before[field] ?? before[aliases[field]] ?? '') !== String(current)));
+    if (_profilePhotoData === '') {
+      if (SESSION.photoUrl) patch.photoUrl = '';
+    } else if (_profilePhotoData) {
+      if (_uploadedProfilePhoto?.data !== _profilePhotoData) {
+        const data = _profilePhotoData;
+        const reference = await window._fbUploadSelfie(data,'profilePhotos/'+uid+'/avatar.jpg');
+        if (!reference) throw new Error(L('फ़ोटो अपलोड नहीं हुई। फिर कोशिश करें।','Photo upload failed. Try again.'));
+        _uploadedProfilePhoto = {data,reference};
       }
+      patch.photoUrl = _uploadedProfilePhoto.reference;
     }
-
+    if (SESSION.authUid !== uid) return;
+    if (!Object.keys(patch).length) { closeModal(); return; }
+    const rosterFields = isMgr() || SESSION.individual ? {...patch} : undefined;
+    if (rosterFields) {
+      delete rosterFields.photoUrl;
+      if (rosterFields.monthlySalary === '') rosterFields.monthlySalary = null;
+    }
+    const result = await window._fbCall('writeEmployee',{profile:{key:profileKey,
+      fields:{...patch,profileUpdatedAt:new Date().toISOString()},
+      ...(rosterFields && Object.keys(rosterFields).length ? {rosterFields} : {})}});
+    if (!result?.ok) throw new Error(L('सहेजने की पुष्टि नहीं हुई।','Save was not confirmed.'));
+    if (SESSION.authUid !== uid) return;
+    SESSION.profileValues = {...SESSION.profileValues,...patch};
     SESSION.name = name;
-    SESSION.photoUrl = photoUrl;
-    try{ saveSession(); }catch(e){}
-
-    const mob = _normMobileKey(SESSION.mobile||SESSION.uid||'');
-    if(mob){
-      try{
-        await fbUpdate('mobileUsers/'+mob, {
-          name,
-          photoUrl: photoUrl || null,
-          dob: dob || null,
-          joiningDate: doj || null,
-          salary: salary || null,
-          monthlySalary: salary ? Number(salary) : null,
-          woff: woff || null,
-          designation: desig || null,
-          profileUpdatedAt: new Date().toISOString()
-        });
-      }catch(e){
-        console.error('mobileUsers profile', e);
-        toast(L('❌ प्रोफ़ाइल सहेजना विफल: ','❌ Profile save failed: ')+(e.message||e.code||e));
-        throw e;
-      }
+    if (Object.hasOwn(patch,'photoUrl')) SESSION.photoUrl = patch.photoUrl;
+    if (rosterFields && _cache.employees) {
+      const row = _cache.employees.find(employee=>employee.id===SESSION.empObjId);
+      if (row) Object.assign(row,rosterFields);
     }
-    const empId = SESSION.empObjId || empBefore.id;
-    if(empId){
-      try{
-        await fbUpdate('employees/'+empId, {
-          name: name.toUpperCase(),
-          photoUrl: photoUrl || null,
-          dob: dob || null,
-          joiningDate: doj || null,
-          salary: salary || null,
-          monthlySalary: salary ? Number(salary) : null,
-          woff: woff || null,
-          designation: desig || null,
-          empId: empIdEdit || empBefore.empId || null,
-          sec: secEdit || empBefore.sec || null,
-          mc: mcEdit || empBefore.mc || null,
-          machine: mcEdit || empBefore.machine || null,
-          resp: respEdit || empBefore.resp || null,
-          responsibility: respEdit || empBefore.responsibility || null
-        });
-      }catch(e){ console.warn('emp profile', e); }
-    }
-
-    const changes = [];
-    if((empBefore.name||'') !== name) changes.push('Name');
-    if((empBefore.dob||'') !== dob) changes.push('DOB');
-    if((empBefore.joiningDate||empBefore.doj||'') !== doj) changes.push('DOJ');
-    if(String(empBefore.salary||empBefore.monthlySalary||'') !== String(salary||'')) changes.push('Salary');
-    if((empBefore.woff||'') !== woff) changes.push('Weekly Off');
-    if((empBefore.designation||'') !== desig) changes.push('Designation');
-    if(changes.length){
-      const body = name+' updated: '+changes.join(', ');
-      const mgrKey = _normMobileKey(SESSION.managerId||'');
-      if(mgrKey){
-        try{
-          await fbPush('userNotifications/'+mgrKey, {
-            type:'profile_update', title:'✏️ Profile update — '+name, body,
-            mobile: SESSION.mobile||'', name, changes, read:false, at: new Date().toISOString()
-          });
-        }catch(e){}
-      }
-      try{
-        await fbPush('adminNotifications', {
-          type:'profile_update', title:'✏️ Profile update — '+name, body,
-          mobile: SESSION.mobile||'', managerId: SESSION.managerId||'', read:false, at: new Date().toISOString()
-        });
-      }catch(e){}
-    }
-
-    try{
-      const userAvEl = document.getElementById('userAv');
-      if(userAvEl){
-        userAvEl.style.background = 'linear-gradient(135deg,var(--m1,#f97316),var(--s1,#a855f7))';
-        if(photoUrl){
-          userAvEl.innerHTML = `<img ${mpMediaAttr(photoUrl)} alt="">`;
-          userAvEl.setAttribute('data-has-photo','1');
-        } else {
-          userAvEl.innerHTML = '';
-          userAvEl.textContent = name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();
-          userAvEl.removeAttribute('data-has-photo');
-        }
-      }
-      const userNameEl = document.getElementById('userName');
-      if(userNameEl) userNameEl.textContent = name;
-    }catch(e){}
-
+    if (_cache.mobileUsers?.[profileKey]) Object.assign(_cache.mobileUsers[profileKey],patch);
+    saveSession();
+    updateHeaderProfile();
     closeModal();
-    toast(changes.length ? '✅ Profile saved — Manager notified' : '✅ Profile saved');
-  }catch(err){
-    console.error(err);
-    toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(err.message||err));
-    if(btn){ btn.disabled = false; btn.textContent = '💾 Save'; }
+    toast(L('✅ प्रोफ़ाइल सहेजी गई','✅ Profile saved'));
+    const changes = Object.keys(patch);
+    void fbPush('adminNotifications',{type:'profile_update',title:L('प्रोफ़ाइल अपडेट','Profile update'),
+      body:name,changes,createdByUid:uid,read:false,at:new Date().toISOString()}).catch(()=>{});
+  } catch (error) {
+    toast(L('❌ प्रोफ़ाइल सहेजने में समस्या: ','❌ Profile save problem: ')+(error.message || error));
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
   }
 }
 

@@ -448,13 +448,16 @@ function _goTabDirect(t){
   const prev = _currentTab;
   _currentTab=t;
   try{ _setScheduleSidebarWide(t==='schedule'); }catch(e){}
+  window.wdSetWorkspace?.(t==='diary');
   document.querySelectorAll('.tab').forEach(e=>e.classList.remove('on'));
   const el=document.getElementById('tab-'+t); if(el) el.classList.add('on');
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   const nb=document.getElementById('nb-'+t); if(nb) nb.classList.add('on');
   // Sync PC sidebar active state
   document.querySelectorAll('.pc-nav-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.pc-nav-btn[aria-current]').forEach(b=>b.removeAttribute('aria-current'));
   const pcnb=document.getElementById('pc-nb-'+t); if(pcnb) pcnb.classList.add('on');
+  if(pcnb) pcnb.setAttribute('aria-current','page');
   if(t==='home')         renderHome();
   if(t==='myshift')      renderMyShift();
   if(t==='todo')         renderTodo();
@@ -468,8 +471,10 @@ function _goTabDirect(t){
   try{ if(typeof syncHandoverChipForTab==='function') syncHandoverChipForTab(); }catch(e){}
   // Re-apply language so any newly-rendered elements get translated.
   // Run twice — once immediately, once after async renders settle.
-  try{ if(typeof applyLang === 'function') applyLang(); }catch(e){}
-  setTimeout(()=>{ try{ if(typeof _translateDOM === 'function') _translateDOM(); }catch(e){} }, 250);
+  if(t!=='diary'){
+    try{ if(typeof applyLang === 'function') applyLang(); }catch(e){}
+    setTimeout(()=>{ try{ if(typeof _translateDOM === 'function') _translateDOM(); }catch(e){} }, 250);
+  }
   // Android/browser Back: keep in-app history instead of closing the app
   if(!_mpHistoryLock && prev !== t){
     try{
@@ -614,11 +619,7 @@ async function _enforcePaymentGate(tab) {
     toast(L('सत्र की पुष्टि नहीं हुई।','Your session is not available.'));
     return;
   }
-  const loading = setTimeout(() => {
-    if (stillRequested()) toast(L('सदस्यता की जाँच हो रही है…','Checking subscription…'));
-  },180);
   const verified = await _loadCommercialEntitlement();
-  clearTimeout(loading);
   if (!stillRequested()) return;
   if (!verified) {
     toast(L('सदस्यता की जाँच नहीं हो सकी। कनेक्शन जाँचें और फिर कोशिश करें।',
@@ -1451,7 +1452,7 @@ async function sanitizeSchedulesBeforeJoining(opts){
   return total;
 }
 
-function isWorking(s){ return ['D','N','G','GP'].includes(s); }
+function isWorking(s){ return parseShiftWorkCodes(s).length > 0; }
 function isManPowerCompanyUser(){ return isAdmin() || SESSION.company === 'Man Power' || SESSION.company === '' || !SESSION.company || SESSION.approved === true; }
 
 // ════════════════════════════════════════
@@ -1477,15 +1478,16 @@ function _scheduleStatusLegendDefs(){
 }
 
 /** Count employees per shift code for one date. Returns {code: count} */
-function _countShiftCodesForDate(emps, dateStr){
+function _countShiftCodesForDate(emps, dateStr, codes, lookup){
   const counts = {};
   (emps||[]).forEach(e=>{
     try{
-      let sh = (typeof getShift==='function') ? getShift(e, dateStr) : '';
-      const work = typeof parseShiftWorkCodes==='function' ? parseShiftWorkCodes(sh) : [];
+      let sh = lookup ? lookup(e) : (typeof getShift==='function' ? getShift(e,dateStr) : '');
+      const work = typeof parseShiftWorkCodes==='function' ? parseShiftWorkCodes(sh,codes) : [];
       sh = _normShiftCode(sh);
       if(!sh && !work.length) return;
-      for(const code of new Set(work.length ? work : [sh])) counts[code] = (counts[code]||0) + 1;
+      const status = ['O','L','C/O','H','Ab','GP','OD','HLF'];
+      for (const code of work.length ? work : status.includes(sh) ? [sh] : []) counts[code] = (counts[code]||0) + 1;
     }catch(err){}
   });
   return counts;
@@ -1500,9 +1502,9 @@ function _shiftCodeMatches(cellSh, code){
   return false;
 }
 
-function _homeTodaySummaryHtml(){
+function _homeTodaySummaryHtml(employees,date,config,shifts,lookup){
   try{
-    const emps = (typeof getEmps==='function' ? getEmps() : []).filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
+    const emps = (employees || (typeof getEmps==='function' ? getEmps() : [])).filter(e=>e && e.status!=='resigned' && e.status!=='left' && e.status!=='left_team' && e.status!=='removed');
     let ymd = '';
     try{
       if(typeof TODAY_STR==='string' && TODAY_STR) ymd = TODAY_STR;
@@ -1512,13 +1514,17 @@ function _homeTodaySummaryHtml(){
       }
     }catch(e){ ymd = new Date().toISOString().slice(0,10); }
 
-    const counts = _countShiftCodesForDate(emps, ymd);
-    const total = emps.length;
-    const generalMin = Math.max(0,Number((typeof getShiftConfigSync==='function'?getShiftConfigSync():{}).minGeneralTotal)||0);
+    const work=shifts || getActiveWorkShifts();
+    const configured=new Map(work.map(shift=>[String(shift.code).toUpperCase(),shift]));
+    const codes=new Set(configured.keys());
+    const today=lookup || (employee=>getShift(employee,date||ymd));
+    const counts = _countShiftCodesForDate(emps, date||ymd,codes,today);
+    const total = emps.reduce((count,employee)=>count+(parseShiftWorkCodes(today(employee),codes).length>0),0);
+    const generalMin = Math.max(0,Number((config || (typeof getShiftConfigSync==='function'?getShiftConfigSync():{})).minGeneralTotal)||0);
     const en = (typeof _lang!=='undefined' && _lang!=='hi');
 
     // Preferred display order
-    const order = ['D','N','G','A','B','C','O','L','C/O','H','Ab','GP','OD','HLF'];
+    const order = [...configured.keys(),'O','L','C/O','H','Ab','GP','OD','HLF'];
     const labels = {
       D: en?'on D Shift':'D शिफ्ट', N: en?'on N Shift':'N शिफ्ट', G: en?'on G Shift':'G शिफ्ट',
       A: en?'on A Shift':'A शिफ्ट', B: en?'on B Shift':'B शिफ्ट', C: en?'on C Shift':'C शिफ्ट',
@@ -1538,16 +1544,18 @@ function _homeTodaySummaryHtml(){
     const cards = [];
     order.forEach(code=>{
       const n = counts[code] || 0;
-      if(n <= 0 && !(code==='G' && generalMin>0)) return;
+      if(n <= 0 && !configured.has(code)) return;
       seen.add(code);
-      cards.push({code, n, label: labels[code]||code, color: colors[code]||'#64748b'});
+      const configuredShift=configured.get(code);
+      const background=String(configuredShift?.bg||configuredShift?.color||'');
+      cards.push({code,n,label:configuredShift?.label||labels[code]||code,color:/^#[0-9a-f]{3,8}$/i.test(background)?background:colors[code]||'#64748b'});
     });
     Object.keys(counts).forEach(code=>{
       if(seen.has(code) || !counts[code]) return;
       cards.push({code, n: counts[code], label: code, color:'#64748b'});
     });
 
-    const lblTotal = en ? 'Total Man' : 'कुल';
+    const lblTotal = en ? 'Working headcount' : 'कार्यरत कर्मचारी';
     const cardStyle = 'flex:1 1 88px;min-width:88px;max-width:140px;padding:10px 12px;border-radius:12px;background:var(--card);border:1px solid var(--border2);text-align:center';
     const valStyle = 'font-size:22px;font-weight:900;line-height:1.15;font-family:Barlow Condensed,sans-serif';
     const lblStyle = 'font-size:11px;font-weight:700;color:var(--muted2);margin-top:2px';

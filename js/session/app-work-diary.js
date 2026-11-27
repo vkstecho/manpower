@@ -1,1133 +1,957 @@
-/* Work Diary — personal per mobile. Each time slot has its own notes underneath. */
-(function(){
+/* Personal Work Diary. Remote paths remain scoped to the verified Firebase UID. */
+(() => {
   'use strict';
 
-  function _wdMobile(){
-    return window._fbAuth?.currentUser?.uid || '';
-  }
-
-  function _wdPath(dateStr){
-    var mob = _wdMobile();
-    if(!mob) return null;
-    if(dateStr) return 'workDiary/'+mob+'/'+dateStr;
-    return 'workDiary/'+mob;
-  }
-
-  function _wdToday(){
-    var d = new Date();
-    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-  }
-
-  function _wdDayName(dateStr){
-    try{
-      var d = new Date(dateStr+'T12:00:00');
-      var names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-      var hi = ['रविवार','सोमवार','मंगलवार','बुधवार','गुरुवार','शुक्रवार','शनिवार'];
-      var i = d.getDay();
-      if(typeof L==='function') return L(hi[i], names[i]);
-      return names[i];
-    }catch(e){ return '—'; }
-  }
-
-  function _wdFetchShift(dateStr){
-    try{
-      var emp = null;
-      if(typeof myEmp==='function') emp = myEmp();
-      if(!emp && typeof getEmps==='function'){
-        var list = getEmps()||[];
-        var mob = _wdMobile();
-        emp = list.find(function(e){
-          if(!e) return false;
-          var ph = String(e.phone||e.mobile||'').replace(/\D/g,'').slice(-10);
-          return (SESSION && e.id===SESSION.empObjId) || (mob && ph===mob);
-        }) || null;
-      }
-      if(!emp || typeof getShift!=='function') return { code:'', label:'—' };
-      var sh = getShift(emp, dateStr) || '';
-      var disp = sh;
-      try{ if(typeof cellDisp==='function') disp = cellDisp(sh)||sh; }catch(e){}
-      var hrs = '';
-      try{
-        if(sh && typeof mpComputeDayHours==='function'){
-          var h = mpComputeDayHours(emp.id, dateStr, sh);
-          if(h) hrs = ' · '+h+' h';
+  const el = id => document.getElementById(id);
+  const tx = (hi, en) => typeof L === 'function' ? L(hi, en) : en;
+  const uid = () => {
+    const user = window._fbAuth?.currentUser;
+    return user && !user.isAnonymous && !window._mpLoggingOut ? user.uid : '';
+  };
+  const localDate = (d = new Date()) => [
+    d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')
+  ].join('-');
+  const parseDate = date => new Date(date + 'T12:00:00');
+  const validDate = date => /^\d{4}-\d\d-\d\d$/.test(date || '') && localDate(parseDate(date)) === date;
+  const language = () => document.documentElement.lang || 'en';
+  const dayName = date => validDate(date) ? parseDate(date).toLocaleDateString(language(), {weekday:'long'}) : '—';
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  })[char]);
+  const drawingData = value => typeof value === 'string' && /^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(value) ? value : '';
+  const richTags = new Set(['B','BR','BLOCKQUOTE','DIV','EM','I','IMG','LI','OL','P','S','STRONG','SUB','SUP','U','UL']);
+  function safeRichText(value) {
+    const input = document.createElement('template');
+    input.innerHTML = String(value ?? '');
+    const result = document.createElement('div');
+    function copy(source, target) {
+      for (const child of source.childNodes) {
+        if (child.nodeType === Node.TEXT_NODE) { target.append(child.textContent); continue; }
+        if (child.nodeType !== Node.ELEMENT_NODE || /^(SCRIPT|STYLE|IFRAME|OBJECT)$/.test(child.tagName)) continue;
+        if (!richTags.has(child.tagName)) { copy(child, target); continue; }
+        const clean = document.createElement(child.tagName);
+        if (child.tagName === 'IMG') {
+          const src = drawingData(child.getAttribute('src'));
+          if (!src) continue;
+          clean.src = src;
+          clean.alt = child.getAttribute('alt') || '';
         }
-      }catch(e){}
-      return { code: sh, label: (disp||'—')+hrs };
-    }catch(e){ return { code:'', label:'—' }; }
-  }
-
-
-  // ── Realtime auto-save (debounced) so notes are not lost ──
-  var _wdAutoTimer = null;
-  var _wdAutoBusy = false;
-
-  function wdScheduleAutoSave(){
-    try{
-      var st = document.getElementById('wdStatus');
-      if(st) st.textContent = '… editing — auto-save soon';
-    }catch(e){}
-    if(_wdAutoTimer) clearTimeout(_wdAutoTimer);
-    _wdAutoTimer = setTimeout(function(){ wdAutoSave(); }, 1200);
-  }
-
-  async function wdAutoSave(){
-    if(_wdAutoBusy) return;
-    var mob = _wdMobile();
-    if(!mob) return;
-    var inp = document.getElementById('wdDate');
-    var dateStr = (inp && inp.value) || _wdToday();
-    var slots = wdCollectSlots();
-    // Skip empty brand-new page
-    var has = slots.some(function(s){ return (s.notes&&s.notes.trim()) || s.drawing || s.from || s.to; });
-    if(!has) return;
-    _wdAutoBusy = true;
-    var st = document.getElementById('wdStatus');
-    try{
-      if(st) st.textContent = '💾 Auto-saving…';
-      var sh = _wdFetchShift(dateStr);
-      var allNotes = slots.map(function(s){
-        return (s.from||'?')+'–'+(s.to||'?')+': '+(s.notes||'');
-      }).join('\n');
-      var payload = {
-        date: dateStr,
-        day: _wdDayName(dateStr),
-        shift: sh.code || '',
-        shiftLabel: sh.label || '',
-        slots: slots,
-        notes: allNotes,
-        notesHtml: '',
-        mobile: mob,
-        updatedAt: new Date().toISOString(),
-        updatedBy: (SESSION && SESSION.name) || mob,
-        autoSaved: true
-      };
-      var path = _wdPath(dateStr);
-      if(path && typeof fbSet==='function'){
-        await fbSet(path, payload);
-        try{
-          await fbSet('workDiary/'+mob+'/_index/'+dateStr, {
-            date: dateStr, preview: allNotes.slice(0,160),
-            shift: sh.code||'', updatedAt: payload.updatedAt
-          });
-        }catch(ix){}
-        if(st) st.textContent = '✅ Auto-saved '+new Date().toLocaleTimeString();
+        copy(child, clean);
+        target.append(clean);
       }
-    }catch(e){
-      console.warn('[wdAutoSave]', e);
-      if(st) st.textContent = '⚠️ Auto-save failed — use Save';
     }
-    _wdAutoBusy = false;
+    copy(input.content, result);
+    return result.innerHTML;
   }
 
-  function wdBindAutoSave(block){
-    if(!block || block._wdAutoBound) return;
-    block._wdAutoBound = true;
-    var notes = block.querySelector('.wd-block-notes');
-    if(notes){
-      notes.addEventListener('input', wdScheduleAutoSave);
-      notes.addEventListener('blur', function(){ wdScheduleAutoSave(); });
-    }
-    block.querySelectorAll('.wd-from, .wd-to').forEach(function(inp){
-      inp.addEventListener('change', wdScheduleAutoSave);
+  let owner = '';
+  let active = false;
+  let mode = 'diary';
+  let activation = 0;
+  let visit = 0;
+  let renderedVisit = 0;
+  let searchSequence = 0;
+  let day = null;
+  let editorLoads = null;
+  let draftDb;
+  const loading = new Map();
+  const pending = new Map();
+  const writes = new Map();
+  const statusText = new Map();
+  let autoTimer;
+  let copyTimer;
+  function showStatus(id, hi = '', en = '') {
+    statusText.set(id, [hi,en]);
+    if (el(id)) el(id).textContent = tx(hi,en);
+  }
+  const status = (...message) => showStatus('wdStatus',...message);
+
+  function draftStorage(action, key, value, user = owner) {
+    if (!user || !window.indexedDB) return Promise.resolve();
+    draftDb ||= new Promise((resolve, reject) => {
+      const request = indexedDB.open('mp-work-diary', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('drafts');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = request.onblocked = () => reject(request.error);
     });
-    var canvas = block.querySelector('.wd-draw-canvas');
-    if(canvas){
-      ['mouseup','touchend'].forEach(function(ev){
-        canvas.addEventListener(ev, function(){ wdScheduleAutoSave(); });
-      });
-    }
-  }
-
-  /** One block = From–To + type notes + finger/mouse draw pad */
-  function wdAddSlot(from, to, notesHtml, notesText, drawDataUrl){
-    var host = document.getElementById('wdSlots');
-    if(!host) return;
-    var n = host.querySelectorAll('.wd-block').length + 1;
-    var block = document.createElement('div');
-    block.className = 'wd-block';
-    block.innerHTML =
-      '<div class="wd-slot-label" style="font-size:11px;font-weight:800;color:var(--muted2);margin-bottom:6px">Slot '+n+'</div>'+
-      '<div class="wd-block-head">'+
-        '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">From</label>'+
-        '<input type="time" class="wd-from" value="'+(from||'')+'"></div>'+
-        '<div><label style="font-size:10px;font-weight:700;color:var(--muted2)">To</label>'+
-        '<input type="time" class="wd-to" value="'+(to||'')+'"></div>'+
-        '<button type="button" title="Remove slot" onclick="this.closest(\'.wd-block\').remove();wdRenumberSlots();" '+
-          'style="padding:8px 10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);cursor:pointer;margin-bottom:2px">✕</button>'+
-      '</div>'+
-      '<label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Work done in this time slot</label>'+
-      '<div class="wd-block-notes" contenteditable="true" spellcheck="true" '+
-        'data-placeholder="Type here… or use Draw below with finger / mouse">'+
-        (notesHtml || '')+
-      '</div>'+
-      '<div class="wd-draw-toolbar" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center">'+
-        '<button type="button" class="wd-draw-toggle" onclick="wdToggleDraw(this)" '+
-          'style="padding:7px 12px;border-radius:10px;border:1.5px solid #f97316;background:rgba(249,115,22,.12);color:#ea580c;font-weight:800;cursor:pointer;font-size:12px">✏️ Draw (finger / mouse)</button>'+
-        '<button type="button" class="wd-draw-clear" onclick="wdClearDraw(this)" '+
-          'style="padding:7px 10px;border-radius:10px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;cursor:pointer;font-size:12px">Clear drawing</button>'+
-        '<span style="font-size:11px;color:var(--muted2)">Finger or mouse — hold and write</span>'+
-      '</div>'+
-      '<div class="wd-draw-wrap" style="display:none;margin-top:8px;border:1.5px solid var(--border2);border-radius:12px;overflow:hidden;background:#fff;touch-action:none">'+
-        '<canvas class="wd-draw-canvas" width="640" height="220" style="width:100%;height:220px;display:block;cursor:crosshair;touch-action:none"></canvas>'+
-      '</div>'+
-      '<button type="button" class="wd-add-next" onclick="wdAddSlot()" '+
-        'style="display:none;margin-top:10px;padding:10px 14px;border-radius:12px;border:1.5px dashed rgba(249,115,22,.55);background:transparent;color:#ea580c;font-weight:800;cursor:pointer;width:100%">＋ Add next time slot</button>';
-    host.appendChild(block);
-    if(!notesHtml && notesText){
-      var ne = block.querySelector('.wd-block-notes');
-      if(ne) ne.textContent = notesText;
-    }
-    wdInitDrawCanvas(block, drawDataUrl||'');
-    wdBindAutoSave(block);
-    wdRenumberSlots();
-    try{
-      block.scrollIntoView({behavior:'smooth', block:'nearest'});
-      var notes = block.querySelector('.wd-block-notes');
-      if(notes) notes.focus();
-    }catch(e){}
-  }
-
-  function wdToggleDraw(btn){
-    var block = btn && btn.closest('.wd-block');
-    if(!block) return;
-    var wrap = block.querySelector('.wd-draw-wrap');
-    if(!wrap) return;
-    var on = wrap.style.display === 'none' || !wrap.style.display;
-    wrap.style.display = on ? 'block' : 'none';
-    btn.style.background = on ? '#ea580c' : 'rgba(249,115,22,.12)';
-    btn.style.color = on ? '#fff' : '#ea580c';
-    btn.textContent = on ? '✏️ Drawing on — finger / mouse' : '✏️ Draw (finger / mouse)';
-    if(on){
-      try{ wdResizeCanvas(block.querySelector('.wd-draw-canvas')); }catch(e){}
-    }
-  }
-
-  function wdClearDraw(btn){
-    var block = btn && btn.closest('.wd-block');
-    if(!block) return;
-    var canvas = block.querySelector('.wd-draw-canvas');
-    if(!canvas) return;
-    var ctx = canvas.getContext('2d');
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-    canvas._wdHasInk = false;
-  }
-
-  function wdResizeCanvas(canvas){
-    if(!canvas) return;
-    var wrap = canvas.parentNode;
-    var w = Math.max(280, (wrap && wrap.clientWidth) || 640);
-    var h = 220;
-    // Preserve existing ink when resizing
-    var prev = null;
-    try{ if(canvas._wdHasInk) prev = canvas.toDataURL('image/png'); }catch(e){}
-    canvas.width = w;
-    canvas.height = h;
-    var ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,w,h);
-    if(prev){
-      var img = new Image();
-      img.onload = function(){ ctx.drawImage(img,0,0,w,h); canvas._wdHasInk = true; };
-      img.src = prev;
-    }
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2.5;
-  }
-
-  function wdInitDrawCanvas(block, dataUrl){
-    var canvas = block.querySelector('.wd-draw-canvas');
-    if(!canvas) return;
-    wdResizeCanvas(canvas);
-    var ctx = canvas.getContext('2d');
-    if(dataUrl){
-      var img = new Image();
-      img.onload = function(){
-        ctx.drawImage(img,0,0,canvas.width,canvas.height);
-        canvas._wdHasInk = true;
-        var wrap = block.querySelector('.wd-draw-wrap');
-        if(wrap) wrap.style.display = 'block';
-      };
-      img.src = dataUrl;
-    }
-    var drawing = false;
-    function pos(e){
-      var r = canvas.getBoundingClientRect();
-      var src = (e.touches && e.touches[0]) ? e.touches[0] : e;
-      return {
-        x: (src.clientX - r.left) * (canvas.width / r.width),
-        y: (src.clientY - r.top) * (canvas.height / r.height)
-      };
-    }
-    function start(e){
-      e.preventDefault();
-      drawing = true;
-      var p = pos(e);
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y);
-    }
-    function move(e){
-      if(!drawing) return;
-      e.preventDefault();
-      var p = pos(e);
-      ctx.lineTo(p.x, p.y);
-      ctx.stroke();
-      canvas._wdHasInk = true;
-    }
-    function end(e){
-      if(!drawing) return;
-      drawing = false;
-      try{ e.preventDefault(); }catch(x){}
-    }
-    canvas.addEventListener('mousedown', start);
-    canvas.addEventListener('mousemove', move);
-    canvas.addEventListener('mouseup', end);
-    canvas.addEventListener('mouseleave', end);
-    canvas.addEventListener('touchstart', start, {passive:false});
-    canvas.addEventListener('touchmove', move, {passive:false});
-    canvas.addEventListener('touchend', end);
-    canvas.addEventListener('touchcancel', end);
-  }
-
-  function wdGetDrawDataUrl(block){
-    var canvas = block.querySelector('.wd-draw-canvas');
-    if(!canvas || !canvas._wdHasInk) return '';
-    try{ return canvas.toDataURL('image/png'); }catch(e){ return ''; }
-  }
-
-  function wdRenumberSlots(){
-    var host = document.getElementById('wdSlots');
-    if(!host) return;
-    var blocks = host.querySelectorAll('.wd-block');
-    blocks.forEach(function(b, i){
-      var lab = b.querySelector('.wd-slot-label');
-      if(lab) lab.textContent = 'Slot '+(i+1);
-      // Only the LAST slot shows "Add next" under its notes
-      var btn = b.querySelector('.wd-add-next');
-      if(btn) btn.style.display = (i === blocks.length-1) ? 'block' : 'none';
+    return draftDb.then(db => new Promise((resolve, reject) => {
+      const transaction = db.transaction('drafts', action === 'get' ? 'readonly' : 'readwrite');
+      const store = transaction.objectStore('drafts');
+      const path = user + '/' + key;
+      const request = action === 'get' ? store.get(path) :
+        action === 'put' ? store.put(value, path) :
+        store.delete(action === 'clear' ? IDBKeyRange.bound(user+'/', user+'/\uffff') : path);
+      transaction.oncomplete = () => resolve(request.result);
+      transaction.onerror = transaction.onabort = () => reject(transaction.error);
+    })).catch(() => {
+      draftDb = null;
+      if (action === 'put' && key !== 'view' && owner === user && uid() === user) {
+        const id = key === 'note' ? 'wnStatus' : key === 'event' ? 'wcStatus' : 'wdStatus';
+        showStatus(id,'इस डिवाइस पर मसौदा नहीं सहेजा गया। ऐप बंद करने से पहले सहेजें।',
+          'This device could not store the draft. Save before closing the app.');
+      }
     });
   }
 
-  function wdCollectSlots(){
-    var slots = [];
-    document.querySelectorAll('#wdSlots .wd-block').forEach(function(block){
-      var f = (block.querySelector('.wd-from')||{}).value || '';
-      var t = (block.querySelector('.wd-to')||{}).value || '';
-      var ne = block.querySelector('.wd-block-notes');
-      var notesHtml = ne ? ne.innerHTML : '';
-      var notesText = ne ? (ne.innerText || ne.textContent || '') : '';
-      var draw = wdGetDrawDataUrl(block);
-      if(f || t || (notesText && notesText.trim()) || draw){
-        slots.push({ from: f, to: t, notesHtml: notesHtml, notes: notesText, drawing: draw || '' });
-      }
-    });
-    return slots;
+  function viewport() {
+    const vp = window.visualViewport;
+    if (!active || !vp || Math.abs(vp.scale - 1) > 0.02) return;
+    document.body.style.setProperty('--wd-visible-height', Math.floor(vp.height) + 'px');
+    document.body.style.setProperty('--wd-visible-top', Math.round(vp.offsetTop) + 'px');
   }
 
-  async function wdLoadDate(dateStr){
-    var dayEl = document.getElementById('wdDay');
-    var shiftEl = document.getElementById('wdShift');
-    var slotsEl = document.getElementById('wdSlots');
-    var status = document.getElementById('wdStatus');
-    if(dayEl) dayEl.textContent = _wdDayName(dateStr);
-    var sh = _wdFetchShift(dateStr);
-    if(shiftEl) shiftEl.textContent = sh.label || '—';
-    if(slotsEl) slotsEl.innerHTML = '';
-    if(status) status.textContent = '';
-
-    var path = _wdPath(dateStr);
-    if(!path){
-      if(status) status.textContent = (typeof L==='function'?L('मोबाइल लॉगिन ज़रूरी','Mobile login required'):'Mobile login required');
-      wdAddSlot();
-      return;
-    }
-    try{
-      var data = await fbGet(path);
-      if(data && typeof data==='object'){
-        var slots = Array.isArray(data.slots) ? data.slots : [];
-        if(slots.length){
-          slots.forEach(function(s){
-            // New format: notes per slot; legacy: shared notes only on first slot
-            wdAddSlot(s.from||'', s.to||'', s.notesHtml||'', s.notes||'', s.drawing||'');
-          });
-          // Legacy: page-level notesHtml when slots had no per-slot notes
-          if(data.notesHtml || data.notes){
-            var first = document.querySelector('#wdSlots .wd-block .wd-block-notes');
-            if(first && !(first.innerText||'').trim()){
-              if(data.notesHtml) first.innerHTML = data.notesHtml;
-              else first.textContent = data.notes || '';
-            }
-          }
-        } else {
-          // Legacy single notes only
-          wdAddSlot('', '', data.notesHtml||'', data.notes||'');
-        }
-        if(status) status.textContent = (typeof L==='function'?L('लोड: ','Loaded: '):'Loaded: ')+dateStr+(data.updatedAt?' · saved':'');
-      } else {
-        wdAddSlot();
-      }
-    }catch(e){
-      console.warn('[workDiary] load', e);
-      wdAddSlot();
-      if(status) status.textContent = '⚠️ '+(e&&e.message?e.message:'Load failed');
-    }
-  }
-
-  function wdShiftDate(deltaDays){
-    try{
-      var inp = document.getElementById('wdDate');
-      if(!inp) return;
-      var base = inp.value || _wdToday();
-      var d = new Date(base + 'T12:00:00');
-      if(isNaN(d.getTime())) d = new Date();
-      d.setDate(d.getDate() + (deltaDays || 0));
-      var y = d.getFullYear();
-      var m = String(d.getMonth()+1).padStart(2,'0');
-      var day = String(d.getDate()).padStart(2,'0');
-      inp.value = y + '-' + m + '-' + day;
-      wdOnDateChange();
-    }catch(e){ console.warn('[workDiary] shiftDate', e); }
-  }
-
-  function wdOnDateChange(){
-    var inp = document.getElementById('wdDate');
-    if(!inp || !inp.value) return;
-    wdLoadDate(inp.value);
-  }
-
-  function wdNewToday(){
-    var inp = document.getElementById('wdDate');
-    if(inp) inp.value = _wdToday();
-    wdOnDateChange();
-  }
-
-  async function wdSave(){
-    var mob = _wdMobile();
-    var status = document.getElementById('wdStatus');
-    if(!mob){
-      toast(typeof L==='function'?L('❌ मोबाइल लॉगिन ज़रूरी','❌ Mobile login required'):'❌ Mobile login required');
-      return;
-    }
-    var inp = document.getElementById('wdDate');
-    var dateStr = (inp && inp.value) || _wdToday();
-    var slots = wdCollectSlots();
-    var sh = _wdFetchShift(dateStr);
-    // Flatten notes for search / preview
-    var allNotes = slots.map(function(s){
-      var label = (s.from||'?')+'–'+(s.to||'?');
-      return label+': '+(s.notes||'');
-    }).join('\n');
-    var payload = {
-      date: dateStr,
-      day: _wdDayName(dateStr),
-      shift: sh.code || '',
-      shiftLabel: sh.label || '',
-      slots: slots,
-      notes: allNotes,
-      notesHtml: '',
-      mobile: mob,
-      updatedAt: new Date().toISOString(),
-      updatedBy: (SESSION && SESSION.name) || mob
-    };
-    var path = _wdPath(dateStr);
-    try{
-      if(typeof fbSet!=='function') throw new Error('Save unavailable');
-      await fbSet(path, payload);
-      try{
-        await fbSet('workDiary/'+mob+'/_index/'+dateStr, {
-          date: dateStr,
-          preview: allNotes.slice(0,160),
-          shift: sh.code||'',
-          updatedAt: payload.updatedAt
-        });
-      }catch(ix){}
-      toast(typeof L==='function'?L('✅ डायरी सेव','✅ Diary saved'):'✅ Diary saved');
-      if(status) status.textContent = '✅ Saved '+dateStr+' · '+slots.length+' slot(s)';
-    }catch(e){
-      console.warn('[workDiary] save', e);
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('सहेजना विफल','Save failed')));
-      if(status) status.textContent = '❌ Save failed — deploy workDiary Firebase rules if needed';
-    }
-  }
-
-  async function wdRunSearch(){
-    var q = (document.getElementById('wdSearchInput')||{}).value || '';
-    q = String(q).trim().toLowerCase();
-    var box = document.getElementById('wdSearchResults');
-    if(!box) return;
-    if(!q){
-      box.style.display = 'none';
-      box.innerHTML = '';
-      return;
-    }
-    var mob = _wdMobile();
-    if(!mob){ toast(L('मोबाइल लॉगिन आवश्यक','Mobile login required')); return; }
-    box.style.display = 'block';
-    box.innerHTML = '<div style="font-size:12px;color:var(--muted2)">Searching…</div>';
-    try{
-      var all = await fbGet('workDiary/'+mob) || {};
-      var hits = [];
-      Object.keys(all).forEach(function(k){
-        if(k==='_index') return;
-        var row = all[k];
-        if(!row || typeof row!=='object') return;
-        var parts = [row.notes||'', row.day||'', row.date||'', row.shiftLabel||''];
-        if(Array.isArray(row.slots)){
-          row.slots.forEach(function(s){
-            parts.push(s.notes||'', s.notesHtml||'', s.from||'', s.to||'');
-          });
-        }
-        var hay = parts.join(' ').toLowerCase();
-        if(hay.indexOf(q)>=0) hits.push(row);
-      });
-      hits.sort(function(a,b){ return String(b.date||'').localeCompare(String(a.date||'')); });
-      if(!hits.length){
-        box.innerHTML = '<div class="empty-text" style="padding:8px">No matching diaries</div>';
-        return;
-      }
-      box.innerHTML = '<div style="font-size:12px;font-weight:800;margin-bottom:8px">'+hits.length+' result(s)</div>' +
-        hits.map(function(h){
-          var prev = String(h.notes||'').slice(0,140).replace(/</g,'&lt;');
-          return '<div class="wd-hit" onclick="wdOpenDate(\''+String(h.date||'').replace(/'/g,'')+'\')">'+
-            '<div style="font-weight:800;color:var(--text)">📅 '+(h.date||'')+' · '+(h.day||'')+' · '+(h.shiftLabel||h.shift||'')+'</div>'+
-            '<div style="font-size:12px;color:var(--muted2);margin-top:4px">'+prev+'</div></div>';
-        }).join('');
-    }catch(e){
-      box.innerHTML = '<div style="color:var(--lv)">Search failed: '+(e&&e.message?e.message:'')+'</div>';
-    }
-  }
-
-  function wdClearSearch(){
-    var inp = document.getElementById('wdSearchInput');
-    if(inp) inp.value = '';
-    var box = document.getElementById('wdSearchResults');
-    if(box){ box.style.display='none'; box.innerHTML=''; }
-  }
-
-  function wdOpenDate(dateStr){
-    var inp = document.getElementById('wdDate');
-    if(inp) inp.value = dateStr;
-    wdLoadDate(dateStr);
-    try{ document.getElementById('wdPage').scrollIntoView({behavior:'smooth',block:'start'}); }catch(e){}
-  }
-
-  async function renderWorkDiary(){
-    var mob = _wdMobile();
-    var status = document.getElementById('wdStatus');
-    if(!mob && status) status.textContent = 'Login with mobile to use personal Work Diary';
-    var inp = document.getElementById('wdDate');
-    if(inp && !inp.value) inp.value = _wdToday();
-    if(inp && inp.value) await wdLoadDate(inp.value);
-    else wdNewToday();
-  }
-
-
-
-  function _wdEsc(s){
-    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  }
-
-  function _wdDayHtml(row){
-    if(!row) return '';
-    var slots = Array.isArray(row.slots) ? row.slots : [];
-    var slotsHtml = slots.length ? slots.map(function(s, i){
-      var notes = s.notesHtml || _wdEsc(s.notes||'').replace(/\n/g,'<br>');
-      var drawImg = s.drawing ? '<div style="margin-top:8px"><img src="'+s.drawing+'" style="max-width:100%;border:1px solid #ddd"/></div>' : '';
-      return '<div style="margin:12px 0;padding:10px;border:1px solid #ccc;border-radius:6px">'+
-        '<div style="font-weight:700">Slot '+(i+1)+' · '+(s.from||'?')+' – '+(s.to||'?')+'</div>'+
-        '<div style="margin-top:6px">'+notes+'</div>'+drawImg+'</div>';
-    }).join('') : '<div style="color:#666">'+(row.notesHtml||_wdEsc(row.notes||'')||'—')+'</div>';
-    return '<div style="page-break-after:always;margin-bottom:24px">'+
-      '<h2 style="margin:0 0 8px 0">Work Diary — '+_wdEsc(row.date||'')+'</h2>'+
-      '<div><b>Day:</b> '+_wdEsc(row.day||'')+' &nbsp; <b>Shift:</b> '+_wdEsc(row.shiftLabel||row.shift||'')+'</div>'+
-      slotsHtml+
-      '</div>';
-  }
-
-  async function wdDownloadWord(mode){
-    var mob = _wdMobile();
-    if(!mob){ toast(L('मोबाइल लॉगिन आवश्यक','Mobile login required')); return; }
-    var from, to;
-    var dateInp = document.getElementById('wdDate');
-    if(mode==='day'){
-      from = to = (dateInp && dateInp.value) || _wdToday();
+  function setWorkspace(on) {
+    if (active === on) return;
+    active = on;
+    document.body.classList.toggle('wd-active', on);
+    const rail = el('pcSidebar');
+    if (on) {
+      visit++;
+      viewport();
+      window.visualViewport?.addEventListener('resize', viewport);
+      window.visualViewport?.addEventListener('scroll', viewport);
+      window.addEventListener('resize',viewport);
+      rail?.setAttribute('aria-label', tx('ऐप नेविगेशन','Application navigation'));
     } else {
-      from = (document.getElementById('wdDocFrom')||{}).value || '';
-      to = (document.getElementById('wdDocTo')||{}).value || '';
-      if(!from || !to){
-        toast(L('से और तक तिथियाँ चुनें','Select From and To dates'));
-        return;
-      }
-      if(from > to){ var t=from; from=to; to=t; }
-    }
-    toast(L('वर्ड तैयार हो रहा है…','Preparing Word…'));
-    try{
-      var all = await fbGet('workDiary/'+mob) || {};
-      var days = [];
-      Object.keys(all).forEach(function(k){
-        if(k==='_index') return;
-        var row = all[k];
-        if(!row || typeof row!=='object') return;
-        var d = row.date || k;
-        if(d >= from && d <= to) days.push(row);
-      });
-      days.sort(function(a,b){ return String(a.date||'').localeCompare(String(b.date||'')); });
-      if(!days.length){
-        // try load single day path
-        if(mode==='day'){
-          var one = await fbGet(_wdPath(from));
-          if(one) days = [one];
-        }
-      }
-      if(!days.length){
-        toast(L('उस सीमा में कोई डायरी प्रविष्टि नहीं','No diary entries in that range'));
-        return;
-      }
-      var name = (SESSION && SESSION.name) || mob;
-      var body = days.map(_wdDayHtml).join('');
-      var html = '<!DOCTYPE html><html><head><meta charset="utf-8">'+
-        '<title>Work Diary '+from+(from!==to?' to '+to:'')+'</title></head><body>'+
-        '<h1>Work Diary — '+_wdEsc(name)+'</h1>'+
-        '<p>Mobile: '+_wdEsc(mob)+' · '+_wdEsc(from)+(from!==to?' → '+_wdEsc(to):'')+' · '+days.length+' day(s)</p>'+
-        body+
-        '</body></html>';
-      // Word opens HTML saved as .doc
-      var blob = new Blob(['\ufeff'+html], { type: 'application/msword' });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement('a');
-      a.href = url;
-      a.download = 'WorkDiary_'+from+(from!==to?'_to_'+to:'')+'.doc';
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(function(){ try{ URL.revokeObjectURL(url); a.remove(); }catch(e){} }, 1500);
-      toast(L('✅ वर्ड डाउनलोड: ','✅ Word download: ')+days.length+L(' दिन',' day(s)'));
-    }catch(e){
-      console.warn('[wdDownloadWord]', e);
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:L('डाउनलोड विफल','Download failed')));
+      window.visualViewport?.removeEventListener('resize', viewport);
+      window.visualViewport?.removeEventListener('scroll', viewport);
+      window.removeEventListener('resize',viewport);
+      document.body.style.removeProperty('--wd-visible-height');
+      document.body.style.removeProperty('--wd-visible-top');
+      if (owner && owner === uid()) flushDay();
     }
   }
 
-  // Prefill doc range when diary opens
-  var _wdOldRender = renderWorkDiary;
-  renderWorkDiary = async function(){
-    await _wdOldRender();
-    try{
-      var d = (document.getElementById('wdDate')||{}).value || _wdToday();
-      var f = document.getElementById('wdDocFrom');
-      var t = document.getElementById('wdDocTo');
-      if(f && !f.value) f.value = d;
-      if(t && !t.value) t.value = d;
-    }catch(e){}
-  };
-  window.renderWorkDiary = renderWorkDiary;
-  window.wdShiftDate = wdShiftDate;
-  window.wdOnDateChange = wdOnDateChange;
-  window.wdDownloadWord = wdDownloadWord;
-
-  window.wdAddSlot = wdAddSlot;
-  window.wdRenumberSlots = wdRenumberSlots;
-  window.wdOnDateChange = wdOnDateChange;
-  window.wdNewToday = wdNewToday;
-  window.wdSave = wdSave;
-  window.wdRunSearch = wdRunSearch;
-  window.wdClearSearch = wdClearSearch;
-  window.wdOpenDate = wdOpenDate;
-  window.renderWorkDiary = renderWorkDiary;
-
-
-  // ═══════════════════════════════════════════
-  // MODE SWITCH: Diary | Notes | Calendar
-  // ═══════════════════════════════════════════
-  var _wdMode = 'diary';
-
-  function wdSetMode(mode){
-    _wdMode = mode || 'diary';
-    try{
-      document.querySelectorAll('.wd-mode-btn').forEach(function(b){
-        var on = b.getAttribute('data-wd-mode') === _wdMode;
-        b.classList.toggle('active', on);
-        if(on){
-          b.style.borderColor = 'rgba(249,115,22,.45)';
-          b.style.background = 'rgba(249,115,22,.12)';
-          b.style.color = '#ea580c';
-        } else {
-          b.style.borderColor = '';
-          b.style.background = '';
-          b.style.color = '';
-        }
-      });
-      var d = document.getElementById('wdDiaryPanel');
-      var n = document.getElementById('wdNotesPanel');
-      var c = document.getElementById('wdCalPanel');
-      if(d) d.style.display = (_wdMode==='diary') ? '' : 'none';
-      if(n) n.style.display = (_wdMode==='notes') ? '' : 'none';
-      if(c) c.style.display = (_wdMode==='calendar') ? '' : 'none';
-    }catch(e){}
-    if(_wdMode==='notes') wnLoad();
-    if(_wdMode==='calendar') wcLoad();
+  function rememberView() {
+    if (owner && owner === uid() && validDate(day?.date)) void draftStorage('put', 'view', {mode,date:day.date});
   }
 
-  // ═══════════════════════════════════════════
-  // NOTES — Google Keep style (personal per mobile)
-  // Path: workNotes/{mobile}/{noteId}
-  // ═══════════════════════════════════════════
-  var _wnColors = [
-    {id:'default', bg:'#fff9c4'},
-    {id:'peach', bg:'#f8bbd0'},
-    {id:'mint', bg:'#c8e6c9'},
-    {id:'sky', bg:'#bbdefb'},
-    {id:'lavender', bg:'#e1bee7'},
-    {id:'orange', bg:'#ffe0b2'},
-    {id:'grey', bg:'#f5f5f5'}
+  const originals = new WeakMap();
+  function applyLanguage() {
+    const root = el('tab-diary');
+    if (!root) return;
+    const hindi = language().startsWith('hi');
+    for (const node of root.querySelectorAll('[data-wd-hi],[data-wd-hi-label],[data-wd-hi-placeholder]')) {
+      if (!originals.has(node)) originals.set(node, {
+        text:node.textContent, label:node.getAttribute('aria-label'), placeholder:node.getAttribute('placeholder')
+      });
+      const original = originals.get(node);
+      if (node.dataset.wdHi) node.textContent = hindi ? node.dataset.wdHi : original.text;
+      if (node.dataset.wdHiLabel) {
+        const label = hindi ? node.dataset.wdHiLabel : original.label;
+        node.setAttribute('aria-label', label);
+        if (node.hasAttribute('title')) node.title = label;
+      }
+      if (node.dataset.wdHiPlaceholder) node.placeholder = hindi ? node.dataset.wdHiPlaceholder : original.placeholder;
+    }
+    renumberSlots();
+    el('wnBody').dataset.placeholder = tx('यहाँ नोट लिखें…','Write a note…');
+    for (const [id,[hi,en]] of statusText) el(id).textContent = tx(hi,en);
+    for (const result of root.querySelectorAll('[data-wd-result-date]')) {
+      const date = result.dataset.wdResultDate;
+      result.textContent = date + ' · ' + dayName(date);
+    }
+    if (el('wnColorRow')) {
+      for (const button of el('wnColorRow').children) {
+        const color = colors.find(entry => entry[0] === button.dataset.color);
+        if (!color) continue;
+        button.title = tx(color[3], color[2]);
+        button.setAttribute('aria-label', button.title);
+      }
+    }
+    if (active && day) showDayInfo(day.date);
+    if (owner && mode === 'notes') drawNotes();
+    if (owner && mode === 'calendar') drawEvents();
+  }
+
+  function showDayInfo(date) {
+    el('wdDisplayDate').dateTime = date;
+    el('wdDisplayDate').textContent = parseDate(date).toLocaleDateString(language(), {day:'numeric',month:'long',year:'numeric'});
+    el('wdDay').textContent = dayName(date);
+    el('wdShift').textContent = shiftOf(date).label;
+  }
+  function shiftOf(date) {
+    const employee = typeof myEmp === 'function' ? myEmp() : null;
+    if (!employee || typeof getShift !== 'function') return {code:'',label:'—'};
+    const code = getShift(employee, date) || '';
+    const label = (code && typeof cellDisp === 'function' && cellDisp(code)) || code || '—';
+    const hours = code && typeof mpComputeDayHours === 'function' && mpComputeDayHours(employee.id, date, code);
+    return {code,label:label + (hours ? ' · ' + hours + ' h' : '')};
+  }
+
+  function fillSlots(row) {
+    const slots = Array.isArray(row?.slots) ? row.slots : [];
+    el('wdSlots').replaceChildren();
+    if (!slots.length) {
+      addSlot({notes:row?.notes,notesHtml:row?.notesHtml});
+      return;
+    }
+    slots.forEach((slot, index) => {
+      const legacy = !index && slots.every(item => !item.notes && !item.notesHtml && !item.drawing);
+      addSlot(legacy ? {...slot,notes:row.notes,notesHtml:row.notesHtml} : slot);
+    });
+  }
+
+  function addSlot(slot = {}, focus = false) {
+    const block = document.createElement('div');
+    block.className = 'wd-block';
+    block.innerHTML = `
+      <div class="wd-slot-label"></div>
+      <div class="wd-block-head">
+        <label><span data-wd-hi="से">From</span><input class="wd-from" type="time"></label>
+        <label><span data-wd-hi="तक">To</span><input class="wd-to" type="time"></label>
+        <button type="button" class="wd-remove wd-screen-only" aria-label="Remove time slot" title="Remove time slot" data-wd-hi-label="समय खंड हटाएँ">×</button>
+      </div>
+      <div class="wd-block-notes" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"></div>
+      <div class="wd-actions wd-draw-toolbar wd-screen-only">
+        <button type="button" class="wd-draw-toggle" aria-expanded="false" data-wd-hi="चित्र बनाएँ">Draw</button>
+        <button type="button" class="wd-draw-clear" data-wd-hi="चित्र मिटाएँ">Clear drawing</button>
+      </div>
+      <div class="wd-draw-wrap" hidden><canvas class="wd-draw-canvas" width="1024" height="320" role="img"></canvas></div>
+      <button type="button" class="wd-add-next wd-screen-only" data-wd-hi="＋ अगला समय खंड जोड़ें">＋ Add time slot</button>`;
+    block.querySelector('.wd-from').value = slot.from || '';
+    block.querySelector('.wd-to').value = slot.to || '';
+    const notes = block.querySelector('.wd-block-notes');
+    if (slot.notesHtml) notes.innerHTML = safeRichText(slot.notesHtml);
+    else notes.textContent = slot.notes || '';
+    notes.addEventListener('input', markDirty);
+    notes.addEventListener('paste', pasteText);
+    block.querySelectorAll('input').forEach(input => input.addEventListener('change', markDirty));
+    block.querySelector('.wd-remove').onclick = () => {
+      block.remove();
+      if (!el('wdSlots').children.length) addSlot();
+      renumberSlots();
+      markDirty();
+    };
+    const wrap = block.querySelector('.wd-draw-wrap');
+    const toggle = block.querySelector('.wd-draw-toggle');
+    const canvas = block.querySelector('canvas');
+    const setDrawing = visible => {
+      wrap.hidden = !visible;
+      toggle.setAttribute('aria-expanded', visible);
+    };
+    bindDrawing(canvas, slot.drawing);
+    if (canvas._wdDrawing) setDrawing(true);
+    toggle.onclick = () => setDrawing(wrap.hidden);
+    block.querySelector('.wd-draw-clear').onclick = () => {
+      canvas._wdClear();
+      markDirty();
+    };
+    block.querySelector('.wd-add-next').onclick = () => addSlot({}, true);
+    el('wdSlots').append(block);
+    localizeSlot(block);
+    if (focus) {
+      applyLanguage();
+      notes.focus();
+    }
+  }
+  function localizeSlot(block) {
+    const notes = block.querySelector('.wd-block-notes');
+    notes.dataset.placeholder = tx('यहाँ लिखें…','Write here…');
+    notes.setAttribute('aria-label', tx('इस समय खंड में किया गया काम','Work done in this time slot'));
+    block.querySelector('canvas').setAttribute('aria-label', tx('हस्तलेखन कैनवास','Handwriting canvas'));
+  }
+  function renumberSlots() {
+    const blocks = el('wdSlots')?.children || [];
+    Array.from(blocks).forEach((block, index) => {
+      block.querySelector('.wd-slot-label').textContent = tx('समय खंड ','Slot ') + (index + 1);
+      block.querySelector('.wd-add-next').hidden = index !== blocks.length - 1;
+      localizeSlot(block);
+    });
+  }
+  function pasteText(event) {
+    event.preventDefault();
+    document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+  }
+
+  function bindDrawing(canvas, stored) {
+    const ctx = canvas.getContext('2d');
+    const wrap = canvas.parentElement;
+    let pointer = null;
+    const blank = () => {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    };
+    blank();
+    canvas._wdDrawing = drawingData(stored);
+    let initial = canvas._wdDrawing;
+    if (initial) {
+      wrap.classList.add('wd-print-drawing');
+      const image = new Image();
+      image.onload = () => {
+        if (initial) ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        initial = '';
+      };
+      image.onerror = () => { initial = ''; };
+      image.src = initial;
+    }
+    canvas._wdClear = () => {
+      initial = '';
+      blank();
+      canvas._wdDrawing = '';
+      wrap.classList.remove('wd-print-drawing');
+    };
+    function point(event) {
+      const box = canvas.getBoundingClientRect();
+      return [(event.clientX - box.left) * canvas.width / box.width,
+        (event.clientY - box.top) * canvas.height / box.height];
+    }
+    canvas.onpointerdown = event => {
+      if (pointer !== null || initial || event.button !== 0) return;
+      pointer = event.pointerId;
+      canvas.setPointerCapture(pointer);
+      const [x, y] = point(event);
+      ctx.lineCap = ctx.lineJoin = 'round';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + .1, y + .1);
+      ctx.stroke();
+    };
+    canvas.onpointermove = event => {
+      if (event.pointerId !== pointer) return;
+      ctx.lineTo(...point(event));
+      ctx.stroke();
+    };
+    const finish = () => {
+      if (pointer === null) return;
+      pointer = null;
+      canvas._wdDrawing = canvas.toDataURL('image/png');
+      wrap.classList.add('wd-print-drawing');
+      markDirty();
+    };
+    canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = finish;
+    canvas._wdFinish = finish;
+  }
+
+  function collectSlots() {
+    return Array.from(el('wdSlots').children, block => {
+      const notes = block.querySelector('.wd-block-notes');
+      const canvas = block.querySelector('canvas');
+      return {
+        from:block.querySelector('.wd-from').value, to:block.querySelector('.wd-to').value,
+        notesHtml:safeRichText(notes.innerHTML), notes:notes.innerText || notes.textContent || '',
+        drawing:canvas._wdDrawing || ''
+      };
+    }).filter(slot => slot.from || slot.to || slot.notes.trim() || slot.drawing || slot.notesHtml.includes('<img'));
+  }
+
+  function markDirty() {
+    if (!day?.loaded || owner !== uid()) return;
+    day.dirty = true;
+    status('बदलाव सहेजे जा रहे हैं…','Unsaved changes · autosave pending');
+    clearTimeout(copyTimer);
+    clearTimeout(autoTimer);
+    copyTimer = setTimeout(capture, 220);
+    autoTimer = setTimeout(() => void flushDay(), 1200);
+  }
+
+  function capture() {
+    clearTimeout(copyTimer);
+    if (!day?.dirty || owner !== uid()) return;
+    const slots = collectSlots();
+    day.dirty = false;
+    const entry = {date:day.date, base:day.base, slots, needsReview:day.needsReview};
+    pending.set(day.date, entry);
+    void draftStorage('put', 'day/'+day.date, entry);
+  }
+
+  function flushDay(manual = false) {
+    clearTimeout(autoTimer);
+    el('wdSlots')?.querySelectorAll('canvas').forEach(canvas => canvas._wdFinish());
+    capture();
+    clearTimeout(autoTimer);
+    if (!day?.loaded || owner !== uid()) return Promise.resolve(false);
+    if (manual && !pending.has(day.date) && !writes.has(owner+'/'+day.date)) {
+      day.dirty = true;
+      capture();
+    }
+    return savePending(day.date, manual);
+  }
+
+  function savePending(date, manual) {
+    const user = owner;
+    const key = user + '/' + date;
+    const entry = pending.get(date);
+    if (!entry || user !== uid()) return writes.get(key) || Promise.resolve(false);
+    if (entry.failed && !manual) return Promise.resolve(false);
+    if (writes.has(key)) return writes.get(key).then(saved => saved && pending.has(date) && owner === user
+      ? savePending(date, manual) : saved);
+    if (entry.needsReview && (!manual || !confirm(tx(
+      'डायरी का दूसरा संस्करण मिल सकता है। वर्तमान मसौदे से इस दिन की डायरी बदलें?',
+      'A different version of this day may exist. Replace it with this draft?')))) return Promise.resolve(false);
+    const show = (...message) => { if (day?.date === date && owner === user && uid() === user) status(...message); };
+    const write = (async () => {
+      try {
+        const shift = shiftOf(date);
+        const notes = entry.slots.map(slot => (slot.from || '?')+'–'+(slot.to || '?')+': '+slot.notes).join('\n');
+        const payload = {
+          date,day:dayName(date),shift:shift.code,shiftLabel:shift.label,slots:entry.slots,notes,notesHtml:'',
+          mobile:user,updatedAt:new Date().toISOString(),updatedBy:SESSION?.name || user,...(!manual && {autoSaved:true})
+        };
+        show('सहेजा जा रहा है…','Saving…');
+        await fbSet('workDiary/'+user+'/'+date, payload);
+        if (owner !== user || uid() !== user) return true;
+        if (day?.date === date) { day.base = payload.updatedAt; day.needsReview = false; }
+        const latest = pending.get(date);
+        if (latest === entry) {
+          pending.delete(date);
+          void draftStorage('delete', 'day/'+date);
+          if (!day?.dirty || day.date !== date) show('सहेजा गया','Saved');
+        } else if (latest) {
+          latest.base = payload.updatedAt;
+          latest.needsReview = false;
+          void draftStorage('put', 'day/'+date, latest);
+        }
+        return true;
+      } catch (error) {
+        entry.failed = true;
+        console.warn('[workDiary] Save',error.code || error.name);
+        show('डायरी सहेजी नहीं गई। फिर से सहेजें।','Diary could not sync. Use Save diary to retry.');
+        return false;
+      }
+    })().finally(() => writes.delete(key));
+    writes.set(key, write);
+    return write;
+  }
+
+  async function openDate(date, refresh = false) {
+    if (!validDate(date) || !owner || owner !== uid()) return;
+    const user = owner;
+    if (day?.date === date && (!refresh || day.dirty || pending.has(date) || writes.has(user+'/'+date))) return;
+    if (day?.date !== date) {
+      void flushDay();
+      day = {date,base:'',needsReview:false,dirty:false,loaded:false};
+      fillSlots(null);
+    }
+    const current = day;
+    if (loading.has(current)) return loading.get(current);
+    el('wdDate').value = date;
+    showDayInfo(date);
+    el('wdSlots').setAttribute('aria-busy','true');
+    el('wdSlots').inert = !current.loaded;
+    el('wdSaveBtn').disabled = !current.loaded;
+    if (!current.loaded) status('डायरी लोड हो रही है…','Loading diary…');
+    rememberView();
+    const task = (async () => {
+      const [remote, local] = await Promise.allSettled([
+        fbGet('workDiary/'+user+'/'+date), draftStorage('get', 'day/'+date)
+      ]);
+      if (owner !== user || uid() !== user || day !== current) return;
+      const row = remote.status === 'fulfilled' ? remote.value : null;
+      const draft = pending.get(date) || local.value;
+      if (current.dirty || (refresh && pending.has(date))) return;
+      current.base = row?.updatedAt || (remote.status === 'fulfilled' ? '' : draft?.base || '');
+      current.needsReview = remote.status === 'rejected';
+      if (draft && Array.isArray(draft.slots)) {
+        current.needsReview ||= draft.base !== current.base;
+        pending.set(date, {...draft,needsReview:current.needsReview});
+        fillSlots(draft);
+        if (current.needsReview) status('मसौदा वापस मिला। सहेजने से पहले इस दिन की जाँच करें।','Draft recovered. Review this day before saving.');
+        else status('मसौदा वापस मिला। सहेजें।','Unsaved draft recovered. Save to sync it.');
+      } else {
+        fillSlots(row);
+        if (current.needsReview) status('डायरी लोड नहीं हुई।','Diary could not load.');
+        else if (row) status('सहेजा गया','Saved');
+        else status('लिखते ही डायरी अपने आप सहेजी जाती है','Autosaves as you write');
+      }
+      current.loaded = true;
+      applyLanguage();
+    })().finally(() => {
+      loading.delete(current);
+      if (day === current && owner === user) {
+        el('wdSlots').setAttribute('aria-busy','false');
+        el('wdSlots').inert = false;
+        el('wdSaveBtn').disabled = !current.loaded;
+      }
+    });
+    loading.set(current, task);
+    return task;
+  }
+
+  async function search() {
+    const query = el('wdSearchInput').value.trim().toLowerCase();
+    const box = el('wdSearchResults');
+    const user = owner;
+    const sequence = ++searchSequence;
+    if (!query || !user || uid() !== user) { box.hidden = true; return; }
+    box.hidden = false;
+    box.textContent = tx('खोज रहे हैं…','Searching…');
+    try {
+      const collection = await fbGet('workDiary/'+user) || {};
+      if (sequence !== searchSequence || uid() !== user) return;
+      const matches = Object.entries(collection).filter(([date, row]) => {
+        if (!validDate(date) || !row) return false;
+        const slots = Array.isArray(row.slots) ? row.slots : [];
+        return [date,row.notes,row.day,row.shiftLabel,...slots.flatMap(slot => [slot.notes,slot.from,slot.to])]
+          .join(' ').toLowerCase().includes(query);
+      }).sort(([a],[b]) => b.localeCompare(a));
+      box.replaceChildren();
+      if (!matches.length) { box.textContent = tx('कोई डायरी नहीं मिली','No matching diaries'); return; }
+      for (const [date,row] of matches) {
+        const hit = document.createElement('button');
+        hit.type = 'button';
+        hit.className = 'wd-hit';
+        hit.innerHTML = '<strong data-wd-result-date="'+escape(date)+'">'+escape(date)+' · '+escape(dayName(date))+'</strong><small>'+
+          escape(String(row.notes || '').slice(0,140))+'</small>';
+        hit.onclick = async () => {
+          await openDate(date);
+          el('wdPage').scrollIntoView({block:'start'});
+        };
+        box.append(hit);
+      }
+    } catch (error) {
+      if (owner === user && sequence === searchSequence) box.textContent = tx('खोज विफल रही','Search failed');
+    }
+  }
+
+  function wordDay(date, row) {
+    const slots = Array.isArray(row.slots) && row.slots.length ? row.slots : [{notes:row.notes,notesHtml:row.notesHtml}];
+    return '<section><h2>'+tx('कार्य डायरी','Work Diary')+' — '+escape(date)+'</h2><p>'+
+      escape(dayName(date))+' · '+escape(row.shiftLabel || row.shift || '—')+'</p>'+slots.map((slot,index) => {
+        const drawing = drawingData(slot.drawing);
+        return '<article><h3>'+tx('समय खंड ','Slot ')+(index+1)+' · '+escape(slot.from || '—')+
+          ' – '+escape(slot.to || '—')+'</h3><div>'+ (slot.notesHtml ? safeRichText(slot.notesHtml) :
+          escape(slot.notes).replace(/\n/g,'<br>'))+'</div>'+
+          (drawing ? '<img alt="" src="'+drawing+'">' : '')+'</article>';
+      }).join('')+'</section>';
+  }
+
+  async function downloadWord(range) {
+    const user = owner;
+    if (!user || user !== uid()) return;
+    await flushDay();
+    const date = day?.date;
+    let from = range === 'day' ? date : el('wdDocFrom').value;
+    let to = range === 'day' ? date : el('wdDocTo').value;
+    if (user !== uid() || !validDate(from) || !validDate(to)) {
+      toast(tx('से और तक की तारीख चुनें','Select From and To dates'));
+      return;
+    }
+    if (from > to) [from,to] = [to,from];
+    try {
+      const all = range === 'day' ? {[date]:await fbGet('workDiary/'+user+'/'+date)} : await fbGet('workDiary/'+user) || {};
+      if (user !== uid() || owner !== user) return;
+      for (const [key, entry] of pending) all[key] = entry;
+      const days = Object.entries(all).filter(([key,row]) => validDate(key) && row && key >= from && key <= to).sort(([a],[b]) => a.localeCompare(b));
+      if (!days.length) { toast(tx('इस अवधि में कोई डायरी नहीं है','No diary entries in that range')); return; }
+      const html = '<!doctype html><html lang="'+escape(language())+'"><meta charset="utf-8"><style>'+
+        '@page Diary {size:595.3pt 841.9pt;margin:40pt}body{font:11pt sans-serif}main{page:Diary}'+
+        'section+section{page-break-before:always}article{border:1px solid #aaa;padding:8pt;margin-bottom:8pt}img{max-width:100%}'+
+        '</style><body><main><h1>'+tx('कार्य डायरी','Work Diary')+' — '+escape(SESSION?.name || '')+'</h1>'+
+        days.map(([key,row]) => wordDay(key,row)).join('')+'</main></body></html>';
+      const href = URL.createObjectURL(new Blob(['\ufeff'+html], {type:'application/msword'}));
+      const link = Object.assign(document.createElement('a'), {href,download:'WorkDiary_'+from+(from === to ? '' : '_to_'+to)+'.doc'});
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1500);
+    } catch (e) { toast(tx('Word डाउनलोड नहीं हुआ','Could not export Word')); }
+  }
+
+  const colors = [
+    ['default','#fff9c4','Yellow','पीला'], ['peach','#f8bbd0','Pink','गुलाबी'],
+    ['mint','#c8e6c9','Mint','हरा'], ['sky','#bbdefb','Sky blue','आसमानी'],
+    ['lavender','#e1bee7','Lavender','बैंगनी'], ['orange','#ffe0b2','Orange','नारंगी'],
+    ['grey','#f5f5f5','Grey','धूसर']
   ];
-  var _wnCache = {};
-
-  function _wnPath(id){
-    var mob = _wdMobile();
-    if(!mob) return null;
-    if(id) return 'workNotes/'+mob+'/'+id;
-    return 'workNotes/'+mob;
-  }
-
-  function wnOpenEditor(note){
-    try{
-      var ed = document.getElementById('wnEditor');
-      if(!ed) return;
-      ed.style.display = 'block';
-      document.getElementById('wnEditId').value = (note && note.id) || '';
-      document.getElementById('wnTitle').value = (note && note.title) || '';
-      document.getElementById('wnBody').value = (note && note.body) || '';
-      document.getElementById('wnPinned').checked = !!(note && note.pinned);
-      var del = document.getElementById('wnDeleteBtn');
-      if(del) del.style.display = (note && note.id) ? '' : 'none';
-      var row = document.getElementById('wnColorRow');
-      if(row){
-        var cur = (note && note.color) || 'default';
-        row.innerHTML = _wnColors.map(function(c){
-          var sel = c.id===cur ? 'outline:2px solid #0f172a;outline-offset:2px' : '';
-          return '<button type="button" data-wn-color="'+c.id+'" onclick="wnPickColor(\''+c.id+'\')" title="'+c.id+'" style="width:28px;height:28px;border-radius:50%;border:1px solid rgba(0,0,0,.12);background:'+c.bg+';cursor:pointer;'+sel+'"></button>';
-        }).join('');
-        row.setAttribute('data-selected', cur);
-      }
-      document.getElementById('wnStatus').textContent = '';
-      try{ document.getElementById('wnTitle').focus(); }catch(e){}
-    }catch(e){ console.warn('[wnOpenEditor]', e); }
-  }
-
-  function wnPickColor(id){
-    var row = document.getElementById('wnColorRow');
-    if(!row) return;
-    row.setAttribute('data-selected', id||'default');
-    row.querySelectorAll('button').forEach(function(b){
-      var on = b.getAttribute('data-wn-color') === id;
-      b.style.outline = on ? '2px solid #0f172a' : '';
-      b.style.outlineOffset = on ? '2px' : '';
-    });
-  }
-
-  function wnCloseEditor(){
-    try{
-      var ed = document.getElementById('wnEditor');
-      if(ed) ed.style.display = 'none';
-      document.getElementById('wnEditId').value = '';
-      document.getElementById('wnTitle').value = '';
-      document.getElementById('wnBody').value = '';
-      document.getElementById('wnPinned').checked = false;
-    }catch(e){}
-  }
-
-  async function wnSave(){
-    var mob = _wdMobile();
-    var st = document.getElementById('wnStatus');
-    if(!mob){
-      toast(typeof L==='function'?L('❌ मोबाइल लॉगिन ज़रूरी','❌ Mobile login required'):'❌ Mobile login required');
-      return;
-    }
-    var title = (document.getElementById('wnTitle')?.value||'').trim();
-    var body = (document.getElementById('wnBody')?.value||'').trim();
-    if(!title && !body){
-      toast(typeof L==='function'?L('⚠️ Title या note लिखें','⚠️ Enter a title or note'):'⚠️ Enter a title or note');
-      return;
-    }
-    var id = (document.getElementById('wnEditId')?.value||'').trim();
-    if(!id) id = 'n'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    var color = 'default';
-    try{ color = document.getElementById('wnColorRow')?.getAttribute('data-selected') || 'default'; }catch(e){}
-    var pinned = !!(document.getElementById('wnPinned')?.checked);
-    var payload = {
-      id: id,
-      title: title,
-      body: body,
-      color: color,
-      pinned: pinned,
-      updatedAt: new Date().toISOString(),
-      createdAt: (_wnCache[id] && _wnCache[id].createdAt) || new Date().toISOString(),
-      mobile: mob
-    };
-    try{
-      if(typeof fbSet!=='function') throw new Error('Save unavailable');
-      await fbSet(_wnPath(id), payload);
-      _wnCache[id] = payload;
-      if(st) st.textContent = '✅ Saved';
-      toast(typeof L==='function'?L('✅ नोट सेव','✅ Note saved'):'✅ Note saved');
-      wnRenderList();
-      wnCloseEditor();
-    }catch(e){
-      console.warn('[wnSave]', e);
-      if(st) st.textContent = '❌ '+(e&&e.message?e.message:'Save failed');
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Save failed'));
-    }
-  }
-
-  async function wnDelete(){
-    var id = (document.getElementById('wnEditId')?.value||'').trim();
-    if(!id) return;
-    if(!confirm(typeof L==='function'?L('यह नोट डिलीट करें?','Delete this note?'):'Delete this note?')) return;
-    try{
-      var path = _wnPath(id);
-      if(typeof fbRemove==='function') await fbRemove(path);
-      else await fbSet(path, null);
-      delete _wnCache[id];
-      wnCloseEditor();
-      wnRenderList();
-      toast(typeof L==='function'?L('🗑️ नोट हटाया','🗑️ Note deleted'):'🗑️ Note deleted');
-    }catch(e){
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Delete failed'));
-    }
-  }
-
-  async function wnLoad(){
-    var mob = _wdMobile();
-    _wnCache = {};
-    if(!mob){
-      wnRenderList();
-      return;
-    }
-    try{
-      var data = await fbGet(_wnPath()) || {};
-      Object.keys(data).forEach(function(k){
-        var n = data[k];
-        if(!n || typeof n!=='object') return;
-        if(k==='_index') return;
-        n.id = n.id || k;
-        _wnCache[n.id] = n;
-      });
-    }catch(e){ console.warn('[wnLoad]', e); }
-    wnRenderList();
-  }
-
-  function wnRenderList(){
-    var grid = document.getElementById('wnGrid');
-    var empty = document.getElementById('wnEmpty');
-    if(!grid) return;
-    var q = String((document.getElementById('wnSearch')||{}).value||'').trim().toLowerCase();
-    var list = Object.keys(_wnCache).map(function(k){ return _wnCache[k]; }).filter(Boolean);
-    if(q){
-      list = list.filter(function(n){
-        return (String(n.title||'')+'\n'+String(n.body||'')).toLowerCase().indexOf(q)>=0;
-      });
-    }
-    list.sort(function(a,b){
-      if(!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
-      return String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
-    });
-    if(!list.length){
-      grid.innerHTML = '';
-      if(empty) empty.style.display = '';
-      return;
-    }
-    if(empty) empty.style.display = 'none';
-    var colorMap = {};
-    _wnColors.forEach(function(c){ colorMap[c.id]=c.bg; });
-    grid.innerHTML = list.map(function(n){
-      var bg = colorMap[n.color] || colorMap.default;
-      var title = _wdEsc(n.title||'(Untitled)');
-      var body = _wdEsc((n.body||'').slice(0,280));
-      var pin = n.pinned ? '<div class="wn-card-pin">📌 Pinned</div>' : '';
-      return '<div class="wn-card" style="background:'+bg+'" onclick="wnEdit(\''+String(n.id).replace(/'/g,"\\'")+'\')">'+
-        pin+'<div class="wn-card-title">'+title+'</div><div class="wn-card-body">'+body+'</div></div>';
-    }).join('');
-  }
-
-  function wnEdit(id){
-    var n = _wnCache[id];
-    if(n) wnOpenEditor(n);
-  }
-
-  // ═══════════════════════════════════════════
-  // CALENDAR — events + timed reminders
-  // Path: workCalendar/{mobile}/{eventId}
-  // ═══════════════════════════════════════════
-  var _wcCache = {};
-  var _wcTimers = {};
-
-  function _wcPath(id){
-    var mob = _wdMobile();
-    if(!mob) return null;
-    if(id) return 'workCalendar/'+mob+'/'+id;
-    return 'workCalendar/'+mob;
-  }
-
-  function wcRequestNotifPermission(){
-    try{
-      if(!('Notification' in window)){
-        toast(typeof L==='function'?L('⚠️ इस ब्राउज़र में notification नहीं','⚠️ Notifications not supported here'):'⚠️ Notifications not supported');
-        return;
-      }
-      Notification.requestPermission().then(function(p){
-        if(p==='granted') toast(typeof L==='function'?L('✅ Notifications on','✅ Notifications on'):'✅ Notifications on');
-        else toast(typeof L==='function'?L('Notifications बंद हैं — browser settings में allow करें','Notifications blocked — allow in browser settings'):'Notifications blocked');
-      });
-    }catch(e){ toast(String(e&&e.message||e)); }
-  }
-
-  function _wcFireNotif(ev){
-    try{
-      var title = ev.title || 'Reminder';
-      var body = (ev.date||'')+' '+(ev.time||'')+(ev.notes?(' · '+ev.notes):'');
-      if('Notification' in window && Notification.permission==='granted'){
-        try{ new Notification('📅 '+title, { body: body, tag: 'wc-'+ev.id }); }catch(e){}
-      }
-      try{
-        if(typeof toast==='function') toast('📅 '+title+(ev.time?(' · '+ev.time):''));
-      }catch(e){}
-      // In-app banner if available
-      try{
-        if(typeof showInAppBanner==='function') showInAppBanner('📅 '+title, body);
-      }catch(e){}
-    }catch(e){ console.warn('[wcFireNotif]', e); }
-  }
-
-  function _wcScheduleLocal(ev){
-    try{
-      if(_wcTimers[ev.id]){ clearTimeout(_wcTimers[ev.id]); delete _wcTimers[ev.id]; }
-      if(!ev || !ev.date || !ev.time) return;
-      var remindMin = parseInt(ev.remindMinutes, 10);
-      if(!isFinite(remindMin) || remindMin<0) remindMin = 15;
-      var when = new Date(ev.date+'T'+ev.time+':00');
-      if(isNaN(when.getTime())) return;
-      var fireAt = when.getTime() - remindMin*60*1000;
-      var delay = fireAt - Date.now();
-      if(delay < -60000) return; // already past by >1 min
-      if(delay < 0) delay = 500; // due now
-      // setTimeout max ~24 days; only schedule if within ~20 days
-      if(delay > 20*24*3600*1000) return;
-      _wcTimers[ev.id] = setTimeout(function(){
-        _wcFireNotif(ev);
-        delete _wcTimers[ev.id];
-      }, delay);
-    }catch(e){ console.warn('[wcScheduleLocal]', e); }
-  }
-
-  function _wcRescheduleAll(){
-    Object.keys(_wcTimers).forEach(function(k){ try{ clearTimeout(_wcTimers[k]); }catch(e){} });
-    _wcTimers = {};
-    Object.keys(_wcCache).forEach(function(k){ _wcScheduleLocal(_wcCache[k]); });
-  }
-
-  function wcOpenEditor(ev){
-    try{
-      var ed = document.getElementById('wcEditor');
-      if(!ed) return;
-      ed.style.display = 'block';
-      document.getElementById('wcEditId').value = (ev && ev.id) || '';
-      document.getElementById('wcTitle').value = (ev && ev.title) || '';
-      document.getElementById('wcDate').value = (ev && ev.date) || _wdToday();
-      document.getElementById('wcTime').value = (ev && ev.time) || '09:00';
-      document.getElementById('wcNotes').value = (ev && ev.notes) || '';
-      var rem = document.getElementById('wcRemind');
-      if(rem) rem.value = String((ev && ev.remindMinutes!=null)?ev.remindMinutes:15);
-      var del = document.getElementById('wcDeleteBtn');
-      if(del) del.style.display = (ev && ev.id) ? '' : 'none';
-      document.getElementById('wcStatus').textContent = '';
-      try{ document.getElementById('wcTitle').focus(); }catch(e){}
-    }catch(e){ console.warn('[wcOpenEditor]', e); }
-  }
-
-  function wcCloseEditor(){
-    try{
-      var ed = document.getElementById('wcEditor');
-      if(ed) ed.style.display = 'none';
-      document.getElementById('wcEditId').value = '';
-    }catch(e){}
-  }
-
-  async function wcSave(){
-    var mob = _wdMobile();
-    var st = document.getElementById('wcStatus');
-    if(!mob){
-      toast(typeof L==='function'?L('❌ मोबाइल लॉगिन ज़रूरी','❌ Mobile login required'):'❌ Mobile login required');
-      return;
-    }
-    var title = (document.getElementById('wcTitle')?.value||'').trim();
-    var date = (document.getElementById('wcDate')?.value||'').trim();
-    var time = (document.getElementById('wcTime')?.value||'').trim();
-    var notes = (document.getElementById('wcNotes')?.value||'').trim();
-    var remindMinutes = parseInt((document.getElementById('wcRemind')||{}).value, 10);
-    if(!isFinite(remindMinutes)) remindMinutes = 15;
-    if(!title){
-      toast(typeof L==='function'?L('⚠️ Title लिखें','⚠️ Enter a title'):'⚠️ Enter a title');
-      return;
-    }
-    if(!date || !time){
-      toast(typeof L==='function'?L('⚠️ Date और Time चुनें','⚠️ Pick date and time'):'⚠️ Pick date and time');
-      return;
-    }
-    var id = (document.getElementById('wcEditId')?.value||'').trim();
-    if(!id) id = 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-    var payload = {
-      id: id,
-      title: title,
-      date: date,
-      time: time,
-      notes: notes,
-      remindMinutes: remindMinutes,
-      updatedAt: new Date().toISOString(),
-      createdAt: (_wcCache[id] && _wcCache[id].createdAt) || new Date().toISOString(),
-      mobile: mob
-    };
-    try{
-      if(typeof fbSet!=='function') throw new Error('Save unavailable');
-      await fbSet(_wcPath(id), payload);
-      _wcCache[id] = payload;
-      _wcScheduleLocal(payload);
-      if(st) st.textContent = '✅ Saved';
-      toast(typeof L==='function'?L('✅ इवेंट सेव','✅ Event saved'):'✅ Event saved');
-      // Prompt notification permission once
-      try{
-        if('Notification' in window && Notification.permission==='default'){
-          Notification.requestPermission();
-        }
-      }catch(e){}
-      wcRenderList();
-      wcCloseEditor();
-    }catch(e){
-      console.warn('[wcSave]', e);
-      if(st) st.textContent = '❌ '+(e&&e.message?e.message:'Save failed');
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Save failed'));
-    }
-  }
-
-  async function wcDelete(){
-    var id = (document.getElementById('wcEditId')?.value||'').trim();
-    if(!id) return;
-    if(!confirm(typeof L==='function'?L('यह इवेंट डिलीट करें?','Delete this event?'):'Delete this event?')) return;
-    try{
-      var path = _wcPath(id);
-      if(typeof fbRemove==='function') await fbRemove(path);
-      else await fbSet(path, null);
-      if(_wcTimers[id]){ clearTimeout(_wcTimers[id]); delete _wcTimers[id]; }
-      delete _wcCache[id];
-      wcCloseEditor();
-      wcRenderList();
-      toast(typeof L==='function'?L('🗑️ इवेंट हटाया','🗑️ Event deleted'):'🗑️ Event deleted');
-    }catch(e){
-      toast(L('❌ ','❌ ')+(e&&e.message?e.message:'Delete failed'));
-    }
-  }
-
-  async function wcLoad(){
-    var mob = _wdMobile();
-    _wcCache = {};
-    if(!mob){
-      wcRenderList();
-      return;
-    }
-    try{
-      var data = await fbGet(_wcPath()) || {};
-      Object.keys(data).forEach(function(k){
-        var n = data[k];
-        if(!n || typeof n!=='object') return;
-        n.id = n.id || k;
-        _wcCache[n.id] = n;
-      });
-    }catch(e){ console.warn('[wcLoad]', e); }
-    _wcRescheduleAll();
-    wcRenderList();
-  }
-
-  function wcRenderList(){
-    var box = document.getElementById('wcList');
-    var empty = document.getElementById('wcEmpty');
-    if(!box) return;
-    var list = Object.keys(_wcCache).map(function(k){ return _wcCache[k]; }).filter(Boolean);
-    list.sort(function(a,b){
-      var ka = String(a.date||'')+'T'+String(a.time||'');
-      var kb = String(b.date||'')+'T'+String(b.time||'');
-      return ka.localeCompare(kb);
-    });
-    var now = Date.now();
-    // show upcoming first (including today), then past collapsed at bottom
-    var upcoming = [];
-    var past = [];
-    list.forEach(function(ev){
-      var t = new Date((ev.date||'')+'T'+(ev.time||'00:00')+':00').getTime();
-      if(isNaN(t) || t >= now - 3600000) upcoming.push(ev);
-      else past.push(ev);
-    });
-    if(!list.length){
-      box.innerHTML = '';
-      if(empty) empty.style.display = '';
-      return;
-    }
-    if(empty) empty.style.display = 'none';
-    function row(ev){
-      var dayName = '';
-      try{ dayName = _wdDayName(ev.date); }catch(e){}
-      return '<div class="wc-item">'+
-        '<div class="wc-item-time">'+_wdEsc(ev.time||'')+'<div style="font-size:11px;color:var(--muted2);font-weight:700;margin-top:2px">'+_wdEsc(ev.date||'')+'</div></div>'+
-        '<div class="wc-item-body">'+
-          '<div class="wc-item-title">'+_wdEsc(ev.title||'')+'</div>'+
-          '<div class="wc-item-sub">'+_wdEsc(dayName)+(ev.remindMinutes!=null?(' · remind '+ev.remindMinutes+' min before'):'')+(ev.notes?(' · '+_wdEsc(String(ev.notes).slice(0,80))):'')+'</div>'+
-        '</div>'+
-        '<button type="button" onclick="wcEdit(\''+String(ev.id).replace(/'/g,"\\'")+'\')" style="padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);font-weight:700;cursor:pointer">Edit</button>'+
-      '</div>';
-    }
-    var html = '';
-    if(upcoming.length){
-      html += upcoming.map(row).join('');
-    }
-    if(past.length){
-      html += '<div style="font-size:12px;font-weight:800;color:var(--muted2);margin:14px 0 8px">Past</div>';
-      html += past.slice().reverse().slice(0,20).map(row).join('');
-    }
-    box.innerHTML = html;
-  }
-
-  function wcEdit(id){
-    var n = _wcCache[id];
-    if(n) wcOpenEditor(n);
-  }
-
-  // Hook mode into diary render
-  var _wdOldRender2 = renderWorkDiary;
-  renderWorkDiary = async function(){
-    await _wdOldRender2();
-    try{ wdSetMode(_wdMode || 'diary'); }catch(e){}
-    // Warm notes/calendar schedules in background
-    try{ wnLoad(); }catch(e){}
-    try{ wcLoad(); }catch(e){}
+  const configs = {
+    note:{prefix:'wn',branch:'workNotes',fields:['Title','Body','Pinned']},
+    event:{prefix:'wc',branch:'workCalendar',fields:['Title','Date','Time','Notes','Remind']}
   };
+  const notes = new Map();
+  const events = new Map();
+  const editors = {};
+  const collectionRevision = {note:0,event:0};
+  const reminders = new Map();
+  const fields = (kind, suffix) => el(configs[kind].prefix+suffix);
+  const cache = kind => kind === 'note' ? notes : events;
+  const remotePath = (kind, id) => configs[kind].branch+'/'+owner+(id ? '/'+id : '');
 
-  window.wdSetMode = wdSetMode;
-  window.wnOpenEditor = wnOpenEditor;
-  window.wnCloseEditor = wnCloseEditor;
-  window.wnSave = wnSave;
-  window.wnDelete = wnDelete;
-  window.wnPickColor = wnPickColor;
-  window.wnEdit = wnEdit;
-  window.wnRenderList = wnRenderList;
-  window.wcOpenEditor = wcOpenEditor;
-  window.wcCloseEditor = wcCloseEditor;
-  window.wcSave = wcSave;
-  window.wcDelete = wcDelete;
-  window.wcEdit = wcEdit;
-  window.wcRequestNotifPermission = wcRequestNotifPermission;
-  window.renderWorkDiary = renderWorkDiary;
+  function getEditor(kind) {
+    if (kind === 'note') return {
+      id:fields(kind,'EditId').value, title:el('wnTitle').value, body:el('wnBody').innerText || el('wnBody').textContent || '',
+      bodyHtml:safeRichText(el('wnBody').innerHTML),color:el('wnColorRow').dataset.selected || 'default',pinned:el('wnPinned').checked
+    };
+    return {
+      id:fields(kind,'EditId').value, title:el('wcTitle').value, date:el('wcDate').value,
+      time:el('wcTime').value,notes:el('wcNotes').value,remindMinutes:Number(el('wcRemind').value)
+    };
+  }
 
+  function recordEditor(kind) {
+    const editor = editors[kind];
+    if (!editor || owner !== uid()) return;
+    editor.dirty = true;
+    editor.edits++;
+    void draftStorage('put', kind, getEditor(kind));
+  }
 
+  function paintColors(current) {
+    const row = el('wnColorRow');
+    row.dataset.selected = current;
+    row.replaceChildren(...colors.map(([id,swatch,en,hi]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'wd-swatch';
+      button.dataset.color = id;
+      button.title = tx(hi,en);
+      button.setAttribute('aria-label',button.title);
+      button.setAttribute('aria-pressed',id === current);
+      button.style.setProperty('--wn-color',swatch);
+      button.onclick = () => {
+        row.dataset.selected = id;
+        for (const item of row.children) item.setAttribute('aria-pressed',item === button);
+        recordEditor('note');
+      };
+      return button;
+    }));
+  }
+
+  function openEditor(kind, row, recovery = false) {
+    if (!owner || owner !== uid()) return;
+    if (editors[kind]?.writing) return;
+    if (editors[kind]?.dirty && !confirm(tx('वर्तमान मसौदा हटाएँ?','Discard this unsaved draft?'))) {
+      fields(kind,'Title').focus();
+      return;
+    }
+    if (!recovery) void draftStorage('delete', kind);
+    const editor = editors[kind] = {dirty:recovery,writing:false,edits:0};
+    fields(kind,'EditId').value = row?.id || '';
+    fields(kind,'Title').value = row?.title || '';
+    fields(kind,'DeleteBtn').hidden = !row?.id || !cache(kind).has(row.id);
+    const hint = fields(kind,'Status');
+    hint.textContent = recovery ? tx('मसौदा वापस मिला।','Unsaved draft recovered.') : '';
+    if (kind === 'note') {
+      if (row?.bodyHtml) el('wnBody').innerHTML = safeRichText(row.bodyHtml);
+      else el('wnBody').textContent = row?.body || '';
+      el('wnPinned').checked = !!row?.pinned;
+      paintColors(row?.color || 'default');
+    } else {
+      el('wcDate').value = row?.date || localDate();
+      el('wcTime').value = row?.time || '09:00';
+      el('wcNotes').value = row?.notes || '';
+      el('wcRemind').value = String(row?.remindMinutes ?? 15);
+    }
+    fields(kind,'Editor').hidden = false;
+    if (!recovery && editors[kind] === editor) fields(kind,'Title').focus();
+  }
+
+  function closeEditor(kind, saved = false) {
+    const editor = editors[kind];
+    if (!editor || (!saved && (editor.writing ||
+      (editor.dirty && !confirm(tx('मसौदा हटाकर बंद करें?','Discard this draft and close?')))))) return;
+    fields(kind,'Editor').hidden = true;
+    for (const name of ['EditId', ...configs[kind].fields]) {
+      const field = fields(kind,name);
+      if (field.isContentEditable) field.textContent = '';
+      else if (field.type === 'checkbox') field.checked = false;
+      else field.value = '';
+    }
+    delete editors[kind];
+    void draftStorage('delete', kind);
+  }
+
+  async function saveEditor(kind) {
+    const user = owner;
+    const editor = editors[kind];
+    if (!editor || editor.writing || user !== uid()) return;
+    const row = getEditor(kind);
+    const note = kind === 'note';
+    row.title = row.title.trim();
+    const hint = fields(kind,'Status');
+    if ((!row.title && (!note || (!row.body.trim() && !row.bodyHtml.includes('<img')))) ||
+        (!note && (!validDate(row.date) || !row.time))) {
+      hint.textContent = note ? tx('शीर्षक या नोट लिखें','Enter a title or note') :
+        tx('शीर्षक, तारीख और समय भरें','Enter a title, date and time');
+      return;
+    }
+    row.id ||= (note ? 'n' : 'c') + crypto.randomUUID();
+    fields(kind,'EditId').value = row.id;
+    void draftStorage('put',kind,row);
+    const updatedAt = new Date().toISOString();
+    const payload = {...row,mobile:user,updatedAt,createdAt:cache(kind).get(row.id)?.createdAt || updatedAt};
+    const revision = editor.edits;
+    editor.writing = true;
+    hint.textContent = tx('सहेजा जा रहा है…','Saving…');
+    try {
+      await fbSet(remotePath(kind,row.id),payload);
+      if (user !== uid() || owner !== user || editors[kind] !== editor) return;
+      collectionRevision[kind]++;
+      cache(kind).set(row.id,payload);
+      if (note) drawNotes();
+      else {
+        scheduleReminder(payload);
+        drawEvents();
+        if (window.Notification?.permission === 'default') void Notification.requestPermission();
+      }
+      if (editor.edits === revision) {
+        closeEditor(kind,true);
+        toast(note ? tx('नोट सहेजा गया','Note saved') : tx('इवेंट सहेजा गया','Event saved'));
+      } else {
+        fields(kind,'DeleteBtn').hidden = false;
+        hint.textContent = tx('नए बदलाव अभी सहेजे नहीं गए हैं।','New changes are still unsaved.');
+      }
+    } catch (e) {
+      if (user === uid() && editors[kind] === editor) hint.textContent = tx('सहेजना विफल रहा। फिर कोशिश करें।','Could not save. Try again.');
+    } finally { editor.writing = false; }
+  }
+
+  async function deleteEditor(kind) {
+    const user = owner;
+    const id = fields(kind,'EditId').value;
+    const editor = editors[kind];
+    if (!editor || editor.writing || user !== uid() || !id ||
+        !confirm(tx('इसे हटाएँ?','Delete this item?'))) return;
+    editor.writing = true;
+    try {
+      await fbRemove(remotePath(kind,id));
+      if (owner !== user || uid() !== user) return;
+      collectionRevision[kind]++;
+      cache(kind).delete(id);
+      clearTimeout(reminders.get(id));
+      reminders.delete(id);
+      closeEditor(kind,true);
+      if (kind === 'note') drawNotes();
+      else drawEvents();
+    } catch (error) {
+      if (owner === user && uid() === user) fields(kind,'Status').textContent = tx('हटाया नहीं जा सका।','Could not delete.');
+    } finally { editor.writing = false; }
+  }
+
+  function drawNotes() {
+    const q = el('wnSearch').value.trim().toLowerCase();
+    const list = [...notes.values()].filter(row => (String(row.title || '')+'\n'+String(row.body || '')).toLowerCase().includes(q))
+      .sort((a,b) => Number(!!b.pinned) - Number(!!a.pinned) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+    el('wnGrid').replaceChildren(...list.map(row => {
+      const button = document.createElement('button');
+      button.className = 'wn-card';
+      button.type = 'button';
+      button.style.setProperty('--wn-color',colors.find(entry => entry[0] === row.color)?.[1] || colors[0][1]);
+      button.innerHTML = (row.pinned ? '<small class="wn-card-pin">'+tx('📌 पिन किया गया','📌 Pinned')+'</small>' : '')+
+        '<strong>'+escape(row.title || tx('बिना शीर्षक','Untitled'))+'</strong>'+
+        '<small class="wn-card-body">'+escape(String(row.body || '').slice(0,280))+'</small>';
+      button.onclick = () => openEditor('note',row);
+      return button;
+    }));
+    el('wnEmpty').hidden = !!list.length;
+  }
+
+  function drawEvents() {
+    const list = [...events.values()].filter(event => validDate(event.date))
+      .sort((a,b) => (a.date+a.time).localeCompare(b.date+b.time));
+    const cutoff = Date.now() - 3600000;
+    const isUpcoming = event => Date.parse(event.date+'T'+event.time) >= cutoff;
+    const groups = [[tx('आगामी','Upcoming'), list.filter(isUpcoming)],
+      [tx('पिछले','Past'), list.filter(event => !isUpcoming(event)).reverse().slice(0,20)]];
+    const box = el('wcList');
+    box.replaceChildren();
+    for (const [name, items] of groups) {
+      if (!items.length) continue;
+      const h = document.createElement('h2');
+      h.className = 'wd-calendar-group';
+      h.textContent = name;
+      box.append(h);
+      for (const event of items) {
+        const item = document.createElement('div');
+        item.className = 'wc-item';
+        item.innerHTML = '<div class="wc-item-time">'+escape(event.time)+'<time>'+escape(event.date)+'</time></div>'+
+          '<div class="wc-item-body"><strong>'+escape(event.title)+'</strong><small>'+escape(dayName(event.date))+
+          (event.remindMinutes != null ? ' · '+tx('याद दिलाएँ ','Remind ')+escape(event.remindMinutes)+tx(' मिनट पहले',' min before') : '')+
+          (event.notes ? ' · '+escape(event.notes) : '')+'</small></div>';
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = tx('संपादित करें','Edit');
+        button.onclick = () => openEditor('event',event);
+        item.append(button);
+        box.append(item);
+      }
+    }
+    el('wcEmpty').hidden = !!list.length;
+  }
+
+  function scheduleReminder(event) {
+    clearTimeout(reminders.get(event.id));
+    reminders.delete(event.id);
+    const when = Date.parse(event.date+'T'+event.time);
+    const minutes = Math.max(0, Number(event.remindMinutes ?? 15));
+    const delay = when - minutes*60000 - Date.now();
+    const user = owner;
+    if (!Number.isFinite(delay) || delay < -60000 || delay > 20*86400000) return;
+    reminders.set(event.id,setTimeout(() => {
+      reminders.delete(event.id);
+      if (user !== uid() || owner !== user) return;
+      const title = '📅 '+(event.title || tx('रिमाइंडर','Reminder'));
+      const detail = event.date+' '+event.time+(event.notes ? ' · '+event.notes : '');
+      if (window.Notification?.permission === 'granted') {
+        try { new Notification(title,{body:detail,tag:'wc-'+event.id}); } catch (e) {}
+      }
+      toast(title);
+      if (typeof showInAppBanner === 'function') showInAppBanner(title,detail);
+    },Math.max(500,delay)));
+  }
+
+  async function allowNotifications() {
+    if (!window.Notification) { toast(tx('इस ब्राउज़र में सूचनाएँ उपलब्ध नहीं हैं','Notifications are unavailable in this browser')); return; }
+    const permission = await Notification.requestPermission();
+    toast(permission === 'granted' ? tx('सूचनाएँ चालू हैं','Notifications enabled') :
+      tx('ब्राउज़र की सेटिंग में सूचनाएँ चालू करें','Allow notifications in browser settings'));
+  }
+
+  async function loadEditor(kind, user, fresh = false) {
+    const version = collectionRevision[kind];
+    const [remote, draft] = await Promise.allSettled([
+      fbGet(remotePath(kind)), fresh ? draftStorage('get',kind) : undefined
+    ]);
+    if (owner !== user || uid() !== user) return;
+    if (remote.status === 'fulfilled' && version === collectionRevision[kind]) {
+      const collection = cache(kind);
+      collection.clear();
+      for (const [key,row] of Object.entries(remote.value || {})) {
+        if (row && typeof row === 'object' && key !== '_index') collection.set(key,{...row,id:key});
+      }
+      if (kind === 'event') {
+        for (const timer of reminders.values()) clearTimeout(timer);
+        reminders.clear();
+        for (const event of events.values()) scheduleReminder(event);
+      }
+    }
+    if (draft.value && !editors[kind]) openEditor(kind,draft.value,true);
+    if (kind === 'note') drawNotes();
+    else drawEvents();
+  }
+
+  function selectMode(next, save = true) {
+    if (!['diary','notes','calendar'].includes(next)) return;
+    if (mode !== next && save) {
+      if (mode === 'diary') void flushDay();
+      el('wdScroll').scrollTop = 0;
+    }
+    mode = next;
+    for (const button of el('wdModeBar').children) {
+      const selected = button.dataset.wdMode === mode;
+      button.classList.toggle('active',selected);
+      button.setAttribute('aria-pressed',selected);
+      el(button.getAttribute('aria-controls')).hidden = !selected;
+    }
+    if (save) rememberView();
+    if (active) applyLanguage();
+  }
+
+  function reset(discard = false) {
+    const previous = owner || window._fbAuth?.currentUser?.uid;
+    const cleared = discard && previous ? draftStorage('clear','',null,previous) : Promise.resolve();
+    owner = '';
+    day = null;
+    mode = 'diary';
+    activation++;
+    searchSequence++;
+    editorLoads = null;
+    clearTimeout(autoTimer);
+    clearTimeout(copyTimer);
+    loading.clear();
+    pending.clear();
+    notes.clear();
+    events.clear();
+    for (const timer of reminders.values()) clearTimeout(timer);
+    reminders.clear();
+    statusText.clear();
+    setWorkspace(false);
+    if (!el('tab-diary')) return cleared;
+    for (const kind of ['note','event']) {
+      closeEditor(kind,true);
+      fields(kind,'Status').textContent = '';
+    }
+    for (const id of ['wdSlots','wdSearchResults','wnGrid','wcList']) el(id).replaceChildren();
+    for (const id of ['wdDate','wdSearchInput','wnSearch','wdDocFrom','wdDocTo']) el(id).value = '';
+    el('wdStatus').textContent = '';
+    if (el('wdSearchResults')) el('wdSearchResults').hidden = true;
+    return cleared;
+  }
+
+  async function render() {
+    await window.__sectionsReady;
+    if (!active || !el('wdDate')) return;
+    const user = uid();
+    if (!user) {
+      reset();
+      return;
+    }
+    if (owner && owner !== user) {
+      reset();
+      setWorkspace(true);
+    }
+    owner = user;
+    const token = activation;
+    const reentered = renderedVisit !== visit;
+    renderedVisit = visit;
+    const first = !editorLoads;
+    if (first) {
+      editorLoads = Promise.all(['note','event'].map(kind => loadEditor(kind,user,true)));
+      for (const kind of ['note','event']) {
+        for (const name of configs[kind].fields) {
+          const field = fields(kind,name);
+          field.oninput = field.onchange = () => recordEditor(kind);
+        }
+      }
+      el('wnBody').onpaste = pasteText;
+      el('wnBody').dataset.placeholder = tx('यहाँ नोट लिखें…','Write a note…');
+      const view = await draftStorage('get','view');
+      if (activation !== token || owner !== user || uid() !== user) return;
+      selectMode(view?.mode || 'diary',false);
+      await openDate(validDate(view?.date) ? view.date : localDate());
+    } else if (day?.loaded) {
+      showDayInfo(day.date);
+      applyLanguage();
+      if (reentered) {
+        void openDate(day.date,true);
+        editorLoads = Promise.all(['note','event'].map(kind => loadEditor(kind,user)));
+      }
+    } else if (!day) {
+      selectMode(mode,false);
+      await openDate(localDate());
+    }
+    if (activation !== token || owner !== user || uid() !== user) return;
+    const date = day?.date || localDate();
+    el('wdDocFrom').value ||= date;
+    el('wdDocTo').value ||= date;
+  }
+
+  function background() {
+    if (owner === uid() && owner) void flushDay();
+  }
+  window.addEventListener('pagehide',background);
+  document.addEventListener('visibilitychange',() => {
+    if (document.hidden) background();
+    else if (active && day && owner === uid()) { viewport(); showDayInfo(day.date); }
+  });
+
+  Object.assign(window,{
+    wdSetWorkspace:setWorkspace, wdResetWorkspace:reset, wdApplyLanguage:applyLanguage,
+    renderWorkDiary:render, wdSetMode:selectMode, wdSave:() => flushDay(true),
+    wdOnDateChange:() => openDate(el('wdDate').value, true),
+    wdShiftDate:amount => {
+      const date = parseDate(day?.date || localDate());
+      date.setDate(date.getDate()+amount);
+      return openDate(localDate(date));
+    },
+    wdNewToday:() => openDate(localDate(),true),
+    wdRunSearch:search, wdClearSearch:() => {
+      ++searchSequence;
+      el('wdSearchInput').value = '';
+      el('wdSearchResults').hidden = true;
+      el('wdSearchResults').replaceChildren();
+    },
+    wdDownloadWord:downloadWord, wdPrint:() => { background(); window.print(); },
+    wnOpenEditor:() => openEditor('note'), wnCloseEditor:() => closeEditor('note'),
+    wnRenderList:drawNotes, wnSave:() => saveEditor('note'), wnDelete:() => deleteEditor('note'),
+    wnFormat:command => {
+      el('wnBody').focus();
+      document.execCommand(command, false);
+      recordEditor('note');
+    },
+    wcOpenEditor:() => openEditor('event'), wcCloseEditor:() => closeEditor('event'),
+    wcSave:() => saveEditor('event'), wcDelete:() => deleteEditor('event'), wcRequestNotifPermission:allowNotifications
+  });
 })();

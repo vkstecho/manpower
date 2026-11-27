@@ -3,20 +3,40 @@
  * Split from app-login-session.js for maintainability.
  * Global function names unchanged — load order matters (see index.html).
  */
-async function renderHome(){
-  try{
-    let host = document.getElementById('homeTodaySummary');
-    if(!host){
-      const tab = document.getElementById('tab-home');
-      if(tab){
-        host = document.createElement('div');
-        host.id = 'homeTodaySummary';
-        tab.insertBefore(host, tab.firstChild);
+function _homeManpowerCards(departments, workByEmployee, shifts, config) {
+  let html='';
+  for (const [department,employees] of departments) {
+    const machines=new Map();
+    const departmentCounts=new Map();
+    let headcount=0;
+    for (const employee of employees) {
+      const assignments=workByEmployee.get(employee) || [];
+      if (assignments.length) headcount++;
+      const machine=getEmpMachine(employee);
+      if (machine && !machines.has(machine)) machines.set(machine,{size:0,counts:new Map()});
+      const row=machines.get(machine);
+      if (row) row.size++;
+      for (const code of assignments) {
+        departmentCounts.set(code,(departmentCounts.get(code) || 0)+1);
+        if (row) row.counts.set(code,(row.counts.get(code) || 0)+1);
       }
     }
-    if(host) host.innerHTML = _homeTodaySummaryHtml();
-  }catch(e){}
-
+    const badges=(counts,machine)=>shifts.map(shift=>{
+      const code=String(shift.code).toUpperCase();
+      const count=counts.get(code) || 0;
+      const minimum=machine ? machineShiftMinimum(config,machine,code) : 0;
+      const shortage=minimum>0 && count<minimum;
+      const label=String(shift.label||code);
+      const rawColor=String(shift.bg||shift.color||mpShiftStyle(code)?.bg||'');
+      const color=/^#[0-9a-f]{3,8}$/i.test(rawColor) ? rawColor : 'var(--border2)';
+      return `<span class="home-manpower-count${shortage?' is-short':''}" data-shift="${escHtml(code)}" title="${escHtml(label)}" style="--mp-shift-color:${color}">${escHtml(label)}: ${shortage?'⚠ ':''}${count}${minimum?'/'+minimum:''}</span>`;
+    }).join('');
+    const machineCards=[...machines].map(([machine,row])=>`<div class="home-manpower-machine"><strong>${escHtml(machine)} (${row.size})</strong><div>${badges(row.counts,machine)}</div></div>`).join('');
+    html+=`<div class="sec-card home-manpower-department"><div><strong>${escHtml(department)}</strong> <span class="sec-count-lbl">${headcount}/${employees.length} ${L('ड्यूटी पर','working')}</span></div><div>${badges(departmentCounts)}</div>${machineCards}</div>`;
+  }
+  return html;
+}
+async function renderHome(){
   try{ if(typeof _forceShiftBadgeColors==='function') _forceShiftBadgeColors(); }catch(e){}
   if(typeof isPendingMember==='function' && isPendingMember()){
     try{
@@ -31,6 +51,18 @@ async function renderHome(){
   const emps=getEmps().filter(e=>e&&e.status!=='resigned'&&e.status!=='left'&&e.status!=='left_team'&&e.status!=='removed');
   const stillLoading = _cache.employees === null;
   const en = (_lang !== 'hi');
+  const config=getShiftConfigSync();
+  const workingShifts=getActiveWorkShifts();
+  const workingCodes=new Set(workingShifts.map(shift=>String(shift.code).toUpperCase()));
+  const today=new Map(emps.map(employee=>[employee,getShift(employee,TODAY_STR)]));
+  const workByEmployee=new Map([...today].map(([employee,shift])=>[employee,parseShiftWorkCodes(shift,workingCodes)]));
+  const getTodayShift=employee=>today.get(employee);
+  const departments=new Map();
+  for (const employee of emps) {
+    const department=getEmpSection(employee) || L('अविभाजित','Unassigned');
+    if (!departments.has(department)) departments.set(department,[]);
+    departments.get(department).push(employee);
+  }
 
   // Always show BOTH blocks (same Home for Manager + Individual)
   const adminEl = document.getElementById('homeAdminView');
@@ -45,21 +77,13 @@ async function renderHome(){
 
   if(!emps || emps.length===0){
     const _hs0=document.getElementById('homeStats');
-    if(_hs0) _hs0.innerHTML=`
+    if (_hs0 && !stillLoading) _hs0.innerHTML = _homeTodaySummaryHtml(emps,TODAY_STR,config,workingShifts,getTodayShift);
+    if(_hs0 && stillLoading) _hs0.innerHTML=`
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="dayStatLbl">${en?'Day Shift':'दिन शिफ्ट'}</div></div>
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="nightStatLbl">${en?'Night Shift':'रात शिफ्ट'}</div></div>
       <div class="stat-card"><div class="stat-val" style="color:var(--muted)">...</div><div class="stat-lbl" id="leaveStatLbl">${en?'On Leave':'छुट्टी पर'}</div></div>`;
     if(stillLoading){
       (document.getElementById('homeSections')||{innerHTML:''}).innerHTML='<div style="text-align:center;padding:20px;color:var(--muted2)">🔄 '+(en?'Loading data from Firebase...':'Firebase से डेटा लोड हो रहा है...')+'</div>';
-      if(!window._empLoadWatch){
-        window._empLoadWatch = setTimeout(()=>{
-          if(_cache.employees === null){
-            _cache.employees = [];
-            console.warn('[home] employees load timeout — showing empty');
-            try{ renderHome(); }catch(e){}
-          }
-        }, 8000);
-      }
     } else {
       (document.getElementById('homeSections')||{innerHTML:''}).innerHTML=`<div style="text-align:center;padding:30px 16px;color:var(--muted2)">
         <div style="font-size:36px;margin-bottom:10px">👥</div>
@@ -91,25 +115,18 @@ async function renderHome(){
     if(typeof renderPendingTeamTransferBanner==='function') renderPendingTeamTransferBanner();
   }catch(e){}
 
-  const dayE=emps.filter(e=>getShift(e,TODAY_STR)==='D').length;
-  const nE  =emps.filter(e=>getShift(e,TODAY_STR)==='N').length;
-  const lvE =emps.filter(e=>getShift(e,TODAY_STR)==='L').length;
-
   // ONE summary only (under date) — coloured shift-split cards, non-zero codes
   try{
     const hs = document.getElementById('homeStats');
     if(hs){
       hs.className = 'today-summary-host';
-      hs.innerHTML = (typeof _homeTodaySummaryHtml==='function') ? _homeTodaySummaryHtml() : '';
+      hs.innerHTML = (typeof _homeTodaySummaryHtml==='function') ? _homeTodaySummaryHtml(emps,TODAY_STR,config,workingShifts,getTodayShift) : '';
     }
     const topDup = document.getElementById('homeTodaySummary');
     if(topDup){ topDup.innerHTML = ''; topDup.style.display = 'none'; }
   }catch(e){ console.warn('[homeStats]', e); }
 
 
-  const isMet = e => { const sec=getEmpSection(e); return /metalliser/i.test(sec) || (SEC[e.sec]||{}).type==='metalliser' || ['M1','M2','MET'].includes(String(e.sec||'').toUpperCase()); };
-  const isSlit= e => { const sec=getEmpSection(e); return /slitter/i.test(sec) || (SEC[e.sec]||{}).type==='slitter' || ['S1','S2','SLIT'].includes(String(e.sec||'').toUpperCase()); };
-  const isMetProd = e => { const sec=getEmpSection(e); return /met\s*prod|metprod/i.test(sec); };
   const isEng = e => {
     const t=(SEC[e.sec]||{}).type;
     if(t==='sup' || t==='mgr') return true;
@@ -121,76 +138,15 @@ async function renderHome(){
     if(des.includes('engineer')||des.includes('supervisor')||des.includes('get')) return true;
     return false;
   };
-  const _homeWorkCodes = new Set(['A','B','C','D','N','G']);
-  try{const c=getShiftConfigSync();(c.shifts||[]).forEach(x=>{if(x&&x.active!==false&&String(x.kind||'work').toLowerCase()==='work')_homeWorkCodes.add(String(x.code||'').trim().toUpperCase());});}catch(e){}
-  const _homeNonWorking = new Set(['O','OFF','WO','W','L','LV','LEAVE','CO','C/O','C-OFF','AB','ABS','HLF','H','OD','GP','REST']);
-  const onDuty = sh => {const code=String(sh||'').trim().toUpperCase();return !_homeNonWorking.has(code)&&(_homeWorkCodes.has(code)||parseShiftWorkCodes(code).length>0);};
-  const isDay  = sh => sh==='D';
-  const isNight= sh => sh==='N';
-
-  const metEmps  = emps.filter(isMet);
-  const slitEmps = emps.filter(isSlit);
-  const engEmps  = emps.filter(isEng);
-
-  const metDay   = metEmps.filter(e=>isDay(getShift(e,TODAY_STR)));
-  const metNight = metEmps.filter(e=>isNight(getShift(e,TODAY_STR)));
-  const slitDay  = slitEmps.filter(e=>isDay(getShift(e,TODAY_STR)));
-  const slitNight= slitEmps.filter(e=>isNight(getShift(e,TODAY_STR)));
-  const engToday = engEmps.filter(e=>onDuty(getShift(e,TODAY_STR)));
-
-  const metDuty  = metEmps.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
-  const slitDuty = slitEmps.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
-  const metMin   = (CFG.minShift && CFG.minShift.metalliser) || 0;
-  const slitMin  = (CFG.minShift && CFG.minShift.slitter) || 0;
-  const metWarn  = metMin>0 && metDuty<metMin;
-  const slitWarn = slitMin>0 && slitDuty<slitMin;
-
-  let secNames = _teamFieldValues('section');
-  // Members whose Section was never set (machine code only) — show under Unassigned until Excel re-upload
-  const unassigned = emps.filter(e=>!getEmpSection(e));
-  if(unassigned.length && !secNames.includes('Unassigned')){
-    /* do not add fake section name to filters — only list real Excel sections */
-  }
+  const engToday = emps.filter(e=>isEng(e) && workByEmployee.get(e).length);
+  const secNames = [...departments.keys()];
   const _hst = document.getElementById('homeSectionTitle');
   if(_hst) _hst.textContent = en
     ? ("Today's Shift — " + (secNames.join(' · ') || 'All departments'))
     : ('आज की शिफ्ट — ' + (secNames.join(' · ') || 'सभी'));
 
-  // Machine-level live availability. A/B/C counts are calculated from the same
-  // getShift() source as the schedule, never from legacy D/N duty totals.
-  const _hmCfg = typeof getShiftConfigSync === 'function' ? getShiftConfigSync() : {};
-  const _hmMachineMins = (_hmCfg.minByField && _hmCfg.minByField.machine) || {};
-  const _hmMachineMin = mc => {
-    const key = Object.keys(_hmMachineMins).find(k => k.trim().toLowerCase() === String(mc).trim().toLowerCase());
-    const n = Number(key === undefined ? 0 : _hmMachineMins[key]);
-    return Number.isFinite(n) && n > 0 ? n : 0;
-  };
-  const _hmWorkCodes = ['A','B','C'].filter(code => !(_hmCfg.shifts||[]).some(x=>x.code===code&&x.active===false));
-  (document.getElementById('homeSections')||{innerHTML:''}).innerHTML = secNames.map((secName, idx)=>{
-    const list = emps.filter(e=>getEmpSection(e)===secName);
-    const machines = [...new Set(list.map(e=>getEmpMachine(e)).filter(Boolean))];
-    const totalWorking = list.filter(e=>onDuty(getShift(e,TODAY_STR))).length;
-    const colors = ['#f97316','#0284c7','#7c3aed','#16a34a','#db2777'];
-    const col = colors[idx % colors.length];
-    const machineHtml = machines.map(mc=>{
-      const workers = list.filter(e=>getEmpMachine(e)===mc);
-      const minimum = _hmMachineMin(mc);
-      const shifts = _hmWorkCodes.map(code=>{
-        const count = workers.filter(e=>shiftCountsToward(getShift(e,TODAY_STR),code)).length;
-        const shortage = minimum>0 && count<minimum;
-        const label = shortage ? '⚠ '+count+'/'+minimum : (minimum ? count+'/'+minimum : String(count));
-        return `<span title="${escHtml(mc)} · ${code} shift · ${count} available${minimum?' · minimum '+minimum:''}" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;border-radius:8px;font-weight:800;font-size:10px;border:1px solid ${shortage?'#ef4444':'#cbd5e1'};background:${shortage?'rgba(239,68,68,.13)':'rgba(148,163,184,.09)'};color:${shortage?'#dc2626':'var(--text)'}">${code}: ${label}</span>`;
-      }).join('');
-      return `<div style="margin-top:9px;padding:9px;border:1px solid var(--border2,#cbd5e1);border-radius:10px"><div style="font-weight:900;font-size:13px;margin-bottom:6px;color:var(--text)">⚙ ${escHtml(mc)} <span style="font-weight:600;color:var(--muted2);font-size:11px">(${workers.length})</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">${shifts}</div></div>`;
-    }).join('');
-    return `<div class="sec-card" style="display:block;min-width:240px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-        <div style="display:flex;align-items:center;gap:9px"><div class="sec-icon" style="background:${col}22">🏭</div><div><div class="sec-name" style="color:${col}">${escHtml(secName)}</div><div class="sec-machine">${list.length} ${en?'members':'सदस्य'}</div></div></div>
-        <div style="text-align:right"><div class="sec-count" style="color:${col}">${totalWorking}/${list.length}</div><div class="sec-count-lbl">${en?'Working':'ड्यूटी पर'}</div></div>
-      </div>
-      ${machineHtml || `<div style="margin-top:8px;color:var(--muted2);font-size:12px">${en?'No machine assigned':'मशीन निर्धारित नहीं'}</div>`}
-    </div>`;
-  }).join('') || `<div style="color:var(--muted2);padding:12px">${en?'Upload team Excel to see sections':'विभाग देखने के लिए टीम एक्सेल अपलोड करें'}</div>`;
+  const sections=document.getElementById('homeSections');
+  if (sections) sections.innerHTML = _homeManpowerCards(departments,workByEmployee,workingShifts,config);
 
   function _nameChip(emp, sh){
     const role=(typeof getEmpRole==='function'?getEmpRole(emp):null)||{role:'assist'};
@@ -211,7 +167,7 @@ async function renderHome(){
   }
   function _groupBlock(title, icon, color, list, emptyMsg){
     const chips = list.length
-      ? `<div class="hm-chips">${list.map(e=>_nameChip(e,getShift(e,TODAY_STR))).join('')}</div>`
+      ? `<div class="hm-chips">${list.map(e=>_nameChip(e,getTodayShift(e))).join('')}</div>`
       : `<div class="hm-empty">${emptyMsg}</div>`;
     return `<div class="hm-group">
       <div class="hm-group-hdr">
@@ -224,16 +180,11 @@ async function renderHome(){
   }
 
   let rosterHtml = `<div class="stitle hm-section-title">${en?'Manpower on Duty — Names':'ड्यूटी पर Manpower — नाम'}</div>`;
-  const _secList = secNames.length ? secNames : _teamFieldValues('section');
-  _secList.forEach(secName=>{
-    const list = emps.filter(e=>getEmpSection(e)===secName);
-    const dayList = list.filter(e=>isDay(getShift(e,TODAY_STR)));
-    const nightList = list.filter(e=>isNight(getShift(e,TODAY_STR)));
-    const genList = list.filter(e=>{ const sh=getShift(e,TODAY_STR); return sh==='G'||sh==='GP'; });
-    if(dayList.length) rosterHtml += _groupBlock((en?'Day Shift — ':'दिन — ')+secName, '☀️', '#f59e0b', dayList, '');
-    if(nightList.length) rosterHtml += _groupBlock((en?'Night Shift — ':'रात — ')+secName, '🌙', '#4f46e5', nightList, '');
-    if(genList.length) rosterHtml += _groupBlock((en?'General — ':'जनरल — ')+secName, '🔵', '#0284c7', genList, '');
-  });
+  for (const [department, employees] of departments) for (const shift of workingShifts) {
+    const code=String(shift.code).toUpperCase();
+    const workers=employees.filter(employee=>workByEmployee.get(employee).includes(code));
+    if (workers.length) rosterHtml += _groupBlock(escHtml(shift.label || code)+' — '+escHtml(department),'🏭','var(--text)',workers,'');
+  }
   // Engineers / non-operation roles still shown
   if(typeof engToday!=='undefined' && engToday && engToday.length)
     rosterHtml += _groupBlock(en?'Engineers / Others Today':'आज Engineers / अन्य', '👷', '#7c3aed', engToday, '');

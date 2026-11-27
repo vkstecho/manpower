@@ -719,20 +719,24 @@ async function launchVerifiedRosterSession(mobile, expectedEmployeeId = null, re
   const fullPhone = _registrationPhone(mobile);
   mobile = _registrationPhoneKey(fullPhone);
   if (!user || user.isAnonymous || !fullPhone || user.phoneNumber !== fullPhone) return false;
-  const identity = await window._fbCall('getMyRosterIdentity');
+  const identity = await window._fbCall('getMyRosterIdentity',{includeDetails:true});
   if (identity.uid !== user.uid || window._fbAuth?.currentUser?.uid !== user.uid ||
       (expectedEmployeeId && identity.employeeId !== expectedEmployeeId)) return false;
   if (identity.admin) return _launchAsHardAdmin(fullPhone, identity.uid, restoring);
   if (!identity.employeeId) return false;
-  const [employee, profiles] = await Promise.all([
+  const [employee, profiles] = Object.hasOwn(identity,'employee') ? [identity.employee, identity.profiles] : await Promise.all([
     _mpFbGet('employees/' + identity.employeeId),
     window._fbCall('getMyOwnedProfiles')
   ]);
-  const approved = Object.values(profiles || {}).filter(row => row?.status === 'approved');
-  const profile = profiles?.[mobile] || (approved.length === 1 ? approved[0] : null);
+  const approved = Object.entries(profiles || {}).filter(([,row]) => row?.status === 'approved');
+  const [profileKey, profile] = profiles?.[mobile] ? [mobile,profiles[mobile]] : approved.length === 1 ? approved[0] : ['',null];
+  const profileValues = {};
+  if (profile?.profileUpdatedAt) for (const field of ['name','dob','joiningDate','salary','monthlySalary','woff','designation','sec','mc','machine','resp','responsibility','photoUrl']) {
+    if (Object.hasOwn(profile,field)) profileValues[field] = profile[field];
+  }
   if (window._fbAuth?.currentUser?.uid !== user.uid || !employee || profile?.forceFreshLogin || ['removed','revoked','left','left_team'].includes(profile?.status)) return false;
   _launchAsNewUser({
-    ...profile, name: employee.name, mobile: fullPhone || '',
+    ...profile, profileKey, profileValues, name: profileValues.name || employee.name, mobile: fullPhone || '',
     company: employee.companyLabel || profile?.company || employee.companyId,
     companyId: identity.companyKey, managerId: employee.managerId || '',
     managerUid: identity.managerUid || '', empObjId: identity.employeeId, empId: employee.empId,
@@ -1192,7 +1196,11 @@ function _launchAsNewUser(userData){
   SESSION.rosterLinked=userData.rosterLinked===true;
   SESSION.name=userData.name;
   SESSION.role=userData.role;
-  if(userData.photoUrl) SESSION.photoUrl = userData.photoUrl;
+  if (userData.rosterLinked) {
+    SESSION.profileKey = userData.profileKey || '';
+    SESSION.profileValues = userData.profileValues || {};
+    SESSION.photoUrl = userData.photoUrl || '';
+  } else if(userData.photoUrl) SESSION.photoUrl = userData.photoUrl;
   SESSION.company=userData.company||'';
   SESSION.companyId=userData.companyId||'default';
   SESSION.managerId=userData.managerId||'';

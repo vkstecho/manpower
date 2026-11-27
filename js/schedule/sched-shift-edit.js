@@ -43,7 +43,7 @@ function _updateSaveBar(){
   if(title) title.textContent = _titleTxt;
   if(titleMy) titleMy.textContent = _titleTxt;
 
-  const _subTxt = L('सहेजने के बाद WhatsApp भेजना वैकल्पिक है।','WhatsApp is optional after saving.');
+  const _subTxt = L('दूसरे कर्मचारियों की शिफ्ट सहेजने के बाद WhatsApp खुलेगा।','WhatsApp opens after saving changes for other employees.');
   if(sub) sub.textContent = _subTxt;
   if(subMy) subMy.textContent = _subTxt;
 
@@ -221,23 +221,177 @@ function _showSaveError(message) {
   error.textContent = message;
 }
 
-function _confirmSavedShifts(count, queue) {
-  openModal('<div class="modal-title">' + L('शिफ्ट सहेजी गईं','Shifts saved') + '</div>' +
-    '<p class="shift-save-confirm-message">' + count + ' ' + L('बदलाव सहेजे गए।','changes saved.') + '</p>' +
-    (queue.length ? '<button type="button" class="submit-btn" id="shiftSaveSendWhatsApp">' +
-      L('WhatsApp भेजें','Send WhatsApp') + '</button>' : '') +
-    '<button type="button" class="cancel-btn" id="shiftSaveContinue">' + L('जारी रखें','Continue') + '</button>');
-  document.getElementById('shiftSaveContinue')?.addEventListener('click',closeModal);
-  document.getElementById('shiftSaveSendWhatsApp')?.addEventListener('click',() => {
-    closeModal();
-    if (queue.length === 1) openWA(queue[0].emp.phone,queue[0].msgLines);
-    else _sendWASequential(queue,0);
+const _shiftRequests = new Map();
+async function _submitShiftSave(updates,meta,signature=JSON.stringify([updates,meta])) {
+  const uid = SESSION.authUid;
+  const key = uid+'|'+signature;
+  const checkReceipt = _shiftRequests.has(key);
+  if (!checkReceipt) {
+    _shiftRequests.set(key,{updates,meta,requestId:crypto.randomUUID(),notificationLanguage:L('hi','en')});
+  }
+  const request = _shiftRequests.get(key);
+  try {
+    const result = await window._fbCall('saveShiftBatch',checkReceipt ? {...request,checkReceipt:true} : request);
+    if (!result?.ok) throw new Error(L('सहेजने की पुष्टि नहीं हुई।','Save was not confirmed.'));
+    _shiftRequests.delete(key);
+    return {requestId:result.requestId || request.requestId,previouslyCommitted:result.previouslyCommitted === true};
+  } catch (error) {
+    if (error.details?.commit === 'none' || ['functions/permission-denied','functions/failed-precondition',
+        'functions/invalid-argument','functions/unauthenticated'].includes(error.code)) _shiftRequests.delete(key);
+    throw error;
+  }
+}
+
+const _shiftWhatsAppStorage = 'mp_shift_whatsapp_queue';
+let _shiftWhatsAppAway = false;
+let _shiftWhatsAppBusy = false;
+let _shiftWhatsAppMemory;
+let _shiftWhatsAppOpenedUid;
+function _readShiftWhatsApp() {
+  let state;
+  try { state=JSON.parse(localStorage.getItem(_shiftWhatsAppStorage) || 'null'); } catch (_) { state=_shiftWhatsAppMemory; }
+  return state?.uid === SESSION.authUid && state.expiresAt > Date.now() ? state : null;
+}
+function _storeShiftWhatsApp(state) {
+  _shiftWhatsAppMemory = state;
+  try {
+    if (state) localStorage.setItem(_shiftWhatsAppStorage,JSON.stringify(state));
+    else localStorage.removeItem(_shiftWhatsAppStorage);
+  } catch (_) {}
+}
+function _clearShiftWhatsApp() {
+  _storeShiftWhatsApp(null);
+  _shiftWhatsAppAway=false;
+  _shiftWhatsAppOpenedUid=undefined;
+  document.getElementById('shiftWhatsAppFallback')?.remove();
+  _shiftRequests.clear();
+}
+function _openShiftWhatsApp(number,message) {
+  const link = 'https://wa.me/'+number+'?text='+encodeURIComponent(message);
+  try {
+    const tab = window.open(link,'_blank');
+    if (!tab) return false;
+    try { tab.opener=null; } catch (_) {}
+    return true;
+  } catch (_) { return false; }
+}
+function _showShiftWhatsAppFallback() {
+  if (document.getElementById('shiftWhatsAppFallback')) return;
+  const banner = document.createElement('div');
+  banner.id='shiftWhatsAppFallback';
+  banner.className='shift-whatsapp-fallback';
+  banner.setAttribute('role','status');
+  const text = document.createElement('span');
+  text.textContent=L('ब्राउज़र ने WhatsApp रोक दिया।','Your browser blocked WhatsApp.');
+  const button = document.createElement('button');
+  button.className='submit-btn';
+  button.textContent=L('WhatsApp खोलें','Open WhatsApp');
+  button.onclick=()=>_continueShiftWhatsApp(true);
+  const skip = document.createElement('button');
+  skip.className='cancel-btn';
+  skip.textContent=L('छोड़ें','Skip');
+  skip.onclick=()=>{
+    const state=_readShiftWhatsApp();
+    if (state?.items.length) { state.items.shift(); state.waiting=false; _storeShiftWhatsApp(state); }
+    banner.remove();
+    _continueShiftWhatsApp(false);
+  };
+  banner.append(text,button,skip);
+  document.body.append(banner);
+}
+function _continueShiftWhatsApp(manual=false) {
+  if (_shiftWhatsAppBusy || document.hidden || !SESSION.authUid || !SESSION.rosterLinked ||
+      SESSION.authUid!==window._fbAuth?.currentUser?.uid || document.getElementById('mainContent')?.style.display!=='block') return;
+  const attempt=()=>{
+    const state=_readShiftWhatsApp();
+    if (!state?.items.length || state.waiting) return;
+    while (state.items.length) {
+      const changes=state.items.shift();
+      const item=_buildShiftSaveWaQueue(changes)[0];
+      if (!item) { _storeShiftWhatsApp(state); continue; }
+      // Advance before opening so reopening a closed PWA never repeats this item.
+      state.waiting=state.items.length>0;
+      _storeShiftWhatsApp(state);
+      _shiftWhatsAppAway=false;
+      if (_openShiftWhatsApp(item.emp.phone,item.msgLines)) {
+        document.getElementById('shiftWhatsAppFallback')?.remove();
+        return;
+      }
+      state.items.unshift(changes);
+      state.waiting=false;
+      _storeShiftWhatsApp(state);
+      _showShiftWhatsAppFallback();
+      return;
+    }
+  };
+  if (!manual && navigator.locks) {
+    _shiftWhatsAppBusy=true;
+    navigator.locks.request('manpower-shift-whatsapp',{ifAvailable:true},lock=>{
+      if (lock) attempt();
+    }).catch(()=>attempt()).finally(()=>{_shiftWhatsAppBusy=false;});
+  } else attempt();
+}
+function _resumeShiftWhatsApp(restored=false) {
+  if (document.hidden || SESSION.authUid!==window._fbAuth?.currentUser?.uid) return;
+  const state=_readShiftWhatsApp();
+  if (!state?.items.length) return;
+  if (state.waiting) {
+    if (!_shiftWhatsAppAway && !restored) return;
+    state.waiting=false;
+    _storeShiftWhatsApp(state);
+  }
+  _shiftWhatsAppAway=false;
+  _continueShiftWhatsApp();
+}
+document.addEventListener('visibilitychange',()=>{
+  if (document.hidden) _shiftWhatsAppAway=true;
+  else _resumeShiftWhatsApp();
+});
+window.addEventListener('blur',()=>{ if (_readShiftWhatsApp()?.waiting) _shiftWhatsAppAway=true; });
+window.addEventListener('focus',()=>_resumeShiftWhatsApp());
+window.addEventListener('pageshow',event=>{if(event.persisted) _resumeShiftWhatsApp();});
+document.addEventListener('mp-roster-open',()=>{
+  if (_shiftWhatsAppOpenedUid===SESSION.authUid) return;
+  const uid=SESSION.authUid;
+  _shiftWhatsAppOpenedUid=uid;
+  if (!_readShiftWhatsApp()?.items.length) return;
+  Promise.resolve(typeof getShiftConfig==='function' ? getShiftConfig() : null).then(()=>{
+    if (SESSION.authUid===uid) _resumeShiftWhatsApp(true);
   });
+});
+function _confirmSavedShifts(count,entries,requestId) {
+  toast(L('✅ शिफ्ट सहेजी गईं','✅ Shifts saved')+' ('+count+')');
+  if (!entries.length || !SESSION.authUid || !SESSION.rosterLinked) return;
+  const state=_readShiftWhatsApp() || {uid:SESSION.authUid,items:[],queued:[],waiting:false};
+  if (state.queued.includes(requestId)) return;
+  const groups = _buildShiftSaveWaQueue(entries).map(item=>item.changes.map(({empId,date,newShift,currentShift,oldShift})=>
+    ({empId,date,newShift,currentShift,oldShift})));
+  if (!groups.length) return;
+  state.items.push(...groups);
+  state.queued=[...state.queued.slice(-39),requestId];
+  state.expiresAt=Date.now()+60*60*1000;
+  _storeShiftWhatsApp(state);
+  _continueShiftWhatsApp();
+}
+
+function _applyConfirmedShiftOverrides(updates) {
+  _cache.overrides ||= {};
+  for (const [key,value] of Object.entries(updates)) {
+    if (value === null) delete _cache.overrides[key];
+    else _cache.overrides[key] = value;
+  }
+  window._fbNoteConfirmedShiftOverrides?.(_cache.overrides);
+  invalidateShiftCache();
+}
+
+function _confirmEarlierShiftSave() {
+  toast(L('पिछली शिफ्ट सहेजने की पुष्टि हुई।','Earlier shift save confirmed.'));
+  window._fbRefreshRoster?.(['overrides']);
 }
 
 async function saveAllShiftChanges(opts = {}) {
   if (_shiftSaveInFlight) return;
-  const {skipWhatsApp = false,stayOnMyShift = false} = opts;
+  const {stayOnMyShift = false} = opts;
   const entries = Object.values(_pendingShiftChanges);
   if(!entries.length){ toast(L('कोई बदलाव नहीं है','No changes to save')); return; }
 
@@ -286,13 +440,13 @@ async function saveAllShiftChanges(opts = {}) {
       return;
     }
 
-    const {notified} = await window._fbCall('saveShiftBatch', {updates,meta:metaUpdates,notificationLanguage:L('hi','en')});
+    const {requestId,previouslyCommitted} = await _submitShiftSave(updates,metaUpdates,JSON.stringify(entries.map(({empId,date,newShift,coMeta})=>[empId,date,newShift,coMeta])));
     if (SESSION.authUid !== uid || window._fbAuth?.currentUser?.uid !== uid) return;
     document.getElementById('saveBarPermErr')?.remove();
 
     // Half-day / detail meta (history for single-click info)
     try{
-      if(Object.keys(metaUpdates).length){
+      if(!previouslyCommitted && Object.keys(metaUpdates).length){
         // Metadata committed with overrides by saveShiftBatch.
         if(!_cache) window._cache = _cache = {};
         if(!_cache.shiftCellMeta) _cache.shiftCellMeta = {};
@@ -301,28 +455,25 @@ async function saveAllShiftChanges(opts = {}) {
     }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
 
     // Apply to local cache immediately so UI is consistent without waiting for listeners
-    try{
-      if(!_cache.overrides || typeof _cache.overrides !== 'object') _cache.overrides = {};
-      Object.assign(_cache.overrides, updates);
-    }catch(e){}
-
-    try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
+    if (!previouslyCommitted) _applyConfirmedShiftOverrides(updates);
 
     // Clear pending + UI RIGHT AWAY (before notifications)
     try{ savedEntries.forEach(entry=>{const key=entry.empId+"__"+entry.date;if(_pendingShiftChanges[key]===entry) delete _pendingShiftChanges[key];}); }catch(e){ _pendingShiftChanges = {}; }
     try{ if(typeof clearSchedUndoHistory==='function') clearSchedUndoHistory(); }catch(e){}
     restoreBtn();
     try{ _updateSaveBar(); }catch(e){}
-    try{ renderSchedule(); }catch(e){}
-    try{ if(stayOnMyShift || (typeof _currentTab!=='undefined' && _currentTab==='myshift')) renderMyShift(); }catch(e){}
-    const queue = skipWhatsApp ? [] : _buildShiftSaveWaQueue(savedEntries);
-    void _saveShiftChangesBackground(savedEntries).catch(error => console.warn('[save follow-up]',error));
-    try { _confirmSavedShifts(savedEntries.length,queue); }
-    catch (error) { toast(L('शिफ्ट सहेजी गईं।','Shifts saved.')); }
-    if (notified) toast('🔔 ' + notified + ' ' + L('सदस्य को ऐप में सूचना भेजी','notified in the app'));
+    if (previouslyCommitted) _confirmEarlierShiftSave();
+    else {
+      try { _confirmSavedShifts(savedEntries.length,savedEntries,requestId); }
+      catch (error) { console.warn('[WhatsApp queue]',error); }
+      setTimeout(()=>void _saveShiftChangesBackground(savedEntries).catch(error=>console.warn('[save follow-up]',error)),0);
+    }
+    _refreshTabs(['schedule','myshift','home']);
   } catch (error) {
     console.warn('[shift save]',error.code || error.message);
-    const friendly = error.code === 'functions/permission-denied'
+    const unknown = error.details?.commit === 'unknown' || (error.details?.commit !== 'none' &&
+      ['functions/deadline-exceeded','functions/unavailable','functions/internal'].includes(error.code));
+    const friendly = unknown ? L('सहेजने की पुष्टि नहीं हुई। इन्हीं बदलावों को दोबारा सुरक्षित तरीके से सहेजें।','Save could not be confirmed. You can safely retry the same edits.') : error.code === 'functions/permission-denied'
       ? L('इस शिफ्ट को बदलने की अनुमति नहीं है। व्यवस्थापक से संपर्क करें।',
         'You do not have permission to change this shift. Contact your administrator.')
       : localizedShiftSaveError(error.message || error.code || 'Network error');
@@ -354,11 +505,10 @@ function _buildShiftSaveWaQueue(savedEntries){
     try{
       const emp = emps.get(empId);
       if(!emp) continue;
-      if(typeof _isSelfEmployee==='function' && _isSelfEmployee(emp)) continue;
-      if(emp.id === SESSION.empObjId) continue;
-
-      const phone = (emp.phone||emp.mobile||'').toString().replace(/\D/g,'').slice(-10);
-      if(phone.length !== 10) continue;
+      if (!SESSION.rosterLinked || !SESSION.empObjId || emp.id === SESSION.empObjId) continue;
+      const rawNumber=String(emp.phone || emp.mobile || '').trim().replace(/[()\s.-]/g,'');
+      const phone = /^[6-9]\d{9}$/.test(rawNumber) ? '91'+rawNumber : rawNumber.replace(/^(?:\+|00)/,'');
+      if (!/^\d{8,15}$/.test(phone) || phone.startsWith('0') || (phone.startsWith('91') && !/^91[6-9]\d{9}$/.test(phone))) continue;
 
       const buckets = { GP:[], CO:[], Ab:[], L:[], H:[], OTHER:[] };
       changes.forEach(c=>{
@@ -519,73 +669,6 @@ async function _saveShiftChangesBackground(savedEntries){
 }
 
 
-// ── Sequential WhatsApp sender ──
-// Browser popup blocker prevents window.open() from setTimeout/async context.
-// Solution: show a modal for each employee with a direct "Send" button.
-// Each tap IS a user gesture → window.open() always works.
-function _sendWASequential(queue, index){
-  if(index >= queue.length) return; // All done
-
-  const { emp, msgLines } = queue[index];
-  const current = index + 1;
-  const total = queue.length;
-  const remaining = total - current;
-
-  // Create overlay
-  const overlay = document.createElement('div');
-  overlay.id = '_waSeqOverlay';
-  overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
-
-  const ini = escHtml(String(emp.name || '').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase());
-
-  overlay.innerHTML = `
-    <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;border-top:1px solid var(--border2);animation:slideUp .25s cubic-bezier(.32,0,.15,1)">
-      <div style="width:32px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px"></div>
-
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#25D366,#128C7E);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#fff;font-family:'Barlow Condensed',sans-serif;flex-shrink:0">${ini}</div>
-        <div>
-          <div style="font-size:17px;font-weight:900;color:var(--text)">${escHtml(emp.name)}</div>
-          <div style="font-size:12px;color:var(--muted2)">📱 +91 ${escHtml(emp.phone)}</div>
-        </div>
-        <div style="margin-left:auto;background:rgba(37,211,102,.1);border:1px solid rgba(37,211,102,.3);border-radius:20px;padding:3px 12px;font-size:12px;font-weight:800;color:var(--text)">${current} / ${total}</div>
-      </div>
-
-      <div style="background:rgba(37,211,102,.06);border:1px solid rgba(37,211,102,.2);border-radius:12px;padding:12px;margin:14px 0;font-size:12px;color:var(--muted2);line-height:1.6;max-height:100px;overflow:hidden;text-overflow:ellipsis;white-space:pre-wrap">${escHtml(msgLines.substring(0,180))}${msgLines.length>180?'...':''}</div>
-
-      <button id="_waSendBtn"
-        style="width:100%;padding:16px;border-radius:13px;border:none;background:#166534;color:#fff;font-size:17px;font-weight:900;cursor:pointer;font-family:inherit;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 4px 20px rgba(37,211,102,.3)">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-        ${typeof L==='function'?L('WhatsApp भेजें','Send WhatsApp'):'Send WhatsApp'} — ${escHtml(emp.name.split(' ')[0])}
-      </button>
-
-      <button id="_waSkipBtn"
-        style="width:100%;padding:13px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--muted2);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">
-        ${remaining > 0 ? ((typeof L==='function'?L('⏭️ Skip — अगला','⏭️ Skip — next'):'⏭️ Skip — next')+' ('+remaining+')') : (typeof L==='function'?L('✅ बंद करें','✅ Done'):'✅ Done')}
-      </button>
-    </div>`;
-
-  document.body.appendChild(overlay);
-
-  const cleanup = () => {
-    try{ document.body.removeChild(overlay); }catch(e){}
-  };
-
-  document.getElementById('_waSendBtn').addEventListener('click', () => {
-    openWA(emp.phone, (typeof _appendWaAppLink==='function'?_appendWaAppLink(msgLines):msgLines)); // gesture
-    cleanup();
-    if(index + 1 < queue.length){
-      setTimeout(() => _sendWASequential(queue, index + 1), 400);
-    }
-  });
-
-  document.getElementById('_waSkipBtn').addEventListener('click', () => {
-    cleanup();
-    if(index + 1 < queue.length){
-      setTimeout(() => _sendWASequential(queue, index + 1), 200);
-    }
-  });
-}
 
 function handleShiftBtnClick(empId, empName, date, currentShift, shiftVal){
   if(shiftVal === 'C/O'){
@@ -962,10 +1045,13 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
     updates[key] = 'L';
     meta[key] = {leaveType:typeCode, reason, ...(selectedDate === _bulkDates[0] && _leaveImgBase64 ? {attachment:_leaveImgBase64} : {})};
   }
+  const uid=SESSION.authUid;
+  let confirmed;
   try {
     if (!await _ensureWriteAuth()) return;
-    await window._fbCall('saveShiftBatch', {updates,meta,notificationLanguage:L('hi','en')});
-    _cache.overrides = {...(getOverrides()||{}), ...updates};
+    confirmed = await _submitShiftSave(updates,meta);
+    if (SESSION.authUid !== uid || window._fbAuth?.currentUser?.uid !== uid) return;
+    if (!confirmed.previouslyCommitted) _applyConfirmedShiftOverrides(updates);
   } catch (error) {
     toast(L('अवकाश सहेजा नहीं गया: ','Leave could not be saved: ') + error.message);
     return;
@@ -982,8 +1068,11 @@ async function confirmLeaveWithReason(empId, empName, date, currentShift){
   try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(e){}
 
   const saved = _bulkDates.map(day => ({empId,empName,date:day,newShift:'L',coMeta:{reason,leaveType:typeCode}}));
-  void _saveShiftChangesBackground(saved);
-  _confirmSavedShifts(saved.length,_buildShiftSaveWaQueue(saved));
+  if (confirmed.previouslyCommitted) _confirmEarlierShiftSave();
+  else {
+    void _saveShiftChangesBackground(saved);
+    _confirmSavedShifts(saved.length,saved,confirmed.requestId);
+  }
 
 }
 
@@ -1768,10 +1857,9 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   // ── Manager / authorized: from My Shift → save here (no jump to Schedule) ──
   if(fromMyShift && canEdit && !window._msBulkCommit){
     _pendingShiftChanges[key] = { empId, empName, date, newShift, currentShift, coMeta: coMeta||null };
-    // Auto-save this change in place; skip WhatsApp when only own shift
-    const skipWA = isOwn;
+    // Auto-save here; the queue excludes the verified actor’s own shifts.
     toast(L('⏳ शिफ्ट सहेजी जा रही है…','⏳ Saving shift…'));
-    saveAllShiftChanges({ skipWhatsApp: skipWA, stayOnMyShift: true }).catch(e=>{
+    saveAllShiftChanges({stayOnMyShift:true}).catch(e=>{
       toast(L('❌ ','❌ ')+(e&&e.message||e));
     });
     return;
@@ -1860,21 +1948,6 @@ async function _submitOwnShiftChangeRequest(empId, empName, date, currentShift, 
     toast(isEn
       ? ('✅ Request sent to Manager — wait for approval')
       : (typeof L==='function'?L('✅ Manager को request भेज दी — Approve के बाद shift अपडेट होगी','✅ Request sent to manager — shift updates after approval'):'✅ Request sent to manager — shift updates after approval'));
-    // WhatsApp to manager if template enabled (in-app already sent above)
-    try{
-      await _notifyMappedManagerAfterMemberAction('shift', {
-        managerId: managerId,
-        empObjId: empId,
-        name: empName || SESSION.name,
-        date: date,
-        dates: date,
-        currentShift: currentShift,
-        newShift: newShift,
-        reqKey: reqKey,
-        skipInApp: true,
-        notifBody: (empName||'')+' · '+date+' · '+(currentShift||'—')+' → '+(newShift||'')
-      });
-    }catch(e2){ console.warn('[shift WA]', e2); }
     try{ renderMyShift(); }catch(e){}
   }catch(e){
     console.error('[shift change request]', e);

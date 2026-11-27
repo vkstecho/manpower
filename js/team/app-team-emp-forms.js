@@ -284,10 +284,8 @@ function openEditEmpForm(empId){
 }
 
 async function saveEmployee(empId){
-  // preferredLang captured early via val() after fields exist
-
-  // Instant feedback — Save feels lightning-fast
   const _saveBtn = document.getElementById('ee_saveBtn');
+  if (_saveBtn?.disabled) return;
   const _setBusy = (busy, label)=>{
     if(!_saveBtn) return;
     _saveBtn.disabled = !!busy;
@@ -309,18 +307,7 @@ async function saveEmployee(empId){
   // Multi-device: each browser needs Phone Auth once; does NOT log out other devices
   // Fast path: skip long waits when device already verified this session
   if(typeof _ensureWriteAuth === 'function'){
-    let ok = false;
-    try{
-      // Prefer session cache — avoids 1–2s wait loops on every Save
-      if(sessionStorage.getItem('mp_write_auth')==='1' && window._fbAuth && window._fbAuth.currentUser){
-        ok = true;
-      } else {
-        ok = await _ensureWriteAuth();
-      }
-    }catch(authErr){
-      console.warn('[saveEmp] auth', authErr);
-      ok = false;
-    }
+    const ok = await _ensureWriteAuth();
     if(!ok){
       _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
       toast(L('❌ इस device पर Phone verify करें (दूसरा device logout नहीं होगा)','❌ Phone verify on this device (other devices stay logged in)'));
@@ -447,7 +434,7 @@ async function saveEmployee(empId){
   // If Admin/Manager sets Access Level = Manager → promote fully (role + mobileUsers + team managerId)
   const newAccess = String(update.accessLevel||'').toLowerCase();
   const phoneKey = _normMobileKey(update.phone || update.mobile || (e && (e.phone||e.mobile)) || '');
-  if(newAccess === 'manager' && phoneKey){
+  if(newAccess === 'manager' && phoneKey && e?.role !== 'manager' && e?.accessLevel !== 'manager'){
     update.role = 'manager';
     update.accessLevel = 'manager';
     update.isTeamManager = true;
@@ -461,9 +448,28 @@ async function saveEmployee(empId){
     }
   }
 
-  // Primary write — only this must complete before UI closes
+  const primary = Object.fromEntries(Object.entries(update).filter(([key,value]) => {
+    if (key === 'updatedAt' || key === 'updatedBy') return false;
+    const previous = e?.[key];
+    if (key === 'phone' || key === 'mobile') return _normMobileKey(previous || e?.phone || e?.mobile || '') !== _normMobileKey(value || '');
+    if (key === 'empId') return String(previous || e?.empCode || e?.code || '').trim() !== value;
+    if (key === 'status' && value === 'active' && !previous) return false;
+    if (key === 'accessLevel' && value === 'worker' && !previous) return false;
+    if (key === 'perms') return Object.keys(value).some(permission => Boolean(previous?.[permission] ?? e?.['perm'+permission[0].toUpperCase()+permission.slice(1)]) !== value[permission]);
+    if (value === '' && previous == null) return false;
+    return previous !== value;
+  }));
+  if (!Object.keys(primary).length) {
+    closeModal();
+    toast(L('कोई बदलाव नहीं है','No changes to save'));
+    return;
+  }
+  primary.updatedAt = update.updatedAt;
+  primary.updatedBy = update.updatedBy;
+  await fbUpdate('employees/'+empId, primary);
+  if (SESSION.authUid !== window._fbAuth?.currentUser?.uid) return;
   try{
-    await fbUpdate('employees/'+empId, update);
+
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(_ic){}
     // Knowledge-loss alert when marking left/resigned
     try{
@@ -627,54 +633,13 @@ async function saveEmployee(empId){
         try{ if(typeof loadEmployees === 'function') await loadEmployees(); }catch(ex){}
       }catch(xferErr){ console.warn('manager transfer', xferErr); }
     }
-  }catch(err1){
-    console.warn('saveEmployee fbUpdate failed, retry set merge', err1);
-    const flat = {...update};
-    if(flat.perms){
-      flat.permSchedule = !!flat.perms.schedule;
-      flat.permLeave = !!flat.perms.leave;
-      flat.permReports = !!flat.perms.reports;
-    }
-    try{
-      await fbUpdate('employees/'+empId, flat);
-    }catch(err2){
-      console.error('saveEmployee failed', err2);
-      _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
-      toast(L('❌ सहेजना विफल: ','❌ Save failed: ')+(err2.message||err2.code||L('अनुमति/नेटवर्क','permission/network')));
-      return;
-    }
-  }
-
-  // If Manager granted schedule/leave/reports, auto-approve their mobileUsers so they are not stuck as pending (Home/Schedule locked)
-  try{
-    const perms = (update && update.perms) || {};
-    if(perms.schedule || perms.leave || perms.reports || perms.pending){
-      const empRec = (_cache.employees||[]).find(x=>x.id===empId) || {};
-      const phone = (typeof _normMobileKey==='function')
-        ? _normMobileKey(update.phone || update.mobile || empRec.phone || empRec.mobile || '')
-        : String(update.phone || empRec.phone || '').replace(/\D/g,'').slice(-10);
-      if(phone && phone.length===10){
-        const mu = await fbGet('mobileUsers/'+phone);
-        if(mu && mu.role==='member' && mu.status==='pending'){
-          await fbUpdate('mobileUsers/'+phone, {
-            status: 'approved',
-            pendingApproval: false,
-            approvedAt: new Date().toISOString(),
-            approvedBy: (SESSION && SESSION.mobile) || 'manager'
-          });
-        } else if(mu && mu.role==='member'){
-          // Ensure flags clean
-          await fbUpdate('mobileUsers/'+phone, { status: 'approved', pendingApproval: false });
-        }
-      }
-    }
-  }catch(apErr){ console.warn('[saveEmployee] auto-approve member', apErr); }
+  }catch(followupError){ console.warn('[employee edit follow-up]',followupError); }
 
   // Patch local cache so UI updates immediately (before modal closes)
   try{
     if(!_cache.employees) _cache.employees = [];
     const ix = _cache.employees.findIndex(x=>x.id===empId);
-    if(ix>=0) _cache.employees[ix] = {..._cache.employees[ix], ...update, id: empId};
+    if(ix>=0) _cache.employees[ix] = {..._cache.employees[ix], ...primary, id: empId};
     else _cache.employees.push({...update, id: empId});
   }catch(e){}
 
@@ -686,6 +651,7 @@ async function saveEmployee(empId){
   // Background: mobileUsers + deviceApprovals — no fbGet (was the slow sequential read)
   (async ()=>{
     try{
+      if (!['name','phone','mobile','empId','section','sec'].some(key => Object.hasOwn(primary,key))) return;
       const oldPhone = e ? _normMobileKey(e.phone||e.mobile||'') : '';
       const newPhone = _normMobileKey(update.phone||'');
       const jobs = [];
@@ -704,7 +670,8 @@ async function saveEmployee(empId){
           }).catch(e2=>console.warn('[saveEmp] clear old mobile', e2))
         );
       }
-      if(newPhone && newPhone.length===10){
+      const ownedProfile = _cache.mobileUsers?.[newPhone];
+      if(newPhone && ownedProfile && (ownedProfile.empObjId || ownedProfile.employeeId) === empId){
         jobs.push(
           fbUpdate('mobileUsers/'+newPhone, {
             name: update.name || nameVal,
@@ -735,8 +702,10 @@ async function saveEmployee(empId){
   }catch(err){
     console.error('saveEmployee', err);
     _setBusy(false, _saveBtn && _saveBtn.dataset.prevLabel);
-    toast(L('❌ सहेजने में त्रुटि: ','❌ Save error: ')+(err.message||err));
-  }
+    toast(err.details?.commit === 'unknown' || err.code === 'functions/deadline-exceeded'
+      ? L('सहेजने की पुष्टि नहीं हो सकी। बदलाव खुले हैं।','Save could not be confirmed. Your edits are still open.')
+      : L('❌ सहेजने में त्रुटि: ','❌ Save error: ')+(err.message||err));
+  } finally { _setBusy(false, _saveBtn?.dataset.prevLabel); }
 }
 
 function confirmDelEmp(id, name){

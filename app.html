@@ -132,14 +132,14 @@ window.addEventListener('appinstalled', function () {
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
 <script src="js/config/firebase.local.js"></script>
-<script src="js/config/private-media.js?v=6.13-r14"></script>
-<script type="module" src="js/config/firebase-init.js?v=6.13-r14"></script>
+<script src="js/config/private-media.js?v=6.17-r18"></script>
+<script type="module" src="js/config/firebase-init.js?v=6.17-r18"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=6.13-r14">
+<link rel="stylesheet" href="css/app.css?v=6.17-r18">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -1313,11 +1313,16 @@ html.mp-login-active, body.mp-login-active {
 
 
 <!-- PC SIDEBAR NAV — hidden on mobile, shown on desktop via CSS media query -->
-<div id="pcSidebar" style="display:none">
+<nav id="pcSidebar" aria-label="Application navigation" style="display:none">
   <!-- nav buttons injected here by buildNav() -->
   <div id="pcSidebar-divider"></div>
+  <button type="button" class="wd-nav-action" onclick="openLearnScreen()" aria-label="Learn &amp; Grow" title="Learn &amp; Grow" data-wd-label-hi="सीखें" data-wd-label-en="Learn &amp; Grow"><span aria-hidden="true">🚀</span></button>
+  <button type="button" class="wd-nav-action" onclick="openLocalePicker()" aria-label="Language" title="Language" data-wd-label-hi="भाषा" data-wd-label-en="Language"><span aria-hidden="true">🌐</span></button>
+  <button type="button" class="wd-nav-action" onclick="toggleTheme()" aria-label="Toggle theme" title="Toggle theme" data-wd-label-hi="थीम बदलें" data-wd-label-en="Toggle theme"><span aria-hidden="true">◐</span></button>
+  <button type="button" class="wd-nav-action" onclick="openUserNotifications()" aria-label="Notifications" title="Notifications" data-wd-label-hi="सूचनाएँ" data-wd-label-en="Notifications"><span aria-hidden="true">🔔</span></button>
+  <button type="button" class="wd-nav-action" onclick="showProfile()" aria-label="Profile" title="Profile" data-wd-label-hi="प्रोफ़ाइल" data-wd-label-en="Profile"><span aria-hidden="true">👤</span></button>
   <div id="pcSidebar-footer">Man Power</div>
-</div>
+</nav>
 
 
 
@@ -2047,30 +2052,30 @@ window.__sectionsReady = (async function loadSections(){
 
 <script src="js/commercial/public-offer.js?v=6042"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=6.13-r14"></script>
-<script src="js/auth/app-login.js?v=6.13-r14"></script>
-<script src="js/auth/app-login-device.js?v=6.13-r14"></script>
-<script src="js/auth/app-session-auth.js?v=6.13-r14"></script>
-<script src="js/session/app-session-nav.js?v=6.13-r14"></script>
+<script src="js/core/app-core.js?v=6.17-r18"></script>
+<script src="js/auth/app-login.js?v=6.17-r18"></script>
+<script src="js/auth/app-login-device.js?v=6.17-r18"></script>
+<script src="js/auth/app-session-auth.js?v=6.17-r18"></script>
+<script src="js/session/app-session-nav.js?v=6.17-r18"></script>
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
-<script src="js/session/app-session-settings-profile.js?v=6.13-r14"></script>
-<script src="js/session/app-session-settings-security.js?v=6.13-r14"></script>
+<script src="js/session/app-session-settings-profile.js?v=6.17-r18"></script>
+<script src="js/session/app-session-settings-security.js?v=6.17-r18"></script>
 <script src="js/session/app-announce.js?v=6050"></script>
-<script src="js/session/app-session-settings.js?v=6.13-r14"></script>
-<script src="js/session/app-account-backup.js?v=6.13-r14"></script>
+<script src="js/session/app-session-settings.js?v=6.17-r18"></script>
+<script src="js/session/app-account-backup.js?v=6.17-r18"></script>
 <script src="js/session/app-session-home.js?v=6026"></script>
-<script src="js/session/app-work-diary.js?v=6.13-r14"></script>
-<script src="js/session/pay-gate.js?v=6.13-r14"></script>
-<script src="js/session/pay-trial.js?v=6.13-r14"></script>
-<script src="js/session/pay-admin.js?v=6.13-r14"></script>
+<script src="js/session/app-work-diary.js?v=6.17-r18"></script>
+<script src="js/session/pay-gate.js?v=6.17-r18"></script>
+<script src="js/session/pay-trial.js?v=6.17-r18"></script>
+<script src="js/session/pay-admin.js?v=6.17-r18"></script>
 <script src="js/session/app-session-payment.js?v=6054"></script>
 <script src="js/auth/app-login-session.js?v=400020"></script>
-<script src="js/core/app.js?v=6.13-r14"></script>
-<script src="js/team/app-team-print.js?v=6.13-r14"></script>
-<script src="js/team/app-learn.js?v=6.13-r14"></script>
+<script src="js/core/app.js?v=6.17-r18"></script>
+<script src="js/team/app-team-print.js?v=6.17-r18"></script>
+<script src="js/team/app-learn.js?v=6.17-r18"></script>
 <script src="js/team/app-team-skills.js?v=5014"></script>
 <script src="js/team/app-team-ops-layer.js?v=5014"></script>
-<script src="js/commercial/mp-commercial.js?v=6.13-r14"></script>
+<script src="js/commercial/mp-commercial.js?v=6.17-r18"></script>
 <script src="js/core/a11y.js?v=400020"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
@@ -2078,14 +2083,14 @@ window.__sectionsReady = (async function loadSections(){
   var heavy = [
     'js/i18n/i18n_ml.js?v=5100',
     'js/i18n/i18n_dict.js?v=5100',
-    'js/schedule/app-schedule.js?v=6.13-r14',
-    'js/schedule/sched-admin-teams.js?v=6.13-r14',
+    'js/schedule/app-schedule.js?v=6.17-r18',
+    'js/schedule/sched-admin-teams.js?v=6.17-r18',
     'js/team/app-team.js?v=5100',
-    'js/team/app-team-import-core.js?v=6.13-r14',
-    'js/team/app-team-emp-forms.js?v=6.13-r14',
-    'js/team/app-team-excel-ops.js?v=6.13-r14',
+    'js/team/app-team-import-core.js?v=6.17-r18',
+    'js/team/app-team-emp-forms.js?v=6.17-r18',
+    'js/team/app-team-excel-ops.js?v=6.17-r18',
     'js/schedule/sched-work-hours.js?v=6027',
-    'js/schedule/sched-shift-edit.js?v=6.13-r14',
+    'js/schedule/sched-shift-edit.js?v=6.17-r18',
     'js/schedule/app-sched-builder.js?v=5131',
     'js/schedule/sched-auto-coverage.js?v=5127',
     'js/team/app-team-import.js?v=5100',

@@ -1,235 +1,122 @@
-<!-- ── WORK DIARY (personal per mobile) ── -->
-<div class="tab" id="tab-diary">
-  <div class="page-title" style="margin-bottom:4px">📔 Work Diary</div>
-  <div class="page-sub" style="margin-bottom:12px" data-i18n-diary-sub>Date-wise personal diary · only you can see it</div>
-
-  <!-- Mode switcher: Diary | Notes | Calendar -->
-  <div id="wdModeBar" style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-    <button type="button" class="wd-mode-btn active" data-wd-mode="diary" onclick="wdSetMode('diary')"
-      style="padding:10px 16px;border-radius:12px;border:1.5px solid rgba(249,115,22,.45);background:rgba(249,115,22,.12);color:#ea580c;font-weight:800;cursor:pointer">📔 Diary</button>
-    <button type="button" class="wd-mode-btn" data-wd-mode="notes" onclick="wdSetMode('notes')"
-      style="padding:10px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">📝 Notes</button>
-    <button type="button" class="wd-mode-btn" data-wd-mode="calendar" onclick="wdSetMode('calendar')"
-      style="padding:10px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">📅 Calendar</button>
-  </div>
-
-  <!-- ═══ NOTES (Google Keep style) ═══ -->
-  <div id="wdNotesPanel" style="display:none;max-width:900px;margin:0 auto 20px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <input type="search" id="wnSearch" placeholder="Search notes…"
-        style="flex:1;min-width:160px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:600"
-        oninput="wnRenderList()">
-      <button type="button" onclick="wnOpenEditor()"
-        style="padding:10px 16px;border-radius:12px;border:none;background:#f59e0b;color:#fff;font-weight:800;cursor:pointer">＋ New note</button>
+<section class="tab wd-workspace" id="tab-diary" aria-labelledby="wdTitle">
+  <header class="wd-heading wd-screen-only">
+    <h1 id="wdTitle" data-wd-hi="कार्य डायरी">Work Diary</h1>
+    <div id="wdModeBar" class="wd-mode-bar" role="group" aria-label="Work Diary views" data-wd-hi-label="कार्य डायरी के दृश्य">
+      <button type="button" class="wd-mode-btn active" data-wd-mode="diary" data-wd-hi="डायरी" aria-pressed="true" aria-controls="wdDiaryPanel" onclick="wdSetMode('diary')">Diary</button>
+      <button type="button" class="wd-mode-btn" data-wd-mode="notes" data-wd-hi="नोट्स" aria-pressed="false" aria-controls="wdNotesPanel" onclick="wdSetMode('notes')">Notes</button>
+      <button type="button" class="wd-mode-btn" data-wd-mode="calendar" data-wd-hi="कैलेंडर" aria-pressed="false" aria-controls="wdCalPanel" onclick="wdSetMode('calendar')">Calendar</button>
     </div>
-    <div id="wnEditor" style="display:none;margin-bottom:14px;padding:14px;border-radius:16px;border:1.5px solid var(--border2);background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,.08)">
-      <input type="hidden" id="wnEditId">
-      <input type="text" id="wnTitle" placeholder="Title"
-        style="width:100%;box-sizing:border-box;padding:10px 12px;margin-bottom:8px;border:none;border-bottom:1px solid var(--border2);background:transparent;color:var(--text);font-size:16px;font-weight:800;outline:none">
-      <textarea id="wnBody" placeholder="Take a note…" rows="5"
-        style="width:100%;box-sizing:border-box;padding:10px 12px;border:none;background:transparent;color:var(--text);font-size:14px;line-height:1.5;resize:vertical;outline:none;min-height:100px"></textarea>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px">
-        <span style="font-size:11px;font-weight:700;color:var(--muted2)">Colour</span>
-        <div id="wnColorRow" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-        <label style="margin-left:auto;font-size:12px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;cursor:pointer">
-          <input type="checkbox" id="wnPinned"> Pin
+  </header>
+
+  <div class="wd-scroll" id="wdScroll">
+    <div id="wdDiaryPanel" class="wd-panel">
+      <div class="wd-toolbar wd-screen-only">
+        <div class="wd-date-tools">
+          <button type="button" id="wdPrevDay" onclick="wdShiftDate(-1)" title="Previous day" aria-label="Previous day" data-wd-hi-label="पिछला दिन"><span aria-hidden="true">‹</span></button>
+          <input type="date" id="wdDate" onchange="wdOnDateChange()" aria-label="Diary date" data-wd-hi-label="डायरी की तारीख">
+          <button type="button" id="wdNextDay" onclick="wdShiftDate(1)" title="Next day" aria-label="Next day" data-wd-hi-label="अगला दिन"><span aria-hidden="true">›</span></button>
+          <button type="button" onclick="wdNewToday()" data-wd-hi="आज">Today</button>
+        </div>
+        <div class="wd-actions">
+          <button type="button" id="wdSaveBtn" class="wd-primary" onclick="wdSave()" data-wd-hi="डायरी सहेजें">Save diary</button>
+          <button type="button" onclick="wdPrint()" data-wd-hi="प्रिंट">Print</button>
+          <details class="wd-export">
+            <summary data-wd-hi="Word डाउनलोड">Export Word</summary>
+            <div class="wd-export-panel">
+              <button type="button" onclick="wdDownloadWord('day')" data-wd-hi="इस दिन का Word">Download this day</button>
+              <div class="wd-fields">
+                <label for="wdDocFrom"><span data-wd-hi="से">From</span><input type="date" id="wdDocFrom"></label>
+                <label for="wdDocTo"><span data-wd-hi="तक">To</span><input type="date" id="wdDocTo"></label>
+              </div>
+              <button type="button" onclick="wdDownloadWord('range')" data-wd-hi="तारीख सीमा का Word">Download date range</button>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <form class="wd-search wd-screen-only" onsubmit="event.preventDefault();wdRunSearch()">
+        <input type="search" id="wdSearchInput" placeholder="Search your diaries…" aria-label="Search your diaries" data-wd-hi-placeholder="अपनी डायरी खोजें…" data-wd-hi-label="अपनी डायरी खोजें">
+        <button type="submit" data-wd-hi="खोजें">Search</button>
+        <button type="button" onclick="wdClearSearch()" data-wd-hi="साफ़ करें">Clear</button>
+      </form>
+      <div id="wdSearchResults" class="wd-screen-only" role="region" aria-label="Diary search results" data-wd-hi-label="डायरी के खोज परिणाम" hidden></div>
+
+      <div id="wdPage" class="wd-a4">
+        <div class="wd-page-meta">
+          <div class="wd-entry-date"><time id="wdDisplayDate"></time><span id="wdDay">—</span></div>
+          <div class="wd-shift"><span data-wd-hi="शिफ्ट">Shift</span><strong id="wdShift">—</strong></div>
+        </div>
+        <div class="wd-section-heading">
+          <h2 data-wd-hi="समय खंड">Time slots</h2>
+          <span id="wdStatus" class="wd-screen-only" role="status"></span>
+        </div>
+        <div id="wdSlots" aria-busy="false"></div>
+      </div>
+    </div>
+
+    <div id="wdNotesPanel" class="wd-panel" hidden>
+      <div class="wd-search">
+        <input type="search" id="wnSearch" placeholder="Search notes…" aria-label="Search notes" data-wd-hi-placeholder="नोट्स खोजें…" data-wd-hi-label="नोट्स खोजें" oninput="wnRenderList()">
+        <button type="button" class="wd-primary" onclick="wnOpenEditor()" data-wd-hi="＋ नया नोट">＋ New note</button>
+      </div>
+      <div id="wnEditor" class="wd-editor" hidden>
+        <input type="hidden" id="wnEditId">
+        <label for="wnTitle"><span data-wd-hi="शीर्षक">Title</span><input type="text" id="wnTitle"></label>
+        <label for="wnBody"><span data-wd-hi="नोट">Note</span></label>
+        <div id="wnBody" class="wd-note-body" role="textbox" aria-multiline="true" aria-label="Note" data-wd-hi-label="नोट" contenteditable="true" spellcheck="true"></div>
+        <div class="wd-actions">
+          <button type="button" data-wd-hi="बोल्ड" onclick="wnFormat('bold')">Bold</button>
+          <button type="button" data-wd-hi="इटैलिक" onclick="wnFormat('italic')">Italic</button>
+          <button type="button" data-wd-hi="सूची" onclick="wnFormat('insertUnorderedList')">List</button>
+        </div>
+        <div class="wd-note-options">
+          <span data-wd-hi="रंग">Colour</span>
+          <div id="wnColorRow" class="wd-swatch-row"></div>
+          <label class="wd-check"><input type="checkbox" id="wnPinned"><span data-wd-hi="पिन करें">Pin</span></label>
+        </div>
+        <div class="wd-actions">
+          <button type="button" class="wd-primary" onclick="wnSave()" data-wd-hi="सहेजें">Save</button>
+          <button type="button" onclick="wnCloseEditor()" data-wd-hi="बंद करें">Close</button>
+          <button type="button" id="wnDeleteBtn" class="wd-delete" onclick="wnDelete()" data-wd-hi="हटाएँ" hidden>Delete</button>
+        </div>
+        <div id="wnStatus" role="status"></div>
+      </div>
+      <div id="wnGrid"></div>
+      <p id="wnEmpty" class="wd-empty" data-wd-hi="कोई नोट नहीं मिला। नया नोट जोड़ें।" hidden>No notes found. Add a new note.</p>
+    </div>
+
+    <div id="wdCalPanel" class="wd-panel" hidden>
+      <div class="wd-actions wd-toolbar">
+        <button type="button" class="wd-primary" onclick="wcOpenEditor()" data-wd-hi="＋ इवेंट या रिमाइंडर">＋ Add event or reminder</button>
+        <button type="button" onclick="wcRequestNotifPermission()" data-wd-hi="सूचनाओं की अनुमति दें">Allow notifications</button>
+      </div>
+      <div id="wcEditor" class="wd-editor" hidden>
+        <input type="hidden" id="wcEditId">
+        <label for="wcTitle"><span data-wd-hi="शीर्षक *">Title *</span><input type="text" id="wcTitle"></label>
+        <div class="wd-fields">
+          <label for="wcDate"><span data-wd-hi="तारीख *">Date *</span><input type="date" id="wcDate"></label>
+          <label for="wcTime"><span data-wd-hi="समय *">Time *</span><input type="time" id="wcTime"></label>
+        </div>
+        <label for="wcNotes"><span data-wd-hi="नोट्स">Notes</span><textarea id="wcNotes" rows="4"></textarea></label>
+        <label for="wcRemind"><span data-wd-hi="याद दिलाएँ">Remind me</span>
+          <select id="wcRemind">
+            <option value="0" data-wd-hi="इवेंट के समय">At event time</option>
+            <option value="5" data-wd-hi="5 मिनट पहले">5 minutes before</option>
+            <option value="15" data-wd-hi="15 मिनट पहले" selected>15 minutes before</option>
+            <option value="30" data-wd-hi="30 मिनट पहले">30 minutes before</option>
+            <option value="60" data-wd-hi="1 घंटा पहले">1 hour before</option>
+            <option value="1440" data-wd-hi="1 दिन पहले">1 day before</option>
+          </select>
         </label>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
-        <button type="button" onclick="wnSave()"
-          style="padding:10px 16px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer">💾 Save</button>
-        <button type="button" onclick="wnCloseEditor()"
-          style="padding:10px 14px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;cursor:pointer">Close</button>
-        <button type="button" id="wnDeleteBtn" onclick="wnDelete()" style="display:none;padding:10px 14px;border-radius:10px;border:none;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;margin-left:auto">🗑️ Delete</button>
-      </div>
-      <div id="wnStatus" style="font-size:11px;color:var(--muted2);margin-top:8px"></div>
-    </div>
-    <div id="wnGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px"></div>
-    <div id="wnEmpty" style="display:none;text-align:center;padding:28px;color:var(--muted2);font-weight:600">No notes yet — tap ＋ New note</div>
-  </div>
-
-  <!-- ═══ CALENDAR (reminders / events with time) ═══ -->
-  <div id="wdCalPanel" style="display:none;max-width:720px;margin:0 auto 20px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <button type="button" onclick="wcOpenEditor()"
-        style="padding:10px 16px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">＋ Add event / reminder</button>
-      <button type="button" onclick="wcRequestNotifPermission()"
-        style="padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;cursor:pointer">🔔 Allow notifications</button>
-    </div>
-    <div id="wcEditor" style="display:none;margin-bottom:14px;padding:14px;border-radius:16px;border:1.5px solid var(--border2);background:var(--card);box-shadow:0 8px 24px rgba(0,0,0,.08)">
-      <input type="hidden" id="wcEditId">
-      <div class="field" style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Title *</label>
-        <input type="text" id="wcTitle" class="inp-field" placeholder="e.g. Team meeting / Report due" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-        <div>
-          <label style="font-size:11px;font-weight:800;color:var(--muted2)">Date *</label>
-          <input type="date" id="wcDate" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
+        <div class="wd-actions">
+          <button type="button" class="wd-primary" onclick="wcSave()" data-wd-hi="सहेजें">Save</button>
+          <button type="button" onclick="wcCloseEditor()" data-wd-hi="बंद करें">Close</button>
+          <button type="button" id="wcDeleteBtn" class="wd-delete" onclick="wcDelete()" data-wd-hi="हटाएँ" hidden>Delete</button>
         </div>
-        <div>
-          <label style="font-size:11px;font-weight:800;color:var(--muted2)">Time *</label>
-          <input type="time" id="wcTime" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
-        </div>
+        <div id="wcStatus" role="status"></div>
       </div>
-      <div class="field" style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Notes</label>
-        <textarea id="wcNotes" rows="3" placeholder="Optional details…" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-size:14px;resize:vertical"></textarea>
-      </div>
-      <div class="field" style="margin-bottom:10px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted2)">Remind me</label>
-        <select id="wcRemind" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
-          <option value="0">At event time</option>
-          <option value="5">5 minutes before</option>
-          <option value="15" selected>15 minutes before</option>
-          <option value="30">30 minutes before</option>
-          <option value="60">1 hour before</option>
-          <option value="1440">1 day before</option>
-        </select>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button type="button" onclick="wcSave()"
-          style="padding:10px 16px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-weight:800;cursor:pointer">💾 Save</button>
-        <button type="button" onclick="wcCloseEditor()"
-          style="padding:10px 14px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;cursor:pointer">Close</button>
-        <button type="button" id="wcDeleteBtn" onclick="wcDelete()" style="display:none;padding:10px 14px;border-radius:10px;border:none;background:#f43f5e;color:#fff;font-weight:800;cursor:pointer;margin-left:auto">🗑️ Delete</button>
-      </div>
-      <div id="wcStatus" style="font-size:11px;color:var(--muted2);margin-top:8px"></div>
-    </div>
-    <div id="wcUpcoming" style="margin-bottom:8px;font-size:13px;font-weight:800;color:var(--text)">Upcoming</div>
-    <div id="wcList"></div>
-    <div id="wcEmpty" style="display:none;text-align:center;padding:28px;color:var(--muted2);font-weight:600">No events — tap ＋ Add event / reminder</div>
-  </div>
-
-  <!-- Search (diary mode) -->
-  <div id="wdDiaryPanel">
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
-    <input type="search" id="wdSearchInput" placeholder="Search in your diaries…"
-      style="flex:1;min-width:160px;padding:10px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:600"
-      onkeydown="if(event.key==='Enter'){event.preventDefault();wdRunSearch();}">
-    <button type="button" class="act-btn" onclick="wdRunSearch()"
-      style="padding:10px 16px;border-radius:12px;border:none;background:#2563eb;color:#fff;font-weight:800;cursor:pointer">🔍 Search</button>
-    <button type="button" class="act-btn" onclick="wdClearSearch()"
-      style="padding:10px 12px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:700;cursor:pointer">Clear</button>
-  </div>
-  <div id="wdSearchResults" style="display:none;margin-bottom:14px"></div>
-
-  <!-- A4 diary page -->
-  <div id="wdPage" class="wd-a4" style="max-width:720px;margin:0 auto;background:var(--card);border:1px solid var(--border2);border-radius:16px;padding:18px 18px 22px;box-shadow:0 8px 28px rgba(0,0,0,.12)">
-    <div style="display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end;margin-bottom:14px;padding-bottom:12px;border-bottom:1px dashed var(--border2)">
-      <div>
-        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Date</label>
-        <div style="display:flex;align-items:center;gap:6px">
-          <button type="button" id="wdPrevDay" onclick="wdShiftDate(-1)" title="Previous day" aria-label="Previous day"
-            style="width:40px;height:40px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:20px;font-weight:800;cursor:pointer;line-height:1;flex-shrink:0">‹</button>
-          <input type="date" id="wdDate" onchange="wdOnDateChange()"
-            style="padding:8px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700;min-width:0">
-          <button type="button" id="wdNextDay" onclick="wdShiftDate(1)" title="Next day" aria-label="Next day"
-            style="width:40px;height:40px;border-radius:10px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-size:20px;font-weight:800;cursor:pointer;line-height:1;flex-shrink:0">›</button>
-        </div>
-      </div>
-      <div>
-        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Day</label>
-        <div id="wdDay" style="padding:8px 12px;border-radius:10px;background:rgba(37,99,235,.1);color:#2563eb;font-weight:800;min-width:100px">—</div>
-      </div>
-      <div style="flex:1;min-width:140px">
-        <label style="font-size:11px;font-weight:800;color:var(--muted2);display:block;margin-bottom:4px">Shift (from schedule)</label>
-        <div id="wdShift" style="padding:8px 12px;border-radius:10px;background:rgba(34,197,94,.1);color:#16a34a;font-weight:800">—</div>
-      </div>
-    </div>
-
-    <div style="font-size:12px;font-weight:800;color:var(--muted2);margin-bottom:10px">
-      Time slots — type notes and/or draw with finger or mouse
-    </div>
-
-    <!-- Each block: From–To + notes for that slot -->
-    <div id="wdSlots"></div>
-    <!-- Add-slot button is under each slot's notes (see JS) so no scroll-up needed -->
-
-    <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-      <button type="button" onclick="wdSave()"
-        style="flex:1;min-width:120px;padding:14px;border-radius:12px;border:none;background:#16a34a;color:#fff;font-weight:900;font-size:15px;cursor:pointer">💾 Save diary</button>
-      <button type="button" onclick="wdNewToday()"
-        style="padding:14px 16px;border-radius:12px;border:1.5px solid var(--border2);background:var(--card);color:var(--text);font-weight:800;cursor:pointer">Today</button>
-    </div>
-    <div id="wdStatus" style="margin-top:10px;font-size:12px;font-weight:700;color:var(--muted2)">Notes auto-save while you type</div>
-
-    <!-- Word download: this day or date range -->
-    <div style="margin-top:18px;padding-top:14px;border-top:1px dashed var(--border2)">
-      <div style="font-size:13px;font-weight:900;color:var(--text);margin-bottom:8px">📄 Download Word</div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:end">
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--muted2)">From</label>
-          <input type="date" id="wdDocFrom" style="display:block;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
-        </div>
-        <div>
-          <label style="font-size:10px;font-weight:700;color:var(--muted2)">To</label>
-          <input type="date" id="wdDocTo" style="display:block;padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);background:var(--bg2);color:var(--text);font-weight:700">
-        </div>
-        <button type="button" onclick="wdDownloadWord('day')"
-          style="padding:10px 14px;border-radius:10px;border:none;background:#1d4ed8;color:#fff;font-weight:800;cursor:pointer">This day</button>
-        <button type="button" onclick="wdDownloadWord('range')"
-          style="padding:10px 14px;border-radius:10px;border:none;background:#7c3aed;color:#fff;font-weight:800;cursor:pointer">Date range</button>
-      </div>
-      <div style="font-size:11px;color:var(--muted2);margin-top:6px">Word file (.doc) — only your diary. Range inclusive.</div>
+      <div id="wcList"></div>
+      <p id="wcEmpty" class="wd-empty" data-wd-hi="अभी कोई इवेंट या रिमाइंडर नहीं है।" hidden>No events or reminders yet.</p>
     </div>
   </div>
-  </div><!-- /wdDiaryPanel -->
-</div>
-<style>
-.wd-mode-btn.active{
-  border-color:rgba(249,115,22,.55)!important;
-  background:rgba(249,115,22,.14)!important;
-  color:#ea580c!important;
-}
-.wn-card{
-  border-radius:14px;padding:12px 14px;min-height:90px;cursor:pointer;
-  border:1px solid rgba(0,0,0,.06);box-shadow:0 2px 8px rgba(0,0,0,.06);
-  transition:transform .12s ease, box-shadow .12s ease;
-}
-.wn-card:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.1)}
-.wn-card-title{font-weight:800;font-size:14px;margin-bottom:6px;color:#0f172a}
-.wn-card-body{font-size:13px;line-height:1.45;color:#334155;white-space:pre-wrap;word-break:break-word;max-height:120px;overflow:hidden}
-.wn-card-pin{font-size:11px;font-weight:700;color:#b45309;margin-bottom:4px}
-.wc-item{
-  padding:12px 14px;border-radius:14px;border:1px solid var(--border2);background:var(--card);
-  margin-bottom:10px;display:flex;gap:12px;align-items:flex-start;
-}
-.wc-item-time{min-width:72px;text-align:center;font-weight:800;color:#2563eb;font-size:13px;line-height:1.3}
-.wc-item-body{flex:1;min-width:0}
-.wc-item-title{font-weight:800;color:var(--text);font-size:14px}
-.wc-item-sub{font-size:12px;color:var(--muted2);margin-top:4px;line-height:1.4}
-.wd-block{
-  margin-bottom:16px;
-  padding:14px;
-  border-radius:14px;
-  border:1px solid var(--border2);
-  background:var(--bg2);
-}
-.wd-block-head{
-  display:grid;
-  grid-template-columns:1fr 1fr auto;
-  gap:8px;
-  align-items:end;
-  margin-bottom:10px;
-}
-.wd-block-head input[type="time"]{
-  padding:8px 10px;border-radius:10px;border:1.5px solid var(--border2);
-  background:var(--card);color:var(--text);font-weight:700;width:100%;box-sizing:border-box;
-}
-.wd-block-notes{
-  min-height:120px;max-height:40vh;overflow:auto;
-  padding:12px;border-radius:12px;border:1.5px solid var(--border2);
-  background:var(--card);color:var(--text);font-size:15px;line-height:1.55;
-  outline:none;-webkit-user-select:text;user-select:text;touch-action:manipulation;
-}
-.wd-block-notes:empty:before{
-  content:attr(data-placeholder);color:var(--muted2);font-weight:500;
-}
-.wd-hit{padding:10px 12px;border-radius:12px;border:1px solid var(--border2);background:var(--card);margin-bottom:8px;cursor:pointer}
-.wd-hit:hover{border-color:#2563eb}
-@media print{
-  .nb,.pc-sidebar,#mainNav,#mainHdr,.wd-a4 button,#wdSearchInput{display:none!important}
-  .wd-a4{box-shadow:none!important;border:none!important;max-width:100%!important}
-}
-</style>
+</section>
