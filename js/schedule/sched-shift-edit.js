@@ -10,6 +10,22 @@
 // Structure: { 'empId__date': { empId, empName, date, newShift, currentShift } }
 let _pendingShiftChanges = {};
 
+// Keep the shift's preferred text where it meets AA. Use dark or white ink as needed.
+function _saveBadgeText(background, preferred) {
+  const lum = hex => {
+    if (/^#[\da-f]{3}$/i.test(hex)) hex = '#'+[...hex.slice(1)].map(c=>c+c).join('');
+    if (!/^#[\da-f]{6}$/i.test(hex)) return null;
+    return hex.slice(1).match(/../g).reduce((sum,pair,i)=>{
+      const value = parseInt(pair,16)/255;
+      return sum+[.2126,.7152,.0722][i]*(value<=.04045 ? value/12.92 : ((value+.055)/1.055)**2.4);
+    },0);
+  };
+  const bg = lum(background), fg = lum(preferred);
+  if (bg === null) return preferred;
+  if (fg !== null && (Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05)>=4.5) return preferred;
+  return bg>.179 ? '#000' : '#fff';
+}
+
 function _updateSaveBar(){
   const bar   = document.getElementById('schedSaveBar');
   const list  = document.getElementById('saveBarList');
@@ -56,13 +72,14 @@ function _updateSaveBar(){
       let fg = '#fff';
       try{ if(typeof mpShiftStyle==='function'){ const st=mpShiftStyle(e.newShift); if(st&&st.bg) bg=st.bg; if(st?.fg) fg=st.fg; } }catch(_e){}
 
-      return `<div style="display:flex;align-items:center;gap:10px;background:var(--save-item);border-radius:8px;padding:8px 10px">
-      <span style="display:inline-flex;width:30px;height:26px;background:${bg};border-radius:5px;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:${fg};flex-shrink:0">${cellDisp(e.newShift)}</span>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:800;color:var(--save-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(e.empName)}</div>
-        <div style="font-size:11px;color:var(--save-text)">${fmtD}</div>
+      const removeLabel = L('बदलाव हटाएँ','Remove change');
+      return `<div class="shift-save-item">
+      <span class="shift-save-badge" style="background:${bg};color:${_saveBadgeText(bg,fg)}">${cellDisp(e.newShift)}</span>
+      <div class="shift-save-detail">
+        <div class="shift-save-name">${escHtml(e.empName)}</div>
+        <div class="shift-save-date">${fmtD}</div>
       </div>
-      <button onclick="removePendingChange('${escHtml(e.empId)}','${e.date}')" style="background:none;border:none;color:var(--lv);font-size:16px;cursor:pointer;padding:4px;flex-shrink:0">✕</button>
+      <button type="button" class="shift-save-remove" aria-label="${removeLabel}" title="${removeLabel}" onclick="removePendingChange('${escHtml(e.empId)}','${e.date}')">✕</button>
     </div>`;
     }).join('');
   }
@@ -216,8 +233,8 @@ function _showSaveError(message) {
     error.id = 'saveBarPermErr';
     error.className = 'shift-save-error';
     error.setAttribute('role','alert');
-    list.before(error);
   }
+  list.before(error);
   error.textContent = message;
 }
 

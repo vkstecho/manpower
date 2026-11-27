@@ -98,6 +98,7 @@
     if (!active || !vp || Math.abs(vp.scale - 1) > 0.02) return;
     document.body.style.setProperty('--wd-visible-height', Math.floor(vp.height) + 'px');
     document.body.style.setProperty('--wd-visible-top', Math.round(vp.offsetTop) + 'px');
+    updateNotesLayout();
   }
 
   function setWorkspace(on) {
@@ -160,6 +161,7 @@
       }
     }
     if (active && day) showDayInfo(day.date);
+    updateNotesLayout();
     if (owner && mode === 'notes') drawNotes();
     if (owner && mode === 'calendar') drawEvents();
   }
@@ -470,6 +472,20 @@
     return task;
   }
 
+  function toggleSearch() {
+    const form = el('wdSearchForm');
+    const toggle = el('wdSearchToggle');
+    form.hidden = !form.hidden;
+    toggle.setAttribute('aria-expanded',!form.hidden);
+    if (form.hidden) {
+      el('wdSearchResults').hidden = true;
+      toggle.focus();
+    } else {
+      el('wdSearchResults').hidden = !el('wdSearchResults').textContent;
+      el('wdSearchInput').focus();
+    }
+  }
+
   async function search() {
     const query = el('wdSearchInput').value.trim().toLowerCase();
     const box = el('wdSearchResults');
@@ -609,6 +625,31 @@
     }));
   }
 
+  function updateNotesLayout() {
+    const panel = el('wdNotesPanel');
+    const toggle = el('wnListToggle');
+    if (!panel || !toggle) return;
+    const mobile = matchMedia('(max-width: 899px)').matches;
+    const editing = !el('wnEditor').hidden;
+    const hidden = mobile ? editing && !panel.classList.contains('wn-list-view') : panel.classList.contains('wn-hide-list');
+    toggle.setAttribute('aria-expanded',!hidden);
+    toggle.textContent = mobile ? tx('नोट्स सूची','Notes list') :
+      hidden ? tx('नोट्स सूची दिखाएँ','Show notes list') : tx('नोट्स सूची छिपाएँ','Hide notes list');
+    el('wnResume').hidden = !editing || !mobile;
+  }
+
+  function toggleNotesList() {
+    const panel = el('wdNotesPanel');
+    if (matchMedia('(max-width: 899px)').matches) {
+      const listVisible = panel.classList.toggle('wn-list-view');
+      updateNotesLayout();
+      el(listVisible ? 'wnSearch' : 'wnBody').focus({preventScroll:true});
+    } else {
+      panel.classList.toggle('wn-hide-list');
+      updateNotesLayout();
+    }
+  }
+
   function openEditor(kind, row, recovery = false) {
     if (!owner || owner !== uid()) return;
     if (editors[kind]?.writing) return;
@@ -635,6 +676,10 @@
       el('wcRemind').value = String(row?.remindMinutes ?? 15);
     }
     fields(kind,'Editor').hidden = false;
+    if (kind === 'note') {
+      el('wdNotesPanel').classList.remove('wn-list-view');
+      updateNotesLayout();
+    }
     if (!recovery && editors[kind] === editor) fields(kind,'Title').focus();
   }
 
@@ -650,6 +695,10 @@
       else field.value = '';
     }
     delete editors[kind];
+    if (kind === 'note') {
+      el('wdNotesPanel').classList.remove('wn-list-view','wn-hide-list');
+      updateNotesLayout();
+    }
     void draftStorage('delete', kind);
   }
 
@@ -937,6 +986,7 @@
       return openDate(localDate(date));
     },
     wdNewToday:() => openDate(localDate(),true),
+    wdToggleSearch:toggleSearch, wnToggleList:toggleNotesList,
     wdRunSearch:search, wdClearSearch:() => {
       ++searchSequence;
       el('wdSearchInput').value = '';

@@ -10,7 +10,7 @@
 
   <div class="wd-scroll" id="wdScroll">
     <div id="wdDiaryPanel" class="wd-panel">
-      <div class="wd-toolbar wd-screen-only">
+      <div class="wd-toolbar wd-diary-tools wd-screen-only">
         <div class="wd-date-tools">
           <button type="button" id="wdPrevDay" onclick="wdShiftDate(-1)" title="Previous day" aria-label="Previous day" data-wd-hi-label="पिछला दिन"><span aria-hidden="true">‹</span></button>
           <input type="date" id="wdDate" onchange="wdOnDateChange()" aria-label="Diary date" data-wd-hi-label="डायरी की तारीख">
@@ -20,6 +20,8 @@
         <div class="wd-actions">
           <button type="button" id="wdSaveBtn" class="wd-primary" onclick="wdSave()" data-wd-hi="डायरी सहेजें">Save diary</button>
           <button type="button" onclick="wdPrint()" data-wd-hi="प्रिंट">Print</button>
+          <button type="button" id="wdSearchToggle" aria-expanded="false" aria-controls="wdSearchForm"
+            aria-label="Search diaries" title="Search diaries" data-wd-hi-label="डायरी खोजें" onclick="wdToggleSearch()"><span aria-hidden="true">⌕</span></button>
           <details class="wd-export">
             <summary data-wd-hi="Word डाउनलोड">Export Word</summary>
             <div class="wd-export-panel">
@@ -34,7 +36,7 @@
         </div>
       </div>
 
-      <form class="wd-search wd-screen-only" onsubmit="event.preventDefault();wdRunSearch()">
+      <form id="wdSearchForm" class="wd-search wd-screen-only" hidden onsubmit="event.preventDefault();wdRunSearch()">
         <input type="search" id="wdSearchInput" placeholder="Search your diaries…" aria-label="Search your diaries" data-wd-hi-placeholder="अपनी डायरी खोजें…" data-wd-hi-label="अपनी डायरी खोजें">
         <button type="submit" data-wd-hi="खोजें">Search</button>
         <button type="button" onclick="wdClearSearch()" data-wd-hi="साफ़ करें">Clear</button>
@@ -45,44 +47,48 @@
         <div class="wd-page-meta">
           <div class="wd-entry-date"><time id="wdDisplayDate"></time><span id="wdDay">—</span></div>
           <div class="wd-shift"><span data-wd-hi="शिफ्ट">Shift</span><strong id="wdShift">—</strong></div>
-        </div>
-        <div class="wd-section-heading">
-          <h2 data-wd-hi="समय खंड">Time slots</h2>
           <span id="wdStatus" class="wd-screen-only" role="status"></span>
         </div>
-        <div id="wdSlots" aria-busy="false"></div>
+        <div id="wdSlots" aria-busy="false" aria-label="Time slots" data-wd-hi-label="समय खंड"></div>
       </div>
     </div>
 
     <div id="wdNotesPanel" class="wd-panel" hidden>
-      <div class="wd-search">
-        <input type="search" id="wnSearch" placeholder="Search notes…" aria-label="Search notes" data-wd-hi-placeholder="नोट्स खोजें…" data-wd-hi-label="नोट्स खोजें" oninput="wnRenderList()">
-        <button type="button" class="wd-primary" onclick="wnOpenEditor()" data-wd-hi="＋ नया नोट">＋ New note</button>
-      </div>
+      <aside id="wnLibrary" class="wn-library" aria-label="Notes list" data-wd-hi-label="नोट्स सूची">
+        <div class="wd-search">
+          <input type="search" id="wnSearch" placeholder="Search notes…" aria-label="Search notes" data-wd-hi-placeholder="नोट्स खोजें…" data-wd-hi-label="नोट्स खोजें" oninput="wnRenderList()">
+          <button type="button" class="wd-primary" onclick="wnOpenEditor()" data-wd-hi="＋ नया नोट">＋ New note</button>
+          <button type="button" id="wnResume" onclick="wnToggleList()" data-wd-hi="लेखन जारी रखें" hidden>Resume editing</button>
+        </div>
+        <div id="wnGrid"></div>
+        <p id="wnEmpty" class="wd-empty" data-wd-hi="कोई नोट नहीं मिला। नया नोट जोड़ें।" hidden>No notes found. Add a new note.</p>
+      </aside>
       <div id="wnEditor" class="wd-editor" hidden>
         <input type="hidden" id="wnEditId">
-        <label for="wnTitle"><span data-wd-hi="शीर्षक">Title</span><input type="text" id="wnTitle"></label>
-        <label for="wnBody"><span data-wd-hi="नोट">Note</span></label>
+        <div class="wd-actions wn-editor-tools">
+          <button type="button" id="wnListToggle" aria-controls="wnLibrary" aria-expanded="true" onclick="wnToggleList()">Hide notes list</button>
+          <label for="wnTitle" class="wn-title-field"><span data-wd-hi="शीर्षक">Title</span><input type="text" id="wnTitle"></label>
+        </div>
+        <div class="wd-actions wn-format-tools">
+          <button type="button" data-wd-hi="बोल्ड" onpointerdown="event.preventDefault()" onclick="wnFormat('bold')">Bold</button>
+          <button type="button" data-wd-hi="इटैलिक" onpointerdown="event.preventDefault()" onclick="wnFormat('italic')">Italic</button>
+          <button type="button" data-wd-hi="सूची" onpointerdown="event.preventDefault()" onclick="wnFormat('insertUnorderedList')">List</button>
+          <details class="wn-options">
+            <summary data-wd-hi="रंग और पिन">Colour and pin</summary>
+            <div class="wd-note-options">
+              <div id="wnColorRow" class="wd-swatch-row"></div>
+              <label class="wd-check"><input type="checkbox" id="wnPinned"><span data-wd-hi="पिन करें">Pin</span></label>
+            </div>
+          </details>
+        </div>
         <div id="wnBody" class="wd-note-body" role="textbox" aria-multiline="true" aria-label="Note" data-wd-hi-label="नोट" contenteditable="true" spellcheck="true"></div>
-        <div class="wd-actions">
-          <button type="button" data-wd-hi="बोल्ड" onclick="wnFormat('bold')">Bold</button>
-          <button type="button" data-wd-hi="इटैलिक" onclick="wnFormat('italic')">Italic</button>
-          <button type="button" data-wd-hi="सूची" onclick="wnFormat('insertUnorderedList')">List</button>
-        </div>
-        <div class="wd-note-options">
-          <span data-wd-hi="रंग">Colour</span>
-          <div id="wnColorRow" class="wd-swatch-row"></div>
-          <label class="wd-check"><input type="checkbox" id="wnPinned"><span data-wd-hi="पिन करें">Pin</span></label>
-        </div>
-        <div class="wd-actions">
+        <div class="wd-actions wn-editor-footer">
           <button type="button" class="wd-primary" onclick="wnSave()" data-wd-hi="सहेजें">Save</button>
           <button type="button" onclick="wnCloseEditor()" data-wd-hi="बंद करें">Close</button>
           <button type="button" id="wnDeleteBtn" class="wd-delete" onclick="wnDelete()" data-wd-hi="हटाएँ" hidden>Delete</button>
+          <span id="wnStatus" role="status"></span>
         </div>
-        <div id="wnStatus" role="status"></div>
       </div>
-      <div id="wnGrid"></div>
-      <p id="wnEmpty" class="wd-empty" data-wd-hi="कोई नोट नहीं मिला। नया नोट जोड़ें।" hidden>No notes found. Add a new note.</p>
     </div>
 
     <div id="wdCalPanel" class="wd-panel" hidden>
