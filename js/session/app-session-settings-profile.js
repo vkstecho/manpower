@@ -554,12 +554,21 @@ try{ window.openDeviceLoginList = openDeviceLoginList; window._recordLoginEvent 
 
 async function openAdminAnalytics(){
   if(!isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
-  toast(L('⏳ विश्लेषण लोड…','⏳ Loading analytics…'));
-  let mobileUsers={}, employees={}, managers={}, deviceApprovals={};
-  try{ mobileUsers = await fbGet('mobileUsers') || {}; }catch(e){}
-  try{ employees = await fbGet('employees') || {}; }catch(e){}
-  try{ managers = await fbGet('managers') || {}; }catch(e){}
-  try{ deviceApprovals = await fbGet('deviceApprovals') || {}; }catch(e){}
+  const uid = SESSION.authUid;
+  openModal(`<div class="modal-handle"></div><div class="modal-title">📊 ${L('ऐप विश्लेषण','App Analytics')}</div>
+    <div id="adminAnalyticsStatus" role="status" style="color:var(--text)">${L('विश्लेषण लोड हो रहा है…','Loading analytics…')}</div>`);
+  const status = document.getElementById('adminAnalyticsStatus');
+  const stillOpen = () => status.isConnected && status.closest('#overlay.open') && isAdmin() &&
+    SESSION.authUid === uid && window._fbAuth?.currentUser?.uid === uid;
+  let mobileUsers, employees, deviceApprovals;
+  try {
+    [mobileUsers,employees,deviceApprovals] = await Promise.all(['mobileUsers','employees','deviceApprovals']
+      .map(async branch => (await fbGet(branch)) || {}));
+  } catch (_) {
+    if (stillOpen()) status.textContent=L('विश्लेषण उपलब्ध नहीं है। फिर से खोलें।','Analytics unavailable. Reopen to retry.');
+    return;
+  }
+  if (!stillOpen()) return;
 
   const muEntries = Object.entries(mobileUsers||{}).map(([k,u])=>({...(u||{}), _key:k, mobile: (u&& (u.mobile||u.phone)) || k }));
   const mu = muEntries;
@@ -580,20 +589,23 @@ async function openAdminAnalytics(){
 
   const empById = {};
   const empByPhone = {};
+  const empByCode = new Map();
   Object.entries(employees||{}).forEach(([id,e])=>{
     if(!e) return;
     const rec = {...e, id: e.id||id};
     empById[rec.id] = rec;
+    if (rec.empId != null && !empByCode.has(String(rec.empId))) empByCode.set(String(rec.empId),rec);
     const ph = _normMobileKey(e.phone||e.mobile||'');
     if(ph) empByPhone[ph] = rec;
   });
 
   const deviceRows = [];
   const seen = new Set();
+  const seenMobiles = new Set();
   daEntries.forEach(a=>{
     let valid = false;
     try{ valid = !!(a.validTill && new Date(a.validTill) > new Date()); }catch(e){}
-    const emp = empById[a._key] || (a.empId ? Object.values(empById).find(e=>String(e.empId)===String(a.empId)) : null);
+    const emp = empById[a._key] || (a.empId ? empByCode.get(String(a.empId)) : null);
     const mob = _normMobileKey(a.mobile || (emp&&(emp.phone||emp.mobile)) || '');
     const muRec = mob ? (mobileUsers[mob] || null) : null;
     const name = (emp && emp.name) || a.empName || (muRec && muRec.name) || '—';
@@ -604,6 +616,7 @@ async function openAdminAnalytics(){
     const key = (mob||a._key)+'|'+(a.approvedDeviceId||'');
     if(seen.has(key)) return;
     seen.add(key);
+    if (mob) seenMobiles.add(mob);
     deviceRows.push({
       name, mobile: mob || '—', company, deviceName,
       role, valid, lastAt,
@@ -614,8 +627,7 @@ async function openAdminAnalytics(){
   mu.forEach(u=>{
     const mob = _normMobileKey(u.mobile||u.phone||u._key||'');
     if(!mob) return;
-    const keyPrefix = mob+'|';
-    if([...seen].some(s=>s.startsWith(keyPrefix))) return;
+    if(seenMobiles.has(mob)) return;
     if(!u.lastLoginAt && !u.loginAt && u.status!=='approved') return;
     const emp = empByPhone[mob];
     deviceRows.push({
@@ -688,7 +700,7 @@ async function openAdminAnalytics(){
     </div>`;
   }).join('') : '<div class="empty"><div class="empty-text">No device login records yet</div></div>';
 
-  openModal(`<div class="modal-handle"></div>
+  status.closest('.modal').innerHTML = `<div class="modal-handle"></div>
     <div class="modal-title">📊 App Analytics</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Realtime Database · device logins · Google Analytics on Admin login</div>
     <button type="button" onclick="closeModal();openDeviceLoginList()" style="width:100%;margin-bottom:12px;padding:12px;border-radius:12px;border:1px solid rgba(56,189,248,.35);background:rgba(56,189,248,.1);color:#38bdf8;font-weight:800;font-size:13px;cursor:pointer;font-family:inherit">📱 Open full login list (Date · Time · Name · Mobile · Company)</button>
@@ -758,7 +770,8 @@ async function openAdminAnalytics(){
       style="display:block;text-align:center;padding:14px;border-radius:12px;background:linear-gradient(135deg,#f97316,#a855f7);color:#fff;font-weight:800;text-decoration:none;margin-bottom:10px">
       📈 Open Google Analytics (Firebase Console)
     </a>
-    <button class="cancel-btn" onclick="closeModal()">Close</button>`);
+    <button class="cancel-btn" onclick="closeModal()">Close</button>`;
+  if (typeof _translateDOM==='function') _translateDOM();
 }
 
 

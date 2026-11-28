@@ -283,10 +283,39 @@ function _clearShiftWhatsApp() {
   document.getElementById('shiftWhatsAppFallback')?.remove();
   _shiftRequests.clear();
 }
+function _cleanShiftWhatsAppText(value) {
+  // Saved templates may contain a damaged emoji or CRLF copied from another app.
+  return String(value || '').replace(/[\uD800-\uDFFF]/gu,'').replace(/[\uFFFD\uFEFF]/g,'')
+    .replace(/^\s*[\uFE0E\uFE0F]/u,'').replace(/\r\n?/g,'\n').trim();
+}
 function _openShiftWhatsApp(number,message) {
-  const link = 'https://wa.me/'+number+'?text='+encodeURIComponent(message);
+  const text = encodeURIComponent(_cleanShiftWhatsAppText(message));
+  if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    return new Promise(resolve=>{
+      const link=document.createElement('a');
+      link.href='whatsapp://send?phone='+number+'&text='+text;
+      let timer;
+      const finish=opened=>{
+        clearTimeout(timer);
+        document.removeEventListener('visibilitychange',onVisibility);
+        window.removeEventListener('pagehide',onPageHide);
+        resolve(opened);
+      };
+      const onVisibility=()=>{ if (document.hidden) finish(true); };
+      const onPageHide=()=>finish(true);
+      document.addEventListener('visibilitychange',onVisibility);
+      window.addEventListener('pagehide',onPageHide,{once:true});
+      timer=setTimeout(()=>finish(false),1300);
+      try {
+        link.hidden=true;
+        document.body.append(link);
+        link.click();
+      } catch (_) { finish(false); }
+      finally { link.remove(); }
+    });
+  }
   try {
-    const tab = window.open(link,'_blank');
+    const tab = window.open('https://wa.me/'+number+'?text='+text,'_blank');
     if (!tab) return false;
     try { tab.opener=null; } catch (_) {}
     return true;
@@ -299,17 +328,28 @@ function _showShiftWhatsAppFallback() {
   banner.className='shift-whatsapp-fallback';
   banner.setAttribute('role','status');
   const text = document.createElement('span');
-  text.textContent=L('ब्राउज़र ने WhatsApp रोक दिया।','Your browser blocked WhatsApp.');
+  text.textContent=L('WhatsApp अपने आप नहीं खुला।','WhatsApp did not open automatically.');
   const button = document.createElement('button');
   button.className='submit-btn';
-  button.textContent=L('WhatsApp खोलें','Open WhatsApp');
-  button.onclick=()=>_continueShiftWhatsApp(true);
+  button.textContent=L('WhatsApp पर जाएँ','Continue to WhatsApp');
+  button.onclick=()=>{
+    _continueShiftWhatsApp(true);
+    if (_shiftWhatsAppBusy) {
+      button.disabled=true;
+      skip.disabled=true;
+    }
+  };
   const skip = document.createElement('button');
   skip.className='cancel-btn';
   skip.textContent=L('छोड़ें','Skip');
   skip.onclick=()=>{
     const state=_readShiftWhatsApp();
-    if (state?.items.length) { state.items.shift(); state.waiting=false; _storeShiftWhatsApp(state); }
+    if (state?.items.length) {
+      state.items.shift();
+      state.waiting=false;
+      delete state.attempt;
+      _storeShiftWhatsApp(state);
+    }
     banner.remove();
     _continueShiftWhatsApp(false);
   };
@@ -319,37 +359,46 @@ function _showShiftWhatsAppFallback() {
 function _continueShiftWhatsApp(manual=false) {
   if (_shiftWhatsAppBusy || document.hidden || !SESSION.authUid || !SESSION.rosterLinked ||
       SESSION.authUid!==window._fbAuth?.currentUser?.uid || document.getElementById('mainContent')?.style.display!=='block') return;
-  const attempt=()=>{
+  const attempt=async()=>{
     const state=_readShiftWhatsApp();
     if (!state?.items.length || state.waiting) return;
+    if (state.attempt && !manual) { _showShiftWhatsAppFallback(); return; }
     while (state.items.length) {
-      const changes=state.items.shift();
+      const changes=state.items[0];
       const item=_buildShiftSaveWaQueue(changes)[0];
-      if (!item) { _storeShiftWhatsApp(state); continue; }
-      // Advance before opening so reopening a closed PWA never repeats this item.
-      state.waiting=state.items.length>0;
+      if (!item) { state.items.shift(); _storeShiftWhatsApp(state); continue; }
+
+      // Record the attempt before leaving the PWA. An unknown outcome needs an explicit tap.
+      const attemptId=crypto.randomUUID();
+      state.attempt=attemptId;
       _storeShiftWhatsApp(state);
       _shiftWhatsAppAway=false;
-      if (_openShiftWhatsApp(item.emp.phone,item.msgLines)) {
+      const opened=await _openShiftWhatsApp(item.emp.phone,item.msgLines);
+      // Read back any messages added during launch; never restore a logged-out user's queue.
+      const current=_readShiftWhatsApp();
+      if (!current || current.attempt!==attemptId) return;
+      if (opened) {
+        current.items.shift();
+        current.waiting=current.items.length>0;
+        delete current.attempt;
+        _storeShiftWhatsApp(current);
         document.getElementById('shiftWhatsAppFallback')?.remove();
-        return;
-      }
-      state.items.unshift(changes);
-      state.waiting=false;
-      _storeShiftWhatsApp(state);
-      _showShiftWhatsAppFallback();
+      } else _showShiftWhatsAppFallback();
       return;
     }
   };
-  if (!manual && navigator.locks) {
-    _shiftWhatsAppBusy=true;
-    navigator.locks.request('manpower-shift-whatsapp',{ifAvailable:true},lock=>{
-      if (lock) attempt();
-    }).catch(()=>attempt()).finally(()=>{_shiftWhatsAppBusy=false;});
-  } else attempt();
+  _shiftWhatsAppBusy=true;
+  const run = !manual && navigator.locks
+    ? navigator.locks.request('manpower-shift-whatsapp',{ifAvailable:true},lock=>lock && attempt())
+    : attempt();
+  run.catch(()=>_showShiftWhatsAppFallback()).finally(()=>{
+    _shiftWhatsAppBusy=false;
+    document.querySelectorAll('#shiftWhatsAppFallback button:disabled').forEach(button=>{button.disabled=false;});
+    if (_shiftWhatsAppAway && !document.hidden) _resumeShiftWhatsApp();
+  });
 }
 function _resumeShiftWhatsApp(restored=false) {
-  if (document.hidden || SESSION.authUid!==window._fbAuth?.currentUser?.uid) return;
+  if (_shiftWhatsAppBusy || document.hidden || SESSION.authUid!==window._fbAuth?.currentUser?.uid) return;
   const state=_readShiftWhatsApp();
   if (!state?.items.length) return;
   if (state.waiting) {
@@ -513,8 +562,6 @@ function _buildShiftSaveWaQueue(savedEntries){
   const _waCfg = (typeof getShiftConfigSync==='function' ? getShiftConfigSync() : {}) || {};
   if(_waCfg.waNotifyOnSave === false) return waQueue;
 
-  const todayFmt = new Date().toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
-  const _fmtDate = (d) => new Date(d).toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
   const _typeOn = (flag) => flag !== false;
   const emps = new Map((getEmps() || []).map(employee => [employee.id,employee]));
 
@@ -527,6 +574,16 @@ function _buildShiftSaveWaQueue(savedEntries){
       const phone = /^[6-9]\d{9}$/.test(rawNumber) ? '91'+rawNumber : rawNumber.replace(/^(?:\+|00)/,'');
       if (!/^\d{8,15}$/.test(phone) || phone.startsWith('0') || (phone.startsWith('91') && !/^91[6-9]\d{9}$/.test(phone))) continue;
 
+      const language = typeof getEmpPreferredLang==='function' ? getEmpPreferredLang(emp) : undefined;
+      const locale = language==='hi' ? 'hi-IN' : 'en-IN';
+      const personName = _cleanShiftWhatsAppText(emp.name).replace(/\s+/gu,' ');
+      const managerName = _cleanShiftWhatsAppText(SESSION.name).replace(/\s+/gu,' ') || 'Manager';
+      const dateOptions = {day:'numeric',month:'short',year:'numeric'};
+      const todayFmt = new Date().toLocaleDateString(locale,{...dateOptions,timeZone:'Asia/Kolkata'});
+      const _fmtDate = date => {
+        const parsed=new Date(date+'T00:00:00Z');
+        return Number.isFinite(parsed.getTime()) ? parsed.toLocaleDateString(locale,{...dateOptions,timeZone:'UTC'}) : date;
+      };
       const buckets = { GP:[], CO:[], Ab:[], L:[], H:[], OTHER:[] };
       changes.forEach(c=>{
         const ns = String(c.newShift||'').toUpperCase();
@@ -541,7 +598,7 @@ function _buildShiftSaveWaQueue(savedEntries){
       const _msgParts = [];
       const pushMsg = (msgLines) => {
         if(!msgLines) return;
-        let t = String(msgLines).trim();
+        let t = _cleanShiftWhatsAppText(msgLines);
         t = t.replace(/\n?📱\s*Check Complete Shift[\s\S]*$/i, '').trim();
         t = t.replace(/\n?📲\s*\*?Android[\s\S]*?(?=\n\n|$)/gi, '').trim();
         t = t.replace(/\n?🍎💻\s*\*?iPhone[\s\S]*?(?=\n\n|$)/gi, '').trim();
@@ -553,11 +610,11 @@ function _buildShiftSaveWaQueue(savedEntries){
       if(buckets.GP.length && _typeOn(_waCfg.waGPEnabled)){
         const datesList = buckets.GP.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waGPTemplate', _waCfg.waGPTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waGPTemplate', _waCfg.waGPTemplate, language)
           : '';
         const msgLines = (typeof _fillNotifTemplate==='function')
-          ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
-          : (`🔔 Gate Pass\n${emp.name}\n${datesList}`);
+          ? _fillNotifTemplate(tpl, { name: personName, date: todayFmt, dates: datesList, manager: managerName, changes: datesList })
+          : (`🔔 Gate Pass\n${personName}\n${datesList}`);
         pushMsg(msgLines);
       }
       if(buckets.CO.length && _typeOn(_waCfg.waCOEnabled !== undefined ? _waCfg.waCOEnabled : (_waCfg.waCOffEnabled !== undefined ? _waCfg.waCOffEnabled : true))){
@@ -583,20 +640,20 @@ function _buildShiftSaveWaQueue(savedEntries){
         }catch(e){}
         if(!reasonStr) reasonStr = 'Schedule marked C-Off';
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waCOTemplate', _waCfg.waCOTemplate || _waCfg.waCOffTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waCOTemplate', _waCfg.waCOTemplate || _waCfg.waCOffTemplate, language)
           : '';
         let msgLines = (typeof _fillNotifTemplate==='function')
           ? _fillNotifTemplate(tpl, {
-              name: emp.name,
+              name: personName,
               date: coffDateStr,
               dates: datesList,
               coffDate: coffDateStr,
               reason: reasonStr,
-              manager: SESSION.name||'Manager',
+              manager: managerName,
               changes: datesList
             })
           : '';
-        if(!msgLines || !String(msgLines).trim()){
+        if(!msgLines || !_cleanShiftWhatsAppText(msgLines)){
           msgLines = '🔄 *Man Power — C-Off*\n_'+coffDateStr+'_\n\nनमस्ते *'+emp.name+'*,\n\nआपको *Compensatory Off (C-Off)* दिया गया है।\n\n📅 *C-Off Date:* '+coffDateStr+'\n📝 *कारण:* '+reasonStr+'\n\n_— '+(SESSION.name||'Manager')+'_';
         }
         // Ensure placeholders not left blank if template used unknown keys
@@ -606,12 +663,12 @@ function _buildShiftSaveWaQueue(savedEntries){
 if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.waAbsentEnabled : (_waCfg.waAbEnabled !== undefined ? _waCfg.waAbEnabled : true))){
         const datesList = buckets.Ab.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate || _waCfg.waAbTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waAbsentTemplate', _waCfg.waAbsentTemplate || _waCfg.waAbTemplate, language)
           : (_waCfg.waAbsentTemplate || '');
         let msgLines = (typeof _fillNotifTemplate==='function')
-          ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
+          ? _fillNotifTemplate(tpl, { name: personName, date: todayFmt, dates: datesList, manager: managerName, changes: datesList })
           : '';
-        if(!msgLines || !String(msgLines).trim()){
+        if(!msgLines || !_cleanShiftWhatsAppText(msgLines)){
           msgLines = '⚠️ *Man Power — Absent*\n_'+todayFmt+'_\n\n*ध्यान दें '+emp.name+'*,\n\nआप *बिना अनुमति* अनुपस्थित (Absent) चिह्नित किए गए हैं:\n'+datesList+'\n\nतुरंत प्रबंधक से संपर्क करें।\n_— '+(SESSION.name||'Manager')+'_';
         }
         pushMsg(msgLines);
@@ -619,21 +676,21 @@ if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.wa
       if(buckets.L.length && _typeOn(_waCfg.waLeaveEnabled !== undefined ? _waCfg.waLeaveEnabled : true)){
         const datesList = buckets.L.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waLeaveTemplate', _waCfg.waLeaveTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waLeaveTemplate', _waCfg.waLeaveTemplate, language)
           : '';
         const msgLines = (typeof _fillNotifTemplate==='function')
-          ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
-          : (`🔔 Leave\n${emp.name}\n${datesList}`);
+          ? _fillNotifTemplate(tpl, { name: personName, date: todayFmt, dates: datesList, manager: managerName, changes: datesList })
+          : (`🔔 Leave\n${personName}\n${datesList}`);
         pushMsg(msgLines);
       }
       if(buckets.H.length && _typeOn(_waCfg.waHolidayEnabled)){
         const datesList = buckets.H.map(c=>'• '+_fmtDate(c.date)).join('\n');
         const tpl = (typeof getWATemplate==='function')
-          ? getWATemplate('waHolidayTemplate', _waCfg.waHolidayTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waHolidayTemplate', _waCfg.waHolidayTemplate, language)
           : '';
         const msgLines = (typeof _fillNotifTemplate==='function')
-          ? _fillNotifTemplate(tpl, { name: emp.name, date: todayFmt, dates: datesList, manager: SESSION.name||'Manager', changes: datesList })
-          : (`🔔 Holiday\n${emp.name}\n${datesList}`);
+          ? _fillNotifTemplate(tpl, { name: personName, date: todayFmt, dates: datesList, manager: managerName, changes: datesList })
+          : (`🔔 Holiday\n${personName}\n${datesList}`);
         pushMsg(msgLines);
       }
       if(buckets.OTHER.length && _typeOn(_waCfg.waShiftEnabled)){
@@ -646,11 +703,11 @@ if(buckets.Ab.length && _typeOn(_waCfg.waAbsentEnabled !== undefined ? _waCfg.wa
           changeLines += `• ${fmtD}: ${shiftNames[oldS]||oldS} → *${shiftNames[newS]||newS}*\n`;
         }
         const tpl = ((typeof getWATemplate==='function')
-          ? getWATemplate('waShiftTemplate', _waCfg.waShiftTemplate, (typeof getEmpPreferredLang==='function'?getEmpPreferredLang(emp):undefined))
+          ? getWATemplate('waShiftTemplate', _waCfg.waShiftTemplate, language)
           : '') || '';
         const msgLines = tpl
-          ? tpl.replace(/\{name\}/g, emp.name||'').replace(/\{manager\}/g, SESSION.name||'Manager').replace(/\{date\}/g, todayFmt).replace(/\{changes\}/g, changeLines.trim())
-          : (`🔔 *Shift Update*\n\n${emp.name}\n${changeLines}`);
+          ? _fillNotifTemplate(tpl,{name:personName,manager:managerName,date:todayFmt,changes:changeLines.trim()})
+          : (`🔔 *Shift Update*\n\n${personName}\n${changeLines}`);
         pushMsg(msgLines);
       }
 
@@ -1817,15 +1874,9 @@ function getWATemplate(key, cfgVal, preferredLang){
   return cfgVal || stock || '';
 }
 
-function _fillNotifTemplate(tpl, {name, date, dates, manager, changes, gpCount, gpMax}){
-  return String(tpl||'')
-    .replace(/\{name\}/g, name||'')
-    .replace(/\{date\}/g, date||'')
-    .replace(/\{dates\}/g, dates||'')
-    .replace(/\{manager\}/g, manager||'')
-    .replace(/\{changes\}/g, changes||'')
-    .replace(/\{gpCount\}/g, String(gpCount!=null?gpCount:''))
-    .replace(/\{gpMax\}/g, String(gpMax!=null?gpMax:''));
+function _fillNotifTemplate(tpl, fields){
+  return String(tpl||'').replace(/\{(name|date|dates|manager|changes|gpCount|gpMax)\}/g,
+    (_,field)=>String(fields[field] ?? ''));
 }
 
 function stageSingleShiftChange(empId, empName, date, currentShift, newShift, coMeta){

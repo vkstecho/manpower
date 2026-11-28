@@ -26,7 +26,20 @@
     }
     const db  = getDatabase(app);
     const auth = getAuth(app);
-    const functions = getFunctions(app);
+    const functions = getFunctions(app,'us-central1');
+    const regionalNames = new Set(['saveShiftBatch','readRosterData','writeEmployee',
+      'getMyCommercialEntitlement','getMyRosterIdentity']);
+    const regions = new Map([['us-central1',functions]]);
+    const callableRegion = name => regionalNames.has(name) &&
+      window.MP_CALLABLE_REGIONS?.[name] === 'asia-southeast1' ? 'asia-southeast1' : 'us-central1';
+    function functionsFor(region) {
+      if (!regions.has(region)) {
+        const client=getFunctions(app,region);
+        if (window.MP_FIREBASE_EMULATORS === true) connectFunctionsEmulator(client,'127.0.0.1',5001);
+        regions.set(region,client);
+      }
+      return regions.get(region);
+    }
     if (window.MP_FIREBASE_EMULATORS === true) {
       if (!['localhost', '127.0.0.1'].includes(location.hostname) || firebaseConfig.projectId !== 'demo-manpower-612') {
         throw new Error('Use demo-manpower-612 from localhost for Firebase emulators');
@@ -264,10 +277,12 @@
     window._fbCall = async (name,data) => {
       await authReady;
       const uid = auth.currentUser?.uid;
-      if (!callables.has(name)) callables.set(name,httpsCallable(functions,name,
+      const region = callableRegion(name);
+      const key = region+'/'+name;
+      if (!callables.has(key)) callables.set(key,httpsCallable(functionsFor(region),name,
         ['writeEmployee','saveShiftBatch'].includes(name) ? {timeout:25000} : undefined));
       try {
-        const result = await callables.get(name)(data || {});
+        const result = await callables.get(key)(data || {});
         if (uid !== auth.currentUser?.uid) throw new Error('Firebase account changed');
         return result.data;
       } catch (error) {

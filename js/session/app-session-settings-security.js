@@ -163,7 +163,27 @@ function clearDevicePasswordFromProfile(){
   setTimeout(()=>{ try{ openAppAccessSecurity(); }catch(e){} }, 250);
 }
 
-async function showProfile(){
+function _renderProfileSubscription(card, entitlement, pending=false) {
+  const paidUntil = entitlement?.paidUntil && new Date(entitlement.paidUntil);
+  const hasExpiry = paidUntil && Number.isFinite(paidUntil.getTime());
+  const daysLeft = hasExpiry ? Math.ceil((paidUntil.getTime()-Date.now())/86400000) : null;
+  const title = pending ? L('सदस्यता विवरण लोड हो रहा है','Loading subscription details')
+    : !entitlement ? L('सदस्यता विवरण उपलब्ध नहीं हैं','Subscription details unavailable')
+    : entitlement.enabled === false ? L('सदस्यता आवश्यक नहीं है','No subscription required')
+    : !hasExpiry ? L('कोई भुगतान तारीख दर्ज नहीं है','No paid-through date recorded')
+    : daysLeft <= 0 ? L('सदस्यता समाप्त हो गई','Subscription expired')
+    : L(daysLeft+' दिन बाकी',daysLeft+' days left');
+  const date = hasExpiry ? paidUntil.toLocaleDateString(typeof mpLocale==='function'?mpLocale():'en-IN',
+    {day:'numeric',month:'short',year:'numeric',timeZone:'Asia/Kolkata'}) : '';
+  const plan = typeof _formatSubscriptionLine==='function'
+    ? _formatSubscriptionLine(entitlement?.plan || SESSION, window._paymentSettingsCache || {})
+    : entitlement?.plan?.planLabel || SESSION.planLabel || '';
+  card.dataset.status = hasExpiry && daysLeft <= 7 && entitlement.enabled !== false ? 'ending' : '';
+  card.querySelector('[data-profile-subscription-status]').textContent = title;
+  card.querySelector('[data-profile-subscription-date]').textContent = date;
+  card.querySelector('[data-profile-subscription-plan]').textContent = pending || !entitlement ? '' : plan;
+}
+function showProfile(){
  try{
   const e=myEmp();
   if(isAdmin()){
@@ -171,7 +191,7 @@ async function showProfile(){
     <div class="modal-scroll-body" style="padding:10px 0">
       <div style="text-align:center;margin-bottom:18px">
         <div style="font-size:44px;margin-bottom:8px">🛡️</div>
-        <div style="font-size:18px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
+        <div style="font-size:18px;font-weight:900;color:var(--text)">${escHtml(SESSION.name)}</div>
         <div style="font-size:12px;color:var(--muted2);margin-top:4px">Admin — Full Access</div>
       </div>
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:10px">Quick Actions</div>
@@ -215,7 +235,7 @@ async function showProfile(){
         <div><div class="pa-label">Security Status</div><div class="pa-sub">Device & session info</div></div>
         <div class="pa-arrow">›</div>
       </button>
-      <button class="profile-action" onclick="closeModal();setTimeout(function(){openAdminAnalytics()},50)">
+      <button class="profile-action" onclick="openAdminAnalytics()">
         <div class="pa-icon" style="background:rgba(34,197,94,.12)">📊</div>
         <div><div class="pa-label">App Analytics</div><div class="pa-sub">Users, active logins, Managers</div></div>
         <div class="pa-arrow">›</div>
@@ -245,7 +265,7 @@ async function showProfile(){
     openModal(`<div class="modal-handle"></div>
     <div style="text-align:center;padding:10px 0">
       <div style="font-size:44px;margin-bottom:8px">👤</div>
-      <div style="font-size:18px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
+      <div style="font-size:18px;font-weight:900;color:var(--text)">${escHtml(SESSION.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px">Guest Access</div>
       <button type="button" class="profile-action danger" onclick="openDeleteAccountModal()" style="margin-top:12px;justify-content:center;border-color:rgba(244,63,94,.45)">
         <div class="pa-icon" style="background:rgba(244,63,94,.15)">🗑️</div>
@@ -257,123 +277,15 @@ async function showProfile(){
       </button>
     </div>`);
   } else {
-    // Paid-till = subscription date set by Admin (paymentPaidUntil / paidUntil), NOT App License
-    let daysLeft = 0, expiryStr = '', expiryDate = '', hasExpiry = false;
-    try{
-      let paidIso = '';
-      const mobileKey = (typeof _normMobileKey==='function') ? _normMobileKey(SESSION.mobile||'') : String(SESSION.mobile||'').replace(/\D/g,'').slice(-10);
-      // 0) paymentStatus (Admin Pay-until) — single source of truth
-      if(mobileKey){
-        try{
-          const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
-          if(ps) paidIso = ps.paymentPaidUntil || ps.paidUntil || ps.paymentPaidUntilDate || ps.validTill || '';
-        }catch(ePs){}
-      }
-      // 1) SESSION cache
-      if(!paidIso) paidIso = SESSION.paymentPaidUntil || SESSION.paidUntil || window._userPaymentPaidUntil || '';
-      // 2) mobileUsers — prefer payment fields; only then validTill
-      if(mobileKey){
-        try{
-          const rec = await fbGet('mobileUsers/' + mobileKey);
-          if(rec){
-            const fromMu = rec.paymentPaidUntil || rec.paidUntil || '';
-            const vt = rec.validTill || '';
-            // Use LATEST of payment vs validTill (Admin extension must unlock access)
-            if(fromMu && vt){
-              const a=new Date(fromMu).getTime(), b=new Date(vt).getTime();
-              const pick = (a&&b ? (a>b?fromMu:vt) : (fromMu||vt));
-              if(!paidIso) paidIso = pick;
-              else {
-                const cur = new Date(paidIso).getTime();
-                const p = new Date(pick).getTime();
-                if(p > cur) paidIso = pick;
-              }
-            } else {
-              const cand = fromMu || vt || '';
-              if(cand){
-                if(!paidIso) paidIso = cand;
-                else {
-                  const cur = new Date(paidIso).getTime(), p = new Date(cand).getTime();
-                  if(p > cur) paidIso = cand;
-                }
-              }
-            }
-            if(!paidIso && rec.managerId){
-              try{
-                const mid = String(rec.managerId).replace(/\D/g,'').slice(-10);
-                const psM = await fbGet('paymentStatus/'+mid).catch(function(){return null;});
-                if(psM) paidIso = psM.paymentPaidUntil || psM.paidUntil || '';
-                if(!paidIso){
-                  const mgr = await fbGet('mobileUsers/' + mid);
-                  if(mgr) paidIso = mgr.paymentPaidUntil || mgr.paidUntil || '';
-                }
-              }catch(e2){}
-            }
-          }
-        }catch(eMu){}
-      }
-      // 3) deviceApprovals fallback
-      if(!paidIso){
-        const empObjId = (typeof myEmp==='function' && myEmp()?.id) || SESSION.empObjId;
-        if(empObjId){
-          const approval = await fbGet('deviceApprovals/' + empObjId);
-          if(approval) paidIso = approval.paymentPaidUntil || approval.paidUntil || approval.validTill || '';
-        }
-      }
-      if(paidIso){
-        const d = new Date(paidIso);
-        if(!isNaN(d.getTime())){
-          hasExpiry = true;
-          daysLeft = Math.ceil((d.getTime() - Date.now()) / 86400000);
-          expiryDate = d.toLocaleDateString((typeof mpLocale==='function'?mpLocale():'en-IN'),{day:'numeric',month:'short',year:'numeric'});
-          expiryStr = expiryDate;
-        }
-      }
-      // Plan / team-size line for Paid till card (e.g. Monthly · Custom plan · 3 Members)
-      try{
-        let planSrc = {};
-        if(mobileKey){
-          const rec2 = await fbGet('mobileUsers/' + mobileKey).catch(function(){return null;});
-          if(rec2) planSrc = Object.assign({}, rec2);
-          try{
-            const ps = await fbGet('paymentStatus/' + mobileKey).catch(function(){return null;});
-            if(ps) planSrc = Object.assign({}, planSrc, ps);
-          }catch(ePs){}
-          // Member inherits manager team size / plan when own missing
-          if((!planSrc.teamSize && !planSrc.maxMembers && !planSrc.paymentAmount) && planSrc.managerId){
-            try{
-              const mid = String(planSrc.managerId).replace(/\D/g,'').slice(-10);
-              const mgr = await fbGet('mobileUsers/' + mid).catch(function(){return null;});
-              if(mgr) planSrc = Object.assign({}, mgr, { paymentPaidUntil: planSrc.paymentPaidUntil || mgr.paymentPaidUntil });
-            }catch(eM){}
-          }
-        }
-        if(SESSION){
-          if(SESSION.paymentAmount && !planSrc.paymentAmount) planSrc.paymentAmount = SESSION.paymentAmount;
-          if(SESSION.planLabel && !planSrc.planLabel) planSrc.planLabel = SESSION.planLabel;
-          if(SESSION.teamSize && !planSrc.teamSize) planSrc.teamSize = SESSION.teamSize;
-        }
-        window._profilePlanLine = (typeof _formatSubscriptionLine === 'function')
-          ? (_formatSubscriptionLine(planSrc, window._paymentSettingsCache || {}) || '')
-          : (planSrc.planLabel || '');
-      }catch(ePlan){ window._profilePlanLine = ''; }
-    }catch(ex){}
-    const color = !hasExpiry?'#22c55e':daysLeft<=7?'#f43f5e':daysLeft<=15?'#f97316':'#22c55e';
-    const icon  = !hasExpiry?'🟢':daysLeft<=0?'🔴':daysLeft<=7?'⚠️':'🟢';
-    const msg = !hasExpiry
-      ? ((typeof L==='function')?L('कोई Expiry तय नहीं है','No expiry set'):'No expiry set')
-      : daysLeft<=0
-        ? ((typeof L==='function')?L('Subscription समाप्त — भुगतान करें','Subscription expired — please pay'):'Subscription expired — please pay')
-        : daysLeft<=7
-          ? ((typeof L==='function')?L('सिर्फ '+daysLeft+' दिन बाकी','Only '+daysLeft+' days left'):('Only '+daysLeft+' days left'))
-          : ((typeof L==='function')?L(daysLeft+' दिन बाकी', daysLeft+' days left'):(daysLeft+' days left'));
-    const empRec = myEmp();
+    const empRec = e;
+    const uid = SESSION.authUid;
+    const role = SESSION.role;
     const secLabel = empRec ? (secName(empRec.sec) || empRec.sec) : '';
     const roleLabel = isMgr()?'🏅 Manager':isSupervisor()?'👁️ Supervisor':'👤 User';
     openModal(`<div class="modal-handle"></div>
     <div class="modal-scroll-body" style="text-align:center;padding:10px 0 48px;min-height:0" data-v="v5.1.13-profile-spacer">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:#fff;font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img ${mpMediaAttr(SESSION.photoUrl)} style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
-      <div style="font-size:20px;font-weight:900;color:#fff">${escHtml(SESSION.name)}</div>
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#f97316,#a855f7);display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:28px;font-weight:900;color:var(--text);font-family:'Barlow Condensed',sans-serif;overflow:hidden">${SESSION.photoUrl?`<img ${mpMediaAttr(SESSION.photoUrl)} style="width:100%;height:100%;object-fit:cover">`:(SESSION.name||'?').split(' ').map(n=>n[0]).join('').substring(0,2)}</div>
+      <div style="font-size:20px;font-weight:900;color:var(--text)">${escHtml(SESSION.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px">${(SESSION.role==='manager'||SESSION.role==='member')?(function(){ const s=String(SESSION.mobile||'').replace(/\s/g,''); if(s.startsWith('+91')&&s.length>=13) return '📱 +91 '+s.slice(3,8)+' '+s.slice(8); if(s.length===10) return '📱 +91 '+s.slice(0,5)+' '+s.slice(5); return '📱 '+(SESSION.mobile||'—'); })():escHtml((SESSION.empId||'—')+' · '+secLabel)}</div>
       <div style="margin-top:6px"><span style="background:rgba(249,115,22,.15);color:#f97316;border-radius:20px;padding:3px 12px;font-size:11px;font-weight:800">${roleLabel}</span></div>
       ${(function(){
@@ -389,7 +301,7 @@ async function showProfile(){
         ];
         return '<div style="background:var(--panel);border:1px solid var(--border2);border-radius:14px;padding:12px 14px;margin:14px 0;text-align:left">'
           +'<div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1px;margin-bottom:8px">'+(L('मेरी जानकारी','MY DETAILS'))+'</div>'
-          +rows.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:12px"><span style="color:var(--muted2)">'+k+'</span><span style="color:var(--text);font-weight:700">'+v+'</span></div>').join('')
+          +rows.map(([k,v])=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="color:var(--muted2)">'+escHtml(k)+'</span><span style="color:var(--text);font-weight:700">'+escHtml(v)+'</span></div>').join('')
           +'</div>';
       })()}
       ${(SESSION.role==='manager'||SESSION.role==='member')?`<button class="profile-action" style="margin-top:6px" onclick="openLeaveBalanceModal()">
@@ -408,17 +320,12 @@ async function showProfile(){
         <div class="pa-arrow">›</div>
       </button>`:''}
 
-      <div role="button" tabindex="0" onclick="typeof openMemberPayPlans==='function'&&openMemberPayPlans()" style="cursor:pointer;background:var(--panel);border:1.5px solid ${daysLeft<=7?color:'var(--border2)'};border-radius:14px;padding:16px;margin:16px 0;text-align:left">
-        <div style="font-size:11px;color:var(--muted2);font-weight:700;letter-spacing:1px;margin-bottom:6px">${L('भुगतान वैध तक','Paid till')} · ${L('टैप करें भुगतान के लिए','Tap to pay')}</div>
-        <div style="display:flex;align-items:center;gap:10px">
-          <div style="font-size:28px">${icon}</div>
-          <div>
-            <div style="font-size:22px;font-weight:900;color:${color};font-family:'Barlow Condensed',sans-serif">${msg}</div>
-            ${expiryStr?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${L('भुगतान तक: ','Paid till: ')}${expiryStr}</div>`:''}
-            ${(window._profilePlanLine)?`<div style="font-size:12px;font-weight:800;color:#0f172a;margin-top:4px">${String(window._profilePlanLine).replace(/</g,'')}</div>`:''}
-          </div>
-        </div>
-      </div>
+      <button type="button" id="profileSubscription" class="profile-subscription" onclick="typeof openMemberPayPlans==='function'&&openMemberPayPlans()">
+        <span class="profile-subscription-label">${L('भुगतान वैध तक','Paid till')} · ${L('टैप करें भुगतान के लिए','Tap to pay')}</span>
+        <span role="status" data-profile-subscription-status></span>
+        <span data-profile-subscription-date></span>
+        <span data-profile-subscription-plan></span>
+      </button>
       ${isMgr()?`<button type="button" class="profile-action" onclick="openShiftSettings()">
         <div class="pa-icon" style="background:rgba(168,85,247,.12)">⚙️</div>
         <div><div class="pa-label">M/c &amp; Shift Setting</div><div class="pa-sub">${L('Shifts & Section/Machine minimums','Shifts & min staff by Section/Machine')}</div></div>
@@ -489,12 +396,26 @@ async function showProfile(){
         <div class="pa-arrow">›</div>
       </button>
     </div>`);
+    const card=document.getElementById('profileSubscription');
+    if (card) {
+      const epoch = _commercialEpoch;
+      const cached = _currentCommercialEntitlement();
+      _renderProfileSubscription(card,cached,!!uid && !cached);
+      if (uid && !cached) {
+        _loadCommercialEntitlement().then(entitlement=>{
+          if (card.isConnected && uid === SESSION.authUid && role === SESSION.role &&
+              uid === window._fbAuth?.currentUser?.uid && epoch === _commercialEpoch) {
+            _renderProfileSubscription(card,entitlement);
+          }
+        });
+      }
+    }
   }
  }catch(ex){
    console.error('showProfile error:',ex);
    openModal(`<div class="modal-handle"></div>
    <div style="text-align:center;padding:10px 0">
-     <div style="font-size:18px;font-weight:900;color:#fff">${escHtml(SESSION.name||'—')}</div>
+     <div style="font-size:18px;font-weight:900;color:var(--text)">${escHtml(SESSION.name||'—')}</div>
      <button class="profile-action danger" onclick="doLogout()" style="margin-top:16px;justify-content:center">
        <div class="pa-icon" style="background:rgba(244,63,94,.12)">🚪</div>
        <div><div class="pa-label">Logout</div></div>

@@ -25,9 +25,13 @@ async function _loadPaymentSettings(force){
   }
 }
 
+function _commercialIdentityKey(){
+  return JSON.stringify([window._fbAuth?.currentUser?.uid,SESSION.role,SESSION.empObjId,
+    SESSION.managerUid,SESSION.companyId,SESSION.rosterLinked]);
+}
 function _currentCommercialEntitlement(){
   const current = window._verifiedCommercialEntitlement;
-  return current?.uid && current.uid === window._fbAuth?.currentUser?.uid && Date.now() - current.checkedAt < 60000 ? current : null;
+  return current?.uid && current.uid === window._fbAuth?.currentUser?.uid && (!current.identity || current.identity === _commercialIdentityKey()) && Date.now() - current.checkedAt < 60000 ? current : null;
 }
 
 function _isPaymentExemptUser(){

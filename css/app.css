@@ -2268,3 +2268,24 @@ body.wd-active #pcSidebar button:focus-visible {
   body.wd-active .wd-draw-canvas { height: auto; }
   body.wd-active :is(.wd-block-notes, .wd-note-body) { min-height: 0; }
 }
+
+.profile-subscription {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  margin: 16px 0;
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--text);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.profile-subscription[data-status="ending"] { border-width: 2px; }
+.profile-subscription-label { color: var(--muted2); font-size: 11px; font-weight: 700; }
+.profile-subscription [data-profile-subscription-status] { font-size: 18px; font-weight: 800; }
+.profile-subscription [data-profile-subscription-date],
+.profile-subscription [data-profile-subscription-plan] { font-size: 12px; }
+.profile-subscription span:empty { display: none; }
