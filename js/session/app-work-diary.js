@@ -119,6 +119,7 @@
       window.removeEventListener('resize',viewport);
       document.body.style.removeProperty('--wd-visible-height');
       document.body.style.removeProperty('--wd-visible-top');
+      dismissTextTools();
       if (owner && owner === uid()) flushDay();
     }
   }
@@ -139,7 +140,7 @@
       const original = originals.get(node);
       if (node.dataset.wdHi) node.textContent = hindi ? node.dataset.wdHi : original.text;
       if (node.dataset.wdHiLabel) {
-        const label = hindi ? node.dataset.wdHiLabel : original.label;
+        const label = hindi ? node.dataset.wdHiLabel : node.dataset.wdEnLabel || original.label;
         node.setAttribute('aria-label', label);
         if (node.hasAttribute('title')) node.title = label;
       }
@@ -181,22 +182,162 @@
     return {code,label:label + (hours ? ' · ' + hours + ' h' : '')};
   }
 
+  const textHistories=new Map();
+  const drawingHistories=new Map();
+  let focusedDiaryText=null;
+  let selectedText=null;
+  function updateTextCommands() {
+    for (const [prefix,field] of [['wd',focusedDiaryText],['wn',el('wnBody')]]) {
+      const history=field?.isConnected ? field._wdHistory : null;
+      if (el(prefix+'Undo')) el(prefix+'Undo').disabled=!history?.past.length;
+      if (el(prefix+'Redo')) el(prefix+'Redo').disabled=!history?.future.length;
+    }
+  }
+  function bindTextHistory(field,key,changed) {
+    const current=field.innerHTML;
+    let history=textHistories.get(key);
+    if (!history || history.current!==current) {
+      history={past:[],future:[],current};
+      textHistories.set(key,history);
+    }
+    field._wdHistory=history;
+    let composing=false,previousType='',previousAt=0;
+    const setCurrent=event=>{
+      if (composing || field.innerHTML===history.current) return;
+      const type=event?.inputType;
+      const now=Date.now();
+      if (type!=='insertText' || previousType!=='insertText' || now-previousAt>750) {
+        history.past.push(history.current);
+        if(history.past.length>36) history.past.shift();
+      }
+      previousType=type;previousAt=now;
+      history.future=[];
+      history.current=field.innerHTML;
+      changed();
+      updateTextCommands();
+    };
+    field.oninput=setCurrent;
+    field.oncompositionstart=()=>{composing=true;previousType='';};
+    field.oncompositionend=()=>{composing=false;setCurrent();};
+    field.onfocus=()=>{
+      if(field.matches('.wd-block-notes')) focusedDiaryText=field;
+      updateTextCommands();
+      requestAnimationFrame(()=>{
+        if(window.visualViewport?.height && field.getBoundingClientRect().bottom>window.visualViewport.height)
+          field.scrollIntoView({block:'nearest'});
+      });
+    };
+    field._wdRecord=setCurrent;
+    field._wdUndo=redo=>{
+      const from=redo?history.future:history.past, to=redo?history.past:history.future;
+      if(!from.length) return;
+      to.push(history.current);
+      history.current=from.pop();
+      field.innerHTML=history.current;
+      previousType='';
+      field.focus({preventScroll:true});
+      const range=document.createRange();
+      range.selectNodeContents(field);
+      range.collapse(false);
+      const selection=getSelection();
+      selection.removeAllRanges();selection.addRange(range);
+      updateTextCommands();
+      changed();
+    };
+    field.onkeydown=event=>{
+      if(event.isComposing || !(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const key=event.key.toLowerCase();
+      if(key==='z' || key==='y'){
+        event.preventDefault();
+        field._wdUndo(key==='y' || event.shiftKey);
+      }
+    };
+    field.onbeforeinput=event=>{
+      if ((event.inputType==='historyUndo' || event.inputType==='historyRedo') && event.cancelable) {
+        event.preventDefault();field._wdUndo(event.inputType==='historyRedo');
+      }
+    };
+    updateTextCommands();
+  }
+  function dismissTextTools() {
+    selectedText=null;
+    el('wdSelectionTools')?.remove();
+  }
+  function selectionTools() {
+    const selection=getSelection();
+    const anchor=selection?.anchorNode;
+    const field=(anchor?.nodeType===Node.ELEMENT_NODE?anchor:anchor?.parentElement)?.closest('.wd-block-notes,#wnBody');
+    if (!active || !field || !selection.toString().trim() || !selection.rangeCount || !field.contains(selection.focusNode)) {
+      if (!el('wdSelectionTools')?.contains(document.activeElement)) dismissTextTools();
+      return;
+    }
+    const range=selection.getRangeAt(0).cloneRange();
+    const bounds=range.getBoundingClientRect();
+    selectedText={field,range,text:selection.toString()};
+    let tools=el('wdSelectionTools');
+    if (!tools) {
+      tools=document.createElement('div');
+      tools.id='wdSelectionTools';
+      tools.className='wd-selection-tools wd-screen-only';
+      tools.setAttribute('role','toolbar');
+      tools.setAttribute('aria-label',tx('चुने हुए टेक्स्ट के विकल्प','Selected text actions'));
+      const touch=matchMedia('(pointer: coarse)').matches;
+      const actions=[['copy',tx('कॉपी','Copy')],...(!touch ? [
+        ['cut',tx('काटें','Cut')],['bold',tx('बोल्ड','Bold')],['italic',tx('इटैलिक','Italic')],
+        ['underline',tx('रेखांकित','Underline')],['selectAll',tx('सभी चुनें','Select all')]
+      ] : [])];
+      for (const [action,label] of actions) {
+        const button=document.createElement('button');
+        button.type='button';button.textContent=label;
+        button.onpointerdown=event=>event.preventDefault();
+        button.onclick=()=>{
+          const selected=selectedText;
+          if(!selected?.field.isConnected) return dismissTextTools();
+          selected.field.focus({preventScroll:true});
+          const current=getSelection();
+          current.removeAllRanges();current.addRange(selected.range);
+          if (action==='copy') {
+            const fallback=()=>document.execCommand('copy');
+            const copied=navigator.clipboard?.writeText ? navigator.clipboard.writeText(selected.text).then(()=>true, fallback) :
+              Promise.resolve(fallback());
+            copied.then(ok=>{if(ok) toast(tx('कॉपी किया','Copied'));});
+          } else if (action==='selectAll') {
+            current.selectAllChildren(selected.field);
+          } else {
+            document.execCommand(action,false);
+            selected.field._wdRecord?.();
+          }
+        };
+        tools.append(button);
+      }
+      document.body.append(tools);
+    }
+    const view=window.visualViewport;
+    const maxX=(view?.width || innerWidth)+ (view?.offsetLeft || 0);
+    const maxY=(view?.height || innerHeight)+ (view?.offsetTop || 0);
+    tools.style.left=Math.max(4,Math.min(bounds.left,maxX-tools.offsetWidth-4))+'px';
+    tools.style.top=Math.max(4,Math.min(bounds.bottom+12,maxY-tools.offsetHeight-4))+'px';
+  }
+  document.addEventListener('selectionchange',selectionTools);
+  document.addEventListener('scroll',dismissTextTools,true);
+
   function fillSlots(row) {
     const slots = Array.isArray(row?.slots) ? row.slots : [];
     el('wdSlots').replaceChildren();
     if (!slots.length) {
-      addSlot({notes:row?.notes,notesHtml:row?.notesHtml});
+      addSlot({id:'slot-0',notes:row?.notes,notesHtml:row?.notesHtml});
       return;
     }
     slots.forEach((slot, index) => {
       const legacy = !index && slots.every(item => !item.notes && !item.notesHtml && !item.drawing);
-      addSlot(legacy ? {...slot,notes:row.notes,notesHtml:row.notesHtml} : slot);
+      addSlot({...slot,id:slot.id || 'slot-'+index,...(legacy && {notes:row.notes,notesHtml:row.notesHtml})});
     });
   }
 
   function addSlot(slot = {}, focus = false) {
     const block = document.createElement('div');
     block.className = 'wd-block';
+    block.dataset.slotId=slot.id || 'slot-'+crypto.randomUUID();
     block.innerHTML = `
       <div class="wd-slot-label"></div>
       <div class="wd-block-head">
@@ -207,19 +348,42 @@
       <div class="wd-block-notes" contenteditable="true" role="textbox" aria-multiline="true" spellcheck="true"></div>
       <div class="wd-actions wd-draw-toolbar wd-screen-only">
         <button type="button" class="wd-draw-toggle" aria-expanded="false" data-wd-hi="चित्र बनाएँ">Draw</button>
-        <button type="button" class="wd-draw-clear" data-wd-hi="चित्र मिटाएँ">Clear drawing</button>
       </div>
-      <div class="wd-draw-wrap" hidden><canvas class="wd-draw-canvas" width="1024" height="320" role="img"></canvas></div>
+      <div class="wd-draw-wrap" hidden>
+        <div class="wd-ink-controls wd-screen-only">
+          <div class="wd-ink-colors" role="group" aria-label="Drawing colours"></div>
+          <input class="wd-ink-custom" type="color" value="#0f172a" aria-label="Custom colour" data-wd-hi-label="पसंद का रंग">
+          <select class="wd-ink-width" aria-label="Pen thickness" data-wd-hi-label="कलम की मोटाई">
+            <option value="3">3 px</option><option value="6" selected>6 px</option><option value="12">12 px</option><option value="20">20 px</option>
+          </select>
+          <button type="button" class="wd-ink-eraser" aria-pressed="false" data-wd-hi="रबड़">Eraser</button>
+          <button type="button" class="wd-ink-highlight" aria-pressed="false" data-wd-hi="हाइलाइटर">Highlighter</button>
+          <button type="button" class="wd-ink-undo" aria-label="Undo stroke" data-wd-hi-label="रेखा वापस लें" title="Undo stroke">↶</button>
+          <button type="button" class="wd-ink-redo" aria-label="Redo stroke" data-wd-hi-label="रेखा फिर करें" title="Redo stroke">↷</button>
+          <button type="button" class="wd-draw-clear" data-destructive data-wd-hi="चित्र मिटाएँ">Clear</button>
+          <button type="button" class="wd-ink-hide" data-wd-hi="चित्र छिपाएँ">Hide</button>
+          <button type="button" class="wd-ink-expand" data-wd-hi="बड़ा करें">Expand</button>
+          <button type="button" class="wd-ink-save" data-wd-hi="सहेजें">Save</button>
+          <button type="button" class="wd-ink-collapse" hidden data-wd-hi="छोटा करें">Collapse</button>
+        </div>
+        <canvas class="wd-draw-canvas" width="1024" height="320" role="img"></canvas>
+      </div>
       <button type="button" class="wd-add-next wd-screen-only" data-wd-hi="＋ अगला समय खंड जोड़ें">＋ Add time slot</button>`;
     block.querySelector('.wd-from').value = slot.from || '';
     block.querySelector('.wd-to').value = slot.to || '';
     const notes = block.querySelector('.wd-block-notes');
     if (slot.notesHtml) notes.innerHTML = safeRichText(slot.notesHtml);
     else notes.textContent = slot.notes || '';
-    notes.addEventListener('input', markDirty);
+    bindTextHistory(notes,'day/'+day?.date+'/'+block.dataset.slotId,markDirty);
     notes.addEventListener('paste', pasteText);
     block.querySelectorAll('input').forEach(input => input.addEventListener('change', markDirty));
-    block.querySelector('.wd-remove').onclick = () => {
+    block.querySelector('.wd-remove').onclick = async () => {
+      const targetDay=day;
+      if ((notes.textContent.trim() || canvas._wdDrawing || block.querySelector('.wd-from').value ||
+          block.querySelector('.wd-to').value) && !await mpConfirmDelete(tx('समय खंड हटाएँ','Remove time slot'),
+          block.querySelector('.wd-slot-label').textContent,tx('इस खंड का टेक्स्ट और चित्र हट जाएगा।',
+            'This deletes the text and drawing in this slot.'))) return;
+      if (day!==targetDay || !block.isConnected) return;
       block.remove();
       if (!el('wdSlots').children.length) addSlot();
       renumberSlots();
@@ -228,16 +392,32 @@
     const wrap = block.querySelector('.wd-draw-wrap');
     const toggle = block.querySelector('.wd-draw-toggle');
     const canvas = block.querySelector('canvas');
-    const setDrawing = visible => {
-      wrap.hidden = !visible;
-      toggle.setAttribute('aria-expanded', visible);
+    const setDrawing=state=>{
+      wrap.hidden=state===0;
+      wrap.classList.toggle('wd-ink-expanded',state===2);
+      toggle.setAttribute('aria-expanded',state!==0);
+      wrap.querySelector('.wd-ink-expand').hidden=state===2;
+      wrap.querySelector('.wd-ink-collapse').hidden=state!==2;
+      if(state===2) {
+        canvas._wdExpand?.();
+        wrap.querySelector('.wd-ink-collapse').focus({preventScroll:true});
+      }
+      if(state!==2 && wrap.contains(document.activeElement) && document.activeElement?.hidden)
+        toggle.focus({preventScroll:true});
     };
-    bindDrawing(canvas, slot.drawing);
-    if (canvas._wdDrawing) setDrawing(true);
-    toggle.onclick = () => setDrawing(wrap.hidden);
-    block.querySelector('.wd-draw-clear').onclick = () => {
-      canvas._wdClear();
-      markDirty();
+    bindDrawing(canvas,slot.drawing,'day/'+day?.date+'/'+block.dataset.slotId);
+    if(canvas._wdDrawing) setDrawing(1);
+    toggle.onclick=()=>setDrawing(wrap.hidden?1:2);
+    wrap.querySelector('.wd-ink-expand').onclick=()=>setDrawing(2);
+    wrap.querySelector('.wd-ink-hide').onclick=()=>{setDrawing(0);toggle.focus();};
+    wrap.querySelector('.wd-ink-save').onclick=()=>void flushDay(true);
+    wrap.querySelector('.wd-ink-collapse').onclick=()=>setDrawing(1);
+    wrap.onkeydown=event=>{if(event.key==='Escape' && wrap.classList.contains('wd-ink-expanded')) setDrawing(1);};
+    block.querySelector('.wd-draw-clear').onclick = async () => {
+      if(!canvas._wdDrawing || !await mpConfirmDelete(tx('चित्र मिटाएँ','Clear drawing'),'',
+        tx('इस संपादन सत्र में Undo से वापस ला सकते हैं।','Undo can restore the drawing during this editing session.'),
+        tx('चित्र मिटाएँ','Clear drawing'))) return;
+      if(block.isConnected) canvas._wdClear();
     };
     block.querySelector('.wd-add-next').onclick = () => addSlot({}, true);
     el('wdSlots').append(block);
@@ -266,65 +446,126 @@
     document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
   }
 
-  function bindDrawing(canvas, stored) {
-    const ctx = canvas.getContext('2d');
-    const wrap = canvas.parentElement;
-    let pointer = null;
-    const blank = () => {
-      ctx.fillStyle = '#fff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    };
-    blank();
-    canvas._wdDrawing = drawingData(stored);
-    let initial = canvas._wdDrawing;
-    if (initial) {
-      wrap.classList.add('wd-print-drawing');
-      const image = new Image();
-      image.onload = () => {
-        if (initial) ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-        initial = '';
-      };
-      image.onerror = () => { initial = ''; };
-      image.src = initial;
+  function bindDrawing(canvas, stored, key) {
+    const ctx=canvas.getContext('2d');
+    const wrap=canvas.parentElement;
+    const tool=selector=>wrap.querySelector(selector);
+    const initial=drawingData(stored);
+    let history=drawingHistories.get(key);
+    if(!history || history.current!==initial) {
+      history={past:[],future:[],current:initial};
+      drawingHistories.set(key,history);
     }
-    canvas._wdClear = () => {
-      initial = '';
+    let pointer=null,loading=false,ink='#0f172a',pen='pen',previousPoint=null;
+    const blank=()=>{
+      ctx.globalAlpha=1;
+      ctx.fillStyle='#fff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+    };
+    const controls=()=>{
+      tool('.wd-ink-undo').disabled=loading || !history.past.length;
+      tool('.wd-ink-redo').disabled=loading || !history.future.length;
+      tool('.wd-draw-clear').disabled=loading || !history.current;
+      tool('.wd-ink-eraser').setAttribute('aria-pressed',pen==='eraser');
+      tool('.wd-ink-highlight').setAttribute('aria-pressed',pen==='highlight');
+      wrap.classList.toggle('wd-print-drawing',!!history.current);
+    };
+    const restore=value=>{
+      canvas._wdDrawing=value;
       blank();
-      canvas._wdDrawing = '';
-      wrap.classList.remove('wd-print-drawing');
+      if(value) {
+        loading=true;
+        const image=new Image();
+        image.onload=()=>{
+          if(image.naturalHeight>canvas.height && image.naturalHeight<=1024) canvas.height=image.naturalHeight;
+          blank();
+          ctx.drawImage(image,0,0,canvas.width,Math.min(1024,image.naturalHeight)*canvas.width/image.naturalWidth);
+          loading=false;controls();
+        };
+        image.onerror=()=>{ loading=false;controls(); };
+        image.src=value;
+      }
+      controls();
     };
-    function point(event) {
-      const box = canvas.getBoundingClientRect();
-      return [(event.clientX - box.left) * canvas.width / box.width,
-        (event.clientY - box.top) * canvas.height / box.height];
+    const update=value=>{
+      if(history.current===value) return;
+      history.past.push(history.current);
+      if(history.past.length>15) history.past.shift();
+      history.future=[];
+      history.current=value;canvas._wdDrawing=value;
+      controls();markDirty();
+    };
+    const undo=redo=>{
+      if(loading || pointer!==null) return;
+      const from=redo?history.future:history.past, to=redo?history.past:history.future;
+      if(!from.length) return;
+      to.push(history.current);
+      history.current=from.pop();
+      restore(history.current);markDirty();
+    };
+    canvas._wdClear=()=>{if(!loading && pointer===null){blank();update('');}};
+    canvas._wdExpand=()=>{
+      if(loading || pointer!==null || canvas.height>=768) return;
+      const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+      canvas.height=768;blank();ctx.putImageData(pixels,0,0);
+    };
+    tool('.wd-ink-undo').onclick=()=>undo(false);
+    tool('.wd-ink-redo').onclick=()=>undo(true);
+    tool('.wd-ink-eraser').onclick=()=>{pen=pen==='eraser'?'pen':'eraser';controls();};
+    tool('.wd-ink-highlight').onclick=()=>{pen=pen==='highlight'?'pen':'highlight';controls();};
+    const picker=tool('.wd-ink-custom');
+    const palette=[['#0f172a','काला','Black'],['#1d4ed8','नीला','Blue'],['#cc182b','लाल','Red'],
+      ['#16803d','हरा','Green'],['#e44491','गुलाबी','Pink'],['#e86c12','नारंगी','Orange'],
+      ['#7e35bf','बैंगनी','Purple'],['#e6b600','पीला','Yellow']];
+    const setInk=color=>{
+      ink=color;picker.value=color;
+      if(pen==='eraser') pen='pen';
+      for(const swatch of tool('.wd-ink-colors').children) swatch.setAttribute('aria-pressed',swatch.dataset.color===ink);
+      controls();
+    };
+    for(const [color,hi,en] of palette) {
+      const swatch=document.createElement('button');
+      swatch.type='button';swatch.className='wd-ink-swatch';swatch.dataset.color=color;
+      swatch.dataset.wdHiLabel=hi;swatch.dataset.wdEnLabel=en;
+      swatch.setAttribute('aria-label',tx(hi,en));swatch.title=tx(hi,en);
+      swatch.style.setProperty('--ink',color);
+      swatch.onclick=()=>setInk(color);
+      tool('.wd-ink-colors').append(swatch);
     }
-    canvas.onpointerdown = event => {
-      if (pointer !== null || initial || event.button !== 0) return;
-      pointer = event.pointerId;
+    picker.oninput=()=>setInk(picker.value);
+    setInk(ink);
+    restore(initial);
+    const point=event=>{
+      const box=canvas.getBoundingClientRect();
+      return [(event.clientX-box.left)*canvas.width/box.width,(event.clientY-box.top)*canvas.height/box.height];
+    };
+    const stroke=(from,to)=>{
+      ctx.lineCap=ctx.lineJoin='round';
+      ctx.globalAlpha=pen==='highlight'?.24:1;
+      ctx.strokeStyle=pen==='eraser'?'#fff':ink;
+      ctx.lineWidth=Number(tool('.wd-ink-width').value)*(pen==='pen'?1:2);
+      ctx.beginPath();ctx.moveTo(...from);ctx.lineTo(...to);ctx.stroke();
+      ctx.globalAlpha=1;
+    };
+    canvas.onpointerdown=event=>{
+      if(pointer!==null || loading || event.button!==0) return;
+      pointer=event.pointerId;
       canvas.setPointerCapture(pointer);
-      const [x, y] = point(event);
-      ctx.lineCap = ctx.lineJoin = 'round';
-      ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + .1, y + .1);
-      ctx.stroke();
+      previousPoint=point(event);
+      stroke(previousPoint,[previousPoint[0]+.2,previousPoint[1]+.2]);
     };
-    canvas.onpointermove = event => {
-      if (event.pointerId !== pointer) return;
-      ctx.lineTo(...point(event));
-      ctx.stroke();
+    canvas.onpointermove=event=>{
+      if(event.pointerId!==pointer) return;
+      const next=point(event);
+      stroke(previousPoint,next);previousPoint=next;
     };
-    const finish = () => {
-      if (pointer === null) return;
-      pointer = null;
-      canvas._wdDrawing = canvas.toDataURL('image/png');
-      wrap.classList.add('wd-print-drawing');
-      markDirty();
+    const finish=()=>{
+      if(pointer===null) return;
+      pointer=null;previousPoint=null;
+      update(canvas.toDataURL('image/png'));
     };
-    canvas.onpointerup = canvas.onpointercancel = canvas.onlostpointercapture = finish;
-    canvas._wdFinish = finish;
+    canvas.onpointerup=canvas.onpointercancel=canvas.onlostpointercapture=finish;
+    canvas._wdFinish=finish;
   }
 
   function collectSlots() {
@@ -332,7 +573,7 @@
       const notes = block.querySelector('.wd-block-notes');
       const canvas = block.querySelector('canvas');
       return {
-        from:block.querySelector('.wd-from').value, to:block.querySelector('.wd-to').value,
+        id:block.dataset.slotId,from:block.querySelector('.wd-from').value, to:block.querySelector('.wd-to').value,
         notesHtml:safeRichText(notes.innerHTML), notes:notes.innerText || notes.textContent || '',
         drawing:canvas._wdDrawing || ''
       };
@@ -443,7 +684,7 @@
       if (owner !== user || uid() !== user || day !== current) return;
       const row = remote.status === 'fulfilled' ? remote.value : null;
       const draft = pending.get(date) || local.value;
-      if (current.dirty || (refresh && pending.has(date))) return;
+      if (current.dirty || (refresh && (pending.has(date) || current.loaded && el('wdSlots').contains(document.activeElement)))) return;
       current.base = row?.updatedAt || (remote.status === 'fulfilled' ? '' : draft?.base || '');
       current.needsReview = remote.status === 'rejected';
       if (draft && Array.isArray(draft.slots)) {
@@ -601,7 +842,11 @@
     if (!editor || owner !== uid()) return;
     editor.dirty = true;
     editor.edits++;
-    void draftStorage('put', kind, getEditor(kind));
+    void draftStorage('put',kind,{...getEditor(kind),base:editor.base});
+    if(kind==='note') {
+      clearTimeout(editor.timer);
+      if(!editor.needsReview) editor.timer=setTimeout(()=>void saveEditor(kind,true),1400);
+    }
   }
 
   function paintColors(current) {
@@ -658,7 +903,10 @@
       return;
     }
     if (!recovery) void draftStorage('delete', kind);
-    const editor = editors[kind] = {dirty:recovery,writing:false,edits:0};
+    if(editors[kind]) clearTimeout(editors[kind].timer);
+    const base=row?.base || row?.updatedAt || '';
+    const latest=row?.id ? cache(kind).get(row.id)?.updatedAt || '' : '';
+    const editor = editors[kind] = {dirty:recovery,writing:false,edits:0,base,needsReview:recovery && base!==latest};
     fields(kind,'EditId').value = row?.id || '';
     fields(kind,'Title').value = row?.title || '';
     fields(kind,'DeleteBtn').hidden = !row?.id || !cache(kind).has(row.id);
@@ -667,6 +915,7 @@
     if (kind === 'note') {
       if (row?.bodyHtml) el('wnBody').innerHTML = safeRichText(row.bodyHtml);
       else el('wnBody').textContent = row?.body || '';
+      bindTextHistory(el('wnBody'),'note/'+(row?.id || crypto.randomUUID()),()=>recordEditor('note'));
       el('wnPinned').checked = !!row?.pinned;
       paintColors(row?.color || 'default');
     } else {
@@ -694,6 +943,7 @@
       else if (field.type === 'checkbox') field.checked = false;
       else field.value = '';
     }
+    clearTimeout(editor.timer);
     delete editors[kind];
     if (kind === 'note') {
       el('wdNotesPanel').classList.remove('wn-list-view','wn-hide-list');
@@ -702,30 +952,49 @@
     void draftStorage('delete', kind);
   }
 
-  async function saveEditor(kind) {
+  async function saveEditor(kind,automatic=false) {
     const user = owner;
     const editor = editors[kind];
-    if (!editor || editor.writing || user !== uid()) return;
+    if (!editor || editor.writing || user !== uid() || automatic && (!editor.dirty || editor.needsReview)) return;
+    clearTimeout(editor.timer);
     const row = getEditor(kind);
     const note = kind === 'note';
     row.title = row.title.trim();
     const hint = fields(kind,'Status');
     if ((!row.title && (!note || (!row.body.trim() && !row.bodyHtml.includes('<img')))) ||
         (!note && (!validDate(row.date) || !row.time))) {
+      if(automatic) return;
       hint.textContent = note ? tx('शीर्षक या नोट लिखें','Enter a title or note') :
         tx('शीर्षक, तारीख और समय भरें','Enter a title, date and time');
       return;
     }
     row.id ||= (note ? 'n' : 'c') + crypto.randomUUID();
     fields(kind,'EditId').value = row.id;
-    void draftStorage('put',kind,row);
+    void draftStorage('put',kind,{...row,base:editor.base});
     const updatedAt = new Date().toISOString();
     const payload = {...row,mobile:user,updatedAt,createdAt:cache(kind).get(row.id)?.createdAt || updatedAt};
     const revision = editor.edits;
     editor.writing = true;
     hint.textContent = tx('सहेजा जा रहा है…','Saving…');
     try {
-      await fbSet(remotePath(kind,row.id),payload);
+      if(note && editor.needsReview) {
+        const latest=await fbGet(remotePath(kind,row.id));
+        const approved=await confirmModal(tx('नोट का नया संस्करण','The note changed on another device'),
+          tx('अपने मसौदे से नया संस्करण बदलें?','Replace the current saved note with your draft?'));
+        if(!approved || user!==uid() || editors[kind]!==editor) return;
+        editor.base=latest?.updatedAt || '';
+      }
+      const committed=note && typeof window._fbSaveOwnedDiary==='function'
+        ? await window._fbSaveOwnedDiary('workNotes',user,row.id,editor.base,payload)
+        : (await fbSet(remotePath(kind,row.id),payload),true);
+      if (!committed) {
+        if (user===uid() && editors[kind]===editor) {
+          editor.needsReview=true;
+          hint.textContent=tx('नोट दूसरे डिवाइस पर बदला है। आपका मसौदा सुरक्षित है।',
+            'The note changed on another device. Your draft is kept.');
+        }
+        return;
+      }
       if (user !== uid() || owner !== user || editors[kind] !== editor) return;
       collectionRevision[kind]++;
       cache(kind).set(row.id,payload);
@@ -735,12 +1004,25 @@
         drawEvents();
         if (window.Notification?.permission === 'default') void Notification.requestPermission();
       }
+      editor.base=payload.updatedAt;editor.needsReview=false;
       if (editor.edits === revision) {
-        closeEditor(kind,true);
-        toast(note ? tx('नोट सहेजा गया','Note saved') : tx('इवेंट सहेजा गया','Event saved'));
+        editor.dirty=false;
+        if(automatic) {
+          fields(kind,'DeleteBtn').hidden=false;
+          void draftStorage('delete',kind);
+          hint.textContent=tx('सहेजा गया','Saved');
+        } else {
+          closeEditor(kind,true);
+          toast(note ? tx('नोट सहेजा गया','Note saved') : tx('इवेंट सहेजा गया','Event saved'));
+        }
       } else {
         fields(kind,'DeleteBtn').hidden = false;
         hint.textContent = tx('नए बदलाव अभी सहेजे नहीं गए हैं।','New changes are still unsaved.');
+        if(note) {
+          clearTimeout(editor.timer);
+          void draftStorage('put',kind,{...getEditor(kind),base:editor.base});
+          editor.timer=setTimeout(()=>void saveEditor(kind,true),1400);
+        }
       }
     } catch (e) {
       if (user === uid() && editors[kind] === editor) hint.textContent = tx('सहेजना विफल रहा। फिर कोशिश करें।','Could not save. Try again.');
@@ -752,7 +1034,9 @@
     const id = fields(kind,'EditId').value;
     const editor = editors[kind];
     if (!editor || editor.writing || user !== uid() || !id ||
-        !confirm(tx('इसे हटाएँ?','Delete this item?'))) return;
+        !await mpConfirmDelete(kind==='note'?tx('नोट हटाएँ','Delete note'):tx('इवेंट हटाएँ','Delete event'),
+          fields(kind,'Title').value,tx('इसे वापस नहीं लाया जा सकता।','This deletion cannot be undone.'))) return;
+    if (editor!==editors[kind] || user!==uid()) return;
     editor.writing = true;
     try {
       await fbRemove(remotePath(kind,id));
@@ -906,6 +1190,7 @@
     for (const timer of reminders.values()) clearTimeout(timer);
     reminders.clear();
     statusText.clear();
+    textHistories.clear();drawingHistories.clear();dismissTextTools();focusedDiaryText=null;
     setWorkspace(false);
     if (!el('tab-diary')) return cleared;
     for (const kind of ['note','event']) {
@@ -941,7 +1226,7 @@
       for (const kind of ['note','event']) {
         for (const name of configs[kind].fields) {
           const field = fields(kind,name);
-          field.oninput = field.onchange = () => recordEditor(kind);
+          if (field.id!=='wnBody') field.oninput = field.onchange = () => recordEditor(kind);
         }
       }
       el('wnBody').onpaste = pasteText;
@@ -999,8 +1284,9 @@
     wnFormat:command => {
       el('wnBody').focus();
       document.execCommand(command, false);
-      recordEditor('note');
+      el('wnBody')._wdRecord?.();
     },
+    wdTextUndo:(notes,redo)=>(notes?el('wnBody'):focusedDiaryText)?._wdUndo?.(redo),
     wcOpenEditor:() => openEditor('event'), wcCloseEditor:() => closeEditor('event'),
     wcSave:() => saveEditor('event'), wcDelete:() => deleteEditor('event'), wcRequestNotifPermission:allowNotifications
   });

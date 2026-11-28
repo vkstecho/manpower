@@ -239,22 +239,57 @@ function _showSaveError(message) {
 }
 
 const _shiftRequests = new Map();
-async function _submitShiftSave(updates,meta,signature=JSON.stringify([updates,meta])) {
-  const uid = SESSION.authUid;
-  const key = uid+'|'+signature;
-  const checkReceipt = _shiftRequests.has(key);
-  if (!checkReceipt) {
-    _shiftRequests.set(key,{updates,meta,requestId:crypto.randomUUID(),notificationLanguage:L('hi','en')});
-  }
-  const request = _shiftRequests.get(key);
+const _shiftRetryLedger = 'mp_shift_retry_ids_r21';
+function _shiftRetryIds() {
   try {
-    const result = await window._fbCall('saveShiftBatch',checkReceipt ? {...request,checkReceipt:true} : request);
-    if (!result?.ok) throw new Error(L('सहेजने की पुष्टि नहीं हुई।','Save was not confirmed.'));
+    const entries=JSON.parse(localStorage.getItem(_shiftRetryLedger) || '{}');
+    return Object.fromEntries(Object.entries(entries).filter(([,value])=>value?.until>Date.now() &&
+      /^[0-9a-f-]{36}$/.test(value.requestId) && ['en','hi'].includes(value.notificationLanguage)).slice(-24));
+  } catch (_) { return {}; }
+}
+function _rememberShiftRetry(digest,request) {
+  try {
+    const entries=_shiftRetryIds();
+    if (request) entries[digest]={requestId:request.requestId,notificationLanguage:request.notificationLanguage,
+      until:Date.now()+24*60*60*1000};
+    else delete entries[digest];
+    localStorage.setItem(_shiftRetryLedger,JSON.stringify(entries));
+  } catch (_) {}
+}
+function _canonicalShiftPayload(value) {
+  if (Array.isArray(value)) return value.map(_canonicalShiftPayload);
+  if (value && typeof value==='object') return Object.fromEntries(Object.keys(value).sort()
+    .map(key=>[key,_canonicalShiftPayload(value[key])]));
+  return value;
+}
+async function _submitShiftSave(updates,meta) {
+  const uid=SESSION.authUid;
+  const data=_canonicalShiftPayload({updates,meta});
+  const key=uid+'|'+JSON.stringify(data);
+  let digest;
+  if(crypto.subtle) {
+    const encoded=new TextEncoder().encode(key);
+    digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',encoded)),byte=>
+      byte.toString(16).padStart(2,'0')).join('');
+  }
+  if (uid!==SESSION.authUid || uid!==window._fbAuth?.currentUser?.uid) throw Error('Verified account changed');
+  const prior=_shiftRequests.get(key) || (digest && _shiftRetryIds()[digest]);
+  const request={...data,requestId:prior?.requestId || crypto.randomUUID(),
+    notificationLanguage:prior?.notificationLanguage || L('hi','en')};
+  _shiftRequests.set(key,request);
+  if(digest) _rememberShiftRetry(digest,request);
+  const clear=()=>{
     _shiftRequests.delete(key);
+    if(digest) _rememberShiftRetry(digest,null);
+  };
+  try {
+    const result=await window._fbCall('saveShiftBatch',prior ? {...request,checkReceipt:true} : request);
+    if (!result?.ok) throw new Error(L('सहेजने की पुष्टि नहीं हुई।','Save was not confirmed.'));
+    clear();
     return {requestId:result.requestId || request.requestId,previouslyCommitted:result.previouslyCommitted === true};
   } catch (error) {
     if (error.details?.commit === 'none' || ['functions/permission-denied','functions/failed-precondition',
-        'functions/invalid-argument','functions/unauthenticated'].includes(error.code)) _shiftRequests.delete(key);
+        'functions/invalid-argument','functions/unauthenticated'].includes(error.code)) clear();
     throw error;
   }
 }
@@ -478,22 +513,11 @@ async function saveAllShiftChanges(opts = {}) {
       if(!e.empId || String(e.empId)==='undefined' || String(e.empId)==='null') throw new Error('Invalid employee identity. Refresh and retry; no shifts were saved.');
       updates[e.empId+'_'+e.date] = e.newShift;
       if(e.coMeta && typeof e.coMeta==='object'){
-        metaUpdates[e.empId+'_'+e.date] = Object.assign({
-          shift: e.newShift,
-          empId: e.empId,
-          date: e.date,
-          updatedAt: new Date().toISOString(),
-          updatedBy: (SESSION&&SESSION.name)||''
-        }, e.coMeta);
+        metaUpdates[e.empId+'_'+e.date] = {...e.coMeta};
       } else if(typeof isHalfDayShift==='function' && isHalfDayShift(e.newShift)){
         metaUpdates[e.empId+'_'+e.date] = {
           type:'HLF',
-          halfOf: (typeof parseHlfHalfOf==='function'?parseHlfHalfOf(e.newShift):''),
-          shift: e.newShift,
-          empId: e.empId,
-          date: e.date,
-          updatedAt: new Date().toISOString(),
-          updatedBy: (SESSION&&SESSION.name)||''
+          halfOf:(typeof parseHlfHalfOf==='function'?parseHlfHalfOf(e.newShift):'')
         };
       }
     }
@@ -506,17 +530,18 @@ async function saveAllShiftChanges(opts = {}) {
       return;
     }
 
-    const {requestId,previouslyCommitted} = await _submitShiftSave(updates,metaUpdates,JSON.stringify(entries.map(({empId,date,newShift,coMeta})=>[empId,date,newShift,coMeta])));
+    const {requestId,previouslyCommitted} = await _submitShiftSave(updates,metaUpdates);
     if (SESSION.authUid !== uid || window._fbAuth?.currentUser?.uid !== uid) return;
     document.getElementById('saveBarPermErr')?.remove();
 
     // Half-day / detail meta (history for single-click info)
     try{
-      if(!previouslyCommitted && Object.keys(metaUpdates).length){
-        // Metadata committed with overrides by saveShiftBatch.
-        if(!_cache) window._cache = _cache = {};
-        if(!_cache.shiftCellMeta) _cache.shiftCellMeta = {};
-        Object.keys(metaUpdates).forEach(function(k){ _cache.shiftCellMeta[k] = metaUpdates[k]; });
+      if(!previouslyCommitted){
+        _cache.shiftCellMeta ||= {};
+        for(const [key,value] of Object.entries(updates)){
+          if(metaUpdates[key]) _cache.shiftCellMeta[key]=metaUpdates[key];
+          else if(value!==_cache.overrides?.[key]) delete _cache.shiftCellMeta[key];
+        }
       }
     }catch(metaErr){ console.warn('[shiftCellMeta]', metaErr); }
 
@@ -1888,7 +1913,7 @@ function stageSingleShiftChange(empId, empName, date, currentShift, newShift, co
   const fromMyShift = (typeof _currentTab!=='undefined' && _currentTab==='myshift');
   const canEdit = (typeof canEditSchedule==='function') && canEditSchedule();
 
-  if(newShift === currentShift){
+  if(newShift === currentShift && !coMeta?.timeOnly && !coMeta?._timeOnly){
     delete _pendingShiftChanges[key];
     const cellEl = document.querySelector(`[data-pending="${key}"]`);
     if(cellEl){
@@ -2185,16 +2210,6 @@ function _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coM
         if(!segs.length && typeof MPWorkHours!=='undefined' && MPWorkHours.legendHoursForCode){
           hours = MPWorkHours.legendHoursForCode(newShift);
         }
-        var payload = { segments: segs, hours: hours };
-        try{
-          // Always write local first (sync) so grid can read hours immediately
-          if(MPWorkHours && MPWorkHours.setDayMetaLocal) MPWorkHours.setDayMetaLocal(empId, date, payload);
-          if(typeof mpPersistDayMeta==='function'){
-            Promise.resolve(mpPersistDayMeta(empId, date, payload)).catch(function(err){
-              console.warn('[time persist]', err);
-            });
-          }
-        }catch(e){ console.warn('[time local]', e); }
         var meta2 = Object.assign({}, coMeta||{}, { _timeDone: true, segments: segs, hours: hours });
         window._mpSkipTimeLegend = true;
         try{
@@ -2215,11 +2230,7 @@ function _mpOpenTimeLegendStep(empId, empName, date, currentShift, newShift, coM
               try{ if(typeof renderSchedule==='function') renderSchedule(); }catch(x){}
               try{ if(typeof renderMyShift==='function') renderMyShift(); }catch(x){}
             }
-            try{
-              toast(matchedCode
-                ? ((typeof L==='function'?L('✅ समय = शिफ्ट ','✅ Time matches shift '):'✅ Time matches shift ')+matchedCode+' ('+hours+' HR)')
-                : ((typeof L==='function'?L('✅ कार्य समय सेव: ','✅ Work time saved: '):'✅ Work time saved: ')+hours+'H'));
-            }catch(e){}
+
           } else {
             stageSingleShiftChange(empId, empName, date, currentShift, newShift, meta2);
           }

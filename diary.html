@@ -6,11 +6,7 @@
       <button type="button" class="wd-mode-btn" data-wd-mode="notes" data-wd-hi="नोट्स" aria-pressed="false" aria-controls="wdNotesPanel" onclick="wdSetMode('notes')">Notes</button>
       <button type="button" class="wd-mode-btn" data-wd-mode="calendar" data-wd-hi="कैलेंडर" aria-pressed="false" aria-controls="wdCalPanel" onclick="wdSetMode('calendar')">Calendar</button>
     </div>
-  </header>
-
-  <div class="wd-scroll" id="wdScroll">
-    <div id="wdDiaryPanel" class="wd-panel">
-      <div class="wd-toolbar wd-diary-tools wd-screen-only">
+      <div class="wd-toolbar wd-diary-tools wd-screen-only" data-enter-scope>
         <div class="wd-date-tools">
           <button type="button" id="wdPrevDay" onclick="wdShiftDate(-1)" title="Previous day" aria-label="Previous day" data-wd-hi-label="पिछला दिन"><span aria-hidden="true">‹</span></button>
           <input type="date" id="wdDate" onchange="wdOnDateChange()" aria-label="Diary date" data-wd-hi-label="डायरी की तारीख">
@@ -18,12 +14,14 @@
           <button type="button" onclick="wdNewToday()" data-wd-hi="आज">Today</button>
         </div>
         <div class="wd-actions">
-          <button type="button" id="wdSaveBtn" class="wd-primary" onclick="wdSave()" data-wd-hi="डायरी सहेजें">Save diary</button>
-          <button type="button" onclick="wdPrint()" data-wd-hi="प्रिंट">Print</button>
+          <button type="button" id="wdUndo" onclick="wdTextUndo(false,false)" title="Undo text" aria-label="Undo text" data-wd-hi-label="लेखन वापस लें" disabled>↶</button>
+          <button type="button" id="wdRedo" onclick="wdTextUndo(false,true)" title="Redo text" aria-label="Redo text" data-wd-hi-label="लेखन फिर करें" disabled>↷</button>
+          <button type="button" id="wdSaveBtn" data-enter-action class="wd-primary" onclick="wdSave()" title="Save diary" aria-label="Save diary" data-wd-hi-label="डायरी सहेजें" data-wd-hi="सहेजें">Save</button>
+          <button type="button" onclick="wdPrint()" title="Print" aria-label="Print" data-wd-hi-label="प्रिंट">⎙</button>
           <button type="button" id="wdSearchToggle" aria-expanded="false" aria-controls="wdSearchForm"
             aria-label="Search diaries" title="Search diaries" data-wd-hi-label="डायरी खोजें" onclick="wdToggleSearch()"><span aria-hidden="true">⌕</span></button>
           <details class="wd-export">
-            <summary data-wd-hi="Word डाउनलोड">Export Word</summary>
+            <summary title="Export Word" aria-label="Export Word" data-wd-hi-label="Word डाउनलोड">Word</summary>
             <div class="wd-export-panel">
               <button type="button" onclick="wdDownloadWord('day')" data-wd-hi="इस दिन का Word">Download this day</button>
               <div class="wd-fields">
@@ -35,6 +33,11 @@
           </details>
         </div>
       </div>
+  </header>
+
+  <div class="wd-scroll" id="wdScroll">
+    <div id="wdDiaryPanel" class="wd-panel">
+
 
       <form id="wdSearchForm" class="wd-search wd-screen-only" hidden onsubmit="event.preventDefault();wdRunSearch()">
         <input type="search" id="wdSearchInput" placeholder="Search your diaries…" aria-label="Search your diaries" data-wd-hi-placeholder="अपनी डायरी खोजें…" data-wd-hi-label="अपनी डायरी खोजें">
@@ -70,11 +73,13 @@
           <label for="wnTitle" class="wn-title-field"><span data-wd-hi="शीर्षक">Title</span><input type="text" id="wnTitle"></label>
         </div>
         <div class="wd-actions wn-format-tools">
+          <button type="button" id="wnUndo" onclick="wdTextUndo(true,false)" title="Undo text" aria-label="Undo text" data-wd-hi-label="लेखन वापस लें" disabled>↶</button>
+          <button type="button" id="wnRedo" onclick="wdTextUndo(true,true)" title="Redo text" aria-label="Redo text" data-wd-hi-label="लेखन फिर करें" disabled>↷</button>
           <button type="button" data-wd-hi="बोल्ड" onpointerdown="event.preventDefault()" onclick="wnFormat('bold')">Bold</button>
           <button type="button" data-wd-hi="इटैलिक" onpointerdown="event.preventDefault()" onclick="wnFormat('italic')">Italic</button>
           <button type="button" data-wd-hi="सूची" onpointerdown="event.preventDefault()" onclick="wnFormat('insertUnorderedList')">List</button>
           <details class="wn-options">
-            <summary data-wd-hi="रंग और पिन">Colour and pin</summary>
+            <summary aria-label="Colour and pin" title="Colour and pin" data-wd-hi-label="रंग और पिन" data-wd-hi="रंग">Colour</summary>
             <div class="wd-note-options">
               <div id="wnColorRow" class="wd-swatch-row"></div>
               <label class="wd-check"><input type="checkbox" id="wnPinned"><span data-wd-hi="पिन करें">Pin</span></label>
@@ -83,7 +88,7 @@
         </div>
         <div id="wnBody" class="wd-note-body" role="textbox" aria-multiline="true" aria-label="Note" data-wd-hi-label="नोट" contenteditable="true" spellcheck="true"></div>
         <div class="wd-actions wn-editor-footer">
-          <button type="button" class="wd-primary" onclick="wnSave()" data-wd-hi="सहेजें">Save</button>
+          <button type="button" class="wd-primary" data-enter-action onclick="wnSave()" data-wd-hi="सहेजें">Save</button>
           <button type="button" onclick="wnCloseEditor()" data-wd-hi="बंद करें">Close</button>
           <button type="button" id="wnDeleteBtn" class="wd-delete" onclick="wnDelete()" data-wd-hi="हटाएँ" hidden>Delete</button>
           <span id="wnStatus" role="status"></span>
@@ -115,7 +120,7 @@
           </select>
         </label>
         <div class="wd-actions">
-          <button type="button" class="wd-primary" onclick="wcSave()" data-wd-hi="सहेजें">Save</button>
+          <button type="button" class="wd-primary" data-enter-action onclick="wcSave()" data-wd-hi="सहेजें">Save</button>
           <button type="button" onclick="wcCloseEditor()" data-wd-hi="बंद करें">Close</button>
           <button type="button" id="wcDeleteBtn" class="wd-delete" onclick="wcDelete()" data-wd-hi="हटाएँ" hidden>Delete</button>
         </div>

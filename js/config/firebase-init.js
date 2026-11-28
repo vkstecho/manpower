@@ -1,6 +1,6 @@
 
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, connectDatabaseEmulator, ref, set, get, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, connectDatabaseEmulator, ref, set, get, onValue, push, update, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   import { getAuth, connectAuthEmulator, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, signInWithPhoneNumber, RecaptchaVerifier } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
   import { getFunctions, connectFunctionsEmulator, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-functions.js";
 
@@ -28,10 +28,11 @@
     const auth = getAuth(app);
     const functions = getFunctions(app,'us-central1');
     const regionalNames = new Set(['saveShiftBatch','readRosterData','writeEmployee',
-      'getMyCommercialEntitlement','getMyRosterIdentity']);
+      'getMyCommercialEntitlement','getMyRosterIdentity','getMyOwnedProfiles','getScheduleMonthMeta']);
     const regions = new Map([['us-central1',functions]]);
     const callableRegion = name => regionalNames.has(name) &&
-      window.MP_CALLABLE_REGIONS?.[name] === 'asia-southeast1' ? 'asia-southeast1' : 'us-central1';
+      (window.MP_CALLABLE_REGIONS?.[name]==='asia-southeast1' ||
+       (window.MP_CALLABLE_REGIONS?.[name]!=='us-central1' && window.MP_CALLABLE_REGIONS?.default==='asia-southeast1')) ? 'asia-southeast1' : 'us-central1';
     function functionsFor(region) {
       if (!regions.has(region)) {
         const client=getFunctions(app,region);
@@ -182,7 +183,23 @@
     };
 
     // ── SECURITY: Keep Firebase refs in a closure, NOT on window ──
-    const _fbStore = { db, ref, set, get, onValue, push, update, remove };
+    const _fbStore = { db, ref, set, get, onValue, push, update, remove, runTransaction };
+    window._fbSaveOwnedDiary=async (branch,uid,key,expected,value)=>{
+      await authReady;
+      if (!['workDiary','workNotes'].includes(branch) || uid!==verifiedUser()?.uid ||
+          !/^[A-Za-z0-9_-]{1,80}$/.test(key)) throw Error('Verified document owner required');
+      const target=ref(db,branch+'/'+uid+'/'+key);
+      let unsubscribe=()=>{};
+      try {
+        await new Promise((resolve,reject)=>{unsubscribe=onValue(target,resolve,reject);});
+        const result=await runTransaction(target,current=>{
+          if(uid!==verifiedUser()?.uid || (current?.updatedAt || '')!==expected) return;
+          return value;
+        },{applyLocally:false});
+        return result.committed && uid===verifiedUser()?.uid;
+      } finally {unsubscribe();}
+    };
+
     window._fbAccess = async function(op, path, val){
       await authReady;
       const parts = path.split('/').filter(Boolean);

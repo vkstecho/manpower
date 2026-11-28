@@ -691,34 +691,43 @@ function renderAll(){
 
 // ── Reusable confirm modal (replaces native confirm() dialogs) ──
 // Usage: confirmModal('Title', 'Message', 'Yes btn label', 'No btn label') → Promise<boolean>
-function confirmModal(title, message, yesLabel='✅ हाँ', noLabel='रद्द करें', yesClass='submit-btn'){
-  // Auto-translate all visible text via t() helper
-  const _t = (typeof t === 'function') ? t : (s=>s);
-  // Default labels also need translation
-  const _yesLabel = (typeof L==='function'?L(yesLabel,'✅ Yes'):_t(yesLabel));
-  const _noLabel  = (typeof L==='function'?L(noLabel,'Cancel'):_t(noLabel));
-  const _title    = _t(title);
-  const _message  = _t(message);
-  // Trusted internal messages may include simple HTML (<b>, <br>, style=). Detect and render safely.
-  const _msgHasHtml = /<[a-z][\s\S]*>/i.test(String(_message||''));
-  const _msgHtml = _msgHasHtml ? String(_message) : escHtml(_message);
+function confirmModal(title, message, yesLabel, noLabel, yesClass='submit-btn'){
+  if (document.querySelector('[data-mp-confirm]')) return Promise.resolve(false);
+  const overlay=document.createElement('div');
+  overlay.className='mp-confirm-overlay';
+  overlay.dataset.mpConfirm='';
+  overlay.innerHTML=`<div class="mp-confirm-card" role="alertdialog" aria-modal="true" aria-labelledby="mpConfirmTitle" aria-describedby="mpConfirmText">
+    <h2 id="mpConfirmTitle"></h2><div id="mpConfirmText"></div>
+    <div class="mp-confirm-actions">
+      <button type="button" class="cancel-btn" data-confirm-cancel></button>
+      <button type="button" class="submit-btn" data-destructive></button>
+    </div></div>`;
+  const translate=typeof t==='function'?t:value=>value;
+  overlay.querySelector('h2').textContent=translate(title);
+  const contents=overlay.querySelector('#mpConfirmText');
+  // HTML in older callers is limited to line-break formatting. Render as text.
+  contents.textContent=String(translate(message) || '').replace(/<br\s*\/?\s*>/gi,'\n').replace(/<\/?(?:b|strong|em)>/gi,'');
+  const cancel=overlay.querySelector('[data-confirm-cancel]');
+  const approve=overlay.querySelector('[data-destructive]');
+  cancel.textContent=noLabel ? translate(noLabel) : L('रद्द करें','Cancel');
+  approve.textContent=yesLabel ? translate(yesLabel) : L('हाँ','Yes');
+  if (/reject|delete|remove|हटाएँ|मिटाएँ|🗑/i.test(yesClass+' '+approve.textContent)) approve.classList.add('mp-danger-button');
+  const previous=document.activeElement;
+  document.body.append(overlay);
+  cancel.focus();
   return new Promise(resolve=>{
-    const overlay = document.createElement('div');
-    overlay.style.cssText='position:fixed;inset:0;z-index:99998;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)';
-    overlay.innerHTML=`
-      <div style="background:var(--bg2);border-radius:20px 20px 0 0;padding:24px 20px 40px;width:100%;max-width:480px;border-top:1px solid var(--border2);animation:slideUp .25s cubic-bezier(.32,0,.15,1)">
-        <div style="width:32px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px"></div>
-        <div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;text-align:center">${escHtml(_title)}</div>
-        <div style="font-size:14px;color:var(--muted2);line-height:1.7;text-align:center;margin-bottom:22px">${_msgHtml}</div>
-        <button id="_cmYes" style="width:100%;padding:16px;border-radius:12px;border:none;background:linear-gradient(135deg,var(--m1),#c2410c);color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;margin-bottom:10px;box-shadow:0 4px 20px rgba(249,115,22,.3)">${escHtml(_yesLabel)}</button>
-        <button id="_cmNo"  style="width:100%;padding:14px;border-radius:12px;border:1px solid var(--border2);background:var(--card);color:var(--text);font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">${escHtml(_noLabel)}</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    const cleanup = val=>{ document.body.removeChild(overlay); resolve(val); };
-    overlay.querySelector('#_cmYes').addEventListener('click',()=>cleanup(true));
-    overlay.querySelector('#_cmNo').addEventListener('click', ()=>cleanup(false));
-    overlay.addEventListener('click', e=>{ if(e.target===overlay) cleanup(false); });
+    const finish=result=>{overlay.remove();previous?.focus?.();resolve(result);};
+    cancel.onclick=()=>finish(false);
+    approve.onclick=()=>finish(true);
+    overlay.onclick=event=>{if(event.target===overlay) finish(false);};
+    overlay.onkeydown=event=>{
+      if(event.key==='Escape') {event.preventDefault();finish(false);}
+      if(event.key==='Tab'){event.preventDefault();(document.activeElement===cancel?approve:cancel).focus();}
+    };
   });
+}
+function mpConfirmDelete(title,record,explanation, buttonText=L('हटाएँ','Delete')){
+  return confirmModal(title,[record,explanation].filter(Boolean).join('\n\n'),buttonText,L('रद्द करें','Cancel'),'reject');
 }
 
 // ── Debounced refreshAll: prevents 5 Firebase listeners firing 5 rerenders ──

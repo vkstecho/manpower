@@ -147,99 +147,65 @@
   }
 
   function getDayMeta(empId, dateStr) {
-    var mk = monthKeyFromDate(dateStr);
-    var di = dayIdxFromDate(dateStr);
-    if (!mk || di < 0) return null;
-    var emp = empById(empId);
-    var phone = empPhone(emp);
-    var store = metaCache();
-    var month = store[mk] || {};
-    // Prefer phone key, fall back to empId
-    var byPhone = phone && month['p:' + phone] ? month['p:' + phone] : null;
-    var byId = month[empId] || month[String(empId)] || null;
-    var row = byPhone || byId;
-    if (!row) return null;
-    var day = row[di] || row[String(di)] || null;
-    return day || null;
+    var mk=monthKeyFromDate(dateStr);
+    var di=dayIdxFromDate(dateStr);
+    if(!mk || di<0) return null;
+    var committed=global._cache?.shiftCellMeta?.[empId+'_'+dateStr];
+    if (committed?.segments || typeof committed?.hours==='number') return committed;
+    return metaCache()[mk]?.[empId]?.[di] || null;
   }
 
   function setDayMetaLocal(empId, dateStr, meta) {
-    var mk = monthKeyFromDate(dateStr);
-    var di = dayIdxFromDate(dateStr);
-    if (!mk || di < 0) return;
-    var emp = empById(empId);
-    var phone = empPhone(emp);
-    var store = metaCache();
-    if (!store[mk]) store[mk] = {};
-    var node = Object.assign({}, meta || {});
-    if (Array.isArray(node.segments) && node.segments.length && (node.hours == null || isNaN(node.hours))) {
-      node.hours = segmentsHours(node.segments);
-    }
-    var keys = [];
-    if (phone) keys.push('p:' + phone);
-    if (empId) keys.push(String(empId));
-    // also raw emp.empId code if different from firebase id
-    try {
-      if (emp && emp.empId) keys.push(String(emp.empId));
-      if (emp && emp.id) keys.push(String(emp.id));
-    } catch (e) {}
-    keys = keys.filter(function (k, i, a) { return k && a.indexOf(k) === i; });
-    keys.forEach(function (k) {
-      if (!store[mk][k]) store[mk][k] = {};
-      store[mk][k][di] = node;
+    const mk=monthKeyFromDate(dateStr), di=dayIdxFromDate(dateStr);
+    if (!mk || di<0) return;
+    const store=metaCache();
+    store[mk] ||= {};
+    store[mk][empId] ||= {};
+    store[mk][empId][di]=meta;
+  }
+
+  const monthLoads=new Map();
+  let monthGeneration=0;
+  async function loadMonthMeta(mk,visibleIds) {
+    if (!mk || typeof global._fbCall!=='function') return;
+    const uid=global._fbAuth?.currentUser?.uid;
+    if (!uid) return;
+    const own=SESSION.empObjId;
+    const generation=monthGeneration;
+    const ids=[...new Set([own,...(visibleIds || (typeof getEmps==='function'?getEmps():[]).map(row=>row.id))].filter(Boolean))].sort();
+    if (!ids.length) return;
+    const key=JSON.stringify([uid,mk,ids]);
+    const active=monthLoads.get(key);
+    if (active && Date.now()-active.started<45_000) return active.promise;
+    const promise=(async()=>{
+      const values={};
+      for (let i=0;i<ids.length;i+=48) {
+        const batches=[ids.slice(i,i+24),ids.slice(i+24,i+48)].filter(batch=>batch.length);
+        const replies=await Promise.all(batches.map(employeeIds=>global._fbCall('getScheduleMonthMeta',{month:mk,employeeIds})));
+        for (const reply of replies) Object.assign(values,reply?.rows);
+      }
+      if(generation===monthGeneration && uid===global._fbAuth?.currentUser?.uid && uid===SESSION.authUid) {
+        const store=metaCache();
+        store[mk] ||= {};
+        ids.forEach(id=>delete store[mk][id]);
+        Object.assign(store[mk],values);
+      }
+    })().catch(error=>{
+      monthLoads.delete(key);
+      if (uid===SESSION.authUid && typeof toast==='function' && String(error?.code)!=='functions/unauthenticated')
+        toast(_L('पुराने कार्य-घंटे लोड नहीं हुए।','Historical work hours could not be loaded.'));
     });
+    monthLoads.set(key,{started:Date.now(),promise});
+    for (const [name,cached] of monthLoads) if(Date.now()-cached.started>45_000) monthLoads.delete(name);
+    return promise;
   }
-
-  async function persistDayMeta(empId, dateStr, meta) {
-    setDayMetaLocal(empId, dateStr, meta);
-    var mk = monthKeyFromDate(dateStr);
-    var di = dayIdxFromDate(dateStr);
-    var emp = empById(empId);
-    var phone = empPhone(emp);
-    if (!mk || di < 0) return;
-    try {
-      if (typeof fbUpdate !== 'function') return;
-      var payload = {};
-      var node = Object.assign({}, meta || {}, {
-        updatedAt: new Date().toISOString(),
-        empId: empId,
-        phone: phone || '',
-        empCode: emp ? String(emp.empId || emp.empCode || '') : '',
-        company: emp ? String(emp.company || emp.companyName || emp.companyId || '') : ''
-      });
-      if (phone) payload[META_PATH + '/' + mk + '/p:' + phone + '/' + di] = node;
-      payload[META_PATH + '/' + mk + '/' + empId + '/' + di] = node;
-      // fbUpdate may not support multi-path; write sequentially
-      if (phone) {
-        await fbUpdate(META_PATH + '/' + mk + '/p:' + phone, (function () {
-          var o = {};
-          o[di] = node;
-          return o;
-        })());
-      }
-      await fbUpdate(META_PATH + '/' + mk + '/' + empId, (function () {
-        var o = {};
-        o[di] = node;
-        return o;
-      })());
-    } catch (e) {
-      console.warn('[scheduleMeta persist]', e);
-    }
+  function clearMonthMeta() {
+    monthGeneration++;
+    monthLoads.clear();
+    if(global._cache) delete global._cache.scheduleMeta;
   }
-
-  async function loadMonthMeta(mk) {
-    if (!mk) return;
-    try {
-      if (typeof fbGet !== 'function') return;
-      var snap = await fbGet(META_PATH + '/' + mk);
-      if (snap && typeof snap === 'object') {
-        var store = metaCache();
-        store[mk] = Object.assign({}, store[mk] || {}, snap);
-      }
-    } catch (e) {
-      console.warn('[scheduleMeta load]', e);
-    }
-  }
+  document.addEventListener('mp-firebase-auth',clearMonthMeta);
+  document.addEventListener('mp-firebase-revoked',clearMonthMeta);
 
   function computeDayHours(empId, dateStr, shiftCode) {
     var meta = getDayMeta(empId, dateStr);
@@ -570,7 +536,6 @@
     isTimeLegendEnabled: isTimeLegendEnabled,
     getDayMeta: getDayMeta,
     setDayMetaLocal: setDayMetaLocal,
-    persistDayMeta: persistDayMeta,
     loadMonthMeta: loadMonthMeta,
     computeDayHours: computeDayHours,
     isTimeOnlyShiftCode: isTimeOnlyShiftCode,
@@ -630,7 +595,7 @@
   global.mpIsTimeLegendEnabled = isTimeLegendEnabled;
   global.mpDetailHoursHtml = detailHoursHtml;
   global.mpIsTimeOnlyShiftCode = isTimeOnlyShiftCode;
-  global.mpPersistDayMeta = persistDayMeta;
+
   global.mpLoadMonthMeta = loadMonthMeta;
   global.mpBindTimeSegmentsUi = bindTimeSegmentsUi;
   global.mpReadTimeSegmentsFromDom = readTimeSegmentsFromDom;
@@ -674,7 +639,7 @@
     try {
       if (Array.isArray(emp.companyHistory) && emp.companyHistory.length) {
         emp.companyHistory.forEach(function (h, i) {
-          if (!h) return;
+          if (!h || h.displayHidden===true) return;
           var co = h.company || h.companyName || h.companyId || '';
           var code = h.empCode || h.empId || h.code || '';
           if (hidden[keyOf(co, code)]) return;
@@ -729,7 +694,7 @@
       var found = {};
       Object.keys(meta || {}).forEach(function (mk) {
         var month = meta[mk] || {};
-        var row = (phone && month['p:' + phone]) || month[emp.id] || month[String(emp.empId || '')] || null;
+        var row = month[emp.id] || null;
         if (!row || typeof row !== 'object') return;
         Object.keys(row).forEach(function (di) {
           var node = row[di];
@@ -827,10 +792,11 @@
     if (rows && rows.length) {
       body = rows
         .map(function (h, idx) {
-          var co = h.company ? String(h.company) : '—';
-          var code = h.empCode ? String(h.empCode) : '—';
-          var from = h.from || '—';
-          var to = h.to || _L('अब तक', 'Present');
+          var entry = h._source==='history' && emp.companyHistory?.[h._histIndex];
+          var co = String(entry?.displayCompany || h.company || '—');
+          var code = String(entry?.displayEmpCode || h.empCode || '—');
+          var from = entry?.displayFrom || h.from || '—';
+          var to = entry?.displayTo || h.to || _L('अब तक','Present');
           return (
             '<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:6px 12px;padding:10px 12px;border-radius:10px;background:var(--card);border:1px solid var(--border);margin-bottom:8px;align-items:center">' +
             '<div><div style="font-size:11px;color:var(--muted2)">🏢 Company</div><div style="font-size:13px;font-weight:800;color:var(--text)">' +
@@ -841,16 +807,14 @@
             '</div></div>' +
             (function(){
               var src = h._source || 'history';
-              var coEsc = String(co).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
-              var codeEsc = String(code).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
-              var fromEsc = String(from === '—' ? '' : from).replace(/\\/g,'\\\\').replace(/'/g, "\\'");
-              if (src === 'live') {
-                return '<span title="Current team — change Emp Code in form below" style="padding:6px 8px;font-size:11px;color:var(--muted2)">•</span>';
-              }
-              return '<button type="button" title="Remove" onclick="mpRemoveCareerEntry(\'' +
-                String(eid).replace(/'/g, '') +
-                '\',\'' + coEsc + '\',\'' + codeEsc + '\',\'' + fromEsc + '\',\'' + src + '\')" '
-                + 'style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);cursor:pointer;color:#f87171">✕</button>';
+              if (src==='live') return '<span title="'+esc(_L('वर्तमान टीम','Current team'))+'">•</span>';
+              var edit = entry ? '<button type="button" data-eid="'+esc(eid)+'" data-index="'+Number(h._histIndex)+
+                '" onclick="mpEditCareerEntry(this.dataset.eid,Number(this.dataset.index))">'+_L('संपादित करें','Edit')+'</button>' : '';
+              const remove=entry ? 'mpHideCareerEntry(this.dataset.eid,Number(this.dataset.index),this)' :
+                'mpRemoveCareerEntry(this.dataset.eid,this.dataset.company,this.dataset.code,this.dataset.from,this.dataset.source)';
+              return '<div class="mp-history-actions">'+edit+'<button type="button" data-destructive class="mp-danger-text" data-eid="'+esc(eid)+
+                '" data-index="'+Number(h._histIndex)+'" data-company="'+esc(h.company)+'" data-code="'+esc(h.empCode)+'" data-from="'+esc(h.from)+
+                '" data-source="'+esc(src)+'" onclick="'+remove+'">'+_L('हटाएँ','Remove')+'</button></div>';
             })() +
             '<div style="grid-column:1/-1;font-size:12px;color:var(--muted2)">📅 ' +
             esc(from) +
@@ -1072,6 +1036,67 @@
    * Remove a career row. New signature: (empId, company, empCode, from, source)
    * Back-compat: (empId, idx) still works.
    */
+  function mpEditCareerEntry(id,index) {
+    const empirical=_mpFindEmpById(id);
+    const row=empirical?.companyHistory?.[index];
+    if (!row) return;
+    const fields=[
+      ['company',_L('कंपनी','Company'),row.displayCompany || row.company || row.companyName || '', 'text'],
+      ['empCode',_L('कर्मचारी कोड','Employee code'),row.displayEmpCode || row.empCode || row.empId || '', 'text'],
+      ['from',_L('से','From'),row.displayFrom || row.from || row.start || '', 'date'],
+      ['to',_L('तक','To'),row.displayTo || row.to || row.end || '', 'date']
+    ];
+    const reopen=()=>typeof openEditEmpForm==='function' && (isAdmin() || isMgr()) ? openEditEmpForm(id) : showProfile();
+    openModal('<div class="modal-handle"></div><div class="modal-title">'+_L('पुरानी कंपनी संपादित करें','Edit past company')+'</div>'+
+      fields.map(([key,label,value,type])=>'<div class="field"><label for="career_edit_'+key+'">'+esc(label)+'</label><input required id="career_edit_'+key+
+        '" class="inp-field" type="'+type+'" value="'+esc(value)+'"></div>').join('')+
+      '<p id="career_edit_error" role="status"></p><button type="button" id="career_edit_save" class="submit-btn" data-enter-action>'+
+      _L('बदलाव सहेजें','Save changes')+'</button><button type="button" id="career_edit_cancel" class="cancel-btn">'+_L('रद्द करें','Cancel')+'</button>');
+    document.getElementById('career_edit_cancel').onclick=reopen;
+    const button=document.getElementById('career_edit_save');
+    button.onclick=async()=>{
+      if(button.disabled) return;
+      const inputs=fields.map(([key])=>[key,document.getElementById('career_edit_'+key)]);
+      if (inputs.some(([,node])=>!node.reportValidity())) return;
+      const change=Object.fromEntries(inputs.map(([key,node])=>[key,node.value.trim()]));
+      const uid=SESSION.authUid;
+      button.disabled=true;
+      try {
+        const result=await global._fbCall('writeEmployee',{career:{id,index,expected:row,change}});
+        if (uid!==SESSION.authUid || uid!==global._fbAuth?.currentUser?.uid) return;
+        if(!result?.ok) throw Error('Could not confirm history');
+        _mpPatchEmpCache(id,{companyHistory:result.history});
+        if(button.isConnected) reopen();
+      } catch (error) {
+        if (!button.isConnected) return;
+        const text=String(error.message);
+        document.getElementById('career_edit_error').textContent=/overlap/i.test(text) ?
+          _L('रोज़गार की तारीखें एक-दूसरे से मिलती हैं।','Employment dates overlap.') : /joining/i.test(text) ?
+          _L('पुरानी अवधि टीम की जॉइनिंग से पहले समाप्त होनी चाहिए।','The past period must end before the team joining date.') :
+          _L('बदलाव सहेजे नहीं गए। तारीखें जाँचें और रिकॉर्ड दोबारा खोलें।','Changes were not saved. Check dates and reopen the record.');
+      } finally { button.disabled=false; }
+    };
+  }
+  async function mpHideCareerEntry(id,index,button) {
+    const employee=_mpFindEmpById(id), row=employee?.companyHistory?.[index];
+    if(!row || !await mpConfirmDelete(_L('कंपनी इतिहास छिपाएँ','Hide company history'),
+        row.displayCompany || row.company || '',_L('रिकॉर्ड और शिफ्ट इतिहास सुरक्षित रहेंगे।','The underlying record and shift history are retained.'))) return;
+    if (!button.isConnected) return;
+    const uid=SESSION.authUid;
+    button.disabled=true;
+    try {
+      const result=await global._fbCall('writeEmployee',{career:{id,index,expected:row,change:{hide:true}}});
+      if(uid!==SESSION.authUid || uid!==global._fbAuth?.currentUser?.uid) return;
+      if(!result?.ok) throw Error('History change not confirmed');
+      _mpPatchEmpCache(id,{companyHistory:result.history});
+      _mpRefreshCareerBlocks(id);
+    } catch(error) {
+      toast(_L('इतिहास नहीं छिपाया गया। रिकॉर्ड दोबारा खोलें।','History was not hidden. Reopen the record.'));
+    } finally {button.disabled=false;}
+  }
+  global.mpHideCareerEntry=mpHideCareerEntry;
+  global.mpEditCareerEntry=mpEditCareerEntry;
+
   async function mpRemoveCareerEntry(empId, company, empCode, from, source) {
     try {
       if (arguments.length === 2 && typeof company === 'number') {
@@ -1098,6 +1123,9 @@
       from = String(from || '').trim();
       source = String(source || 'history');
       if (from === '—') from = '';
+      if (!await mpConfirmDelete(_L('कंपनी इतिहास हटाएँ','Remove company history'),company+' · '+empCode,
+          _L('यह केवल दिखाई देने वाला रोज़गार रिकॉर्ड हटाता है। शिफ्ट और C-Off इतिहास सुरक्षित रहता है।',
+            'This removes the employment entry from view. Shift and C-Off history is retained.'))) return;
       var key = company + '|' + empCode;
 
       var hist = Array.isArray(emp.companyHistory) ? emp.companyHistory.slice() : [];
@@ -1200,12 +1228,14 @@
         global.renderSchedule = function () {
           var r = orig.apply(this, arguments);
           try {
-            var mk = null;
-            try {
-              var d = new Date();
-              mk = d.getFullYear() + '_' + String(d.getMonth() + 1).padStart(2, '0');
-            } catch (e) {}
-            if (mk && typeof loadMonthMeta === 'function') loadMonthMeta(mk);
+            const months=new Map();
+            for(const cell of document.querySelectorAll('#schedTbl td[data-date][data-empid]')) {
+              const month=monthKeyFromDate(cell.dataset.date);
+              if(!month || !cell.dataset.empid) continue;
+              if(!months.has(month)) months.set(month,new Set());
+              months.get(month).add(cell.dataset.empid);
+            }
+            for(const [month,ids] of months) void loadMonthMeta(month,[...ids]);
             /* v6.0.5: do not inject Company/Emp chips into schedule grid (overspill) */
           } catch (e) {}
           return r;

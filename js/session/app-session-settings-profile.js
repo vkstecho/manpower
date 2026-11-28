@@ -108,7 +108,7 @@ function openEditProfileModal(){
     </div>
     </div>
     <div class="modal-sticky-actions">
-    <button class="submit-btn" id="profileSaveButton" onclick="saveProfileEdits()">💾 ${L('सहेजें','Save')}</button>
+    <button class="submit-btn" id="profileSaveButton" data-enter-action onclick="saveProfileEdits()">💾 ${L('सहेजें','Save')}</button>
     <button class="cancel-btn" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>
     </div>`);
 }

@@ -27,7 +27,7 @@ function _stopVerifiedRoster() {
   _preparedRosterUid = null;
   window._mpListenersStarted = false;
 }
-const APP_VERSION="undefined"!=typeof MP_CFG&&MP_CFG.APP_VERSION?MP_CFG.APP_VERSION:"6.19";function _unlockOrientation(){try{screen.orientation&&"function"==typeof screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}try{"function"==typeof screen.unlockOrientation&&screen.unlockOrientation()}catch(e){}try{"function"==typeof screen.unlockOrientationWebkit&&screen.unlockOrientationWebkit()}catch(e){}}try{_unlockOrientation()}catch(e){}let _preparedRoster = null, _preparedRosterUid = null;
+const APP_VERSION="undefined"!=typeof MP_CFG&&MP_CFG.APP_VERSION?MP_CFG.APP_VERSION:"6.20";function _unlockOrientation(){try{screen.orientation&&"function"==typeof screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}try{"function"==typeof screen.unlockOrientation&&screen.unlockOrientation()}catch(e){}try{"function"==typeof screen.unlockOrientationWebkit&&screen.unlockOrientationWebkit()}catch(e){}}try{_unlockOrientation()}catch(e){}let _preparedRoster = null, _preparedRosterUid = null;
 function initData() {
   const uid = window._fbAuth?.currentUser?.uid;
   if (!uid || window._fbAuth.currentUser.isAnonymous || SESSION.authUid !== uid) return Promise.resolve(false);

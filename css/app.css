@@ -2289,3 +2289,53 @@ body.wd-active #pcSidebar button:focus-visible {
 .profile-subscription [data-profile-subscription-date],
 .profile-subscription [data-profile-subscription-plan] { font-size: 12px; }
 .profile-subscription span:empty { display: none; }
+
+.mp-confirm-overlay { position:fixed; inset:0; z-index:99998; display:grid; place-items:center; padding:16px; background:rgba(10,15,26,.73); }
+.mp-confirm-card { width:min(100%,440px); max-height:90dvh; overflow:auto; padding:18px; border-radius:16px; border:1px solid var(--border2); background:var(--card); color:var(--text); }
+.mp-confirm-card h2 { margin:0 0 8px; font-size:18px; }
+#mpConfirmText { font-size:14px; line-height:1.5; white-space:pre-wrap; overflow-wrap:anywhere; }
+.mp-confirm-actions { display:flex; align-items:stretch; gap:10px; margin-top:16px; }
+.mp-confirm-actions button { flex:1; margin:0; }
+.mp-confirm-actions .mp-danger-button { background:#a61935; color:#fff; }
+.mp-danger-text { color:#ff9da9; }
+body.light .mp-danger-text { color:#961930; }
+.mp-history-actions { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+.mp-history-actions button { background:var(--panel); color:var(--text); border:1px solid var(--border2); padding:6px; border-radius:6px; font-size:12px; }
+
+.wd-heading { min-height:0; padding-block:2px; }
+.wd-diary-tools { position:sticky; inset-block-start:0; z-index:4; margin-bottom:2px; padding-block:3px; background:var(--bg); }
+.wd-diary-tools :is(button,input,summary), .wn-format-tools :is(button,summary) { min-height:32px; padding-block:3px; border-radius:7px; }
+.wd-date-tools, .wd-diary-tools .wd-actions, .wn-format-tools { gap:4px; }
+.wd-diary-tools .wd-export { max-width:100%; }
+.wd-diary-tools .wd-export-panel { z-index:6; }
+.wd-selection-tools { position:fixed; z-index:10000; display:flex; flex-wrap:wrap; gap:3px; max-width:calc(100vw - 8px); padding:4px; border:1px solid var(--border2); border-radius:9px; background:var(--card); color:var(--text); box-shadow:0 3px 11px #0004; }
+.wd-selection-tools button { padding:5px 7px; min-height:32px; background:var(--panel); color:var(--text); border:1px solid var(--border2); border-radius:6px; }
+.wd-ink-controls { display:flex; align-items:center; flex-wrap:wrap; gap:3px; padding:5px; background:var(--card); color:var(--text); }
+.wd-ink-colors { display:flex; flex-wrap:wrap; gap:3px; }
+.wd-ink-colors .wd-ink-swatch { width:28px; height:28px; min-height:0; border-radius:50%; padding:0; border:2px solid var(--border2); background:var(--ink); }
+.wd-ink-colors .wd-ink-swatch[aria-pressed=true] { outline:2px solid var(--text); outline-offset:1px; }
+.wd-ink-controls .wd-ink-custom { width:34px; min-height:30px; padding:1px; }
+.wd-ink-controls button[aria-pressed=true]:not(.wd-ink-swatch) { outline:2px solid var(--text); }
+.wd-draw-wrap .wd-draw-canvas { display:block; width:100%; height:auto; margin-inline:auto; }
+.wd-draw-wrap.wd-ink-expanded { position:fixed; inset:max(5px,env(safe-area-inset-top)) max(5px,env(safe-area-inset-right)) max(5px,env(safe-area-inset-bottom)) max(5px,env(safe-area-inset-left)); z-index:9000; margin:0; display:flex; flex-direction:column; overflow:auto; align-items:center; }
+.wd-ink-expanded .wd-ink-controls { align-self:stretch; position:sticky; top:0; z-index:1; }
+.wd-ink-expanded .wd-draw-canvas { width:min(100%,calc((var(--wd-visible-height,100dvh) - 106px) * 1.3333)); }
+.wd-workspace [hidden] { display:none !important; }
+@media(max-width:899px) {
+  .wd-diary-tools { gap:3px; }
+  .wd-diary-tools :is(button,input,summary) { min-height:34px; }
+  .wd-ink-expanded .wd-draw-canvas { width:min(100%,calc((var(--wd-visible-height,100dvh) - 144px) * 1.3333)); }
+}
+@media print {
+  .wd-ink-expanded.wd-draw-wrap { position:static; margin-top:7px; }
+  .wd-ink-expanded .wd-draw-canvas { width:100%; }
+}
+
+.wd-heading .wd-diary-tools { position:relative; z-index:5; flex:1 1 460px; margin:0; padding-block:0; gap:4px; background:transparent; }
+.wd-heading:has(~ .wd-scroll #wdDiaryPanel[hidden]) .wd-diary-tools { display:none; }
+.wd-heading .wd-diary-tools .wd-export-panel { position:absolute; top:100%; inset-inline-end:0; min-width:min(240px,90vw); }
+.wd-heading h1 { white-space:nowrap; }
+@media (min-width:1000px) {
+  .wd-heading { flex-wrap:nowrap; }
+  .wd-heading .wd-diary-tools { justify-content:flex-end; }
+}

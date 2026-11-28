@@ -643,7 +643,7 @@ let BAR_METRICS=[{key:"L",label:"Leave",color:"#f43f5e"},{key:"Ab",label:"Absent
     <textarea id="lv_reason" placeholder="${L("छुट्टी का कारण लिखें... (अनिवार्य)","Leave reason... (required)")}" style="border-color:rgba(244,63,94,.3)" oninput="this.style.borderColor=this.value.trim()?'var(--border2)':'rgba(244,63,94,.3)'"></textarea>
   </div>
   <div class="modal-sticky-actions" style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
-  <button class="submit-btn" onclick="submitLeave()">📤 ${L("आवेदन भेजें","Send Application")}</button>
+  <button class="submit-btn" data-enter-action onclick="submitLeave()">📤 ${L("आवेदन भेजें","Send Application")}</button>
   <button class="cancel-btn" onclick="closeModal()">${L("रद्द करें","Cancel")}</button>
   </div>`);
   // async: merge custom types from Firebase quotas
