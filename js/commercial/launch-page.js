@@ -67,7 +67,9 @@
       count++;
       link.href=available||english;
       const label=typeof title==='string'&&title.trim()?title.trim():(type==='Short'?t('Short demo','छोटा डेमो'):t('Full walkthrough','पूरी वीडियो गाइड'));
-      link.textContent=label+(!available&&lang==='hi'?' · English':'');
+      link.querySelector('.demo-label').textContent=label+(!available&&lang==='hi'?' · English':'');
+      const shot=link.querySelector('[data-demo-shot]');
+      shot.src='assets/launch/'+shot.dataset.demoShot+'-'+lang+'.webp';
     }
     id('video-note').hidden=Boolean(count);
     id('video-note').textContent=t('Contact us to arrange a live demo.','लाइव डेमो के लिए हमसे संपर्क करें।');

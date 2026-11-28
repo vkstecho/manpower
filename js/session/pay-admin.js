@@ -58,7 +58,7 @@ async function openPaymentSettingsAdmin() {
       </div>
       <label class="check-label"><input id="catalog-enabled" type="checkbox" ${cfg?.enabled!==false?'checked':''}> ${label('सब्सक्रिप्शन लागू करें','Enable subscription access checks')}</label>
       <label class="check-label"><input id="catalog-setup" type="checkbox" ${catalog.setupAssistance?'checked':''}> ${label('मुफ़्त सेटअप सहायता दिखाएँ','Show free setup assistance')}</label>
-      <details><summary>${label('चार डेमो वीडियो लिंक','Four demo video links')}</summary>${videoFields}</details>
+      <details open class="mp-admin-videos"><summary>${label('चार डेमो वीडियो लिंक','Four demo video links')}</summary><p>${label('हिन्दी और अंग्रेज़ी के छोटे डेमो और पूरी वीडियो गाइड के लिंक यहाँ डालें।','Enter the Hindi and English short demo and full walkthrough URLs here.')}</p>${videoFields}</details>
       <button type="button" class="cancel-btn" onclick="openCustomerCareAdmin()">${label('सहायता और रिफंड सेटिंग','Support and refund settings')}</button>
       <button type="button" id="catalog-publish" class="submit-btn">${label('सहेजें और प्रकाशित करें','Save and publish offer')}</button>
     </section>

@@ -298,16 +298,16 @@
     const plans = cat.plans.filter(plan => (plan.id !== 'individual') === isTeamPayer());
     const rows = plans.map(plan => {
       const link = checkoutAvailable ? plan.links[term] : '';
-      return '<div class="profile-action"><div><div class="pa-label">'+escHtml(hi?plan.hi:plan.name)+'</div>'
-        +'<div class="pa-sub">'+(plan.limit===1?L('एक व्यक्ति','One individual'):L(plan.limit+' सदस्यों तक', 'Up to '+plan.limit+' members'))+'</div>'
-        +'<strong>₹'+MP_CATALOG.amount(plan[term],hi?'hi':'en')+' '+(term==='annual'?L('/ वर्ष','/ year'):L('/ माह','/ month'))+'</strong></div>'
-        +(link?'<a class="cancel-btn" data-mp-checkout="'+plan.id+'" data-period="'+term+'" href="'+escHtml(link)+'" target="_blank" rel="noopener noreferrer">'+L('भुगतान करें','Pay with Razorpay')+'</a>':'<span class="pa-sub">'+L('सहायता से संपर्क करें','Contact support')+'</span>')+'</div>';
+      return '<article class="mp-plan-card"><div class="mp-plan-info"><div class="mp-plan-name">'+escHtml(hi?plan.hi:plan.name)+'</div>'
+        +'<div class="mp-plan-limit">'+(plan.limit===1?L('एक व्यक्ति','One individual'):L(plan.limit+' सदस्यों तक', 'Up to '+plan.limit+' members'))+'</div>'
+        +'<div class="mp-plan-price"><strong>₹'+MP_CATALOG.amount(plan[term],hi?'hi':'en')+'</strong><span>'+(term==='annual'?L('/ वर्ष','/ year'):L('/ माह','/ month'))+'</span></div></div>'
+        +(link?'<a class="mp-plan-pay" data-mp-checkout="'+plan.id+'" data-period="'+term+'" href="'+escHtml(link)+'" target="_blank" rel="noopener noreferrer">'+L('भुगतान करें','Pay with Razorpay')+'</a>':'<button type="button" class="mp-plan-pay mp-plan-contact" onclick="openCustomerCarePage()">'+L('सहायता से संपर्क करें','Contact support')+'</button>')+'</article>';
     }).join('');
-    const tabs = '<div class="mp-plan-period"><button class="cancel-btn" type="button" aria-pressed="'+(term==='monthly')+'" onclick="openMemberPayPlans(&quot;monthly&quot;)">'+L('मासिक','Monthly')+'</button>'
-      +'<button class="cancel-btn" type="button" aria-pressed="'+(term==='annual')+'" onclick="openMemberPayPlans(&quot;annual&quot;)">'+L('वार्षिक','Annual')+' · '+cat.annualDiscountPct+'% '+L('छूट','off')+'</button></div>';
-    openModal('<div class="modal-title">'+label+'</div>'+tabs+rows
+    const tabs = '<div class="mp-plan-period" role="group" aria-label="Billing period"><button class="mp-plan-toggle" type="button" aria-pressed="'+(term==='monthly')+'" onclick="openMemberPayPlans(&quot;monthly&quot;)">'+L('मासिक','Monthly')+'</button>'
+      +'<button class="mp-plan-toggle" type="button" aria-pressed="'+(term==='annual')+'" onclick="openMemberPayPlans(&quot;annual&quot;)">'+L('वार्षिक','Annual')+' · '+cat.annualDiscountPct+'% '+L('छूट','off')+'</button></div>';
+    openModal('<section class="mp-plan-dialog"><div class="modal-title">'+label+'</div>'+tabs+'<div class="mp-plan-list">'+rows+'</div>'
       +'<p>'+escHtml(MP_CATALOG.taxCopy(cat.taxMode,hi))+'</p><p>'+L('भुगतान की जाँच के बाद हमारी टीम सदस्यता सक्रिय करती है। अपना Razorpay संदर्भ सहायता टीम को निजी रूप से भेजें।','Our team activates subscriptions after verifying the payment. Send your Razorpay reference privately to support.')+'</p>'
-      +(isTeamPayer()?'<p>'+L('कस्टम योजना के लिए बिक्री टीम से संपर्क करें।','Contact sales for a custom plan.')+'</p>':'')+support+close);
+      +(isTeamPayer()?'<p>'+L('कस्टम योजना के लिए बिक्री टीम से संपर्क करें।','Contact sales for a custom plan.')+'</p>':'')+support+close+'</section>');
   }
   window.openMemberPayPlans = openMemberPayPlans;
   document.addEventListener('click', event => {

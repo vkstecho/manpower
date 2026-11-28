@@ -299,6 +299,7 @@ let _shiftWhatsAppAway = false;
 let _shiftWhatsAppBusy = false;
 let _shiftWhatsAppMemory;
 let _shiftWhatsAppOpenedUid;
+let _shiftWhatsAppLaunch; // in-memory evidence for this tab and this attempt only
 function _readShiftWhatsApp() {
   let state;
   try { state=JSON.parse(localStorage.getItem(_shiftWhatsAppStorage) || 'null'); } catch (_) { state=_shiftWhatsAppMemory; }
@@ -315,6 +316,7 @@ function _clearShiftWhatsApp() {
   _storeShiftWhatsApp(null);
   _shiftWhatsAppAway=false;
   _shiftWhatsAppOpenedUid=undefined;
+  _shiftWhatsAppLaunch=undefined;
   document.getElementById('shiftWhatsAppFallback')?.remove();
   _shiftRequests.clear();
 }
@@ -356,28 +358,44 @@ function _openShiftWhatsApp(number,message) {
     return true;
   } catch (_) { return false; }
 }
+function _finishShiftWhatsAppHandoff(attemptId) {
+  const state=_readShiftWhatsApp();
+  if (!state?.items.length || state.attempt!==attemptId) return false;
+  state.items.shift();
+  state.waiting=state.items.length>0;
+  delete state.attempt;
+  _storeShiftWhatsApp(state); // keep request-ID deduplication ledger even when empty
+  _shiftWhatsAppLaunch=undefined;
+  document.getElementById('shiftWhatsAppFallback')?.remove();
+  return true;
+}
+function _noteShiftWhatsAppBackground() {
+  _shiftWhatsAppAway=true;
+  const launch=_shiftWhatsAppLaunch;
+  if (launch && Date.now()-launch.at<=10000) launch.backgrounded=true;
+}
 function _showShiftWhatsAppFallback() {
+  const pending=_readShiftWhatsApp();
+  if (!pending?.items.length || pending.waiting) { document.getElementById('shiftWhatsAppFallback')?.remove(); return; }
   if (document.getElementById('shiftWhatsAppFallback')) return;
   const banner = document.createElement('div');
   banner.id='shiftWhatsAppFallback';
   banner.className='shift-whatsapp-fallback';
   banner.setAttribute('role','status');
   const text = document.createElement('span');
-  text.textContent=L('WhatsApp अपने आप नहीं खुला।','WhatsApp did not open automatically.');
+  text.textContent=L('WhatsApp खुलने की पुष्टि नहीं मिली। यदि संदेश भेज चुके हैं, अगला सदस्य चुनें।','WhatsApp opening could not be confirmed. If you already sent the message, choose Next employee.');
   const button = document.createElement('button');
   button.className='submit-btn';
   button.textContent=L('WhatsApp पर जाएँ','Continue to WhatsApp');
   button.onclick=()=>{
     _continueShiftWhatsApp(true);
-    if (_shiftWhatsAppBusy) {
-      button.disabled=true;
-      skip.disabled=true;
-    }
+    if (_shiftWhatsAppBusy) banner.querySelectorAll('button').forEach(b=>b.disabled=true);
   };
   const skip = document.createElement('button');
   skip.className='cancel-btn';
   skip.textContent=L('छोड़ें','Skip');
   skip.onclick=()=>{
+    if (_shiftWhatsAppBusy) return;
     const state=_readShiftWhatsApp();
     if (state?.items.length) {
       state.items.shift();
@@ -385,10 +403,26 @@ function _showShiftWhatsAppFallback() {
       delete state.attempt;
       _storeShiftWhatsApp(state);
     }
+    _shiftWhatsAppLaunch=undefined;
     banner.remove();
     _continueShiftWhatsApp(false);
   };
-  banner.append(text,button,skip);
+  const next=document.createElement('button');
+  next.className='cancel-btn';
+  next.textContent=L('अगला सदस्य (भेज दिया)','Next employee (already sent)');
+  next.onclick=()=>{
+    if (_shiftWhatsAppBusy) return;
+    const state=_readShiftWhatsApp();
+    if (!state?.items.length || state.waiting || !state.attempt) { banner.remove(); return; }
+    if (!_finishShiftWhatsAppHandoff(state.attempt)) return;
+    const current=_readShiftWhatsApp();
+    if (current?.items.length) {
+      current.waiting=false;
+      _storeShiftWhatsApp(current);
+      _continueShiftWhatsApp(true); // direct tap gives native launch a user gesture
+    }
+  };
+  banner.append(text,button,next,skip);
   document.body.append(banner);
 }
 function _continueShiftWhatsApp(manual=false) {
@@ -396,7 +430,7 @@ function _continueShiftWhatsApp(manual=false) {
       SESSION.authUid!==window._fbAuth?.currentUser?.uid || document.getElementById('mainContent')?.style.display!=='block') return;
   const attempt=async()=>{
     const state=_readShiftWhatsApp();
-    if (!state?.items.length || state.waiting) return;
+    if (!state?.items.length || state.waiting) { document.getElementById('shiftWhatsAppFallback')?.remove(); return; }
     if (state.attempt && !manual) { _showShiftWhatsAppFallback(); return; }
     while (state.items.length) {
       const changes=state.items[0];
@@ -408,19 +442,18 @@ function _continueShiftWhatsApp(manual=false) {
       state.attempt=attemptId;
       _storeShiftWhatsApp(state);
       _shiftWhatsAppAway=false;
+      _shiftWhatsAppLaunch={id:attemptId,at:Date.now(),backgrounded:false};
+      document.getElementById('shiftWhatsAppFallback')?.remove();
       const opened=await _openShiftWhatsApp(item.emp.phone,item.msgLines);
       // Read back any messages added during launch; never restore a logged-out user's queue.
       const current=_readShiftWhatsApp();
       if (!current || current.attempt!==attemptId) return;
-      if (opened) {
-        current.items.shift();
-        current.waiting=current.items.length>0;
-        delete current.attempt;
-        _storeShiftWhatsApp(current);
-        document.getElementById('shiftWhatsAppFallback')?.remove();
+      if (opened || (_shiftWhatsAppLaunch?.id===attemptId && _shiftWhatsAppLaunch.backgrounded)) {
+        _finishShiftWhatsAppHandoff(attemptId);
       } else _showShiftWhatsAppFallback();
       return;
     }
+    document.getElementById('shiftWhatsAppFallback')?.remove();
   };
   _shiftWhatsAppBusy=true;
   const run = !manual && navigator.locks
@@ -434,8 +467,19 @@ function _continueShiftWhatsApp(manual=false) {
 }
 function _resumeShiftWhatsApp(restored=false) {
   if (_shiftWhatsAppBusy || document.hidden || SESSION.authUid!==window._fbAuth?.currentUser?.uid) return;
-  const state=_readShiftWhatsApp();
-  if (!state?.items.length) return;
+  let state=_readShiftWhatsApp();
+  // A native handoff can hide the page AFTER the 1.3s fallback timer.
+  // Consume only that exact attempt, never a restored or unrelated queue item.
+  const launch=_shiftWhatsAppLaunch;
+  if (launch?.backgrounded && state?.attempt===launch.id) {
+    _finishShiftWhatsAppHandoff(launch.id);
+    state=_readShiftWhatsApp();
+  }
+  if (!state?.items.length) {
+    document.getElementById('shiftWhatsAppFallback')?.remove();
+    _shiftWhatsAppAway=false;
+    return;
+  }
   if (state.waiting) {
     if (!_shiftWhatsAppAway && !restored) return;
     state.waiting=false;
@@ -445,10 +489,11 @@ function _resumeShiftWhatsApp(restored=false) {
   _continueShiftWhatsApp();
 }
 document.addEventListener('visibilitychange',()=>{
-  if (document.hidden) _shiftWhatsAppAway=true;
+  if (document.hidden) _noteShiftWhatsAppBackground();
   else _resumeShiftWhatsApp();
 });
-window.addEventListener('blur',()=>{ if (_readShiftWhatsApp()?.waiting) _shiftWhatsAppAway=true; });
+window.addEventListener('pagehide',()=>{ if (_shiftWhatsAppLaunch || _readShiftWhatsApp()?.waiting) _noteShiftWhatsAppBackground(); });
+window.addEventListener('blur',()=>{ const state=_readShiftWhatsApp(); if (state?.waiting || state?.attempt) _shiftWhatsAppAway=true; });
 window.addEventListener('focus',()=>_resumeShiftWhatsApp());
 window.addEventListener('pageshow',event=>{if(event.persisted) _resumeShiftWhatsApp();});
 document.addEventListener('mp-roster-open',()=>{

@@ -2343,3 +2343,26 @@ body.light .mp-danger-text { color:#961930; }
 .mp-first-setup{margin:10px 0 14px;padding:12px 14px;color:var(--text);background:var(--card);border:1px solid var(--border2);border-inline-start:4px solid var(--day);border-radius:10px}
 .mp-first-setup[hidden]{display:none}.mp-first-setup ol{margin:8px 0;padding-inline-start:24px}.mp-first-setup li{margin:3px 0}.mp-first-setup button{color:var(--text);background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:5px 9px}.mp-first-setup>div,.mp-plan-period{display:flex;gap:8px;flex-wrap:wrap}.mp-plan-period [aria-pressed=true]{border-color:var(--day);color:var(--text);font-weight:800}
 .mp-commercial-admin{padding:12px 0;color:var(--text);border-bottom:1px solid var(--border2)}.mp-commercial-admin-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.mp-commercial-admin-plan{min-width:0;margin:0;padding:8px;border:1px solid var(--border2);border-radius:8px}.mp-commercial-admin .check-label{display:block;margin:8px 0}.mp-commercial-admin button{margin:5px 0}
+
+
+/* v6.22: independent subscription cards, no shared profile-row sizing. */
+.mp-plan-dialog{display:block;min-width:0;max-width:100%;overflow-wrap:anywhere;color:var(--text)}
+.mp-plan-dialog .mp-plan-period{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:4px;margin:0 0 14px;background:var(--card2);border:1px solid var(--border2);border-radius:12px;position:static}
+.mp-plan-dialog .mp-plan-toggle{min-width:0;width:100%;min-height:44px;margin:0;padding:8px 5px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--text);font-size:13px;line-height:1.3;font-weight:700;white-space:normal}
+.mp-plan-dialog .mp-plan-toggle[aria-pressed=true],body.light .mp-plan-dialog .mp-plan-toggle[aria-pressed=true]{background:#9a3412!important;color:white!important;-webkit-text-fill-color:white!important;border-color:#9a3412!important}
+.mp-plan-dialog .mp-plan-list{display:grid;gap:10px;margin:0 0 14px;min-width:0}
+.mp-plan-dialog .mp-plan-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,auto);align-items:center;gap:12px;padding:12px;border-radius:12px;background:var(--card);border:1px solid var(--border2);min-width:0;height:auto;max-height:none}
+.mp-plan-dialog .mp-plan-info{min-width:0;display:grid;gap:4px}
+.mp-plan-dialog .mp-plan-name{font-size:16px;font-weight:800;line-height:1.3;color:var(--text)}
+.mp-plan-dialog .mp-plan-limit{font-size:12px;line-height:1.4;color:var(--muted2)}
+.mp-plan-dialog .mp-plan-price{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px;font-size:12px;line-height:1.35}
+.mp-plan-dialog .mp-plan-price strong{font-size:21px;white-space:nowrap}
+.mp-plan-dialog .mp-plan-pay,body.light .mp-plan-dialog .mp-plan-pay{display:flex;align-items:center;justify-content:center;min-height:44px;max-width:100%;min-width:0;width:auto;padding:9px 12px;margin:0;border:1px solid #9a3412;border-radius:9px;background:#9a3412!important;color:#fff!important;-webkit-text-fill-color:#fff!important;text-decoration:none;font-size:13px;font-weight:750;line-height:1.4;text-align:center;white-space:normal}
+.mp-plan-dialog .mp-plan-contact,body.light .mp-plan-dialog .mp-plan-contact{background:var(--card2)!important;border-color:var(--border2)!important;color:var(--text)!important;-webkit-text-fill-color:var(--text)!important}
+.mp-plan-dialog>p{font-size:13px;line-height:1.5;margin:10px 0}
+.mp-plan-dialog .mp-plan-toggle:focus-visible,.mp-plan-dialog .mp-plan-pay:focus-visible{outline:2px solid var(--day);outline-offset:2px}
+@media(max-width:480px){.mp-plan-dialog .mp-plan-card{grid-template-columns:minmax(0,1fr)}.mp-plan-dialog .mp-plan-pay{width:100%}.mp-commercial-admin-grid{grid-template-columns:minmax(0,1fr)}}
+.mp-admin-videos{margin:14px 0;padding:12px;border:1px solid var(--border2);border-radius:10px;background:var(--card)}
+.mp-admin-videos summary{cursor:pointer;font-weight:800;margin-bottom:8px}.mp-admin-videos p{font-size:13px;line-height:1.45}
+.shift-whatsapp-fallback>span{flex:1 0 100%;font-size:13px;line-height:1.4}
+.shift-whatsapp-fallback button{flex:1 1 auto;min-width:0;white-space:normal;font-size:13px!important;line-height:1.35}

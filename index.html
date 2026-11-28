@@ -8,12 +8,12 @@
   <meta name="referrer" content="strict-origin">
   <title>ManPower | Shift planning for Indian factories</title>
   <link rel="icon" href="assets/icon-192.png">
-  <link rel="stylesheet" href="css/launch.css?v=6.21-r22">
+  <link rel="stylesheet" href="css/launch.css?v=6.22-r23">
   <script defer src="js/config/firebase.local.js"></script>
-  <script defer src="js/commercial/catalog.js?v=6.21-r22"></script>
-  <script defer src="js/commercial/public-offer.js?v=6.21-r22"></script>
-  <script defer src="js/commercial/launch-analytics.js?v=6.21-r22"></script>
-  <script defer src="js/commercial/launch-page.js?v=6.21-r22"></script>
+  <script defer src="js/commercial/catalog.js?v=6.22-r23"></script>
+  <script defer src="js/commercial/public-offer.js?v=6.22-r23"></script>
+  <script defer src="js/commercial/launch-analytics.js?v=6.22-r23"></script>
+  <script defer src="js/commercial/launch-page.js?v=6.22-r23"></script>
 </head>
 <body>
   <header class="site-header">
@@ -74,7 +74,10 @@
         <div class="demo-card">
           <div class="play-mark" aria-hidden="true">▶</div><h3 data-hi="ManPower कैसे काम करता है">See ManPower in action</h3>
           <p data-hi="छोटा डेमो देखें या सेटअप के लिए पूरी वीडियो गाइड खोलें।">Watch the short demo or open the full setup walkthrough.</p>
-          <div class="actions"><a id="short-video" data-demo="short" class="button primary" hidden target="_blank" rel="noopener noreferrer"></a><a id="long-video" data-demo="long" class="button outline" hidden target="_blank" rel="noopener noreferrer"></a></div>
+          <div class="demo-previews">
+            <a id="short-video" data-demo="short" class="demo-preview" hidden target="_blank" rel="noopener noreferrer"><div class="demo-thumb"><img src="assets/launch/shift-en.webp" data-demo-shot="shift" alt="" loading="lazy" width="520" height="325"><span aria-hidden="true">▶</span></div><strong class="demo-label"></strong></a>
+            <a id="long-video" data-demo="long" class="demo-preview" hidden target="_blank" rel="noopener noreferrer"><div class="demo-thumb"><img src="assets/launch/team-en.webp" data-demo-shot="team" alt="" loading="lazy" width="520" height="325"><span aria-hidden="true">▶</span></div><strong class="demo-label"></strong></a>
+          </div>
           <p id="video-note" hidden></p>
           <a data-support href="mailto:CareMP@vkstech.com" data-hi="मुफ़्त डेमो या सेटअप के लिए संपर्क करें">Book a free demo or get setup help</a>
         </div>
@@ -97,10 +100,25 @@
         <a class="button secondary" data-support href="mailto:CareMP@vkstech.com" data-hi="मुफ़्त डेमो बुक करें">Book a Free Demo</a>
       </div>
     </section>
+    <section class="section wrap industry-trust" id="industry-trust">
+      <p class="eyebrow" data-hi="औद्योगिक अनुभव और पेशेवर विश्वास">Industry experience &amp; professional trust</p>
+      <h2 data-hi="उद्योग के पेशेवरों की राय">What industry professionals say</h2>
+      <p data-hi="ये VKS Tech के संस्थापक के मार्गदर्शन और औद्योगिक अनुभव पर पूर्व प्रकाशित प्रतिक्रियाएँ हैं, ManPower ग्राहकों की समीक्षाएँ नहीं। मूल प्रतिक्रियाएँ अंग्रेज़ी में हैं।">Previously published feedback on the VKS Tech founder’s mentorship and industrial experience, not ManPower customer reviews. Original quotes in English.</p>
+      <div class="trust-grid">
+        <article class="trust-card"><blockquote lang="en">“Started as operator under Vivek sir’s guidance at Uflex Noida. Today I handle planning as Assistant Manager at Sumilon. The shift discipline and planning habits I learnt then are what I use every day.”</blockquote><p class="trust-path" lang="en">Operator (Uflex Noida) → AM Planning (Sumilon Surat)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/Ajab_Singh/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>Ajab Singh</strong><span>AM Planning · Sumilon Surat</span></div></div></article>
+        <article class="trust-card"><blockquote lang="en">“Started as GET at Jindal Nashik under Vivek sir’s mentoring. Today I independently manage shifts as Senior Engineer at Uflex Dharwad.”</blockquote><p class="trust-path" lang="en">GET (Jindal Nashik) → Senior Engineer (Uflex Dharwad)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/NK_Jena/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>N.K. Jena</strong><span>Senior Engineer · Uflex Dharwad</span></div></div></article>
+        <article class="trust-card"><blockquote lang="en">“We started at the same level in Uflex Noida. Training on Excel automated reports and SAP modules is a big reason I am Deputy Manager at GLS Gurawara today.”</blockquote><p class="trust-path" lang="en">Same level (Uflex Noida) → Deputy Manager (GLS Gurawara)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/Keshav_Jha/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>Keshav Jha</strong><span>Deputy Manager · GLS Gurawara</span></div></div></article>
+        <article class="trust-card"><blockquote lang="en">“Started as ITI trainee under Vivek sir at Uflex Noida. That practical guidance on machine, process and discipline is still the foundation of how I work as Senior Operator.”</blockquote><p class="trust-path" lang="en">ITI Trainee (Uflex) → Sr. Operator (Chiripal Jammu)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/Amit/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>Amit</strong><span>Sr. Operator · Chiripal Jammu</span></div></div></article>
+        <article class="trust-card"><blockquote lang="en">“Trained on shift management under Vivek sir at GLS Gurawara. Today I run the shift as Shift Leader — daily discipline and coverage thinking the floor actually needs.”</blockquote><p class="trust-path" lang="en">Shift training → Shift Leader (GLS Gurawara)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/Ghanshyam/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>Ghanshyam</strong><span>Shift Leader · GLS Gurawara</span></div></div></article>
+        <article class="trust-card"><blockquote lang="en">“Grew from Senior Team Member to Team Leader at GLS under continuous guidance. Clear targets, process discipline, and how to lead a small team on the floor.”</blockquote><p class="trust-path" lang="en">Sr. Team Member → Team Leader (GLS)</p><div class="trust-person"><img class="trust-avatar" src="testimonials/Images/Anuj/avatar.jpg" alt="" width="44" height="44" loading="lazy" /><div lang="en"><strong>Anuj</strong><span>Team Leader · GLS Polyfilms</span></div></div></article>
+      </div>
+      <a class="text-link" href="testimonials/htmls/testimonials.html" data-hi="सभी करियर यात्राएँ देखें">View all career journeys</a>
+    </section>
   </main>
   <footer class="wrap footer">
-    <div><strong>ManPower · VKS Tech</strong><small>v6.21</small></div>
+    <div><strong>ManPower · VKS Tech</strong><small>v6.22</small></div>
     <div class="footer-links"><a id="support-email" href="mailto:CareMP@vkstech.com">CareMP@vkstech.com</a><a id="whatsapp" target="_blank" rel="noopener noreferrer" hidden>WhatsApp</a><a href="privacy.html" data-hi="गोपनीयता">Privacy</a><button id="analytics-choice" type="button" hidden data-hi="विश्लेषिकी सेटिंग">Analytics settings</button></div>
   </footer>
+  <div class="mobile-sales-bar"><a class="button primary" data-trial href="app.html?setup=1">Start Free Trial</a><a class="button secondary" data-support href="mailto:CareMP@vkstech.com" data-hi="डेमो / सहायता">Demo / Support</a></div>
 </body>
 </html>
