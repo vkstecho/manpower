@@ -787,66 +787,21 @@ async function openAdminSetPaymentModal(key, name, bulkForManager){
 
   const fallbackDate = new Date(Date.now()+30*86400000).toISOString().slice(0,10);
   const defaultDate = existingDate || fallbackDate;
-  const amounts = (typeof _getPaymentAmountOptions==='function')
-    ? _getPaymentAmountOptions(window._paymentSettingsCache)
-    : [199,499,999,1499,2499];
-  let defAmt = existingAmt;
-  if(defAmt == null || !(defAmt > 0)){
-    defAmt = (amounts && amounts.length) ? parseInt(amounts[0],10) : 999;
-  }
-  // Load payment settings for plan list
-  let payCfg = window._paymentSettingsCache || {};
-  try{
-    if(typeof _loadPaymentSettings === 'function'){
-      payCfg = (await _loadPaymentSettings(true)) || payCfg;
-    }
-  }catch(_pc){}
-
-  // Build labelled plan options (monthly + annual) like user "Choose plan"
-  let planRows = [];
-  try{
-    let plans = [];
-    if(typeof window._getSubscriptionPlans === 'function'){
-      plans = window._getSubscriptionPlans(payCfg) || [];
-    } else if(payCfg && Array.isArray(payCfg.plans) && payCfg.plans.length){
-      plans = payCfg.plans;
-    }
-    // Ensure annual computed
-    const disc = Math.min(90, Math.max(0, parseInt(payCfg.defaultDiscountPct, 10) || 12));
-    plans.forEach(function(p){
-      if(!p || p.custom) return;
-      const monthly = parseInt(p.monthly, 10) || 0;
-      if(!monthly) return;
-      const d = (p.discountPct != null ? parseInt(p.discountPct,10) : disc) || disc;
-      const annual = parseInt(p.annual, 10) || Math.round(monthly * 12 * (1 - d / 100));
-      const label = p.label || ('Plan ₹' + monthly);
-      planRows.push({ label: label, amount: monthly, period: 'monthly', periodLabel: 'Monthly', maxMembers: p.maxMembers || 0 });
-      if(annual > 0){
-        planRows.push({ label: label, amount: annual, period: 'annual', periodLabel: 'Annual', maxMembers: p.maxMembers || 0 });
-      }
-    });
-  }catch(_pl){}
-
-  // Fallback: raw amounts list
-  if(!planRows.length){
-    const amtList0 = (amounts || []).map(function(a){ return parseInt(a,10); }).filter(function(a){ return a > 0; });
-    amtList0.forEach(function(a){
-      const meta = (typeof _planLabelFromAmount === 'function') ? _planLabelFromAmount(a, payCfg) : null;
-      planRows.push({
-        label: meta ? meta.band : ('₹' + a),
-        amount: a,
-        period: meta ? meta.period : 'monthly',
-        periodLabel: meta ? meta.periodLabel : 'Monthly',
-        maxMembers: meta ? meta.maxMembers : 0
-      });
-    });
+  const payCfg = await _loadPaymentSettings(true);
+  const planRows = (window._getSubscriptionPlans?.(payCfg) || []).flatMap(plan =>
+    MP_CATALOG.periods.map(period=>({label:plan.name,amount:plan[period],period,
+      periodLabel:period==='annual'?'Annual':'Monthly',maxMembers:plan.limit})));
+  const defAmt = existingAmt || planRows[0]?.amount || 0;
+  if (!defAmt) {
+    toast(L('पहले मौजूदा मूल्य सूची प्रकाशित करें।','Publish the current catalogue first.'));
+    return;
   }
 
   // Ensure current amount is in the list
   if(defAmt && !planRows.some(function(r){ return r.amount === defAmt; })){
     const meta = (typeof _planLabelFromAmount === 'function') ? _planLabelFromAmount(defAmt, payCfg) : null;
     planRows.unshift({
-      label: meta ? meta.band : ('₹' + defAmt),
+      label: meta ? meta.label : ('₹' + defAmt),
       amount: defAmt,
       period: meta ? meta.period : 'monthly',
       periodLabel: meta ? meta.periodLabel : 'Monthly',
@@ -905,15 +860,15 @@ async function openAdminSetPaymentModal(key, name, bulkForManager){
   + '<option value="365">365 days</option>'
   + '</select>'
   + '</div>'
-  + '<button class="submit-btn" onclick="adminApplyPaymentDate(\''+safeKey.replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\','+(bulkForManager?'true':'false')+')">💾 Save plan + paid-until</button>'
+  + '<button class="submit-btn" onclick="adminApplyPaymentDate(\''+safeKey.replace(/'/g,"\\'")+'\',\''+safeName.replace(/'/g,"\\'")+'\','+(bulkForManager?'true':'false')+')">💾 Save legacy access date</button>'
   + '<button class="cancel-btn" onclick="closeModal()">Cancel</button>');
 }
 
 async function adminApplyPaymentDate(key, name, bulkForManager){
   if(typeof isAdmin!=='function' || !isAdmin()){ toast(L('❌ केवल व्यवस्थापक','❌ Admin only')); return; }
   const ds = (document.getElementById('adm_pay_until')||{}).value || '';
-  const amt = parseInt((document.getElementById('adm_pay_amount')||{}).value||'999',10) || 999;
-  if(!ds){ toast(typeof L==='function'?L('Date चुनें','Select date'):'Select date'); return; }
+  const amt = parseInt(document.getElementById('adm_pay_amount')?.value,10);
+  if(!ds || !Number.isSafeInteger(amt) || amt<1){ toast(typeof L==='function'?L('Date चुनें','Select date'):'Select date'); return; }
   // Local end-of-day so timezone does not push date back a day
   const localEnd = new Date(ds + 'T23:59:59');
   const iso = isNaN(localEnd.getTime()) ? new Date(ds+'T23:59:59.000Z').toISOString() : localEnd.toISOString();

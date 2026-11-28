@@ -8,6 +8,8 @@
 async function _getMyTeamSizeLimit(){
   try{
     if(typeof isAdmin==='function' && isAdmin()) return 9999; // admin unrestricted
+    const grant=typeof _currentCommercialEntitlement==='function' && _currentCommercialEntitlement();
+    if (Number.isSafeInteger(grant?.seatLimit) && grant.seatLimit>0) return grant.seatLimit;
     const mob = (typeof _normMobileKey==='function')
       ? _normMobileKey((SESSION&&(SESSION.mobile||SESSION.uid))||'')
       : String((SESSION&&SESSION.mobile)||'').replace(/\D/g,'').slice(-10);
@@ -43,6 +45,7 @@ function _countMyActiveRoster(){
     return all.filter(e=>{
       if(!e || e.status==='resigned' || e.status==='left' || e.status==='left_team' || e.status==='removed') return false;
       if(typeof isAdmin==='function' && isAdmin()) return true;
+      if (e.managerUid && SESSION.authUid) return e.managerUid===SESSION.authUid && e.id!==SESSION.empObjId && e.role!=='manager';
       const mid = (typeof _normMobileKey==='function') ? _normMobileKey(e.managerId||'') : String(e.managerId||'').replace(/\D/g,'').slice(-10);
       // Manager's own record + members under this manager
       if(mid && mob && mid===mob) return true;
@@ -277,26 +280,23 @@ window.ensureEmployeesFromImport = ensureEmployeesFromImport;
 
 function openBulkImportTeam(){
   openModal(`<div class="modal-handle"></div>
-  <div class="modal-title">📊 Import Full Team from Excel</div>
+  <div class="modal-title">📊 ${L('Excel से टीम सूची जोड़ें','Import team from Excel')}</div>
   <div style="font-size:12px;color:#94a3b8;line-height:1.7;margin-bottom:14px">Upload Excel/CSV — columns in <b>any order</b>. Match by header name (case-insensitive).<br>
     <b style="color:var(--text)">Minimum:</b> Name + Emp ID/E Code (2 columns is enough to start).<br>
     <b style="color:var(--text)">Optional:</b> Department, Machine, Designation, Responsibility, Mobile, Salary, Weekly Off, Joining Date, Date of Birth, and daily shift columns (e.g. 01-09-2026).<br>
     Only columns present in your file are updated — you can upload just 3 columns if you want.</div>
   <button class="cancel-btn" style="margin-bottom:12px" onclick="downloadBulkImportTemplate()">⬇️ ${typeof L==='function'?L('Sample Template Download करें','Download Sample Template'):'Download Sample Template'}</button>
   <input type="file" id="bulkImportFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleBulkImportFile(this.files[0])">
-  <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 Choose Excel/CSV File</button>
+  <button class="submit-btn" onclick="document.getElementById('bulkImportFile').click()">📁 ${L('Excel या CSV फ़ाइल चुनें','Choose Excel or CSV')}</button>
   <div id="bulkImportPreview" style="margin-top:14px"></div>
   <button class="cancel-btn" style="margin-top:10px" onclick="closeModal()">${L('रद्द करें','Cancel')}</button>`);
 }
 
 function downloadBulkImportTemplate(){
-  const csv='Name,Emp ID,Weekly Off,Mobile,Department,Machine,Designation,Responsibility,Salary (₹/month),Joining Date,Date of Birth\n'+'RAM KUMAR,30001001,Sunday,9876543210,Production,Line-1,Operator,Operation,25000,01-04-2024,15-06-1995\n'+'SHYAM LAL,30001002,Monday,,Warehouse,ALL,Supervisor,Quality Check,,,\n';
-  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url; a.download='team_import_template.csv';
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  const link=document.createElement('a');
+  link.href='assets/launch/ManPower-Sample-Roster.xlsx';
+  link.download='ManPower-Sample-Roster.xlsx';
+  link.click();
 }
 
 function handleBulkImportFile(file){

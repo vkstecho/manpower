@@ -948,6 +948,7 @@ async function _submitManagerReg(){
     if (!await launchVerifiedRosterSession(_loginMobile, result.employeeId)) {
       throw Error(L('फिर से मोबाइल सत्यापित करें।', 'Verify your phone again to sign in.'));
     }
+    window.MP_LAUNCH_ONBOARDING?.start({trial:result.trialStarted===true});
   } catch (error) {
     errorEl.textContent = error.message;
     errorEl.classList.add('show');
@@ -969,7 +970,9 @@ async function _submitMemberReg(){
   if (!managerId) {
     try {
       const profile = await window._fbCall('registerIndependent', {name, company: comp, code: _memCode});
-      await launchVerifiedRosterSession(_loginMobile, profile.empObjId);
+      if (await launchVerifiedRosterSession(_loginMobile, profile.empObjId)) {
+        window.MP_LAUNCH_ONBOARDING?.start({trial:profile.paymentTrialGranted===true && Date.now()-Date.parse(profile.firstLoginAt)<120000});
+      }
     } catch (error) {
       if (errEl) { errEl.textContent = error.message; errEl.classList.add('show'); }
     }
@@ -981,6 +984,7 @@ async function _submitMemberReg(){
     });
     toast(L('पंजीकरण पूरा हुआ। प्रबंधक की स्वीकृति बाकी है।','Registered. Manager approval is pending.'));
     _launchAsNewUser(profile);
+    window.MP_LAUNCH_ONBOARDING?.start();
     setTimeout(() => { try { _watchApprovalStatus(mobile); } catch (error) {} }, 800);
   } catch (error) {
     if (errEl) { errEl.textContent = error.message; errEl.classList.add('show'); }

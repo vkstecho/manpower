@@ -1,4 +1,4 @@
-/* Man Power — Service Worker v6.20
+/* Man Power — Service Worker v6.21
    Strategies:
    - Precache app shell + JS/CSS/icons/partials on install
    - HTML / navigation: network-first → cache fallback (fresh when online)
@@ -6,8 +6,8 @@
    - Firebase / Google / external APIs: never intercept (live data)
    - Keeps mp-integrity cache (session token) across version bumps
 */
-const SW_VERSION = '6.20';
-const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '') + '-r21';
+const SW_VERSION = '6.21';
+const CACHE = 'manpower-v' + SW_VERSION.replace(/\./g, '') + '-r22';
 const KEEP_CACHES = new Set([CACHE, 'mp-integrity']);
 
 const PRECACHE = [
@@ -15,6 +15,7 @@ const PRECACHE = [
   './index.html',
   './app.html',
   './css/app.css',
+  './css/launch.css',
   './js/core/train-data.js',
   './js/core/app.js',
   './js/core/app-core.js',
@@ -55,6 +56,10 @@ const PRECACHE = [
   './js/config/private-media.js',
   './js/core/utils.js',
   './js/commercial/public-offer.js',
+  './js/commercial/catalog.js',
+  './js/commercial/launch-page.js',
+  './js/commercial/launch-analytics.js',
+  './js/commercial/launch-onboarding.js',
   './js/core/a11y.js',
   './js/schedule/sched-clipboard.js',
   './js/schedule/sched-undo.js',

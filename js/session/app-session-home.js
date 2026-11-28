@@ -37,6 +37,7 @@ function _homeManpowerCards(departments, workByEmployee, shifts, config) {
   return html;
 }
 async function renderHome(){
+  window.MP_LAUNCH_ONBOARDING?.render();
   try{ if(typeof _forceShiftBadgeColors==='function') _forceShiftBadgeColors(); }catch(e){}
   if(typeof isPendingMember==='function' && isPendingMember()){
     try{
@@ -1643,7 +1644,7 @@ let _myShiftMonth = null;
 
 
 // ═══════════════════════════════════════════════════════════
-// PAYMENT GATE — ₹999/month (Admin sets link + per-user paidUntil)
+// Access is resolved by the verified commercial entitlement.
 // Tabs Home + My Shift always free; other tabs require payment or paidUntil in future
 // ═══════════════════════════════════════════════════════════
 window._paymentSettingsCache = window._paymentSettingsCache || null;

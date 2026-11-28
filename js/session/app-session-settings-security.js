@@ -212,7 +212,7 @@ function showProfile(){
       </button>
       <button class="profile-action" onclick="closeModal();openPaymentSettingsAdmin()">
         <div class="pa-icon" style="background:rgba(234,88,12,.12)">💳</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Payment Link & Reminders','Payment Link & Reminders'):'Payment Link & Reminders'}</div><div class="pa-sub">${typeof L==='function'?L('₹999/month · link · paid-until dates','₹999/month · link · paid-until dates'):'₹999/month · link · paid-until dates'}</div></div>
+        <div><div class="pa-label">${typeof L==='function'?L('Payment Link & Reminders','Payment Link & Reminders'):'Payment Link & Reminders'}</div><div class="pa-sub">${typeof L==='function'?L('Plans, payment verification and paid-through dates','Plans, payment verification and paid-through dates'):'Plans, payment verification and paid-through dates'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action" onclick="closeModal();openShareAppLinkAdmin()">
@@ -222,7 +222,7 @@ function showProfile(){
       </button>
       <button class="profile-action" onclick="closeModal();openCustomerCareAdmin()">
         <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Name · Email · WhatsApp · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund text','Name · Email · WhatsApp · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund text'):'Name · Email · WhatsApp · 7-day refund text'}</div></div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Name · Email · WhatsApp · '+'refund policy','Name · Email · WhatsApp · '+'refund policy'):'Name · Email · WhatsApp · refund policy'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button class="profile-action" onclick="closeModal();openTabVisibilitySettings()">
@@ -382,7 +382,7 @@ function showProfile(){
       </button>`:''}
       <button class="profile-action" onclick="closeModal();openCustomerCarePage()">
         <div class="pa-icon" style="background:rgba(16,185,129,.12)">🎧</div>
-        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund','Help · Cancel · '+((window._customerCareCache&&window._customerCareCache.refundDays)||7)+'-day refund'):'Help · Cancel · 7-day refund'}</div></div>
+        <div><div class="pa-label">${typeof L==='function'?L('Customer Care','Customer Care'):'Customer Care'}</div><div class="pa-sub">${typeof L==='function'?L('Help · Cancel · '+'refund policy','Help · Cancel · '+'refund policy'):'Help · Cancel · refund policy'}</div></div>
         <div class="pa-arrow">›</div>
       </button>
       <button type="button" class="profile-action danger" onclick="openDeleteAccountModal()" style="border-color:rgba(244,63,94,.45);margin-top:8px">

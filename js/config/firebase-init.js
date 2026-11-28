@@ -200,6 +200,37 @@
       } finally {unsubscribe();}
     };
 
+    // These two fixed writes are also checked by the existing Admin Rules.
+    window._fbPublishCommercial = async ({commercial,enabled,trialDays,offer,videos})=>{
+      await authReady;
+      return update(ref(db),{
+        'settings/payment/commercial':commercial,'settings/payment/enabled':enabled,
+        'settings/appLicense/freeTrialDays':trialDays,'settings/landingVideos':videos,publicOffer:offer
+      });
+    };
+    window._fbActivateVerifiedPayment = async (digest,receipt)=>{
+      await authReady;
+      if (!/^[a-f0-9]{64}$/.test(digest) || !/^[A-Za-z0-9_-]{1,128}$/.test(receipt?.accountUid || '') ||
+          receipt.verifiedBy!==verifiedUser()?.uid) throw Error('Invalid payment verification');
+      const path=ref(db,'verifiedPaymentReceipts/'+digest);
+      const prior=(await get(path)).val();
+      if (prior) return {existing:true,receipt:prior};
+      const {verifiedBy,...entitlement}=receipt;
+      try {
+        await update(ref(db),{
+          ['paymentStatus/'+receipt.accountUid]:{...entitlement,commercialVersion:1,lastVerification:digest,
+            maxMembers:receipt.seatLimit,planMaxMembers:receipt.seatLimit},
+          ['verifiedPaymentReceipts/'+digest]:receipt
+        });
+      } catch (error) {
+        // The write can already have committed when a response is lost.
+        const stored=(await get(path)).val();
+        if (stored) return {existing:true,receipt:stored};
+        throw error;
+      }
+      return {existing:false,receipt};
+    };
+
     window._fbAccess = async function(op, path, val){
       await authReady;
       const parts = path.split('/').filter(Boolean);

@@ -132,14 +132,14 @@ window.addEventListener('appinstalled', function () {
 <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
 
 <script src="js/config/firebase.local.js"></script>
-<script src="js/config/private-media.js?v=6.20-r21"></script>
-<script type="module" src="js/config/firebase-init.js?v=6.20-r21"></script>
+<script src="js/config/private-media.js?v=6.21-r22"></script>
+<script type="module" src="js/config/firebase-init.js?v=6.21-r22"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="mp-fonts-base" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&family=Barlow+Condensed:wght@700;800;900&display=swap" rel="stylesheet">
 <link id="mp-fonts-lang" rel="stylesheet" href="">
-<link rel="stylesheet" href="css/app.css?v=6.20-r21">
+<link rel="stylesheet" href="css/app.css?v=6.21-r22">
 
 <style id="mp-i18n-css">
   body { font-family: 'Noto Sans', 'Noto Sans Devanagari', system-ui, sans-serif; }
@@ -1036,8 +1036,8 @@ html.mp-login-active, body.mp-login-active {
         </div>
         <div id="roleCard_member" class="role-pick-card" onclick="_selectRole('member')">
           <div class="role-pick-ico">👤</div>
-          <div class="role-pick-title">Team Member</div>
-          <div class="role-pick-sub" id="loginRoleMemSub">I am a Member — I join my Manager's team</div>
+          <div class="role-pick-title" id="loginRoleMemLabel">Member or Individual</div>
+          <div class="role-pick-sub" id="loginRoleMemSub">Join a Manager’s team or use ManPower on your own</div>
         </div>
       </div>
       <button type="button" class="back-btn" id="loginBackBtn3" onclick="backToStep1()">&larr; Back</button>
@@ -1049,16 +1049,16 @@ html.mp-login-active, body.mp-login-active {
     <div class="login-card" style="width:100%">
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:4px">&#128084;</div>
-        <div style="font-size:16px;font-weight:900;color:#fff">Manager Registration</div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">Register after OTP — instant access (no Admin wait)</div>
+        <div style="font-size:16px;font-weight:900;color:#fff" id="mgr-reg-title">Manager registration</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px" id="mgr-reg-help">Create your company and team after mobile verification.</div>
       </div>
       <div class="err-msg" id="mgrRegErr"></div>
-      <label class="inp-label">&#128100; Full Name *</label>
+      <label class="inp-label" for="mgrName" id="mgr-reg-name">Full name *</label>
       <input class="inp-field" type="text" id="mgrName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label">&#127970; Company Name *</label>
+      <label class="inp-label" for="mgrCompany" id="mgr-reg-company">Company name *</label>
       <input class="inp-field" type="text" id="mgrCompany" placeholder="Company name" autocomplete="off" style="margin-bottom:10px">
 
-      <label class="inp-label">&#128188; Designation *</label>
+      <label class="inp-label" for="mgrDesignation" id="mgr-reg-designation">Designation *</label>
       <select class="inp-field" id="mgrDesignation" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDesignation','mgrDesignationOther')">
         <option value="">-- Select --</option>
         <option value="Plant Manager">Plant Manager</option>
@@ -1074,7 +1074,7 @@ html.mp-login-active, body.mp-login-active {
         <option value="Others">Others (type)</option>
       </select>
       <input class="inp-field" type="text" id="mgrDesignationOther" placeholder="Type your designation" style="margin-bottom:10px;display:none">
-      <label class="inp-label">&#127981; Department *</label>
+      <label class="inp-label" for="mgrDepartment" id="mgr-reg-department">Department *</label>
       <select class="inp-field" id="mgrDepartment" style="margin-bottom:10px" onchange="_toggleOtherField('mgrDepartment','mgrDepartmentOther')">
         <option value="">-- Select --</option>
         <option value="Production">Production</option>
@@ -1090,7 +1090,7 @@ html.mp-login-active, body.mp-login-active {
         <option value="Others">Others (type)</option>
       </select>
       <input class="inp-field" type="text" id="mgrDepartmentOther" placeholder="Type your department" style="margin-bottom:14px;display:none">
-      <button class="big-btn" onclick="_submitManagerReg()">&#128228; Complete Registration</button>
+      <button class="big-btn" onclick="_submitManagerReg()" id="mgr-reg-submit">Complete registration</button>
       <button class="back-btn" onclick="showStep(3)">&larr; Back</button>
     </div>
   </div>
@@ -1100,19 +1100,19 @@ html.mp-login-active, body.mp-login-active {
     <div class="login-card" style="width:100%">
       <div style="text-align:center;margin-bottom:16px">
         <div style="font-size:32px;margin-bottom:4px">&#128100;</div>
-        <div style="font-size:16px;font-weight:900;color:#fff">Member Registration</div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">Joining a team requires Manager approval / टीम में शामिल होने के लिए प्रबंधक की स्वीकृति चाहिए</div>
+        <div style="font-size:16px;font-weight:900;color:#fff" id="mem-reg-title">Member or Individual registration</div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px" id="mem-reg-help">Joining a team requires your Manager’s approval.</div>
       </div>
       <div class="err-msg" id="memRegErr"></div>
-      <label class="inp-label">&#128100; Full Name *</label>
+      <label class="inp-label" for="memName" id="mem-reg-name">Full name *</label>
       <input class="inp-field" type="text" id="memName" placeholder="Your full name" autocomplete="off" style="margin-bottom:10px">
-      <label class="inp-label" for="memManagerPhone">Manager’s registered mobile (optional) / प्रबंधक का पंजीकृत मोबाइल (वैकल्पिक)</label>
+      <label class="inp-label" for="memManagerPhone" id="mem-reg-manager">Manager’s registered mobile (optional) / प्रबंधक का पंजीकृत मोबाइल (वैकल्पिक)</label>
       <input class="inp-field" type="tel" id="memManagerPhone" placeholder="10-digit Indian number or +country code" autocomplete="off" style="margin-bottom:10px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Leave blank to continue independently. / स्वतंत्र रूप से जारी रखने के लिए खाली छोड़ें।</div>
-      <label class="inp-label">&#128196; Employee Code / Emp ID <span style="font-weight:600;opacity:.7">(optional)</span></label>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px" id="mem-reg-independent">Leave blank to continue independently. / स्वतंत्र रूप से जारी रखने के लिए खाली छोड़ें।</div>
+      <label class="inp-label" for="memEmpCode" id="mem-reg-code">Employee code (optional)</label>
       <input class="inp-field" type="text" id="memEmpCode" placeholder="e.g. 30000422" autocomplete="off" style="margin-bottom:10px">
-      <div style="font-size:11px;color:#64748b;margin:-4px 0 12px;line-height:1.4">If you know your official Emp Code, enter it. Manager can also set it when approving.</div>
-      <button class="big-btn" onclick="_submitMemberReg()">&#128228; Complete Registration</button>
+      <div style="font-size:11px;color:#64748b;margin:-4px 0 12px;line-height:1.4" id="mem-reg-code-help">If you know your official Emp Code, enter it. Manager can also set it when approving.</div>
+      <button class="big-btn" onclick="_submitMemberReg()" id="mem-reg-submit">Complete registration</button>
       <button class="back-btn" onclick="showStep(3)">&larr; Back</button>
     </div>
   </div>
@@ -1332,6 +1332,7 @@ html.mp-login-active, body.mp-login-active {
 <div class="tab on" id="tab-home">
   <div class="page-title" id="homeDateLbl"></div>
   <div id="homeNotice"></div>
+  <section class="mp-first-setup" id="mp-first-setup" hidden></section>
   <!-- Same Home for everyone: manpower summary + personal shift calendar -->
   <div id="homeAdminView">
     <div class="stats-grid" id="homeStats"></div>
@@ -2049,33 +2050,36 @@ window.__sectionsReady = (async function loadSections(){
 })();
 </script>
 
-<script src="js/commercial/public-offer.js?v=6042"></script>
+<script src="js/commercial/catalog.js?v=6.21-r22"></script>
+<script src="js/commercial/public-offer.js?v=6.21-r22"></script>
+<script src="js/commercial/launch-analytics.js?v=6.21-r22"></script>
 <script src="js/i18n/i18n_locale.js"></script>
-<script src="js/core/app-core.js?v=6.20-r21"></script>
-<script src="js/auth/app-login.js?v=6.20-r21"></script>
-<script src="js/auth/app-login-device.js?v=6.20-r21"></script>
-<script src="js/core/form-actions.js?v=6.20-r21"></script>
-<script src="js/auth/app-session-auth.js?v=6.20-r21"></script>
-<script src="js/session/app-session-nav.js?v=6.20-r21"></script>
+<script src="js/core/app-core.js?v=6.21-r22"></script>
+<script src="js/auth/app-login.js?v=6.21-r22"></script>
+<script src="js/auth/app-login-device.js?v=6.21-r22"></script>
+<script src="js/core/form-actions.js?v=6.21-r22"></script>
+<script src="js/auth/app-session-auth.js?v=6.21-r22"></script>
+<script src="js/session/app-session-nav.js?v=6.21-r22"></script>
 <script src="js/session/app-session-settings-shift.js?v=6000"></script>
-<script src="js/session/app-session-settings-profile.js?v=6.20-r21"></script>
-<script src="js/session/app-session-settings-security.js?v=6.20-r21"></script>
+<script src="js/session/app-session-settings-profile.js?v=6.21-r22"></script>
+<script src="js/session/app-session-settings-security.js?v=6.21-r22"></script>
 <script src="js/session/app-announce.js?v=6050"></script>
-<script src="js/session/app-session-settings.js?v=6.20-r21"></script>
-<script src="js/session/app-account-backup.js?v=6.20-r21"></script>
-<script src="js/session/app-session-home.js?v=6026"></script>
-<script src="js/session/app-work-diary.js?v=6.20-r21"></script>
-<script src="js/session/pay-gate.js?v=6.20-r21"></script>
-<script src="js/session/pay-trial.js?v=6.20-r21"></script>
-<script src="js/session/pay-admin.js?v=6.20-r21"></script>
+<script src="js/session/app-session-settings.js?v=6.21-r22"></script>
+<script src="js/session/app-account-backup.js?v=6.21-r22"></script>
+<script src="js/session/app-session-home.js?v=6.21-r22"></script>
+<script src="js/session/app-work-diary.js?v=6.21-r22"></script>
+<script src="js/commercial/launch-onboarding.js?v=6.21-r22"></script>
+<script src="js/session/pay-gate.js?v=6.21-r22"></script>
+<script src="js/session/pay-trial.js?v=6.21-r22"></script>
+<script src="js/session/pay-admin.js?v=6.21-r22"></script>
 <script src="js/session/app-session-payment.js?v=6054"></script>
 <script src="js/auth/app-login-session.js?v=400020"></script>
-<script src="js/core/app.js?v=6.20-r21"></script>
-<script src="js/team/app-team-print.js?v=6.20-r21"></script>
-<script src="js/team/app-learn.js?v=6.20-r21"></script>
+<script src="js/core/app.js?v=6.21-r22"></script>
+<script src="js/team/app-team-print.js?v=6.21-r22"></script>
+<script src="js/team/app-learn.js?v=6.21-r22"></script>
 <script src="js/team/app-team-skills.js?v=5014"></script>
 <script src="js/team/app-team-ops-layer.js?v=5014"></script>
-<script src="js/commercial/mp-commercial.js?v=6.20-r21"></script>
+<script src="js/commercial/mp-commercial.js?v=6.21-r22"></script>
 <script src="js/core/a11y.js?v=400020"></script>
 <!-- Deferred until after first paint / login interactive (v3.2.7) -->
 <script>
@@ -2083,15 +2087,15 @@ window.__sectionsReady = (async function loadSections(){
   var heavy = [
     'js/i18n/i18n_ml.js?v=5100',
     'js/i18n/i18n_dict.js?v=5100',
-    'js/schedule/app-schedule.js?v=6.20-r21',
-    'js/schedule/sched-admin-teams.js?v=6.20-r21',
+    'js/schedule/app-schedule.js?v=6.21-r22',
+    'js/schedule/sched-admin-teams.js?v=6.21-r22',
     'js/team/app-team.js?v=5100',
-    'js/team/app-team-import-core.js?v=6.20-r21',
-    'js/team/app-team-emp-forms.js?v=6.20-r21',
-    'js/team/app-team-excel-ops.js?v=6.20-r21',
-    'js/schedule/sched-work-hours.js?v=6.20-r21',
-    'js/schedule/sched-shift-edit.js?v=6.20-r21',
-    'js/schedule/app-sched-builder.js?v=5131',
+    'js/team/app-team-import-core.js?v=6.21-r22',
+    'js/team/app-team-emp-forms.js?v=6.21-r22',
+    'js/team/app-team-excel-ops.js?v=6.21-r22',
+    'js/schedule/sched-work-hours.js?v=6.21-r22',
+    'js/schedule/sched-shift-edit.js?v=6.21-r22',
+    'js/schedule/app-sched-builder.js?v=6.21-r22',
     'js/schedule/sched-auto-coverage.js?v=5127',
     'js/team/app-team-import.js?v=5100',
     'js/schedule/sched-offline-queue.js?v=5100',

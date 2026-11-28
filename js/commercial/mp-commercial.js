@@ -265,270 +265,55 @@
   }
 
   // ─── Subscription plans ────────────────────────────────────────────────
-  function defaultPlans() {
-    return [
-      { id: 'm1', label: 'Individual (1 member)', maxMembers: 1, monthly: 99, discountPct: null },
-      { id: 'm30', label: 'Up to 30 members', maxMembers: 30, monthly: 499, discountPct: null },
-      { id: 'm60', label: 'Up to 60 members', maxMembers: 60, monthly: 999, discountPct: null },
-      { id: 'm200', label: 'Up to 200 members', maxMembers: 200, monthly: 1999, discountPct: null },
-      { id: 'custom', label: 'Customized plan', custom: true }
-    ];
-  }
-
   function getSubscriptionPlans(cfg) {
-    var globalDisc = 12;
-    try {
-      if (cfg && cfg.defaultDiscountPct != null && cfg.defaultDiscountPct !== '')
-        globalDisc = parseInt(cfg.defaultDiscountPct, 10);
-      if (isNaN(globalDisc)) globalDisc = 12;
-    } catch (e) {}
-    globalDisc = Math.min(90, Math.max(0, globalDisc));
-
-    // Build from admin amountOptions + maxMembersByAmount when available
-    // (this is what Admin edits — not the old hardcoded 499/999/1999 defaults)
-    function plansFromAmounts(cfg) {
-      if (!cfg) return null;
-      var raw = cfg.amountOptions || cfg.amounts || [];
-      var amounts = (Array.isArray(raw) ? raw : String(raw).split(','))
-        .map(function (x) { return parseInt(x, 10); })
-        .filter(function (n) { return n > 0; });
-      if (!amounts.length) return null;
-      var mmMap = cfg.maxMembersByAmount || {};
-      // Treat as annual if it matches monthly×12×(1−disc) for some smaller monthly in the list
-      function isAnnualAmt(n) {
-        for (var i = 0; i < amounts.length; i++) {
-          var m = amounts[i];
-          if (m > 0 && m < n && Math.round(m * 12 * (1 - globalDisc / 100)) === n) return true;
-        }
-        if (n >= 4000) return true;
-        return false;
-      }
-      var monthlyOnly = amounts.filter(function (n) { return !isAnnualAmt(n); });
-      monthlyOnly.sort(function (a, b) { return a - b; });
-      if (!monthlyOnly.length) return null;
-      var out = monthlyOnly.map(function (m) {
-        var mm = parseInt(mmMap[String(m)] != null ? mmMap[String(m)] : mmMap[m], 10) || 0;
-        var label;
-        if (mm === 1 || m === 99 || m === 199) label = 'Individual (1 member)';
-        else if (mm > 0) label = 'Up to ' + mm + ' members';
-        else if (m === 499) label = 'Up to 30 members';
-        else if (m === 799 || m === 999 || m === 1499) label = 'Up to 60 members';
-        else if (m >= 1999) label = 'Up to 200 members';
-        else label = 'Plan ₹' + m;
-        return {
-          id: 'm' + m,
-          label: label,
-          maxMembers: mm || (m === 99 || m === 199 ? 1 : 0),
-          monthly: m,
-          discountPct: null
-        };
-      });
-      out.push({ id: 'custom', label: 'Customized plan', custom: true });
-      return out;
-    }
-
-    var fromAmounts = plansFromAmounts(cfg);
-    var fromAdmin =
-      (cfg && Array.isArray(cfg.plans) && cfg.plans.length ? cfg.plans : null) ||
-      fromAmounts ||
-      defaultPlans();
-
-    return fromAdmin.map(function (p) {
-      if (p.custom) return p;
-      var monthly = parseInt(p.monthly, 10) || 0;
-      var discountPct = globalDisc;
-      try {
-        if (cfg && cfg.planDiscounts && cfg.planDiscounts[String(monthly)] != null) {
-          var o = parseInt(cfg.planDiscounts[String(monthly)], 10);
-          if (!isNaN(o)) discountPct = o;
-        }
-      } catch (e2) {}
-      discountPct = Math.min(90, Math.max(0, discountPct));
-      var annual = Math.round(monthly * 12 * (1 - discountPct / 100));
-      return Object.assign({}, p, { monthly: monthly, discountPct: discountPct, annual: annual });
-    });
+    return MP_CATALOG.read(cfg?.commercial)?.plans || [];
   }
   window._getSubscriptionPlans = getSubscriptionPlans;
 
-  function isManagerUser() {
-    try {
-      if (typeof isMgr === 'function' && isMgr()) return true;
-      if (window.SESSION && String(SESSION.role || '').toLowerCase() === 'manager') return true;
-    } catch (e) {}
-    return false;
+  function isTeamPayer() {
+    return SESSION.role === 'manager' || (typeof isAdmin === 'function' && isAdmin());
   }
 
-  function openCustomPlanSupport() {
-    var text = encodeURIComponent('Hi, I need a custom Man Power plan for my plant.');
-    window.open(DEFAULT_WA ? 'https://wa.me/' + DEFAULT_WA + '?text=' + text : 'mailto:' + DEFAULT_EMAIL + '?body=' + text, '_blank', 'noopener');
-  }
-  window._openCustomPlanSupport = openCustomPlanSupport;
-
-  function resolveLink(cfg, amount) {
-    if (typeof _resolvePaymentLink === 'function') return _resolvePaymentLink(cfg, amount);
-    try {
-      var map = (cfg && cfg.linksByAmount) || {};
-      var am = String(parseInt(amount, 10) || 0);
-      if (map[am]) return map[am];
-      if (cfg && cfg.link) return cfg.link;
-    } catch (e) {}
-    return '';
-  }
-
-  function showPlanPayConfirm(plan) {
-    if (typeof plan === 'string') {
-      try {
-        plan = JSON.parse(plan);
-      } catch (e) {
-        plan = null;
-      }
+  async function openMemberPayPlans(period = 'monthly') {
+    const user = window._fbAuth?.currentUser;
+    if (!user || user.isAnonymous) return;
+    const label = L('सदस्यता योजनाएँ', 'Subscription plans');
+    const close = '<button type="button" class="cancel-btn" onclick="closeModal()">'+L('बंद करें','Close')+'</button>';
+    const support = '<button type="button" class="cancel-btn" onclick="openCustomerCarePage()">'+L('भुगतान और रिफंड सहायता','Payment and refund support')+'</button>';
+    if ((SESSION.role === 'member' || SESSION.role === 'worker') && SESSION.individual !== true) {
+      openModal('<div class="modal-title">'+label+'</div><p>'+L('आपके मैनेजर टीम की सदस्यता संभालते हैं। आपकी भूमिका तय करती है कि आप कौन-सी सुविधाएँ इस्तेमाल कर सकते हैं।','Your Manager handles the team subscription. Your role determines the features you can use.')+'</p>'+support+close);
+      return;
     }
-    if (!plan || plan.custom) return openCustomPlanSupport();
-
-    var cfg = window._paymentSettingsCache || {};
-    var monthlyLink = resolveLink(cfg, plan.monthly) || '';
-    var annualLink = resolveLink(cfg, plan.annual) || '';
-
-    var Lfn = typeof L === 'function' ? L : function (a, b) {
-      return b || a;
-    };
-    var html =
-      '<div class="modal-handle"></div>' +
-      '<div class="modal-title">' +
-      (plan.label || 'Plan') +
-      '</div>' +
-      '<div style="font-size:13px;color:var(--muted2);margin-bottom:14px;line-height:1.5">' +
-      Lfn('मासिक', 'Monthly') +
-      ': <b>₹' +
-      plan.monthly +
-      '</b><br>' +
-      Lfn('वार्षिक', 'Annual') +
-      ': <b>₹' +
-      plan.annual +
-      '</b> (' +
-      plan.discountPct +
-      '% ' +
-      Lfn('छूट', 'off') +
-      ')' +
-      '</div>';
-
-    function linkOk(u) {
-      if (typeof _looksLikeFixedPaymentLink === 'function') return _looksLikeFixedPaymentLink(u);
-      return !!(u && /^https?:\/\//i.test(u));
+    const [cfg, care] = await Promise.all([_loadPaymentSettings(true), _loadCustomerCare(true)]);
+    if (user.uid !== window._fbAuth?.currentUser?.uid) return;
+    const cat = MP_CATALOG.read(cfg.commercial);
+    if (!cat || cfg.enabled === false) {
+      openModal('<div class="modal-title">'+label+'</div><p>'+L('मौजूदा योजनाओं की जानकारी के लिए सहायता से संपर्क करें।','Contact support for current subscription options.')+'</p>'+support+close);
+      return;
     }
-    var monthlyOk = monthlyLink && linkOk(monthlyLink);
-    var annualOk = annualLink && linkOk(annualLink);
-    if (monthlyOk) {
-      html +=
-        '<a class="big-btn" style="display:block;text-align:center;margin-bottom:10px;text-decoration:none;background:linear-gradient(135deg,#ea580c,#c2410c);color:#fff;font-weight:900;padding:14px;border-radius:12px" target="_blank" rel="noopener" href="' +
-        monthlyLink.replace(/"/g, '&quot;') +
-        '">Pay ₹' +
-        plan.monthly +
-        ' / month</a>';
-    } else if (monthlyLink) {
-      html +=
-        '<div style="padding:10px;border-radius:10px;background:rgba(249,115,22,.1);color:#c2410c;font-size:12px;margin-bottom:10px">Monthly link looks invalid (use full fixed-amount rzp.io link for ₹' +
-        plan.monthly +
-        ')</div>';
-    }
-    if (annualOk) {
-      html +=
-        '<a class="big-btn" style="display:block;text-align:center;margin-bottom:10px;text-decoration:none;background:linear-gradient(135deg,#059669,#047857);color:#fff;font-weight:900;padding:14px;border-radius:12px" target="_blank" rel="noopener" href="' +
-        annualLink.replace(/"/g, '&quot;') +
-        '">Pay ₹' +
-        plan.annual +
-        ' / year</a>';
-    } else if (annualLink) {
-      html +=
-        '<div style="padding:10px;border-radius:10px;background:rgba(249,115,22,.1);color:#c2410c;font-size:12px;margin-bottom:10px">Annual link looks invalid or incomplete — Admin must paste a <b>fixed-amount</b> Razorpay Payment Link created for exactly ₹' +
-        plan.annual +
-        ' (not razorpay.me/@username). "Amount not valid" means the link was made for a different amount.</div>';
-    }
-    if (!monthlyOk && !annualOk) {
-      html +=
-        '<div style="padding:12px;border-radius:10px;background:rgba(239,68,68,.1);color:#b91c1c;font-size:12px;margin-bottom:10px">Payment link not set or invalid — contact Admin / WhatsApp ' +
-        (DEFAULT_WA || DEFAULT_EMAIL) +
-        '</div>';
-    }
-    html +=
-      '<button type="button" class="cancel-btn" style="width:100%" onclick="closeModal();openMemberPayPlans()">← ' +
-      Lfn('वापस', 'Back') +
-      '</button>';
-
-    if (typeof openModal === 'function') openModal(html);
-  }
-  window._showPlanPayConfirm = showPlanPayConfirm;
-
-  async function openMemberPayPlans() {
-    var cfg = null;
-    try {
-      if (typeof _loadPaymentSettings === 'function') cfg = await _loadPaymentSettings(true);
-      else if (typeof fbGet === 'function') cfg = await fbGet('settings/payment');
-    } catch (e) {}
-    // Always merge freshest Firebase settings so defaultDiscountPct is current
-    window._paymentSettingsCache = Object.assign({}, window._paymentSettingsCache || {}, cfg || {});
-    if (cfg && cfg.defaultDiscountPct != null) window._paymentSettingsCache.defaultDiscountPct = cfg.defaultDiscountPct;
-
-    var plans = getSubscriptionPlans(window._paymentSettingsCache);
-    var Lfn = typeof L === 'function' ? L : function (a, b) {
-      return b || a;
-    };
-
-    if (!isManagerUser()) {
-      var ind = plans.filter(function (p) {
-        return !p.custom && p.maxMembers === 1;
-      })[0] || plans[0];
-      return showPlanPayConfirm(ind);
-    }
-
-    var rows = plans
-      .map(function (p) {
-        if (p.custom) {
-          return (
-            '<button type="button" class="profile-action" style="width:100%;margin-bottom:8px;text-align:left" onclick="closeModal();_openCustomPlanSupport()">' +
-            '<div class="pa-icon" style="background:rgba(37,211,102,.12)">💬</div>' +
-            '<div><div class="pa-label">' +
-            p.label +
-            '</div><div class="pa-sub">WhatsApp support for custom quote</div></div>' +
-            '<div class="pa-arrow">›</div></button>'
-          );
-        }
-        var payload = encodeURIComponent(JSON.stringify(p));
-        return (
-          '<button type="button" class="profile-action" style="width:100%;margin-bottom:8px;text-align:left" onclick="closeModal();_showPlanPayConfirm(JSON.parse(decodeURIComponent(\'' +
-          payload +
-          '\')))">' +
-          '<div class="pa-icon" style="background:rgba(249,115,22,.12)">👥</div>' +
-          '<div><div class="pa-label">' +
-          p.label +
-          '</div><div class="pa-sub">₹' +
-          p.monthly +
-          '/month · Annual ₹' +
-          p.annual +
-          ' (save ' +
-          p.discountPct +
-          '%)</div></div>' +
-          '<div class="pa-arrow">›</div></button>'
-        );
-      })
-      .join('');
-
-    var html =
-      '<div class="modal-handle"></div>' +
-      '<div class="modal-title">' +
-      Lfn('प्लान चुनें', 'Choose plan') +
-      '</div>' +
-      '<div style="font-size:12px;color:var(--muted2);margin-bottom:12px">' +
-      Lfn('टीम साइज़ के हिसाब से', 'Based on team size') +
-      '</div>' +
-      rows +
-      '<button type="button" class="cancel-btn" style="width:100%;margin-top:8px" onclick="closeModal()">' +
-      Lfn('बंद करें', 'Close') +
-      '</button>';
-
-    if (typeof openModal === 'function') openModal(html);
+    const hi = _lang === 'hi';
+    const term = period === 'annual' ? 'annual' : 'monthly';
+    const accountVerified = MP_CATALOG.contact({supportEmail:care.email,supportWhatsApp:care.whatsapp});
+    const checkoutAvailable = Boolean(cat.taxMode && (accountVerified.email || accountVerified.whatsapp) && care.refundPolicy);
+    const plans = cat.plans.filter(plan => (plan.id !== 'individual') === isTeamPayer());
+    const rows = plans.map(plan => {
+      const link = checkoutAvailable ? plan.links[term] : '';
+      return '<div class="profile-action"><div><div class="pa-label">'+escHtml(hi?plan.hi:plan.name)+'</div>'
+        +'<div class="pa-sub">'+(plan.limit===1?L('एक व्यक्ति','One individual'):L(plan.limit+' सदस्यों तक', 'Up to '+plan.limit+' members'))+'</div>'
+        +'<strong>₹'+MP_CATALOG.amount(plan[term],hi?'hi':'en')+' '+(term==='annual'?L('/ वर्ष','/ year'):L('/ माह','/ month'))+'</strong></div>'
+        +(link?'<a class="cancel-btn" data-mp-checkout="'+plan.id+'" data-period="'+term+'" href="'+escHtml(link)+'" target="_blank" rel="noopener noreferrer">'+L('भुगतान करें','Pay with Razorpay')+'</a>':'<span class="pa-sub">'+L('सहायता से संपर्क करें','Contact support')+'</span>')+'</div>';
+    }).join('');
+    const tabs = '<div class="mp-plan-period"><button class="cancel-btn" type="button" aria-pressed="'+(term==='monthly')+'" onclick="openMemberPayPlans(&quot;monthly&quot;)">'+L('मासिक','Monthly')+'</button>'
+      +'<button class="cancel-btn" type="button" aria-pressed="'+(term==='annual')+'" onclick="openMemberPayPlans(&quot;annual&quot;)">'+L('वार्षिक','Annual')+' · '+cat.annualDiscountPct+'% '+L('छूट','off')+'</button></div>';
+    openModal('<div class="modal-title">'+label+'</div>'+tabs+rows
+      +'<p>'+escHtml(MP_CATALOG.taxCopy(cat.taxMode,hi))+'</p><p>'+L('भुगतान की जाँच के बाद हमारी टीम सदस्यता सक्रिय करती है। अपना Razorpay संदर्भ सहायता टीम को निजी रूप से भेजें।','Our team activates subscriptions after verifying the payment. Send your Razorpay reference privately to support.')+'</p>'
+      +(isTeamPayer()?'<p>'+L('कस्टम योजना के लिए बिक्री टीम से संपर्क करें।','Contact sales for a custom plan.')+'</p>':'')+support+close);
   }
   window.openMemberPayPlans = openMemberPayPlans;
+  document.addEventListener('click', event => {
+    const link = event.target.closest('[data-mp-checkout]');
+    if (link) window.MP_LAUNCH_ANALYTICS?.track('checkout_click',{plan:link.dataset.mpCheckout,period:link.dataset.period});
+  }, {capture:true});
 
   // Helper: build Paid-till profile row HTML
   function paidTillRowHtml(untilDate) {

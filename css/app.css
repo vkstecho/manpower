@@ -2339,3 +2339,7 @@ body.light .mp-danger-text { color:#961930; }
   .wd-heading { flex-wrap:nowrap; }
   .wd-heading .wd-diary-tools { justify-content:flex-end; }
 }
+
+.mp-first-setup{margin:10px 0 14px;padding:12px 14px;color:var(--text);background:var(--card);border:1px solid var(--border2);border-inline-start:4px solid var(--day);border-radius:10px}
+.mp-first-setup[hidden]{display:none}.mp-first-setup ol{margin:8px 0;padding-inline-start:24px}.mp-first-setup li{margin:3px 0}.mp-first-setup button{color:var(--text);background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:5px 9px}.mp-first-setup>div,.mp-plan-period{display:flex;gap:8px;flex-wrap:wrap}.mp-plan-period [aria-pressed=true]{border-color:var(--day);color:var(--text);font-weight:800}
+.mp-commercial-admin{padding:12px 0;color:var(--text);border-bottom:1px solid var(--border2)}.mp-commercial-admin-grid{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}.mp-commercial-admin-plan{min-width:0;margin:0;padding:8px;border:1px solid var(--border2);border-radius:8px}.mp-commercial-admin .check-label{display:block;margin:8px 0}.mp-commercial-admin button{margin:5px 0}

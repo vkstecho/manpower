@@ -980,6 +980,7 @@ async function saveScheduleBuilder(monthKey){
       _cache.schedules[mk] = expanded;
     }catch(e){ console.warn('[saveScheduleBuilder cache]', e); }
     try{ if(typeof invalidateShiftCache==='function') invalidateShiftCache(); }catch(e){}
+    if (!failures.length && savedIds.size) window.MP_LAUNCH_ONBOARDING?.firstSchedule();
     const from = window._sbDayFrom || 1;
     const to = window._sbDayTo || daysInMonth;
     const rangeMsg = (from === 1 && to === daysInMonth) ? '' : ` (${from}–${to})`;

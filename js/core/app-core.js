@@ -27,7 +27,7 @@ function _stopVerifiedRoster() {
   _preparedRosterUid = null;
   window._mpListenersStarted = false;
 }
-const APP_VERSION="undefined"!=typeof MP_CFG&&MP_CFG.APP_VERSION?MP_CFG.APP_VERSION:"6.20";function _unlockOrientation(){try{screen.orientation&&"function"==typeof screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}try{"function"==typeof screen.unlockOrientation&&screen.unlockOrientation()}catch(e){}try{"function"==typeof screen.unlockOrientationWebkit&&screen.unlockOrientationWebkit()}catch(e){}}try{_unlockOrientation()}catch(e){}let _preparedRoster = null, _preparedRosterUid = null;
+const APP_VERSION="undefined"!=typeof MP_CFG&&MP_CFG.APP_VERSION?MP_CFG.APP_VERSION:"6.21";function _unlockOrientation(){try{screen.orientation&&"function"==typeof screen.orientation.unlock&&screen.orientation.unlock()}catch(e){}try{"function"==typeof screen.unlockOrientation&&screen.unlockOrientation()}catch(e){}try{"function"==typeof screen.unlockOrientationWebkit&&screen.unlockOrientationWebkit()}catch(e){}}try{_unlockOrientation()}catch(e){}let _preparedRoster = null, _preparedRosterUid = null;
 function initData() {
   const uid = window._fbAuth?.currentUser?.uid;
   if (!uid || window._fbAuth.currentUser.isAnonymous || SESSION.authUid !== uid) return Promise.resolve(false);
@@ -665,7 +665,28 @@ function _doPlatformShare(kind){
   setTxt('loginRoleHeading','आप कौन हैं?','Who are you?');
   setTxt('loginRoleSub','अपनी भूमिका चुनें','Choose your role');
   setTxt('loginRoleMgrSub','मैं एक Manager हूं — अपनी team बनाना चाहता/चाहती हूं',"I am a Manager — I manage my team");
-  setTxt('loginRoleMemSub','मैं एक Member हूं — अपने Manager की team में शामिल हूं',"I am a Member — I join my Manager's team");
+  setTxt('loginRoleMemLabel','सदस्य या व्यक्तिगत','Member or Individual');
+  setTxt('loginRoleMemSub','मैनेजर की टीम में जुड़ें या व्यक्तिगत खाता इस्तेमाल करें',"Join a Manager’s team or use ManPower on your own");
+
+  setTxt('mgr-reg-title','मैनेजर पंजीकरण','Manager registration');
+  setTxt('mgr-reg-help','मोबाइल सत्यापन के बाद अपनी कंपनी और टीम बनाएँ।','Create your company and team after mobile verification.');
+  setTxt('mgr-reg-name','पूरा नाम *','Full name *');
+  setTxt('mgr-reg-company','कंपनी का नाम *','Company name *');
+  setTxt('mgr-reg-designation','पद *','Designation *');
+  setTxt('mgr-reg-department','विभाग *','Department *');
+  setTxt('mgr-reg-submit','पंजीकरण पूरा करें','Complete registration');
+  setTxt('mem-reg-title','सदस्य या व्यक्तिगत पंजीकरण','Member or Individual registration');
+  setTxt('mem-reg-help','टीम में जुड़ने के लिए मैनेजर की मंज़ूरी आवश्यक है।','Joining a team requires your Manager’s approval.');
+  setTxt('mem-reg-name','पूरा नाम *','Full name *');
+  setTxt('mem-reg-manager','मैनेजर का पंजीकृत मोबाइल (वैकल्पिक)','Manager’s registered mobile (optional)');
+  setTxt('mem-reg-independent','व्यक्तिगत खाते के लिए यह फ़ील्ड खाली रखें।','Leave blank to continue independently.');
+  setTxt('mem-reg-code','कर्मचारी कोड (वैकल्पिक)','Employee code (optional)');
+  setTxt('mem-reg-code-help','कोड पता हो तो दर्ज करें। मैनेजर मंज़ूरी के समय इसे जोड़ सकते हैं।','Enter your code if you know it. Your Manager can provide it when approving your request.');
+  setTxt('mem-reg-submit','पंजीकरण पूरा करें','Complete registration');
+  setPh('mgrName','आपका पूरा नाम','Your full name');
+  setPh('mgrCompany','कंपनी का नाम','Company name');
+  setPh('memName','आपका पूरा नाम','Your full name');
+  setPh('memManagerPhone','10 अंकों का भारतीय नंबर या +देश कोड','10-digit Indian number or +country code');
 
   // Learn / PWA
   setTxt('loginLearnTitle','सीखें — Learn Now','Learn Now');
